@@ -1,0 +1,150 @@
+/*
+   Copyright (c) 2019 Christof Ruch. All rights reserved.
+
+   Dual licensed: Distributed under Affero GPL license by default, an MIT license is available for purchase
+*/
+
+#include "PacketStreamQueue.h"
+
+PacketStreamQueue::PacketStreamQueue(std::string const &streamName) : lastPoppedMessage_(0), lastPushedMessage_(0), currentGap_(0)
+{
+	qualityData_.streamName = streamName;
+}
+
+bool PacketStreamQueue::push(std::shared_ptr<JammerNetzAudioData> packet)
+{
+	if (!hasBeenPushedBefore(packet)) {
+		currentlyInQueue_.insert(std::make_pair(packet->messageCounter(), true));
+		qualityData_.packagesPushed++;
+		packetQueue.push(packet);
+		if (packet->messageCounter() < lastPushedMessage_) {
+			// Ups, this came in out of order (but not too late, else we classify it as "tooLateOrDuplicate")
+			qualityData_.outOfOrderPacketCounter++;
+			qualityData_.maxWrongOrderSpan = std::max((unsigned long long) qualityData_.maxWrongOrderSpan, lastPushedMessage_ - packet->messageCounter());
+		}
+		lastPushedMessage_ = packet->messageCounter();
+		return true;
+	}
+	return false;
+}
+
+bool PacketStreamQueue::try_pop(std::shared_ptr<JammerNetzAudioData> &element, bool &outIsFillIn)
+{
+	std::shared_ptr<JammerNetzAudioData> packet;
+	if (!packetQueue.try_pop(packet)) {
+		return false;
+	}
+
+	// Is this the correct package?
+	if ((lastPoppedMessage_ + 1 == packet->messageCounter()) || !lastPoppedMessageData_) {
+#ifdef FAKE_DROPS
+		if (rand() % 10 == 0) {
+			fakeDroppedMessage_ = packet;
+			return false;
+		}
+#endif
+		// This is either the very first message, or:
+		// Great, no gap, and the correct data has been retrieved. Happy to continue!
+		lastPoppedMessage_ = packet->messageCounter();
+		lastPoppedMessageData_ = packet;
+		currentlyInQueue_.erase(lastPoppedMessage_);
+		element = packet;
+		currentGap_ = 0;
+		outIsFillIn = false;
+		qualityData_.packagesPopped++;
+		return true;
+	} 
+	else {
+		// Ok, as we are at the bottom of the buffer, we give up hope that the packet we were looking for still arrives
+		// Consider it MIA and use the one we popped to create a fill in package, maybe FEC can help. And it needs to go back into the priority queue
+		packetQueue.push(packet);
+		if (currentGap_ < 1) {
+			element = packet->createFillInPackage(lastPoppedMessage_ + 1);
+			qualityData_.dropsHealed++;
+		}
+		else {
+			// Never repeat this again, take the next package even if there was a drop and restart consecutive counting
+			element = packet->createFillInPackage(packet->messageCounter() - 1);
+			element->audioBuffer()->clear();
+			qualityData_.droppedPacketCounter++;
+		}
+		lastPoppedMessage_ = element->messageCounter();
+		currentGap_++;
+		qualityData_.maxLengthOfGap = std::max((uint64)qualityData_.maxLengthOfGap, (uint64)currentGap_);
+		outIsFillIn = true;
+		return true;
+	}
+}
+
+size_t PacketStreamQueue::size() const
+{
+	return packetQueue.size();
+}
+
+std::string PacketStreamQueue::qualityStatement() const
+{
+	return qualityData_.qualityStatement();
+}
+
+bool PacketStreamQueue::hasBeenPushedBefore(std::shared_ptr<JammerNetzAudioData> packet)
+{
+	// Easy case - if the message number of the packet is lower than the number of the last popped packet, it is too old
+	// Either it came out of order too late, or it is a duplicate!
+	if (packet->messageCounter() < lastPoppedMessage_) {
+		qualityData_.tooLateOrDuplicate++;
+		return true;
+	}
+	// Else we rely on the set<> that tracks the messages we have pushed into the queue but not popped
+	tbb::concurrent_hash_map<uint64, bool>::const_accessor found_accessor;
+	if (currentlyInQueue_.find(found_accessor, packet->messageCounter())) {
+		qualityData_.duplicatePacketCounter++;
+		return true;
+	}
+	return false;
+}
+
+StreamQualityData::StreamQualityData()
+{
+	tooLateOrDuplicate = 0;
+	droppedPacketCounter = 0;
+	outOfOrderPacketCounter = 0;
+	duplicatePacketCounter = 0;
+	dropsHealed = 0;
+	packagesPushed = 0;
+	packagesPopped = 0;
+	maxLengthOfGap = 0;
+	maxWrongOrderSpan = 0;
+}
+
+std::string StreamQualityData::qualityStatement() const {
+	std::stringstream text;
+	text << streamName << " quality: "
+		//<< packagesPushed << " push, "
+		//<< packagesPopped << " pop, "
+		<< packagesPushed - packagesPopped << " len, "
+		<< outOfOrderPacketCounter << " ooO, "
+		<< maxWrongOrderSpan << " span, "
+		<< duplicatePacketCounter << " dup, "
+		<< dropsHealed << " heal, "
+		<< tooLateOrDuplicate << " late, "
+		<< droppedPacketCounter << " drop ("
+		<< std::setprecision(2) << droppedPacketCounter / (float)packagesPopped * 100.0f <<"%), "
+		<< maxLengthOfGap << " gap";
+		
+	return text.str();
+}
+
+// Unhealed problems
+std::atomic_uint64_t tooLateOrDuplicate;
+std::atomic_int64_t droppedPacketCounter;
+
+// Healed problems
+std::atomic_int64_t outOfOrderPacketCounter;
+std::atomic_int64_t duplicatePacketCounter;
+std::atomic_uint64_t dropsHealed;
+
+// Pure statistics
+std::atomic_uint64_t packagesPushed;
+std::atomic_uint64_t packagesPopped;
+std::atomic_uint64_t maxLengthOfGap;
+std::atomic_uint64_t maxWrongOrderSpan;

@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<JUCERPROJECT id="YUJbef" name="JammerNetzServer" projectType="consoleapp"
+              jucerVersion="5.4.3">
+  <MAINGROUP id="cLYj2b" name="JammerNetzServer">
+    <GROUP id="{769CAA7A-DA3A-37B9-BE27-D6407825935D}" name="docker">
+      <GROUP id="{0875CC80-8AAC-BFF8-2BFE-9BA632C0710E}" name="buildmachine">
+        <FILE id="PRwbeb" name="buildBuildmachine.bat" compile="0" resource="0"
+              file="docker/buildmachine/buildBuildmachine.bat"/>
+        <FILE id="UNUmto" name="Dockerfile" compile="0" resource="0" file="docker/buildmachine/Dockerfile"/>
+        <FILE id="uDADfO" name="makeLinux.bat" compile="0" resource="0" file="docker/buildmachine/makeLinux.bat"/>
+      </GROUP>
+    </GROUP>
+    <GROUP id="{8117CB41-752C-ADB7-876F-83E442D3E1E6}" name="Common">
+      <FILE id="gncNmE" name="BuffersConfig.h" compile="0" resource="0" file="../common/BuffersConfig.h"/>
+      <FILE id="FRR29x" name="JammerNetzPackage.cpp" compile="1" resource="0"
+            file="../common/JammerNetzPackage.cpp"/>
+      <FILE id="neGd7A" name="JammerNetzPackage.h" compile="0" resource="0"
+            file="../common/JammerNetzPackage.h"/>
+      <FILE id="h11cgu" name="PacketStreamQueue.cpp" compile="1" resource="0"
+            file="../common/PacketStreamQueue.cpp"/>
+      <FILE id="PK7uKl" name="PacketStreamQueue.h" compile="0" resource="0"
+            file="../common/PacketStreamQueue.h"/>
+      <FILE id="d5HddQ" name="RandomNumbers.bin" compile="0" resource="1"
+            file="../common/RandomNumbers.bin"/>
+      <FILE id="X39Gd6" name="Recorder.cpp" compile="1" resource="0" file="../common/Recorder.cpp"/>
+      <FILE id="VoFRpe" name="Recorder.h" compile="0" resource="0" file="../common/Recorder.h"/>
+      <FILE id="OImtkQ" name="RingOfAudioBuffers.h" compile="0" resource="0"
+            file="../common/RingOfAudioBuffers.h"/>
+      <FILE id="MtzHql" name="ServerInfo.cpp" compile="1" resource="0" file="../common/ServerInfo.cpp"/>
+      <FILE id="ZiXnvp" name="ServerInfo.h" compile="0" resource="0" file="../common/ServerInfo.h"/>
+    </GROUP>
+    <GROUP id="{BB588A19-6A2A-54D0-68B4-4D69096F5DB5}" name="Source">
+      <FILE id="QtWLjz" name="AcceptThread.cpp" compile="1" resource="0"
+            file="Source/AcceptThread.cpp"/>
+      <FILE id="Msa4fJ" name="AcceptThread.h" compile="0" resource="0" file="Source/AcceptThread.h"/>
+      <FILE id="dOajV7" name="Main.cpp" compile="1" resource="0" file="Source/Main.cpp"/>
+      <FILE id="uMXtcN" name="MixerThread.cpp" compile="1" resource="0" file="Source/MixerThread.cpp"/>
+      <FILE id="WMDZMc" name="MixerThread.h" compile="0" resource="0" file="Source/MixerThread.h"/>
+      <FILE id="pbXIMV" name="SendThread.cpp" compile="1" resource="0" file="Source/SendThread.cpp"/>
+      <FILE id="TGnzrh" name="SendThread.h" compile="0" resource="0" file="Source/SendThread.h"/>
+      <FILE id="S4TrYT" name="SharedServerTypes.h" compile="0" resource="0"
+            file="Source/SharedServerTypes.h"/>
+    </GROUP>
+  </MAINGROUP>
+  <EXPORTFORMATS>
+    <VS2017 targetFolder="Builds/VisualStudio2017">
+      <CONFIGURATIONS>
+        <CONFIGURATION isDebug="1" name="Debug" headerPath="../../../common&#10;../../../third_party/tbb2019_20190605oss/include"
+                       warningsAreErrors="1" libraryPath="../../../third_party/tbb2019_20190605oss/lib/intel64/vc14&#10;&#10;"
+                       defines="TBB_USE_DEBUG =1&#10;JAMMER_IS_SERVER" postbuildCommand=" xcopy &quot;$(ProjectDir)..\..\..\third_party\tbb2019_20190605oss\bin\intel64\vc14\*.dll&quot; &quot;$(TargetDir)&quot; /i /r /y"/>
+        <CONFIGURATION isDebug="0" name="Release" headerPath="../../../common&#10;../../../third_party/tbb2019_20190605oss/include"
+                       warningsAreErrors="1" postbuildCommand=" xcopy &quot;$(ProjectDir)..\..\..\third_party\tbb2019_20190605oss\bin\intel64\vc14\*.dll&quot; &quot;$(TargetDir)&quot; /i /r /y&#10;rem $(ProjectDir)..\..\docker\buildmachine\makeLinux.bat //d/Development/JammerNetz-OS&#10;"
+                       libraryPath="../../../third_party/tbb2019_20190605oss/lib/intel64/vc14&#10;&#10;"
+                       alwaysGenerateDebugSymbols="1" defines="JAMMER_IS_SERVER&#10;"/>
+      </CONFIGURATIONS>
+      <MODULEPATHS>
+        <MODULEPATH id="juce_audio_basics" path="C:/Users/Christof/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_devices" path="C:/Users/Christof/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_formats" path="C:/Users/Christof/JUCE/modules"/>
+        <MODULEPATH id="juce_core" path="C:/Users/Christof/JUCE/modules"/>
+        <MODULEPATH id="juce_events" path="C:/Users/Christof/JUCE/modules"/>
+        <MODULEPATH id="juce_cryptography" path="C:/Users/Christof/JUCE/modules"/>
+      </MODULEPATHS>
+    </VS2017>
+    <LINUX_MAKE targetFolder="Builds/LinuxMakefile" externalLibraries="tbb">
+      <CONFIGURATIONS>
+        <CONFIGURATION isDebug="1" name="Debug" headerPath="../../../common&#10;../../../third_party/hiir&#10;../../third_party/tbb2019_20190605oss/include"/>
+        <CONFIGURATION isDebug="0" name="Release" headerPath="../../../third_party/hiir"/>
+      </CONFIGURATIONS>
+      <MODULEPATHS>
+        <MODULEPATH id="juce_audio_basics" path="C:/Users/Christof/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_devices" path="C:/Users/Christof/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_formats" path="C:/Users/Christof/JUCE/modules"/>
+        <MODULEPATH id="juce_core" path="C:/Users/Christof/JUCE/modules"/>
+        <MODULEPATH id="juce_events" path="C:/Users/Christof/JUCE/modules"/>
+        <MODULEPATH id="juce_cryptography" path="C:/Users/Christof/JUCE/modules"/>
+      </MODULEPATHS>
+    </LINUX_MAKE>
+  </EXPORTFORMATS>
+  <MODULES>
+    <MODULE id="juce_audio_basics" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_audio_devices" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_audio_formats" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_core" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_cryptography" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_events" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+  </MODULES>
+  <LIVE_SETTINGS>
+    <WINDOWS buildEnabled="1"/>
+  </LIVE_SETTINGS>
+  <JUCEOPTIONS JUCE_STRICT_REFCOUNTEDPOINTER="1"/>
+</JUCERPROJECT>
