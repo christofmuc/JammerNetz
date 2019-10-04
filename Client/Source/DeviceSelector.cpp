@@ -30,6 +30,9 @@ DeviceSelector::DeviceSelector(String const &title, bool showTitle, String const
 	}
 	addAndMakeVisible(typeDropdown_);
 	addAndMakeVisible(deviceDropdown_);
+	scrollList_.setViewedComponent(&scrollArea_);
+	scrollList_.setScrollBarsShown(true, false);
+	addAndMakeVisible(scrollList_);
 }
 
 DeviceSelector::~DeviceSelector()
@@ -46,9 +49,12 @@ void DeviceSelector::resized()
 	}
 	typeDropdown_.setBounds(area.removeFromTop(kLineHeight)); 
 	deviceDropdown_.setBounds(area.removeFromTop(kLineHeight));
-
+	scrollList_.setBounds(area.withTrimmedTop(kNormalInset));
+	
+	scrollArea_.setSize(area.getWidth(), channelSelectors_.size() * kLineHeight);
+	auto listArea = scrollArea_.getLocalBounds();
 	for (int i = 0; i < channelSelectors_.size(); i++) {
-		auto row = area.removeFromTop(kLineHeight);
+		auto row = listArea.removeFromTop(kLineHeight);
 		channelSelectors_[i]->setBounds(row.removeFromLeft(row.getWidth() / 2));
 		if (channelNames_[i]) channelNames_[i]->setBounds(row);
 	}
@@ -135,7 +141,7 @@ void DeviceSelector::comboBoxChanged(ComboBox* comboBoxThatHasChanged)
 					ToggleButton *channelButton = new ToggleButton();
 					channelButton->setButtonText(channel);
 					channelButton->addListener(this);
-					addAndMakeVisible(channelButton);
+					scrollArea_.addAndMakeVisible(channelButton);
 					channelSelectors_.add(channelButton);
 					/*Label *channelName = new Label("", "unnamed");
 					channelName->setEditable(true);

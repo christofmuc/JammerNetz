@@ -42,6 +42,8 @@ private:
 	ComboBox typeDropdown_;
 	ComboBox deviceDropdown_;
 	AudioDeviceManager &manager_;
+	Viewport scrollList_;
+	Component scrollArea_;
 	OwnedArray<AudioIODeviceType> deviceTypes_;
 	OwnedArray<ToggleButton> channelSelectors_;
 	OwnedArray<Label> channelNames_;
