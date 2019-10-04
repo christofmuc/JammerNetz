@@ -133,18 +133,3 @@ std::string StreamQualityData::qualityStatement() const {
 		
 	return text.str();
 }
-
-// Unhealed problems
-std::atomic_uint64_t tooLateOrDuplicate;
-std::atomic_int64_t droppedPacketCounter;
-
-// Healed problems
-std::atomic_int64_t outOfOrderPacketCounter;
-std::atomic_int64_t duplicatePacketCounter;
-std::atomic_uint64_t dropsHealed;
-
-// Pure statistics
-std::atomic_uint64_t packagesPushed;
-std::atomic_uint64_t packagesPopped;
-std::atomic_uint64_t maxLengthOfGap;
-std::atomic_uint64_t maxWrongOrderSpan;
