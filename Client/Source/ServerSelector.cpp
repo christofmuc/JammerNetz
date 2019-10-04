@@ -39,10 +39,12 @@ void ServerSelector::fromData()
 	ValueTree &data = Data::instance().get();
 	if (data.hasProperty("ServerName")) {
 		ipAddress_.setText(data.getProperty("ServerName"), true);
+		lastServer_ = ipAddress_.getText();
 	}
 	if (data.hasProperty("UseLocalhost")) {
 		useLocalhost_.setToggleState(data.getProperty("UseLocalhost"), sendNotificationAsync);
 	}
+	buttonClicked(&useLocalhost_);
 }
 
 void ServerSelector::toData() const
