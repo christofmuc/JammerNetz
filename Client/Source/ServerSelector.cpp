@@ -75,4 +75,5 @@ void ServerSelector::buttonClicked(Button *button)
 	else {
 		ServerInfo::serverName = lastServer_.toStdString();
 	}
+	notify_();
 }
