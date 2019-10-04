@@ -41,6 +41,7 @@ callback_(deviceManager_)
 	addAndMakeVisible(clientConfigurator_);
 	addAndMakeVisible(serverStatus_);
 	addAndMakeVisible(serverGroup_);
+	addAndMakeVisible(connectionInfo_);
 	addAndMakeVisible(*bpmDisplay_);
 	std::stringstream list;
 	AudioDeviceDiscovery::listAudioDevices(deviceManager_, list);
@@ -165,7 +166,9 @@ void MainComponent::resized()
 	int settingsSectionWidth = settingsArea.getWidth() / 3;
 	auto clientConfigArea = settingsArea.removeFromLeft(settingsSectionWidth);
 	clientConfigurator_.setBounds(clientConfigArea);
-	serverStatus_.setBounds(settingsArea.removeFromLeft(settingsSectionWidth));
+	auto serverArea = settingsArea.removeFromLeft(settingsSectionWidth);
+	connectionInfo_.setBounds(serverArea.removeFromBottom(kLineSpacing));
+	serverStatus_.setBounds(serverArea);
 	auto midiRecordingInfo = settingsArea.removeFromBottom(30);
 	bpmDisplay_->setBounds(midiRecordingInfo);
 	statusInfo_.setBounds(settingsArea.removeFromTop(settingsArea.getHeight()/2));
@@ -194,13 +197,22 @@ void MainComponent::timerCallback()
 {
 	// Refresh the UI with info from the Audio callback
 	std::stringstream status;
-	status << "Underruns: " << std::fixed << std::setprecision(2) << callback_.numberOfUnderruns() << ". Buffers: " << callback_.currentBufferSize() << ". ";
-	status << "Network MTU: " << callback_.currentPacketSize() << " bytes. Bandwidth: " << callback_.currentPacketSize() * 8 * (ServerInfo::sampleRate / (float)ServerInfo::bufferSize) / (1024 * 1024.0f) << "MBit/s. ";
-	status << "Input latency: " << inputLatencyInMS_ << "ms. Output latency:" << outputLatencyInMS_ << "ms. Roundtrip: " << callback_.currentRTT()  << "ms ";
-	status << " PlayQ: " << callback_.currentPlayQueueSize() << " discarded: " << callback_.currentDiscardedPackageCounter();
-	status << " Total: " << callback_.currentToPlayLatency() + inputLatencyInMS_ + outputLatencyInMS_ << " ms";
+	status << "Quality information" << std::endl;
+	status << "Underruns: " << std::fixed << std::setprecision(2) << callback_.numberOfUnderruns() << std::endl;
+	status << "Buffers: " << callback_.currentBufferSize() << std::endl;
+	status << "Input latency: " << inputLatencyInMS_ << "ms" << std::endl;
+	status << "Output latency: " << outputLatencyInMS_ << "ms" << std::endl;
+	status << "Roundtrip: " << callback_.currentRTT()  << "ms" << std::endl;
+	status << "PlayQ: " << callback_.currentPlayQueueSize() << std::endl;
+	status << "Discarded: " << callback_.currentDiscardedPackageCounter() << std::endl;
+	status << "Total: " << callback_.currentToPlayLatency() + inputLatencyInMS_ + outputLatencyInMS_ << " ms" << std::endl;
 	statusInfo_.setText(status.str(), dontSendNotification);
 	downstreamInfo_.setText(callback_.currentReceptionQuality(), dontSendNotification);
+	std::stringstream connectionInfo;
+	connectionInfo << std::fixed << std::setprecision(2) 
+		<< "Network MTU: " << callback_.currentPacketSize() << " bytes. Bandwidth: "
+		<< callback_.currentPacketSize() * 8 * (ServerInfo::sampleRate / (float)ServerInfo::bufferSize) / (1024 * 1024.0f) << "MBit/s. ";
+	connectionInfo_.setText(connectionInfo.str(), dontSendNotification);
 }
 
 void MainComponent::setupChanged(std::shared_ptr<ChannelSetup> setup)
