@@ -12,8 +12,10 @@
 #include "ServerInfo.h"
 #include "Data.h"
 
-DeviceSelector::DeviceSelector(String const &title, String const &settingsKey, AudioDeviceManager &manager, bool inputInsteadOfOutputDevices, std::function<void(std::shared_ptr<ChannelSetup>)> updateHandler)
-	: title_(title), settingsKey_(settingsKey), manager_(manager), updateHandler_(updateHandler), inputDevices_(inputInsteadOfOutputDevices)
+#include "LayoutConstants.h"
+
+DeviceSelector::DeviceSelector(String const &title, bool showTitle, String const &settingsKey, AudioDeviceManager &manager, bool inputInsteadOfOutputDevices, std::function<void(std::shared_ptr<ChannelSetup>)> updateHandler)
+	: title_(title), showTitle_(showTitle), settingsKey_(settingsKey), manager_(manager), updateHandler_(updateHandler), inputDevices_(inputInsteadOfOutputDevices)
 {
 	titleLabel_.setText(title, dontSendNotification);
 	manager_.createAudioDeviceTypes(deviceTypes_);
@@ -23,7 +25,9 @@ DeviceSelector::DeviceSelector(String const &title, String const &settingsKey, A
 	}
 	typeDropdown_.addListener(this);
 	deviceDropdown_.addListener(this);
-	addAndMakeVisible(titleLabel_);
+	if (showTitle_) {
+		addAndMakeVisible(titleLabel_);
+	}
 	addAndMakeVisible(typeDropdown_);
 	addAndMakeVisible(deviceDropdown_);
 }
@@ -36,13 +40,15 @@ DeviceSelector::~DeviceSelector()
 
 void DeviceSelector::resized()
 {
-	auto area = getLocalBounds().reduced(20);
-	titleLabel_.setBounds(area.removeFromTop(30).withSizeKeepingCentre(80, 30));
-	typeDropdown_.setBounds(area.removeFromTop(30)); 
-	deviceDropdown_.setBounds(area.removeFromTop(30));
+	auto area = getLocalBounds().reduced(kNormalInset);
+	if (showTitle_) {
+		titleLabel_.setBounds(area.removeFromTop(30).withSizeKeepingCentre(80, 30));
+	}
+	typeDropdown_.setBounds(area.removeFromTop(kLineHeight)); 
+	deviceDropdown_.setBounds(area.removeFromTop(kLineHeight));
 
 	for (int i = 0; i < channelSelectors_.size(); i++) {
-		auto row = area.removeFromTop(30);
+		auto row = area.removeFromTop(kLineHeight);
 		channelSelectors_[i]->setBounds(row.removeFromLeft(row.getWidth() / 2));
 		if (channelNames_[i]) channelNames_[i]->setBounds(row);
 	}

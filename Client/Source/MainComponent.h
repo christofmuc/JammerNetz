@@ -12,7 +12,7 @@
 
 #include "DeviceSelector.h"
 #include "ChannelController.h"
-#include "ServerSelector.h"
+#include "ServerStatus.h"
 #include "ClientConfig.h"
 #include "BPMDisplay.h"
 
@@ -39,11 +39,14 @@ private:
 	AudioCallback callback_;
 
 	DeviceSelector inputSelector_;
+	GroupComponent inputGroup_;
 	DeviceSelector outputSelector_;
 	OwnedArray<ChannelController> channelControllers_;
 	ChannelController outputController_;
+	GroupComponent outputGroup_;
 	ClientConfigurator clientConfigurator_;
-	ServerSelector serverSelector_;
+	ServerStatus serverStatus_;
+	GroupComponent serverGroup_;
 	Label statusInfo_;
 	Label downstreamInfo_;
 	std::unique_ptr<BPMDisplay> bpmDisplay_;

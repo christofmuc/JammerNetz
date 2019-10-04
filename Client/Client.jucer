@@ -3,6 +3,10 @@
 <JUCERPROJECT id="ApUkc8" name="JammerNetz Client" projectType="guiapp" jucerVersion="5.4.3"
               companyCopyright="Copyright 2019 Christof Ruch" companyWebsite="https://github.com/christofmuc/JammerNetz">
   <MAINGROUP id="ye7kTK" name="JammerNetz Client">
+    <GROUP id="{32961355-17E7-94F0-4669-25517BCE74D2}" name="Resources">
+      <FILE id="pYF29V" name="about.txt" compile="0" resource="1" file="Resources/about.txt"/>
+      <FILE id="ASUSYC" name="cloud.png" compile="0" resource="1" file="Resources/cloud.png"/>
+    </GROUP>
     <GROUP id="{A2C4E24A-E15E-AC8B-EADC-C4CDB0F5FD6D}" name="Common">
       <FILE id="z3X48N" name="RandomNumbers.bin" compile="0" resource="1"
             file="../common/RandomNumbers.bin"/>
@@ -28,6 +32,8 @@
             file="../common/JammerNetzPackage.cpp"/>
     </GROUP>
     <GROUP id="{E850F3AF-2506-B6B3-4EA7-7DA61606743C}" name="Source">
+      <FILE id="CqF2zD" name="LayoutConstants.h" compile="0" resource="0"
+            file="Source/LayoutConstants.h"/>
       <GROUP id="{4DF6084C-287D-7768-6042-6B64D1B1BAAC}" name="MIDI">
         <FILE id="sQlxXf" name="MidiClocker.cpp" compile="1" resource="0" file="Source/MidiClocker.cpp"/>
         <FILE id="Rcb4UW" name="MidiClocker.h" compile="0" resource="0" file="Source/MidiClocker.h"/>
@@ -49,6 +55,9 @@
         <FILE id="DVr3AR" name="Client.h" compile="0" resource="0" file="Source/Client.h"/>
       </GROUP>
       <GROUP id="{6C4AF25C-C1B2-440D-BC39-5DA258CFDFB7}" name="UIComponents">
+        <FILE id="LgRENj" name="ServerStatus.cpp" compile="1" resource="0"
+              file="Source/ServerStatus.cpp"/>
+        <FILE id="rU1JAw" name="ServerStatus.h" compile="0" resource="0" file="Source/ServerStatus.h"/>
         <FILE id="CYx1K4" name="BPMDisplay.cpp" compile="1" resource="0" file="Source/BPMDisplay.cpp"/>
         <FILE id="wR3A19" name="BPMDisplay.h" compile="0" resource="0" file="Source/BPMDisplay.h"/>
         <FILE id="AQ8d7q" name="ClientConfig.cpp" compile="1" resource="0"

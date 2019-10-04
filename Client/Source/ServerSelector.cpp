@@ -9,6 +9,7 @@
 #include "ServerInfo.h"
 
 #include "Data.h"
+#include "LayoutConstants.h"
 
 ServerSelector::ServerSelector(std::function<void()> notify) : localhostSelected_(false), lastServer_(ServerInfo::serverName), notify_(notify)
 {
@@ -25,10 +26,12 @@ ServerSelector::ServerSelector(std::function<void()> notify) : localhostSelected
 
 void ServerSelector::resized()
 {
-	auto buttonBar = getLocalBounds();
-	useLocalhost_.setBounds(buttonBar.removeFromRight(200));
-	ipAddress_.setBounds(buttonBar.removeFromRight(200));
-	serverLabel_.setBounds(buttonBar.removeFromRight(50));
+	auto area = getLocalBounds();
+	serverLabel_.setBounds(area.removeFromLeft(kLabelWidth));
+	auto entryArea = area.removeFromLeft(kEntryBoxWidth);
+	entryArea.setHeight(kLineHeight);
+	ipAddress_.setBounds(entryArea);
+	useLocalhost_.setBounds(area);
 }
 
 void ServerSelector::fromData()

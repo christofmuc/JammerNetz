@@ -13,25 +13,34 @@
 #include "ServerInfo.h"
 #include "Data.h"
 
+#include "LayoutConstants.h"
+
 MainComponent::MainComponent(String clientID) : audioDevice_(nullptr),
-inputSelector_("Inputs", "InputSetup", deviceManager_, true, [this](std::shared_ptr<ChannelSetup> setup) { setupChanged(setup); }),
-outputSelector_("Outputs", "OutputSetup", deviceManager_, false, [this](std::shared_ptr<ChannelSetup> setup) { outputSetupChanged(setup);  }),
+inputSelector_("Inputs", false, "InputSetup", deviceManager_, true, [this](std::shared_ptr<ChannelSetup> setup) { setupChanged(setup); }),
+outputSelector_("Outputs", false, "OutputSetup", deviceManager_, false, [this](std::shared_ptr<ChannelSetup> setup) { outputSetupChanged(setup);  }),
 outputController_("Master", "OutputController", [](double, JammerNetzChannelTarget) {}, false, false),
 clientConfigurator_([this](int clientBuffer, int maxBuffer, int flares) { callback_.changeClientConfig(clientBuffer, maxBuffer, flares);  }),
-serverSelector_([this]() { newServerSelected();  }),
+serverStatus_([this]() { newServerSelected();  }),
 callback_(deviceManager_)
 {
 	bpmDisplay_ = std::make_unique<BPMDisplay>(callback_.getClocker());
 
 	outputController_.setMeterSource(callback_.getOutputMeterSource(), -1);
 
+	inputGroup_.setText("Input");
+	outputGroup_.setText("Output");
+	serverGroup_.setText("Settings");
+
 	addAndMakeVisible(outputController_);
+	addAndMakeVisible(inputGroup_);
 	addAndMakeVisible(inputSelector_);
-	addAndMakeVisible(outputSelector_);
 	addAndMakeVisible(statusInfo_);
 	addAndMakeVisible(downstreamInfo_);
+	addAndMakeVisible(outputGroup_);
+	addAndMakeVisible(outputSelector_);
 	addAndMakeVisible(clientConfigurator_);
-	addAndMakeVisible(serverSelector_);
+	addAndMakeVisible(serverStatus_);
+	addAndMakeVisible(serverGroup_);
 	addAndMakeVisible(*bpmDisplay_);
 	std::stringstream list;
 	AudioDeviceDiscovery::listAudioDevices(deviceManager_, list);
@@ -44,7 +53,7 @@ callback_(deviceManager_)
 	Data::instance().initializeFromSettings();
 	inputSelector_.fromData();
 	outputSelector_.fromData();
-	serverSelector_.fromData();
+	serverStatus_.fromData();
 	outputController_.fromData();
 	clientConfigurator_.fromData();
 
@@ -52,14 +61,14 @@ callback_(deviceManager_)
 
 	// Make sure you set the size of the component after
 	// you add any child components.
-	setSize(1024, 600);
+	setSize(1024, 800);
 }
 
 MainComponent::~MainComponent()
 {
 	stopAudioIfRunning();
 	clientConfigurator_.toData();
-	serverSelector_.toData();
+	serverStatus_.toData();
 	inputSelector_.toData();
 	outputSelector_.toData();
 	outputController_.toData();
@@ -141,26 +150,44 @@ void MainComponent::stopAudioIfRunning()
 
 void MainComponent::resized()
 {
-	// This is called when the MainContentComponent is resized.
-	// If you add any child components, this is where you should
-	// update their positions.
-	auto area = getLocalBounds();
-	auto midiRecordingInfo = area.removeFromBottom(30);
+	auto area = getLocalBounds().reduced(kSmallInset);
+
+	int settingsHeight = 400;
+	int inputSelectorWidth = std::min(area.getWidth() / 4, 250);
+	int masterMixerWidth = 100;
+	int inputMixerWidth = area.getWidth() - masterMixerWidth - 2 * inputSelectorWidth;
+
+	// To the bottom, the server info and status area
+	auto settingsArea = area.removeFromBottom(settingsHeight);
+	serverGroup_.setBounds(settingsArea);
+	settingsArea.reduce(kNormalInset, kNormalInset);
+
+	int settingsSectionWidth = settingsArea.getWidth() / 3;
+	auto clientConfigArea = settingsArea.removeFromLeft(settingsSectionWidth);
+	clientConfigurator_.setBounds(clientConfigArea);
+	serverStatus_.setBounds(settingsArea.removeFromLeft(settingsSectionWidth));
+	auto midiRecordingInfo = settingsArea.removeFromBottom(30);
 	bpmDisplay_->setBounds(midiRecordingInfo);
-	downstreamInfo_.setBounds(area.removeFromBottom(30));
-	statusInfo_.setBounds(area.removeFromBottom(30));
-	auto configRow = area.removeFromBottom(30);
-	clientConfigurator_.setBounds(configRow.removeFromLeft(configRow.getWidth() / 3 * 2));
-	serverSelector_.setBounds(configRow);
-	int sidebarWidth = area.getWidth() / 4;
-	inputSelector_.setBounds(area.removeFromLeft(sidebarWidth));
-	outputController_.setBounds(area.removeFromRight(100));
-	outputSelector_.setBounds(area.removeFromRight(sidebarWidth));
-	int sizePerController = channelControllers_.isEmpty() ? 0 : std::min(area.getWidth() / channelControllers_.size(), 100);
+	statusInfo_.setBounds(settingsArea.removeFromTop(settingsArea.getHeight()/2));
+	downstreamInfo_.setBounds(settingsArea);
+
+	// To the left, the input selector
+	auto inputArea = area.removeFromLeft(inputMixerWidth + inputSelectorWidth);
+	inputGroup_.setBounds(inputArea);
+	inputArea.reduce(kNormalInset, kNormalInset);
+	inputSelector_.setBounds(inputArea.removeFromLeft(inputSelectorWidth));
+
+	int sizePerController = channelControllers_.isEmpty() ? 0 : std::min(inputArea.getWidth() / channelControllers_.size(), 100);
 	for (auto controller : channelControllers_) {
-		controller->setBounds(area.removeFromLeft(sizePerController));
+		controller->setBounds(inputArea.removeFromLeft(sizePerController));
 	}
 
+	// To the right, the output selector
+	auto outputArea = area.removeFromRight(masterMixerWidth + inputSelectorWidth);
+	outputGroup_.setBounds(outputArea);
+	outputArea.reduce(kNormalInset, kNormalInset);
+	outputSelector_.setBounds(outputArea.removeFromRight(inputSelectorWidth));
+	outputController_.setBounds(outputArea);
 }
 
 void MainComponent::timerCallback()

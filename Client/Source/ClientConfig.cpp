@@ -9,6 +9,8 @@
 #include "BuffersConfig.h"
 #include "Data.h"
 
+#include "LayoutConstants.h"
+
 ClientConfigurator::ClientConfigurator(std::function<void(int, int, int)> updateHandler) : updateHandler_(updateHandler)
 {
 	bufferLabel_.setText("Client buffers: ", dontSendNotification);
@@ -37,13 +39,16 @@ ClientConfigurator::ClientConfigurator(std::function<void(int, int, int)> update
 
 void ClientConfigurator::resized()
 {
-	auto area = getLocalBounds();
-	bufferLabel_.setBounds(area.removeFromLeft(80));
-	bufferLength_.setBounds(area.removeFromLeft(120));
-	maxLabel_.setBounds(area.removeFromLeft(80));
-	maxLength_.setBounds(area.removeFromLeft(120));
-	flareLabel_.setBounds(area.removeFromLeft(80));
-	flares_.setBounds(area.removeFromLeft(120));
+	auto area = getLocalBounds().reduced(kNormalInset);
+	auto row1 = area.removeFromTop(kLineSpacing);
+	bufferLabel_.setBounds(row1.removeFromLeft(kLabelWidth));
+	bufferLength_.setBounds(row1.removeFromLeft(kSliderWithBoxWidth));
+	auto row2 = area.removeFromTop(kLineSpacing);
+	maxLabel_.setBounds(row2.removeFromLeft(kLabelWidth));
+	maxLength_.setBounds(row2.removeFromLeft(kSliderWithBoxWidth));
+	auto row3 = area.removeFromTop(kLineSpacing);
+	flareLabel_.setBounds(row3.removeFromLeft(kLabelWidth));
+	flares_.setBounds(row3.removeFromLeft(kSliderWithBoxWidth));
 }
 
 void ClientConfigurator::sliderValueChanged(Slider*)

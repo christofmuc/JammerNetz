@@ -12,3 +12,6 @@ Ideas for stronger encryption:
     * https://gnupg.org/related_software/libgcrypt/
     * https://www.cryptopp.com/
 
+## More Icons
+
+Here are free icons we could use when we just attribute the author. The cloud icon is from https://www.flaticon.com/free-icon/cloud_2091652#term=music%20cloud&page=1&position=2
