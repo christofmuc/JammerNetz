@@ -60,7 +60,7 @@ std::string MidiNote::name() const
 {
 	// Ok, JUCE can do this for us
 	if (midiNote_ > 0) {
-		return MidiMessage::getMidiNoteName(midiNote_, true, true, 3).toStdString();
+		return MidiMessage::getMidiNoteName(midiNote_, true, true, 4).toStdString();
 	}
 	else {
 		return "-";
