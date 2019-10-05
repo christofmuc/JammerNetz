@@ -207,11 +207,6 @@ void MainComponent::timerCallback()
 	status << "PlayQ: " << callback_.currentPlayQueueSize() << std::endl;
 	status << "Discarded: " << callback_.currentDiscardedPackageCounter() << std::endl;
 	status << "Total: " << callback_.currentToPlayLatency() + inputLatencyInMS_ + outputLatencyInMS_ << " ms" << std::endl;
-	for (int i = 0; i < 4; i++) {
-		MidiNote note(callback_.channelPitch(i));
-		status << "Channel " << i << " detected " << note.frequency() << "Hz " << note.name() << " at " << note.cents() << "ct" << std::endl;
-	}
-
 	statusInfo_.setText(status.str(), dontSendNotification);
 	downstreamInfo_.setText(callback_.currentReceptionQuality(), dontSendNotification);
 	std::stringstream connectionInfo;
@@ -221,6 +216,11 @@ void MainComponent::timerCallback()
 	connectionInfo_.setText(connectionInfo.str(), dontSendNotification);
 
 	serverStatus_.setConnected(callback_.isReceivingData());
+
+	// Refresh tuning info
+	for (int i = 0; i < channelControllers_.size(); i++) {
+		channelControllers_[i]->setPitchDisplayed(MidiNote(callback_.channelPitch(i)));
+	}
 }
 
 void MainComponent::setupChanged(std::shared_ptr<ChannelSetup> setup)
@@ -235,7 +235,7 @@ void MainComponent::setupChanged(std::shared_ptr<ChannelSetup> setup)
 	for (auto channelName : setup->activeChannelNames) {
 		auto controller = new ChannelController(channelName, "Input" + String(i), [this, setup](double newVolume, JammerNetzChannelTarget newTarget) {
 			refreshChannelSetup(setup);
-		});
+		}, true, true, true);
 		addAndMakeVisible(controller);
 		channelControllers_.add(controller);
 		controller->fromData();

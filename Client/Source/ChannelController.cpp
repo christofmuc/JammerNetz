@@ -7,9 +7,12 @@
 #include "ChannelController.h"
 
 #include "Data.h"
+#include "LayoutConstants.h"
 
-ChannelController::ChannelController(String const &name, String const &id, std::function<void(double, JammerNetzChannelTarget)> updateHandler, bool hasVolume /*= true*/, bool hasTarget /*= true*/) :
-	id_(id), updateHandler_(updateHandler), levelMeter_(name == "Master" ? FFAU::LevelMeter::Default : FFAU::LevelMeter::SingleChannel), hasVolume_(hasVolume), hasTarget_(hasTarget)
+ChannelController::ChannelController(String const &name, String const &id, std::function<void(double, JammerNetzChannelTarget)> updateHandler, 
+	bool hasVolume /*= true*/, bool hasTarget /*= true*/, bool hasPitch /* = false */) :
+		id_(id), updateHandler_(updateHandler), levelMeter_(name == "Master" ? FFAU::LevelMeter::Default : FFAU::LevelMeter::SingleChannel), 
+		hasVolume_(hasVolume), hasTarget_(hasTarget), hasPitch_(hasPitch), meterSource_(nullptr), channelNo_(0)
 {
 	channelName_.setText(name, dontSendNotification);
 	if (hasVolume) {
@@ -33,6 +36,11 @@ ChannelController::ChannelController(String const &name, String const &id, std::
 		channelType_.addListener(this);
 		addAndMakeVisible(channelType_);
 	}
+	if (hasPitch_) {
+		pitchLabel_.setText("-", dontSendNotification);
+		pitchLabel_.setJustificationType(Justification::horizontallyCentred);
+		addAndMakeVisible(pitchLabel_);
+	}
 
 	lnf_ = new FFAU::LevelMeterLookAndFeel();
 	lnf_->setColour(FFAU::LevelMeter::lmOutlineColour, juce::Colours::lightblue);
@@ -47,23 +55,43 @@ ChannelController::ChannelController(String const &name, String const &id, std::
 void ChannelController::resized()
 {
 	auto area = getLocalBounds();
-	channelName_.setBounds(area.removeFromTop(30));
-	auto top80 = area.removeFromTop(area.getHeight() * 4 / 5);
+	channelName_.setBounds(area.removeFromTop(kLineHeight));
+	int lowersection = ((hasTarget_ ? 1 : 0) + (hasPitch_ ? 1 : 0)) *  kLineSpacing;
+	auto top80 = area.removeFromTop(area.getHeight() - lowersection);
 	if (hasVolume_) {
 		volumeSlider_.setBounds(top80.removeFromRight(top80.getWidth() / 2));
 	}
 	levelMeter_.setBounds(top80);
 	if (hasTarget_) {
-		channelType_.setBounds(area.withSizeKeepingCentre(80, 30));
+		auto line = area.removeFromTop(kLineSpacing);
+		channelType_.setBounds(line.withSizeKeepingCentre(kLabelWidth, kLineHeight));
+	}
+	if (hasPitch_) {
+		auto line = area.removeFromTop(kLineSpacing);
+		pitchLabel_.setBounds(line.withSizeKeepingCentre(area.getWidth(), kLineHeight));
 	}
 	//muteButton_.setBounds(area);
 }
 
 void ChannelController::setMeterSource(FFAU::LevelMeterSource *meterSource, int channelNo)
 {
+	meterSource_ = meterSource;
+	channelNo_ = channelNo;
 	levelMeter_.setMeterSource(meterSource);
 	if (channelNo != -1) {
 		levelMeter_.setSelectedChannel(channelNo);
+	}
+}
+
+void ChannelController::setPitchDisplayed(MidiNote note)
+{
+	if (note.noteNumber() != 0 && geCurrentRMSinDecible() > -40.0) {
+		std::stringstream pitch;
+		pitch << std::fixed << std::setprecision(1) << std::showpos << note.name() << " " << note.cents() << " ct" << std::endl;
+		pitchLabel_.setText(pitch.str(), dontSendNotification);
+	}
+	else {
+		pitchLabel_.setText("", dontSendNotification);
 	}
 }
 
@@ -87,6 +115,14 @@ float ChannelController::getCurrentVolume() const
 {
 	jassert(hasVolume_);
 	return ((float) volumeSlider_.getValue()) / 100.0f;
+}
+
+double ChannelController::geCurrentRMSinDecible() const
+{
+	if (meterSource_) {
+		return 20.0 * std::log10(meterSource_->getRMSLevel(channelNo_));
+	}
+	return -100.0;
 }
 
 void ChannelController::fromData()

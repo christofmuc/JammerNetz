@@ -9,20 +9,23 @@
 #include "JuceHeader.h"
 
 #include "JammerNetzPackage.h"
+#include "MidiNote.h"
 
 class ChannelController : public Component,
 	private Slider::Listener,
 	private ComboBox::Listener
 {
 public:
-	ChannelController(String const &name, String const &id, std::function<void(double, JammerNetzChannelTarget)> updateHandler, bool hasVolume = true, bool hasTarget = true);
+	ChannelController(String const &name, String const &id, std::function<void(double, JammerNetzChannelTarget)> updateHandler, bool hasVolume = true, bool hasTarget = true, bool hasPitch = false);
 
 	virtual void resized() override;
 
 	void setMeterSource(FFAU::LevelMeterSource *meterSource, int channelNo);
+	void setPitchDisplayed(MidiNote note);
 
 	JammerNetzChannelTarget getCurrentTarget() const;
 	float getCurrentVolume() const;
+	double geCurrentRMSinDecible() const;
 
 	// Store to and load from settings
 	void fromData();
@@ -36,10 +39,14 @@ private:
 	std::function<void(double, JammerNetzChannelTarget)> updateHandler_;
 	bool hasVolume_;
 	bool hasTarget_;
+	bool hasPitch_;
 	Label channelName_;
 	Slider volumeSlider_;
 	ComboBox channelType_;
 	ScopedPointer <FFAU::LevelMeterLookAndFeel> lnf_;
 	FFAU::LevelMeter levelMeter_;
+	FFAU::LevelMeterSource *meterSource_;
+	int channelNo_;
+	Label pitchLabel_;
 	//TextButton muteButton_;
 };
