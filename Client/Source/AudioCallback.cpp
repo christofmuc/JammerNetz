@@ -25,6 +25,9 @@ AudioCallback::AudioCallback(AudioDeviceManager &deviceManager) : client_([this]
 	masterRecorder_ = std::make_unique<Recorder>(Settings::instance().getSessionStorageDir(), "MasterRecording", RecordingType::FLAC);
 	masterRecorder_->updateChannelInfo(SAMPLE_RATE, JammerNetzChannelSetup({ JammerNetzChannelTarget::Left, JammerNetzChannelTarget::Right }));
 	midiRecorder_ = std::make_unique<MidiRecorder>(deviceManager);
+
+	// We want to be able to tune our instruments
+	tuner_ = std::make_unique<Tuner>();
 }
 
 void AudioCallback::clearOutput(float** outputChannelData, int numOutputChannels, int numSamples) {
@@ -54,6 +57,9 @@ void AudioCallback::audioDeviceIOCallback(const float** inputChannelData, int nu
 
 	// Measure the peak values for each channel
 	meterSource_.measureBlock(*audioBuffer);
+
+	// Send it to pitch detection
+	tuner_->detectPitch(audioBuffer);
 
 	client_.sendData(channelSetup_, audioBuffer); //TODO offload the real sending to a different thread
 	if (uploadRecorder_ && uploadRecorder_->isRecording()) {
@@ -207,5 +213,10 @@ bool AudioCallback::isReceivingData() const
 double AudioCallback::currentRTT() const
 {
 	return client_.currentRTT();
+}
+
+float AudioCallback::channelPitch(int channel) const
+{
+	return tuner_->getPitch(channel);
 }
 

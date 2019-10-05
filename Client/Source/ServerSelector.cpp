@@ -42,7 +42,7 @@ void ServerSelector::fromData()
 		lastServer_ = ipAddress_.getText();
 	}
 	if (data.hasProperty("UseLocalhost")) {
-		useLocalhost_.setToggleState(data.getProperty("UseLocalhost"), sendNotificationAsync);
+		useLocalhost_.setToggleState(data.getProperty("UseLocalhost"), dontSendNotification);
 	}
 	buttonClicked(&useLocalhost_);
 }

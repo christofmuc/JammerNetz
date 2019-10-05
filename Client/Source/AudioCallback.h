@@ -11,6 +11,7 @@
 #include "Client.h"
 #include "PacketStreamQueue.h"
 #include "Recorder.h"
+#include "Tuner.h"
 #include "MidiRecorder.h"
 
 class AudioCallback : public AudioIODeviceCallback {
@@ -40,6 +41,7 @@ public:
 	std::string currentReceptionQuality() const;
 	bool isReceivingData() const;
 	double currentRTT() const;
+	float channelPitch(int channel) const;
 
 private:
 	void clearOutput(float** outputChannelData, int numOutputChannels, int numSamples);
@@ -60,4 +62,6 @@ private:
 	std::unique_ptr<Recorder> uploadRecorder_;
 	std::unique_ptr<Recorder> masterRecorder_;
 	std::unique_ptr<MidiRecorder> midiRecorder_;
+
+	std::unique_ptr<Tuner> tuner_;
 };

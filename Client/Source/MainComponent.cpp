@@ -206,6 +206,11 @@ void MainComponent::timerCallback()
 	status << "PlayQ: " << callback_.currentPlayQueueSize() << std::endl;
 	status << "Discarded: " << callback_.currentDiscardedPackageCounter() << std::endl;
 	status << "Total: " << callback_.currentToPlayLatency() + inputLatencyInMS_ + outputLatencyInMS_ << " ms" << std::endl;
+	status << std::endl;
+	for (int i = 0; i < 4; i++) {
+		status << "Channel " << i << " detected " << callback_.channelPitch(i) << "Hz" << std::endl;
+	}
+
 	statusInfo_.setText(status.str(), dontSendNotification);
 	downstreamInfo_.setText(callback_.currentReceptionQuality(), dontSendNotification);
 	std::stringstream connectionInfo;

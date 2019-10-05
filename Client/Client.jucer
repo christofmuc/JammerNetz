@@ -44,6 +44,8 @@
       <FILE id="ErQy6R" name="Data.cpp" compile="1" resource="0" file="Source/Data.cpp"/>
       <FILE id="VQq4kc" name="Data.h" compile="0" resource="0" file="Source/Data.h"/>
       <GROUP id="{1B9E614A-6285-F2E8-9580-4AB3C19918CF}" name="AudioProcessing">
+        <FILE id="u4wSx4" name="Tuner.cpp" compile="1" resource="0" file="Source/Tuner.cpp"/>
+        <FILE id="wV56be" name="Tuner.h" compile="0" resource="0" file="Source/Tuner.h"/>
         <FILE id="ji0Hkt" name="DataReceiveThread.cpp" compile="1" resource="0"
               file="Source/DataReceiveThread.cpp"/>
         <FILE id="MV5Gw2" name="DataReceiveThread.h" compile="0" resource="0"
@@ -88,9 +90,9 @@
   </MAINGROUP>
   <EXPORTFORMATS>
     <VS2017 targetFolder="Builds/VisualStudio2017" extraDefs="JUCE_ASIO "
-            extraCompilerFlags="/wd4244  /wd4100 /wd4456 /wd4267 /wd4702">
+            extraCompilerFlags="/wd4244  /wd4100 /wd4456 /wd4267 /wd4702 /wd4305">
       <CONFIGURATIONS>
-        <CONFIGURATION isDebug="1" name="Debug" headerPath="../../../third_party/ASIOSDK/common&#10;../../../common&#10;../../../third_party/hiir&#10;../../../third_party/tbb2019_20190605oss/include"
+        <CONFIGURATION isDebug="1" name="Debug" headerPath="../../../third_party/ASIOSDK/common&#10;../../../common&#10;../../../third_party/Q/q_lib/include&#10;../../../third_party/infra/include&#10;../../../third_party/tbb2019_20190605oss/include"
                        warningsAreErrors="1" libraryPath="../../../third_party/tbb2019_20190605oss/lib/intel64/vc14&#10;&#10;"
                        defines="TBB_USE_DEBUG =1&#10;JAMMER_IS_CLIENT" postbuildCommand=" xcopy &quot;$(ProjectDir)..\..\..\third_party\tbb2019_20190605oss\bin\intel64\vc14\*.dll&quot; &quot;$(TargetDir)&quot; /i /r /y"/>
         <CONFIGURATION isDebug="0" name="Release" headerPath="../../../third_party/ASIOSDK2/common&#10;../../../common&#10;../../../third_party/hiir&#10;../../../third_party/tbb2019_20190605oss/include"
