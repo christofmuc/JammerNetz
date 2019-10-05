@@ -37,6 +37,8 @@
       <GROUP id="{4DF6084C-287D-7768-6042-6B64D1B1BAAC}" name="MIDI">
         <FILE id="sQlxXf" name="MidiClocker.cpp" compile="1" resource="0" file="Source/MidiClocker.cpp"/>
         <FILE id="Rcb4UW" name="MidiClocker.h" compile="0" resource="0" file="Source/MidiClocker.h"/>
+        <FILE id="fBg8Iw" name="MidiNote.cpp" compile="1" resource="0" file="Source/MidiNote.cpp"/>
+        <FILE id="co5FcD" name="MidiNote.h" compile="0" resource="0" file="Source/MidiNote.h"/>
         <FILE id="HCuAXx" name="MidiRecorder.cpp" compile="1" resource="0"
               file="Source/MidiRecorder.cpp"/>
         <FILE id="PxofAi" name="MidiRecorder.h" compile="0" resource="0" file="Source/MidiRecorder.h"/>
