@@ -14,6 +14,8 @@ class ServerStatus : public Component {
 public:
 	ServerStatus(std::function<void()> notify);
 
+	void setConnected(bool isReceivingData);
+
 	virtual void resized() override;
 
 	// Store to and load from settings
@@ -22,5 +24,6 @@ public:
 
 private:
 	ServerSelector serverSelector_;
-	ImageComponent cloudImage_;
+	ImageButton cloudImage_;
 };
+

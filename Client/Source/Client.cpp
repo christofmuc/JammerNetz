@@ -35,6 +35,11 @@ Client::~Client()
 	socket_.shutdown();
 }
 
+bool Client::isReceivingData() const
+{
+	return receiver_->isReceivingData();
+}
+
 bool Client::sendData(String const &remoteHostname, int remotePort, void *data, int numbytes) {
 	// Writing will block until the socket is ready to write
 	auto bytesWritten = socket_.write(remoteHostname, remotePort, data, numbytes);

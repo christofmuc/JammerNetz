@@ -38,6 +38,7 @@ public:
 	double currentToPlayLatency() const;
 
 	std::string currentReceptionQuality() const;
+	bool isReceivingData() const;
 	double currentRTT() const;
 
 private:

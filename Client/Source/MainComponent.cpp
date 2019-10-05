@@ -213,6 +213,8 @@ void MainComponent::timerCallback()
 		<< "Network MTU: " << callback_.currentPacketSize() << " bytes. Bandwidth: "
 		<< callback_.currentPacketSize() * 8 * (ServerInfo::sampleRate / (float)ServerInfo::bufferSize) / (1024 * 1024.0f) << "MBit/s. ";
 	connectionInfo_.setText(connectionInfo.str(), dontSendNotification);
+
+	serverStatus_.setConnected(callback_.isReceivingData());
 }
 
 void MainComponent::setupChanged(std::shared_ptr<ChannelSetup> setup)

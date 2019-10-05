@@ -199,6 +199,11 @@ std::string AudioCallback::currentReceptionQuality() const
 	return playBuffer_.qualityStatement();
 }
 
+bool AudioCallback::isReceivingData() const
+{
+	return client_.isReceivingData();
+}
+
 double AudioCallback::currentRTT() const
 {
 	return client_.currentRTT();

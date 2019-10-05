@@ -17,6 +17,7 @@ public:
 	Client(std::function<void(std::shared_ptr<JammerNetzAudioData>)> newDataHandler);
 	~Client();
 
+	bool isReceivingData() const;
 	bool sendData(JammerNetzChannelSetup const &channelSetup, std::shared_ptr<AudioBuffer<float>> audioBuffer);
 	int getCurrentBlockSize() const;
 	double currentRTT() const;

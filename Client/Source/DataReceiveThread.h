@@ -17,6 +17,7 @@ public:
 
 	virtual void run() override;
 
+	bool isReceivingData() const;
 	double currentRTT() const;
 
 private:
@@ -25,4 +26,5 @@ private:
 	std::function<void(std::shared_ptr<JammerNetzAudioData>)> newDataHandler_;
 	double currentRTT_;
 	BlowFish blowFish_;
+	std::atomic<bool> isReceiving_;
 };

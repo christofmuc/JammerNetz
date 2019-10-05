@@ -14,7 +14,9 @@ ServerStatus::ServerStatus(std::function<void()> notify) : serverSelector_(notif
 	PNGImageFormat reader;
 	MemoryInputStream image(BinaryData::cloud_png, BinaryData::cloud_pngSize, false);
 	auto im = reader.decodeImage(image);
-	cloudImage_.setImage(im);
+	cloudImage_.setClickingTogglesState(false);
+	//cloudImage_.setEnabled(false);
+	cloudImage_.setImages(false, true, true, im, 1.0f, Colours::white, im, 1.0f, Colours::white, im, 0.8f, Colours::red);
 	addAndMakeVisible(cloudImage_);
 }
 
@@ -34,4 +36,9 @@ void ServerStatus::fromData()
 void ServerStatus::toData() const
 {
 	serverSelector_.toData();
+}
+
+void ServerStatus::setConnected(bool isReceiving)
+{
+	cloudImage_.setToggleState(!isReceiving, dontSendNotification);
 }

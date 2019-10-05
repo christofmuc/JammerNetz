@@ -11,7 +11,7 @@
 #include "ServerInfo.h"
 
 DataReceiveThread::DataReceiveThread(DatagramSocket &socket, std::function<void(std::shared_ptr<JammerNetzAudioData>)> newDataHandler)
-	: Thread("ReceiveDataFromServer"), socket_(socket), newDataHandler_(newDataHandler), currentRTT_(0.0), blowFish_(BinaryData::RandomNumbers_bin, BinaryData::RandomNumbers_binSize)
+	: Thread("ReceiveDataFromServer"), socket_(socket), newDataHandler_(newDataHandler), currentRTT_(0.0), blowFish_(BinaryData::RandomNumbers_bin, BinaryData::RandomNumbers_binSize), isReceiving_(false)
 {
 }
 
@@ -25,8 +25,10 @@ void DataReceiveThread::run()
 		switch (socket_.waitUntilReady(true, 500)) {
 		case 0:
 			// Timeout on socket, no client connected within timeout period
+			isReceiving_ = false;
 			break;
 		case 1: {
+			isReceiving_ = true;
 			// Ready to read data from socket!
 			String senderIPAdress;
 			int senderPortNumber;
@@ -67,3 +69,7 @@ double DataReceiveThread::currentRTT() const
 	return currentRTT_;
 }
 
+bool DataReceiveThread::isReceivingData() const
+{
+	return isReceiving_;
+}
