@@ -36,7 +36,7 @@ public:
 
 	float getPitch(int channel) const {
 		if (channel < detectors.size()) {
-			return detectors[channel]->get_frequency();
+			return detectors[channel]->predict_frequency();
 		}
 		else {
 			return 0.0f;
