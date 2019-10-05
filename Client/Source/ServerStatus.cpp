@@ -15,7 +15,7 @@ ServerStatus::ServerStatus(std::function<void()> notify) : serverSelector_(notif
 	MemoryInputStream image(BinaryData::cloud_png, BinaryData::cloud_pngSize, false);
 	auto im = reader.decodeImage(image);
 	cloudImage_.setClickingTogglesState(false);
-	//cloudImage_.setEnabled(false);
+	cloudImage_.setEnabled(false);
 	cloudImage_.setImages(false, true, true, im, 1.0f, Colours::white, im, 1.0f, Colours::white, im, 0.8f, Colours::red);
 	addAndMakeVisible(cloudImage_);
 }
