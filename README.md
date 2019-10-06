@@ -8,45 +8,58 @@ Of course be aware that the main influence on the quality has your internet prov
 
 ## Features
 
-JammerNetz allows you to
+JammerNetz is quite feature rich, the following are the main items:
 
-  * Host a jam session on a server, allowing a configurable number of clients to participate.
-  * Allows for channel configuration to send mono or stereo channels, and also a "send-only" channel type for using microphones without hearing your own voice. This makes for a great communication during the session. 
+  * It allows you to host a jam session on a server, allowing a configurable number of clients to participate.
+  * It allows for channel configuration to send mono or stereo channels, and also a "send-only" channel type for using microphones without hearing your own voice. This makes for great communication during the session. 
   * Send multiple audio channels per client to the server, e.g. your synthesist can send the keyboards and his voice separately.
-  * Does automatic hard-disk recording of your session to local disk on each client in a lossless compressed FLAC file.
+  * Does automatic hard-disk recording of your session to local disk on each client in a lossless compressed FLAC file. After the session, everybody has a record to revisit.
   * Does automatic MIDI recording in case it detects any incoming MIDI notes, thereby logging all keys played into a MIDI file for later revisit ("what did I play? Sounds great!")
+  * Features a built-in instrument tuner display showing you the detected note and cents for each channel, so it is easy and quick to get everybody on the same A.
+  * BlowFish encryption based on a shared secret that is compiled into the software, so you are not sending data unsecured through the internet
 
 ### Limitations
 
 It should be noted that due to the design of the system, we have a few limitations or restrictions that other systems might not have. We believe that we have made sensible trade-offs, but your milage may vary:
 
-  1. Only ASIO drivers are currently supported by the JammerNetz Client. As we are aiming for lowest-possible latency, you should really use an Audio device with ASIO drivers. 
+  1. Only ASIO drivers are currently supported by the JammerNetz Client. As we are aiming for lowest-possible latency, you should really use an audio device with ASIO drivers on Windows. 
   2. All clients need to run on the same sample rate (48000 is set in the source, but you might want to switch to 44100), else mixing the signals together isn't straightforward.
   3. As of today, even the buffer size used by the device must be identical. The file BuffersConfig.h has the constants and is currently set at 128 samples.
 
 ## Usage
 
-As of today, the system is still in a built-and-run-yourself state. You will need some experience in compiling a C++ application, getting the required third party binaries and repos, starting an AWS instance and deploying the Linux build of the server there to start it. Depending on the interest in this system, we might be able to provide more help. 
+As of today, the system is still in a built-and-run-yourself state. You will need some experience in compiling a C++ application, getting the required third party binaries and repos, starting an AWS instance and deploying the Linux build of the server there to run it. Depending on the interest in this system, we might be able to provide more help. 
 
 ## Building the software
+
+### Supported platforms
+
+JUCE is a cross-platform library with support for all major platforms, but we have tested the system at the moment only on Windows 10 using MS Visual Studio 2017, and the server on an up-to-date Ubuntu Linux 18. Other platforms might work as well, but might require some fiddling and fixing.
 
 ### Prerequisites
 
 We use the magnificent JUCE library to immensly reduce the amount of work we have to do. You can download it for free from [JUCE.com](https://juce.com/).
 
-Recursive checkout with Git submodules is required to retrieve the nice JUCE module [ff_meters](https://github.com/ffAudio/ff_meters) from ffAudio into the correct directory.
+Clone with submodules from github
 
-In addition, you will need the [Steinberg ASIO SDK](https://www.steinberg.net/en/company/developers.html), which can be downloaded from their webseite. Here is a direct link: https://www.steinberg.net/asiosdk. Unzip the contents into the third_party\ASIOSDK directory.
+    git clone --recurse-submodules -j8 https://github.com/christofmuc/JammerNetz
 
-For the multithreading aspects of the application, we use the [Intel Threading Building Blocks](https://software.intel.com/en-us/tbb) library. Download the matching binary release from github [here](https://github.com/intel/tbb/releases). Unzip the file downloaded into the third_party subdirectory. We have used version tbb2019_20190605oss. If you have a different version, you need to adapt the paths in the Projucer exporter later.
+The recursive clone with  submodules is required to retrieve the following additional modules already into the right spot inside the source tree:
+
+1. the nice JUCE module [ff_meters](https://github.com/ffAudio/ff_meters) from ffAudio to display the level meters for each channel.
+2. [Q](https://github.com/cycfi/Q), a highly interesting modern C++ DSP library we use for the instrument tuning/pitch detection. Go check it out, it's really cool!
+3. [Infra](https://github.com/cycfi/infra), a little helper library required by Q
 
 As we don't want to send any unecrpyted audio data through the internet, we use a simple BlowFish encryption scheme to make sure that only authorized people join the jam session. For now, we have simply compiled a shared secret into server and client, more elaborate schemes might follow.
 
 To generate the shared secret, create a file named RandomNumbers.bin in the &lt;JammerNetzDir&gt;\common subdirectory. For example, you can use an external source like (https://www.random.org/bytes/) to generate 72 random bytes, or use a more trustworthy key source as you choose.
 
-### Supported platforms
+### Additional Windows prerequisites
 
-JUCE is a cross-platform library with support for all major platforms, but we have tested the system at the moment only on Windows 10 using MS Visual Studio 2017, and the server on an up-to-date Ubuntu Linux 18. Other platforms might work as well, but might require some fiddling and fixing.
+In addition, you will need the [Steinberg ASIO SDK](https://www.steinberg.net/en/company/developers.html), which can be downloaded from their webseite. Unzip the contents into the third_party\ASIOSDK directory.
+
+For the multithreading aspects of the application, we use the [Intel Threading Building Blocks](https://software.intel.com/en-us/tbb) library. Download the matching binary release from github [here](https://github.com/intel/tbb/releases). Unzip the file downloaded into the third_party subdirectory. We have used version tbb2019_20190605oss. If you have a different version, you need to adapt the paths in the Projucer exporter later.
+
 
 ### Building the server
 
@@ -109,6 +122,14 @@ Now, when you compile a release version of the Windows server, after the Windows
 We had used the great [Jamulus](http://llcon.sourceforge.net/) system before developing our own system, and JammerNetz certainly has been inspired by this great piece of software. We also made some substantial design and architecture changes over Jamulus, justifying a new development instead of contributing to the Jamulus codebase. Most importantly, while Jamulus is using Qt as a cross-platform library, JammerNetz uses JUCE massively reducing the lines of code required. 
 
 Note that as of today Jamulus is in a much more plug'n'play state than JammerNetz, so if you want to quickly try out the concept of a live internet jam session, we strongly recommend you go over and check out Jamulus - they even host a few test servers so you can get up and running in minutes!
+
+## Licensing
+
+As some substantial work has gone into the development of this, I decided to offer a dual license - AGPL, see the LICENSE.md file for the details, for everybody interested in how this works and willing to spend some time her- or himself on this, and a commercial MIT license available from me on request. Thus I can help the OpenSource community without blocking possible commercial applications.
+
+## Contributing
+
+All pull requests and issues welcome, I will try to get back to you as soon as I can. Due to the dual licensing please be aware that I will need to request transfer of copyright on accepting a PR. 
 
 ## About the author
 
