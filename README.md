@@ -97,7 +97,7 @@ Now with everything in place, building an installer is as easy as opening a comm
 "c:\Program Files (x86)\Inno Setup 6\ISCC.exe" Client\setup_client.iss
 ```
 
-This will create a fully functional installer as &lt;JammerNetzDir&gt;`Client\builds\Setup\jammernetz_setup.exe`. Additionally, you can edit the Release exporter configuration in Projucer and remove the rem statement from the post-built command to have the installer created automatically with every release build.
+This will create a fully functional installer as `<JammerNetzDir>Client\builds\Setup\jammernetz_setup.exe`. Additionally, you can edit the Release exporter configuration in Projucer and remove the rem statement from the post-built command to have the installer created automatically with every release build.
 
 
 ## Cross-platform building Linux server on Windows 10 using Docker
