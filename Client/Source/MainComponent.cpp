@@ -31,6 +31,8 @@ callback_(deviceManager_)
 	inputGroup_.setText("Input");
 	outputGroup_.setText("Output");
 	serverGroup_.setText("Settings");
+	qualityGroup_.setText("Quality Info");
+	recordingGroup_.setText("Recording");
 
 	addAndMakeVisible(outputController_);
 	addAndMakeVisible(inputGroup_);
@@ -44,6 +46,8 @@ callback_(deviceManager_)
 	addAndMakeVisible(serverGroup_);
 	addAndMakeVisible(connectionInfo_);
 	addAndMakeVisible(*bpmDisplay_);
+	addAndMakeVisible(qualityGroup_);
+	addAndMakeVisible(recordingGroup_);
 	std::stringstream list;
 	AudioDeviceDiscovery::listAudioDevices(deviceManager_, list);
 	StreamLogger::instance() << list.str(); // For performance, send it to the output only once
@@ -161,19 +165,29 @@ void MainComponent::resized()
 
 	// To the bottom, the server info and status area
 	auto settingsArea = area.removeFromBottom(settingsHeight);
-	serverGroup_.setBounds(settingsArea);
-	settingsArea.reduce(kNormalInset, kNormalInset);
-
 	int settingsSectionWidth = settingsArea.getWidth() / 3;
+
+	// Setup lower left - the server and client config
 	auto clientConfigArea = settingsArea.removeFromLeft(settingsSectionWidth);
-	clientConfigurator_.setBounds(clientConfigArea);
-	auto serverArea = settingsArea.removeFromLeft(settingsSectionWidth);
-	connectionInfo_.setBounds(serverArea.removeFromBottom(kLineSpacing));
-	serverStatus_.setBounds(serverArea);
-	auto midiRecordingInfo = settingsArea.removeFromBottom(30);
+	serverGroup_.setBounds(clientConfigArea);
+	clientConfigArea.reduce(kNormalInset, kNormalInset);		
+	clientConfigurator_.setBounds(clientConfigArea.removeFromBottom(kLineSpacing * 3 + 2 * kNormalInset));
+	connectionInfo_.setBounds(clientConfigArea.removeFromBottom(kLineSpacing));
+	serverStatus_.setBounds(clientConfigArea);
+
+	// Setup lower middle - quality information
+	auto qualityArea = settingsArea.removeFromLeft(settingsSectionWidth);
+	qualityGroup_.setBounds(qualityArea);
+	qualityArea.reduce(kNormalInset, kNormalInset);
+	statusInfo_.setBounds(qualityArea.removeFromTop(qualityArea.getHeight()/2));
+	downstreamInfo_.setBounds(qualityArea);
+
+	// Lower right - everything with recording!
+	auto recordingArea = settingsArea.removeFromLeft(settingsSectionWidth);
+	recordingGroup_.setBounds(recordingArea);
+	recordingArea.reduce(kNormalInset, kNormalInset);
+	auto midiRecordingInfo = recordingArea.removeFromBottom(30);
 	bpmDisplay_->setBounds(midiRecordingInfo);
-	statusInfo_.setBounds(settingsArea.removeFromTop(settingsArea.getHeight()/2));
-	downstreamInfo_.setBounds(settingsArea);
 
 	// To the left, the input selector
 	auto inputArea = area.removeFromLeft(inputMixerWidth + inputSelectorWidth);

@@ -51,6 +51,8 @@ private:
 	Label statusInfo_;
 	Label downstreamInfo_;
 	std::unique_ptr<BPMDisplay> bpmDisplay_;
+	GroupComponent qualityGroup_;
+	GroupComponent recordingGroup_;
 
 	std::shared_ptr<ChannelSetup> currentInputSetup_;
 	std::shared_ptr<ChannelSetup> currentOutputSetup_;
