@@ -28,7 +28,6 @@ void DataReceiveThread::run()
 			isReceiving_ = false;
 			break;
 		case 1: {
-			isReceiving_ = true;
 			// Ready to read data from socket!
 			String senderIPAdress;
 			int senderPortNumber;
@@ -36,6 +35,10 @@ void DataReceiveThread::run()
 			if (dataRead == -1) {
 				StreamLogger::instance() << "Error reading data from socket, aborting receive thread!" << std::endl;
 				return;
+			}
+			if (dataRead == 0) {
+				StreamLogger::instance() << "Ignoring zero byte message received from " << senderIPAdress << ":" << senderPortNumber << std::endl;
+				continue;
 			}
 			int messageLength = blowFish_.decrypt(readbuffer_, dataRead);
 			if (messageLength == -1) {
@@ -47,6 +50,7 @@ void DataReceiveThread::run()
 			if (senderIPAdress.toStdString() == ServerInfo::serverName) {
 				auto message = JammerNetzMessage::deserialize(readbuffer_, messageLength);
 				if (message) {
+					isReceiving_ = true;
 					auto audioData = std::dynamic_pointer_cast<JammerNetzAudioData>(message);
 					if (audioData) {
 						// Hand off to player 
