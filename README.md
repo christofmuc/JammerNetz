@@ -83,6 +83,22 @@ On Windows using Visual Studio 2017
   2. Save the exporter and open the generated solution file, or just click the Visual Studio icon which will open it for you.
   3. You can now select Debug or Release config and build and run it normally with the IDE.
 
+## Creating an installer for the client
+
+Now you got the client, but you may want your mates to join you in the jam - they will need a client executable as well. As we have compiled in our secret, the best way to get them to join you is to distribute your client build in the form of an installer. Luckily, we have prepared something for you!
+
+We always recommend the [InnoSetup](http://www.jrsoftware.org/isinfo.php) tool, really one of these golden tools that despite its age shines on and on. Download it and install it, the use is really trivial.
+
+The only thing you will need to add is the Microsoft Visual C++ Redistributable binary - if you have a license (can be a Community License) of Visual Studio, you will find the file `vc_redist.x64.exe` already on your local harddisk in the correct directory, just copy it to the directory &lt;JammerNetzDir&gt;\Client\Redist. It will be in a folder called ...\VC\redist in your Visual Studio installation directory.
+
+Now with everything in place, building an installer is as easy as opening a command line in the &lt;JammerNetzDir&gt; and running the following command:
+
+```
+"c:\Program Files (x86)\Inno Setup 6\ISCC.exe" Client\setup_client.iss
+```
+
+This will create a fully functional installer as `&lt;JammerNetzDir&gt;Client\builds\Setup\jammernetz_setup.exe`. Additionally, you can edit the Release exporter configuration in Projucer and remove the rem statement from the post-built command to have the installer created automatically with every release build.
+
 
 ## Cross-platform building Linux server on Windows 10 using Docker
 

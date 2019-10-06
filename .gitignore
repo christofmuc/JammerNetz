@@ -5,3 +5,4 @@ third_party/pstl2019_20190605oss/
 third_party/tbb2019_20190605oss/
 common/RandomNumbers.bin
 Server/docker/buildmachine/juce-5.4.3-linux.zip
+Client/Redist/vc_redist.x64.exe

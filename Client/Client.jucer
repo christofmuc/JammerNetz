@@ -1,8 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<JUCERPROJECT id="ApUkc8" name="JammerNetz Client" projectType="guiapp" jucerVersion="5.4.3"
+<JUCERPROJECT id="ApUkc8" name="JammerNetzClient" projectType="guiapp" jucerVersion="5.4.3"
               companyCopyright="Copyright 2019 Christof Ruch" companyWebsite="https://github.com/christofmuc/JammerNetz">
-  <MAINGROUP id="ye7kTK" name="JammerNetz Client">
+  <MAINGROUP id="ye7kTK" name="JammerNetzClient">
+    <GROUP id="{FD0A4B41-24E0-45AA-3375-982DD64BC729}" name="Installer">
+      <FILE id="gFnILi" name="agpl-3.0.txt" compile="0" resource="0" file="Redist/agpl-3.0.txt"/>
+      <FILE id="t9LUEY" name="setup_client.iss" compile="0" resource="0"
+            file="setup_client.iss"/>
+      <FILE id="UVkk3j" name="vc_redist.x64.exe" compile="0" resource="0"
+            file="Redist/vc_redist.x64.exe"/>
+    </GROUP>
     <GROUP id="{32961355-17E7-94F0-4669-25517BCE74D2}" name="Resources">
       <FILE id="pYF29V" name="about.txt" compile="0" resource="1" file="Resources/about.txt"/>
       <FILE id="ASUSYC" name="cloud.png" compile="0" resource="1" file="Resources/cloud.png"/>
@@ -97,7 +104,7 @@
         <CONFIGURATION isDebug="1" name="Debug" headerPath="../../../third_party/ASIOSDK/common&#10;../../../common&#10;../../../third_party/Q/q_lib/include&#10;../../../third_party/infra/include&#10;../../../third_party/tbb2019_20190605oss/include"
                        warningsAreErrors="1" libraryPath="../../../third_party/tbb2019_20190605oss/lib/intel64/vc14&#10;&#10;"
                        defines="TBB_USE_DEBUG =1&#10;JAMMER_IS_CLIENT" postbuildCommand=" xcopy &quot;$(ProjectDir)..\..\..\third_party\tbb2019_20190605oss\bin\intel64\vc14\*.dll&quot; &quot;$(TargetDir)&quot; /i /r /y"/>
-        <CONFIGURATION isDebug="0" name="Release" headerPath="../../../third_party/ASIOSDK2/common&#10;../../../common&#10;../../../third_party/hiir&#10;../../../third_party/tbb2019_20190605oss/include"
+        <CONFIGURATION isDebug="0" name="Release" headerPath="../../../third_party/ASIOSDK/common&#10;../../../common&#10;../../../third_party/Q/q_lib/include&#10;../../../third_party/infra/include&#10;../../../third_party/tbb2019_20190605oss/include"
                        libraryPath="../../../third_party/tbb2019_20190605oss/lib/intel64/vc14&#10;"
                        postbuildCommand="xcopy &quot;$(ProjectDir)..\..\..\third_party\tbb2019_20190605oss\bin\intel64\vc14\*.dll&quot; &quot;$(TargetDir)&quot; /i /r /y&#10;rem &quot;C:\Program Files (x86)\Inno Setup 6\iscc.exe&quot; &quot;$(ProjectDir)..\..\setup_client.iss&quot;&#10;"
                        alwaysGenerateDebugSymbols="1" warningsAreErrors="1" defines="JAMMER_IS_CLIENT&#10;"/>
