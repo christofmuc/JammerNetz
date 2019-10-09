@@ -12,11 +12,14 @@ public:
 	void set(std::string const &key, std::string const &value);
 
 	File getSessionStorageDir() const;
-	
+
+	// Singleton!
+	Settings(Settings const &) = delete;
+	void operator=(Settings const&) = delete;
+
 private:
 	Settings();
 
-	static ScopedPointer<Settings> instance_;
 	static String settingsID_;
 	ApplicationProperties properties_;
 };

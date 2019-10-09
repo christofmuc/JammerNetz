@@ -22,10 +22,11 @@ public:
 
 	void flushBuffer(bool force = false);
 
-private:	
-	static ScopedPointer<StreamLogger> instance_;
+	StreamLogger(StreamLogger const &) = delete;
+	void operator=(StreamLogger const&) = delete;
 
-	StreamLogger();
+private:	
+	StreamLogger() {}
 
 	std::stringstream buffer;
 };

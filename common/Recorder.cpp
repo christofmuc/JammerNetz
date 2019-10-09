@@ -9,7 +9,7 @@
 Recorder::Recorder(File directory, std::string const &baseFileName, RecordingType recordingType) 
 	: directory_(directory), baseFileName_(baseFileName), writer_(nullptr), recordingType_(recordingType)
 {
-	thread_ = new TimeSliceThread("RecorderDiskWriter");
+	thread_ = std::make_unique<TimeSliceThread>("RecorderDiskWriter");
 	thread_->startThread();
 }
 
@@ -33,12 +33,12 @@ void Recorder::updateChannelInfo(int sampleRate, JammerNetzChannelSetup const &c
 	writeThread_.reset();
 
 	// Create the audio format writer
-	ScopedPointer<AudioFormat> audioFormat;
+	std::unique_ptr<AudioFormat> audioFormat;
 	std::string fileExtension;
 	switch (recordingType_) {
-	case RecordingType::WAV: audioFormat = new WavAudioFormat(); fileExtension = ".wav";  break;
-	case RecordingType::FLAC: audioFormat = new FlacAudioFormat(); fileExtension = ".flac"; break;
-	case RecordingType::AIFF: audioFormat = new AiffAudioFormat(); fileExtension = ".aiff"; break;
+	case RecordingType::WAV: audioFormat = std::make_unique<WavAudioFormat>(); fileExtension = ".wav";  break;
+	case RecordingType::FLAC: audioFormat = std::make_unique <FlacAudioFormat>(); fileExtension = ".flac"; break;
+	case RecordingType::AIFF: audioFormat = std::make_unique <AiffAudioFormat>(); fileExtension = ".aiff"; break;
 	}
 
 	// Need to check that sample rate, bit depth, and channel layout are supported!
@@ -105,7 +105,7 @@ void Recorder::updateChannelInfo(int sampleRate, JammerNetzChannelSetup const &c
 	}
 
 	// Finally, create the new writer associating it with the background thread
-	writeThread_ = new AudioFormatWriter::ThreadedWriter(writer_, *thread_, 16384);
+	writeThread_ = std::make_unique<AudioFormatWriter::ThreadedWriter>(writer_, *thread_, 16384);
 }
 
 void Recorder::saveBlock(const float* const* data, int numSamples) {
