@@ -30,6 +30,6 @@ private:
 	std::string baseFileName_;
 	RecordingType recordingType_;
 	AudioFormatWriter *writer_;
-	ScopedPointer<TimeSliceThread> thread_;
-	ScopedPointer<AudioFormatWriter::ThreadedWriter> writeThread_;
+	std::unique_ptr<TimeSliceThread> thread_;
+	std::unique_ptr<AudioFormatWriter::ThreadedWriter> writeThread_;
 };

@@ -43,7 +43,7 @@ private:
 	Label channelName_;
 	Slider volumeSlider_;
 	ComboBox channelType_;
-	ScopedPointer <FFAU::LevelMeterLookAndFeel> lnf_;
+	std::unique_ptr<FFAU::LevelMeterLookAndFeel> lnf_;
 	FFAU::LevelMeter levelMeter_;
 	FFAU::LevelMeterSource *meterSource_;
 	int channelNo_;

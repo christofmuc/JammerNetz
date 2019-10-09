@@ -2,21 +2,16 @@
 
 #include "StreamLogger.h"
 
-ScopedPointer<Settings> Settings::instance_;
-
 juce::String Settings::settingsID_ = "JammerNetz"; // This can be overridden for testing, so you can start more than one client on a single machine and don't overwrite your settings file
 
 Settings & Settings::instance()
 {
-	if (!instance_) {
-		instance_ = new Settings();
-	}
-	return *instance_;
+	static Settings instance_;
+	return instance_;
 }
 
 void Settings::setSettingsID(String const &id)
 {
-	jassert(!instance_); // You may change this only before you have tried to construct the Settings object itself
 	settingsID_ = id;
 }
 
@@ -59,6 +54,5 @@ Settings::Settings()
 void Settings::saveAndClose()
 {
 	properties_.closeFiles();
-	instance_ = nullptr;
 }
 

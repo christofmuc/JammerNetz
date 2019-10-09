@@ -1,9 +1,5 @@
 #include "StreamLogger.h"
 
-StreamLogger::StreamLogger()
-{
-}
-
 StreamLogger::~StreamLogger() {
 }
 
@@ -30,10 +26,8 @@ void StreamLogger::flushBuffer(bool force /* = false */)
 
 StreamLogger &StreamLogger::instance()
 {
-	if (!instance_) {
-		instance_ = new StreamLogger();
-	}
-	return *instance_;
+	static StreamLogger instance_;
+	return instance_;
 }
 
 StreamLogger & StreamLogger::operator<<(double value)
@@ -82,6 +76,4 @@ StreamLogger & StreamLogger::operator<<(uint64 value)
 	flushBuffer();
 	return *this;
 }
-
-ScopedPointer<StreamLogger> StreamLogger::instance_;
 

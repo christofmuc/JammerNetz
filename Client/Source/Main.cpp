@@ -40,14 +40,14 @@ public:
 			name << "JammerNetzClient" << now.formatted("-%Y-%m-%d-%H-%M-%S-") << collision << ".log";
 			wavFile = File::getCurrentWorkingDirectory().getChildFile(name.str());
 		}
-		logger_ = new FileLogger(wavFile, "Starting "+ getApplicationName() + " V" + getApplicationVersion());
-		Logger::setCurrentLogger(logger_);
+		logger_ = std::make_unique<FileLogger>(wavFile, "Starting "+ getApplicationName() + " V" + getApplicationVersion());
+		Logger::setCurrentLogger(logger_.get());
 
 		String windowTitle = getApplicationName();
 		if (clientID.isNotEmpty()) {
 			windowTitle += ": " + clientID;
 		}
-        mainWindow.reset (new MainWindow (windowTitle, clientID));
+        mainWindow = std::make_unique<MainWindow>(windowTitle, clientID);
     }
 
     void shutdown() override
@@ -113,7 +113,7 @@ public:
     };
 
 private:
-	ScopedPointer<FileLogger> logger_;
+	std::unique_ptr<FileLogger> logger_;
     std::unique_ptr<MainWindow> mainWindow;
 };
 
