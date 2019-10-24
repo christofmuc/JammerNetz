@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<JUCERPROJECT id="ApUkc8" name="JammerNetzClient" projectType="guiapp" jucerVersion="5.4.4"
+<JUCERPROJECT id="ApUkc8" name="JammerNetzClient" projectType="guiapp" jucerVersion="5.4.5"
               companyCopyright="Copyright 2019 Christof Ruch" companyWebsite="https://github.com/christofmuc/JammerNetz">
   <MAINGROUP id="ye7kTK" name="JammerNetzClient">
     <GROUP id="{FD0A4B41-24E0-45AA-3375-982DD64BC729}" name="Installer">
@@ -124,6 +124,7 @@
         <MODULEPATH id="juce_gui_extra" path="C:/Users/Christof/JUCE/modules"/>
         <MODULEPATH id="juce_opengl" path="C:/Users/Christof/JUCE/modules"/>
         <MODULEPATH id="ff_meters" path="../third_party"/>
+        <MODULEPATH id="juce_dsp" path="C:/Users/Christof/JUCE/modules"/>
       </MODULEPATHS>
     </VS2017>
   </EXPORTFORMATS>
@@ -137,6 +138,7 @@
     <MODULE id="juce_core" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
     <MODULE id="juce_cryptography" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
     <MODULE id="juce_data_structures" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_dsp" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
     <MODULE id="juce_events" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
     <MODULE id="juce_graphics" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
     <MODULE id="juce_gui_basics" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
