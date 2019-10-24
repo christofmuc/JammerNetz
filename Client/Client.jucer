@@ -66,6 +66,9 @@
         <FILE id="DVr3AR" name="Client.h" compile="0" resource="0" file="Source/Client.h"/>
       </GROUP>
       <GROUP id="{6C4AF25C-C1B2-440D-BC39-5DA258CFDFB7}" name="UIComponents">
+        <FILE id="SbaJMQ" name="RecordingInfo.cpp" compile="1" resource="0"
+              file="Source/RecordingInfo.cpp"/>
+        <FILE id="GHWZnp" name="RecordingInfo.h" compile="0" resource="0" file="Source/RecordingInfo.h"/>
         <FILE id="LgRENj" name="ServerStatus.cpp" compile="1" resource="0"
               file="Source/ServerStatus.cpp"/>
         <FILE id="rU1JAw" name="ServerStatus.h" compile="0" resource="0" file="Source/ServerStatus.h"/>

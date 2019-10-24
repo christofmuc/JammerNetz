@@ -43,6 +43,8 @@ public:
 	double currentRTT() const;
 	float channelPitch(int channel) const;
 
+	std::shared_ptr<Recorder> getMasterRecorder() const;
+
 private:
 	void clearOutput(float** outputChannelData, int numOutputChannels, int numSamples);
 
@@ -60,7 +62,7 @@ private:
 	FFAU::LevelMeterSource outMeterSource_;
 
 	std::unique_ptr<Recorder> uploadRecorder_;
-	std::unique_ptr<Recorder> masterRecorder_;
+	std::shared_ptr<Recorder> masterRecorder_;
 	std::unique_ptr<MidiRecorder> midiRecorder_;
 
 	std::unique_ptr<Tuner> tuner_;

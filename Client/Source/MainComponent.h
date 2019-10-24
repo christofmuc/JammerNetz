@@ -15,6 +15,7 @@
 #include "ServerStatus.h"
 #include "ClientConfig.h"
 #include "BPMDisplay.h"
+#include "RecordingInfo.h"
 
 class MainComponent   : public Component, private Timer
 {
@@ -53,6 +54,7 @@ private:
 	std::unique_ptr<BPMDisplay> bpmDisplay_;
 	GroupComponent qualityGroup_;
 	GroupComponent recordingGroup_;
+	std::unique_ptr<RecordingInfo> recordingInfo_;
 
 	std::shared_ptr<ChannelSetup> currentInputSetup_;
 	std::shared_ptr<ChannelSetup> currentOutputSetup_;

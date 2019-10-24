@@ -117,3 +117,15 @@ void Recorder::saveBlock(const float* const* data, int numSamples) {
 		}
 	}
 }
+
+juce::File Recorder::getDirectory() const
+{
+	return directory_;
+}
+
+void Recorder::setDirectory(File &directory)
+{
+	// Stop writing if any
+	writeThread_.reset();
+	directory_ = directory;
+}

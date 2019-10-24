@@ -11,7 +11,7 @@ namespace BinaryData
 static const unsigned char temp_binary_data_0[] =
 "\r\n"
 "\r\n"
-"The cloud icon was design by srip from www.flaticon.com.\r\n";
+"The cloud icon was designed by srip from www.flaticon.com.\r\n";
 
 const char* about_txt = (const char*) temp_binary_data_0;
 
@@ -191,7 +191,7 @@ const char* getNamedResource (const char* resourceNameUTF8, int& numBytes)
 
     switch (hash)
     {
-        case 0xb02b86be:  numBytes = 62; return about_txt;
+        case 0xb02b86be:  numBytes = 64; return about_txt;
         case 0xe69e9d1f:  numBytes = 10853; return cloud_png;
         case 0x678080af:  numBytes = 72; return RandomNumbers_bin;
         default: break;

@@ -25,6 +25,9 @@ public:
 	void updateChannelInfo(int sampleRate, JammerNetzChannelSetup const &channelSetup);
 	void saveBlock(const float* const* data, int numSamples);
 
+	File getDirectory() const;
+	void setDirectory(File &directory);
+
 private:
 	File directory_;
 	std::string baseFileName_;
