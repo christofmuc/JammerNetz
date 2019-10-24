@@ -16,6 +16,7 @@
 #include "ClientConfig.h"
 #include "BPMDisplay.h"
 #include "RecordingInfo.h"
+#include "PlayalongDisplay.h"
 
 class MainComponent   : public Component, private Timer
 {
@@ -55,6 +56,7 @@ private:
 	GroupComponent qualityGroup_;
 	GroupComponent recordingGroup_;
 	std::unique_ptr<RecordingInfo> recordingInfo_;
+	std::unique_ptr<PlayalongDisplay> playalongDisplay_;
 
 	std::shared_ptr<ChannelSetup> currentInputSetup_;
 	std::shared_ptr<ChannelSetup> currentOutputSetup_;

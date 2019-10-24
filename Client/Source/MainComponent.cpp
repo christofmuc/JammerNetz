@@ -26,6 +26,7 @@ callback_(deviceManager_)
 {
 	bpmDisplay_ = std::make_unique<BPMDisplay>(callback_.getClocker());
 	recordingInfo_ = std::make_unique<RecordingInfo>(callback_.getMasterRecorder());
+	playalongDisplay_ = std::make_unique<PlayalongDisplay>(*callback_.getPlayalong());
 
 	outputController_.setMeterSource(callback_.getOutputMeterSource(), -1);
 
@@ -50,6 +51,7 @@ callback_(deviceManager_)
 	addAndMakeVisible(qualityGroup_);
 	addAndMakeVisible(recordingGroup_);
 	addAndMakeVisible(*recordingInfo_);
+	addAndMakeVisible(*playalongDisplay_);
 	std::stringstream list;
 	AudioDeviceDiscovery::listAudioDevices(deviceManager_, list);
 	StreamLogger::instance() << list.str(); // For performance, send it to the output only once
@@ -203,8 +205,12 @@ void MainComponent::resized()
 		controller->setBounds(inputArea.removeFromLeft(sizePerController));
 	}
 
+	// Upper middle, play-along display (prominently)
+	auto playalongArea = area.removeFromLeft(100);
+	playalongDisplay_->setBounds(playalongArea);
+
 	// To the right, the output selector
-	auto outputArea = area.removeFromRight(masterMixerWidth + inputSelectorWidth);
+	auto outputArea = area.removeFromRight(masterMixerWidth + inputSelectorWidth + playalongArea.getWidth());
 	outputGroup_.setBounds(outputArea);
 	outputArea.reduce(kNormalInset, kNormalInset);
 	outputSelector_.setBounds(outputArea.removeFromRight(inputSelectorWidth));
