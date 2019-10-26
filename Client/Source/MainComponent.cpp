@@ -173,6 +173,9 @@ void MainComponent::resized()
 	auto midiRecordingInfo = settingsArea.removeFromBottom(30);
 	bpmDisplay_->setBounds(midiRecordingInfo);
 	statusInfo_.setBounds(settingsArea.removeFromTop(settingsArea.getHeight()/2));
+	for (auto clientInfo : clientInfo_) {
+		clientInfo->setBounds(settingsArea.removeFromTop(kLineHeight));
+	}
 	downstreamInfo_.setBounds(settingsArea);
 
 	// To the left, the input selector
@@ -192,6 +195,19 @@ void MainComponent::resized()
 	outputArea.reduce(kNormalInset, kNormalInset);
 	outputSelector_.setBounds(outputArea.removeFromRight(inputSelectorWidth));
 	outputController_.setBounds(outputArea);
+}
+
+void MainComponent::numConnectedClientsChanged() {
+	clientInfo_.clear();
+
+	auto info = callback_.getClientInfo();
+	for (uint8 i = 0; i < info->getNumClients(); i++) {
+		auto label = new Label();
+		label->setText(info->getIPAddress(i), dontSendNotification);
+		addAndMakeVisible(label);
+		clientInfo_.add(label);
+	}
+	resized();
 }
 
 void MainComponent::timerCallback()
@@ -214,6 +230,11 @@ void MainComponent::timerCallback()
 		<< "Network MTU: " << callback_.currentPacketSize() << " bytes. Bandwidth: "
 		<< callback_.currentPacketSize() * 8 * (ServerInfo::sampleRate / (float)ServerInfo::bufferSize) / (1024 * 1024.0f) << "MBit/s. ";
 	connectionInfo_.setText(connectionInfo.str(), dontSendNotification);
+
+	if (callback_.getClientInfo()->getNumClients() != clientInfo_.size()) {
+		// Need to re-setup the UI
+		numConnectedClientsChanged();
+	}
 
 	serverStatus_.setConnected(callback_.isReceivingData());
 

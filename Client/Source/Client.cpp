@@ -107,6 +107,11 @@ double Client::currentRTT() const
 	return receiver_->currentRTT();
 }
 
+std::shared_ptr<JammerNetzClientInfoMessage> Client::getClientInfo() const
+{
+	return receiver_->getClientInfo();
+}
+
 void Client::setFlareNumber(int numberOfFlares)
 {
 	numberOfFlares_ = numberOfFlares;

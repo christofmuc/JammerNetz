@@ -21,6 +21,7 @@ public:
 	bool sendData(JammerNetzChannelSetup const &channelSetup, std::shared_ptr<AudioBuffer<float>> audioBuffer);
 	int getCurrentBlockSize() const;
 	double currentRTT() const;
+	std::shared_ptr<JammerNetzClientInfoMessage> getClientInfo() const;
 
 	void setFlareNumber(int numberOfFlares);
 

@@ -220,3 +220,8 @@ float AudioCallback::channelPitch(int channel) const
 	return tuner_->getPitch(channel);
 }
 
+std::shared_ptr<JammerNetzClientInfoMessage> AudioCallback::getClientInfo() const
+{
+	return client_.getClientInfo();
+}
+
