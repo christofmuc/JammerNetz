@@ -41,8 +41,8 @@ AudioBlock::AudioBlock(double timestamp, uint64 messageCounter, uint16 sampleRat
 
 std::shared_ptr<JammerNetzMessage> JammerNetzMessage::deserialize(uint8 *data, int bytes)
 {
-	if (bytes >= sizeof(JammerNetzPackage)) {
-		JammerNetzPackage *header = reinterpret_cast<JammerNetzPackage*>(data);
+	if (bytes >= sizeof(JammerNetzHeader)) {
+		JammerNetzHeader *header = reinterpret_cast<JammerNetzHeader*>(data);
 
 		// Check the magic 
 		if (header->magic0 == '1' && header->magic1 == '2' && header->magic2 == '3') {
@@ -61,12 +61,12 @@ std::shared_ptr<JammerNetzMessage> JammerNetzMessage::deserialize(uint8 *data, i
 
 int JammerNetzMessage::writeHeader(uint8 *output, uint8 messageType) const
 {
-	JammerNetzPackage *header = reinterpret_cast<JammerNetzPackage*>(output);
+	JammerNetzHeader *header = reinterpret_cast<JammerNetzHeader*>(output);
 	header->magic0 = '1';
 	header->magic1 = '2';
 	header->magic2 = '3';
 	header->messageType = messageType;
-	return sizeof(JammerNetzPackage);
+	return sizeof(JammerNetzHeader);
 }
 
 // Deserializing constructor
@@ -77,7 +77,7 @@ JammerNetzAudioData::JammerNetzAudioData(uint8 *data, int bytes) {
 	}
 
 	// Read the first audio block
-	int bytesread = sizeof(JammerNetzPackage);
+	int bytesread = sizeof(JammerNetzHeader);
 	audioBlock_ = readAudioHeaderAndBytes(data, bytesread);
 	activeBlock_ = audioBlock_;
 	
@@ -254,6 +254,6 @@ JammerNetzFlare::JammerNetzFlare()
 void JammerNetzFlare::serialize(uint8 *output, int &byteswritten) const
 {
 	writeHeader(output, FLARE);
-	byteswritten += sizeof(JammerNetzPackage);
+	byteswritten += sizeof(JammerNetzHeader);
 }
 

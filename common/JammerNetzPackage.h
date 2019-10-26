@@ -11,7 +11,20 @@
 const size_t MAXFRAMESIZE = 65536;
 const size_t MAXCHANNELSPERCLIENT = 4;
 
-struct JammerNetzPackage {
+/*
+ For lazi-ness and stateless-ness Jammernetz for now works with only a single message type for now. This is the format:
+
+  | AUDIODATA type message
+  | JammerNetzAudioHeader
+  |                                  | Audio - 2 Blocks, one active data and one FEC block containing the previous active block
+  | JammerNetzHeader                 | JammerNetzAudioBlock                                                                     | AudioData for Block                       |
+  | magic0 magic1 magic2 messageType | timestamp messageCounter channelSetup            numChannels numberOfSamples sampleRate  | numChannels * numberOfSamples audio bytes | 
+  | uint8  uint8  uint8  uint8       | double    uint64         JammerNetzChannelSetup  uint8       uint16          uint16      | uint16                                    |
+
+
+*/
+
+struct JammerNetzHeader {
 	uint8 magic0;
 	uint8 magic1;
 	uint8 magic2;
@@ -50,7 +63,7 @@ struct JammerNetzAudioBlock {
 };
 
 struct JammerNetzAudioHeader {
-	JammerNetzPackage header;
+	JammerNetzHeader header;
 	JammerNetzAudioBlock audioBlock[1];
 };
 
