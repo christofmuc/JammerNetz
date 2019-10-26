@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<JUCERPROJECT id="ApUkc8" name="JammerNetzClient" projectType="guiapp" jucerVersion="5.4.4"
+<JUCERPROJECT id="ApUkc8" name="JammerNetzClient" projectType="guiapp" jucerVersion="5.4.5"
               companyCopyright="Copyright 2019 Christof Ruch" companyWebsite="https://github.com/christofmuc/JammerNetz">
   <MAINGROUP id="ye7kTK" name="JammerNetzClient">
     <GROUP id="{FD0A4B41-24E0-45AA-3375-982DD64BC729}" name="Installer">
