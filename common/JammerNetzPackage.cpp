@@ -39,7 +39,7 @@ AudioBlock::AudioBlock(double timestamp, uint64 messageCounter, uint16 sampleRat
 {
 }
 
-std::shared_ptr<JammerNetzMessage> JammerNetzMessage::deserialize(uint8 *data, int bytes)
+std::shared_ptr<JammerNetzMessage> JammerNetzMessage::deserialize(uint8 *data, size_t bytes)
 {
 	if (bytes >= sizeof(JammerNetzHeader)) {
 		JammerNetzHeader *header = reinterpret_cast<JammerNetzHeader*>(data);
@@ -49,6 +49,8 @@ std::shared_ptr<JammerNetzMessage> JammerNetzMessage::deserialize(uint8 *data, i
 			switch (header->messageType) {
 			case AUDIODATA:
 				return std::make_shared<JammerNetzAudioData>(data, bytes);
+			case CLIENTINFO:
+				return std::make_shared<JammerNetzClientInfoMessage>(data, bytes);
 			case FLARE:
 				return std::make_shared<JammerNetzFlare>();
 			default:
@@ -255,5 +257,38 @@ void JammerNetzFlare::serialize(uint8 *output, int &byteswritten) const
 {
 	writeHeader(output, FLARE);
 	byteswritten += sizeof(JammerNetzHeader);
+}
+
+// Deserializing constructor
+JammerNetzClientInfoMessage::JammerNetzClientInfoMessage(uint8 *data, size_t bytes) : data_(data, data + bytes)
+{
+	if ((bytes < sizeof(JammerNetzHeader) + sizeof(JammerNetzClientInfoHeader)) || 
+		(bytes < (sizeof(JammerNetzHeader) + sizeof(JammerNetzClientInfoHeader) + getNumClients() * sizeof(JammerNetzClientInfo)))) {
+		// Not enough bytes for message
+		jassert(false);
+		data_.clear();
+	}
+}
+
+uint8 JammerNetzClientInfoMessage::getNumClients() const
+{
+	if (info()) return info()->clientInfoHeader.numConnectedClients;
+	return 0;
+}
+
+juce::IPAddress JammerNetzClientInfoMessage::getIPAddress(uint8 clientNo) const
+{
+	if (clientNo < getNumClients()) {
+		return IPAddress(info()->clientInfos[clientNo].ipAddress, info()->clientInfos[clientNo].isIPV6);
+	}
+	return IPAddress("0.0.0.0");
+}
+
+const JammerNetzClientInfoPackage * JammerNetzClientInfoMessage::info() const
+{
+	if (data_.empty()) {
+		return nullptr;
+	}
+	return reinterpret_cast<const JammerNetzClientInfoPackage *>(data_.data());
 }
 
