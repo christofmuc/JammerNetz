@@ -270,6 +270,32 @@ JammerNetzClientInfoMessage::JammerNetzClientInfoMessage(uint8 *data, size_t byt
 	}
 }
 
+JammerNetzClientInfoMessage::JammerNetzClientInfoMessage(uint8 numClients)
+{
+	data_.resize(sizeof(JammerNetzHeader) + sizeof(JammerNetzClientInfoHeader) + numClients * sizeof(JammerNetzClientInfo), 0);
+	JammerNetzMessage::writeHeader(data_.data(), CLIENTINFO);
+	info()->clientInfoHeader.numConnectedClients = numClients;
+}
+
+void JammerNetzClientInfoMessage::setClientInfo(uint8 clientNo, IPAddress const ipAddress)
+{
+	jassert(info());
+	if (clientNo > getNumClients()) {
+		jassert(false);
+		return;
+	}
+
+	info()->clientInfos[clientNo].isIPV6 = ipAddress.isIPv6;
+	// Copy the 16 bytes of IPAddress data
+	std::copy(ipAddress.address, ipAddress.address + 16, info()->clientInfos[clientNo].ipAddress);
+}
+
+void JammerNetzClientInfoMessage::serialize(uint8 *output, int &byteswritten) const
+{
+	std::copy(data_.begin(), data_.end(), output);
+	byteswritten += data_.size();
+}
+
 uint8 JammerNetzClientInfoMessage::getNumClients() const
 {
 	if (info()) return info()->clientInfoHeader.numConnectedClients;
@@ -284,11 +310,15 @@ juce::IPAddress JammerNetzClientInfoMessage::getIPAddress(uint8 clientNo) const
 	return IPAddress("0.0.0.0");
 }
 
+JammerNetzClientInfoPackage * JammerNetzClientInfoMessage::info() 
+{
+	if (data_.empty()) return nullptr;
+	return reinterpret_cast<JammerNetzClientInfoPackage *>(data_.data());
+}
+
 const JammerNetzClientInfoPackage * JammerNetzClientInfoMessage::info() const
 {
-	if (data_.empty()) {
-		return nullptr;
-	}
+	if (data_.empty()) return nullptr;
 	return reinterpret_cast<const JammerNetzClientInfoPackage *>(data_.data());
 }
 

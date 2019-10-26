@@ -167,7 +167,8 @@ public:
 
 class JammerNetzClientInfoMessage : public JammerNetzMessage {
 public:
-	virtual void serialize(uint8 *output, int &byteswritten) const override;
+	JammerNetzClientInfoMessage(uint8 numClients);
+	void setClientInfo(uint8 clientNo, IPAddress const ipAddress);
 
 	uint8 getNumClients() const;
 	juce::IPAddress getIPAddress(uint8 clientNo) const;
@@ -175,8 +176,12 @@ public:
 	// Deserializing constructor, used by JammerNetzMessage::deserialize()
 	JammerNetzClientInfoMessage(uint8 *data, size_t bytes);
 
+	// Implementing the serialization interface
+	virtual void serialize(uint8 *output, int &byteswritten) const override;
+
 private:
 	const JammerNetzClientInfoPackage *info() const;
+	JammerNetzClientInfoPackage *info();
 
 	std::vector<uint8> data_;
 };
