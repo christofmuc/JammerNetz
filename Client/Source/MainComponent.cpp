@@ -109,14 +109,14 @@ void MainComponent::restartAudio(std::shared_ptr<ChannelSetup> inputSetup, std::
 	if (audioDevice_) {
 		BigInteger inputChannelMask = 0;
 		if (inputSetup) {
-			for (int i = 0; i < inputSetup->activeChannelIndices.size(); i++) {
-				inputChannelMask.setBit(inputSetup->activeChannelIndices[i]);
+			for (int activeChannelIndex : inputSetup->activeChannelIndices) {
+				inputChannelMask.setBit(activeChannelIndex);
 			}
 		}
 		BigInteger outputChannelMask = 0;
 		if (outputSetup) {
-			for (int i = 0; i < outputSetup->activeChannelIndices.size(); i++) {
-				outputChannelMask.setBit(outputSetup->activeChannelIndices[i]);
+			for (int activeChannelIndex : outputSetup->activeChannelIndices) {
+				outputChannelMask.setBit(activeChannelIndex);
 			}
 		}
 		String error = audioDevice_->open(inputChannelMask, outputChannelMask, ServerInfo::sampleRate, ServerInfo::bufferSize);
@@ -253,7 +253,7 @@ void MainComponent::setupChanged(std::shared_ptr<ChannelSetup> setup)
 	// Rebuild UI for the channel controllers
 	channelControllers_.clear(true);
 	int i = 0;
-	for (auto channelName : setup->activeChannelNames) {
+	for (const auto& channelName : setup->activeChannelNames) {
 		auto controller = new ChannelController(channelName, "Input" + String(i), [this, setup](double newVolume, JammerNetzChannelTarget newTarget) {
 			refreshChannelSetup(setup);
 		}, true, true, true);
