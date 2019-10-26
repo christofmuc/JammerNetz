@@ -105,6 +105,7 @@ struct JammerNetzClientInfoHeader {
 struct JammerNetzClientInfo {
 	uint8 ipAddress[16]; // The whole V6 IP address data. IP V4 would only use the first 4 bytes
 	bool isIPV6; // Not sure if I need this
+	int portNumber;
 	JammerNetzStreamQualityInfo qualityInfo;
 };
 
@@ -168,10 +169,10 @@ public:
 class JammerNetzClientInfoMessage : public JammerNetzMessage {
 public:
 	JammerNetzClientInfoMessage(uint8 numClients);
-	void setClientInfo(uint8 clientNo, IPAddress const ipAddress);
+	void setClientInfo(uint8 clientNo, IPAddress const ipAddress, int port);
 
 	uint8 getNumClients() const;
-	juce::IPAddress getIPAddress(uint8 clientNo) const;
+	String getIPAddress(uint8 clientNo) const;
 
 	// Deserializing constructor, used by JammerNetzMessage::deserialize()
 	JammerNetzClientInfoMessage(uint8 *data, size_t bytes);
