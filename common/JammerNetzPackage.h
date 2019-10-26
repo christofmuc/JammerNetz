@@ -14,7 +14,7 @@ const size_t MAXCHANNELSPERCLIENT = 4;
 /*
  For lazi-ness and stateless-ness Jammernetz for now works with only a single message type for now. This is the format:
 
-  | AUDIODATA type message
+  | AUDIODATA type message - this is sent by the client to the server, and also the server sends its mixing result with this type of message
   | JammerNetzAudioHeader
   |                                  | Audio - 2 Blocks, one active data and one FEC block containing the previous active block
   | JammerNetzHeader                 | JammerNetzAudioBlock                                                                     | AudioData for Block                       |
