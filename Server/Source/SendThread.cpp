@@ -21,7 +21,7 @@ void SendThread::determineTargetIP(std::string const &targetAddress, String &ipA
 void SendThread::sendAudioBlock(std::string const &targetAddress, AudioBlock &audioBlock) {
 	JammerNetzAudioData dataForClient(audioBlock);
 	size_t bytesWritten;
-	dataForClient.serialize(writebuffer, bytesWritten);
+	dataForClient.serialize(writebuffer_, bytesWritten);
 
 	if (fecData_.find(targetAddress) == fecData_.end()) {
 		// First time we send a package to this address, create a ring buffer!
@@ -29,7 +29,7 @@ void SendThread::sendAudioBlock(std::string const &targetAddress, AudioBlock &au
 	}
 	if (!fecData_.find(targetAddress)->second.isEmpty()) {
 		// Send FEC data
-		dataForClient.serialize(writebuffer, bytesWritten, fecData_.find(targetAddress)->second.getLast(), SAMPLE_RATE, FEC_SAMPLERATE_REDUCTION);
+		dataForClient.serialize(writebuffer_, bytesWritten, fecData_.find(targetAddress)->second.getLast(), SAMPLE_RATE, FEC_SAMPLERATE_REDUCTION);
 	}
 	// Store the package sent in the FEC buffer for the next package to go out
 	auto redundancyData = std::make_shared<AudioBlock>(audioBlock);
@@ -45,14 +45,14 @@ void SendThread::sendAudioBlock(std::string const &targetAddress, AudioBlock &au
 
 void SendThread::sendWriteBuffer(String ipAddress, int port, size_t size) {
 	// Encrypt in place
-	int cipherLength = blowFish_.encrypt(writebuffer, size, MAXFRAMESIZE);
+	int cipherLength = blowFish_.encrypt(writebuffer_, size, MAXFRAMESIZE);
 	if (cipherLength == -1) {
 		std::cerr << "Fatal: Failed to encrypt data package, abort!" << std::endl;
 		exit(-1);
 	}
 
 	// Now, back to the client! This will block when not ready to send yet, but that's ok.
-	sendSocket_.write(ipAddress, port, writebuffer, cipherLength);
+	sendSocket_.write(ipAddress, port, writebuffer_, cipherLength);
 }
 
 void SendThread::run()
