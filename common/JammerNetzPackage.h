@@ -124,6 +124,8 @@ public:
 		FLARE = 255
 	};
 
+	virtual MessageType getType() const = 0;
+
 	virtual void serialize(uint8 *output, size_t &byteswritten) const = 0;
 	static std::shared_ptr<JammerNetzMessage> deserialize(uint8 *data, size_t bytes);
 
@@ -139,6 +141,8 @@ public:
 
 	std::shared_ptr<JammerNetzAudioData> createFillInPackage(uint64 messageNumber) const;
 	std::shared_ptr<JammerNetzAudioData> createPrePaddingPackage() const;
+
+	virtual MessageType getType() const override;
 
 	virtual void serialize(uint8 *output, size_t &byteswritten) const override;
 	void serialize(uint8 *output, size_t &byteswritten, std::shared_ptr<AudioBlock> src, uint16 sampleRate, uint16 reductionFactor) const;
@@ -169,7 +173,10 @@ public:
 class JammerNetzClientInfoMessage : public JammerNetzMessage {
 public:
 	JammerNetzClientInfoMessage(uint8 numClients);
+	JammerNetzClientInfoMessage(JammerNetzClientInfoMessage const &other) = default;
 	void setClientInfo(uint8 clientNo, IPAddress const ipAddress, int port);
+
+	virtual MessageType getType() const override;
 
 	uint8 getNumClients() const;
 	String getIPAddress(uint8 clientNo) const;
@@ -190,5 +197,6 @@ private:
 class JammerNetzFlare : public JammerNetzMessage {
 public:
 	JammerNetzFlare();
+	virtual MessageType getType() const override;
 	virtual void serialize(uint8 *output, size_t &byteswritten) const override;
 };

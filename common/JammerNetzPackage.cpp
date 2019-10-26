@@ -128,6 +128,11 @@ std::shared_ptr<JammerNetzAudioData> JammerNetzAudioData::createPrePaddingPackag
 	return std::make_shared<JammerNetzAudioData>(audioBlock_->messageCounter  - 1, audioBlock_->timestamp, audioBlock_->channelSetup, silence);
 }
 
+JammerNetzMessage::MessageType JammerNetzAudioData::getType() const
+{
+	return AUDIODATA;
+}
+
 void JammerNetzAudioData::serialize(uint8 *output, size_t &byteswritten) const {
 	jassert(audioBlock_);
 	byteswritten = writeHeader(output, AUDIODATA);
@@ -253,6 +258,11 @@ JammerNetzFlare::JammerNetzFlare()
 {
 }
 
+JammerNetzMessage::MessageType JammerNetzFlare::getType() const
+{
+	return FLARE;
+}
+
 void JammerNetzFlare::serialize(uint8 *output, size_t &byteswritten) const
 {
 	writeHeader(output, FLARE);
@@ -288,6 +298,11 @@ void JammerNetzClientInfoMessage::setClientInfo(uint8 clientNo, IPAddress const 
 	info()->clientInfos[clientNo].isIPV6 = ipAddress.isIPv6;
 	info()->clientInfos[clientNo].portNumber = port;
 	std::copy(ipAddress.address, ipAddress.address + 16, info()->clientInfos[clientNo].ipAddress); // Copy the 16 bytes of IPAddress data
+}
+
+JammerNetzMessage::MessageType JammerNetzClientInfoMessage::getType() const
+{
+	return CLIENTINFO;
 }
 
 void JammerNetzClientInfoMessage::serialize(uint8 *output, size_t &byteswritten) const

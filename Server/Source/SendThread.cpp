@@ -20,7 +20,7 @@ void SendThread::determineTargetIP(std::string const &targetAddress, String &ipA
 
 void SendThread::sendAudioBlock(std::string const &targetAddress, AudioBlock &audioBlock) {
 	JammerNetzAudioData dataForClient(audioBlock);
-	size_t bytesWritten;
+	size_t bytesWritten = 0;
 	dataForClient.serialize(writebuffer_, bytesWritten);
 
 	if (fecData_.find(targetAddress) == fecData_.end()) {
@@ -43,6 +43,21 @@ void SendThread::sendAudioBlock(std::string const &targetAddress, AudioBlock &au
 }
 
 
+void SendThread::sendClientInfoPackage(std::string const &targetAddress)
+{
+	JammerNetzClientInfoMessage clientInfoPackage(1);
+	
+	String ipAddress;
+	int port;
+	determineTargetIP(targetAddress, ipAddress, port);
+	clientInfoPackage.setClientInfo(0, IPAddress(ipAddress), port);
+
+	size_t bytesWritten = 0;
+	clientInfoPackage.serialize(writebuffer_, bytesWritten);
+
+	sendWriteBuffer(ipAddress, port, bytesWritten);
+}
+
 void SendThread::sendWriteBuffer(String ipAddress, int port, size_t size) {
 	// Encrypt in place
 	int cipherLength = blowFish_.encrypt(writebuffer_, size, MAXFRAMESIZE);
@@ -64,5 +79,15 @@ void SendThread::run()
 
 		// Now serialize the buffer and create the datagram to send back to the client
 		sendAudioBlock(nextBlock.targetAddress, nextBlock.audioBlock);
+
+		// Check if we want to send a statistics package to that client (every nth data package)
+		if (packageCounters_.find(nextBlock.targetAddress) == packageCounters_.end()) {
+			// First time we send a package to this address!
+			packageCounters_.emplace(nextBlock.targetAddress, 0);
+		}
+		if (packageCounters_[nextBlock.targetAddress] % 100 == 0) {
+			sendClientInfoPackage(nextBlock.targetAddress);
+		}
+		packageCounters_[nextBlock.targetAddress]++;
 	}
 }
