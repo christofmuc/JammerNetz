@@ -9,7 +9,7 @@
 #include "BuffersConfig.h"
 
 SendThread::SendThread(DatagramSocket& socket, TOutgoingQueue &sendQueue) 
-	: Thread("SenderThread"), sendSocket_(socket), messageCounter_(0), sendQueue_(sendQueue), blowFish_(BinaryData::RandomNumbers_bin, BinaryData::RandomNumbers_binSize)
+	: Thread("SenderThread"), sendSocket_(socket), sendQueue_(sendQueue), blowFish_(BinaryData::RandomNumbers_bin, BinaryData::RandomNumbers_binSize)
 {
 }
 

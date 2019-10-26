@@ -27,7 +27,6 @@ private:
 	TOutgoingQueue& sendQueue_;
 	DatagramSocket& sendSocket_;
 	uint8 writebuffer_[MAXFRAMESIZE];
-	uint64 messageCounter_;
 	std::map<std::string, RingOfAudioBuffers<AudioBlock>> fecData_;
 	BlowFish blowFish_;
 };
