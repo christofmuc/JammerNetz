@@ -72,14 +72,14 @@ int JammerNetzMessage::writeHeader(uint8 *output, uint8 messageType) const
 }
 
 // Deserializing constructor
-JammerNetzAudioData::JammerNetzAudioData(uint8 *data, int bytes) {
+JammerNetzAudioData::JammerNetzAudioData(uint8 *data, size_t bytes) {
 	if (bytes < sizeof(JammerNetzAudioHeader)) {
 		jassert(false);
 		return;
 	}
 
 	// Read the first audio block
-	int bytesread = sizeof(JammerNetzHeader);
+	size_t bytesread = sizeof(JammerNetzHeader);
 	audioBlock_ = readAudioHeaderAndBytes(data, bytesread);
 	activeBlock_ = audioBlock_;
 	
@@ -128,7 +128,7 @@ std::shared_ptr<JammerNetzAudioData> JammerNetzAudioData::createPrePaddingPackag
 	return std::make_shared<JammerNetzAudioData>(audioBlock_->messageCounter  - 1, audioBlock_->timestamp, audioBlock_->channelSetup, silence);
 }
 
-void JammerNetzAudioData::serialize(uint8 *output, int &byteswritten) const {
+void JammerNetzAudioData::serialize(uint8 *output, size_t &byteswritten) const {
 	jassert(audioBlock_);
 	byteswritten = writeHeader(output, AUDIODATA);
 	serialize(output, byteswritten, audioBlock_, 48000, 1);
@@ -137,7 +137,7 @@ void JammerNetzAudioData::serialize(uint8 *output, int &byteswritten) const {
 	}
 }
 
-void JammerNetzAudioData::serialize(uint8 *output, int &byteswritten, std::shared_ptr<AudioBlock> src, uint16 sampleRate, uint16 reductionFactor) const
+void JammerNetzAudioData::serialize(uint8 *output, size_t &byteswritten, std::shared_ptr<AudioBlock> src, uint16 sampleRate, uint16 reductionFactor) const
 {
 	JammerNetzAudioBlock *block = reinterpret_cast<JammerNetzAudioBlock *>(&output[byteswritten]);
 	block->timestamp = src->timestamp;
@@ -150,7 +150,7 @@ void JammerNetzAudioData::serialize(uint8 *output, int &byteswritten, std::share
 	appendAudioBuffer(*src->audioBuffer, output, byteswritten, reductionFactor);
 }
 
-void JammerNetzAudioData::appendAudioBuffer(AudioBuffer<float> &buffer, uint8 *output, int &writeIndex, uint16 reductionFactor) const {
+void JammerNetzAudioData::appendAudioBuffer(AudioBuffer<float> &buffer, uint8 *output, size_t &writeIndex, uint16 reductionFactor) const {
 	for (int inputChannel = 0; inputChannel < buffer.getNumChannels(); inputChannel++) {
 		if (reductionFactor == 1) {
 		AudioData::Pointer<AudioData::Float32, AudioData::LittleEndian, AudioData::NonInterleaved, AudioData::Const> inputData(buffer.getReadPointer(inputChannel));
@@ -197,7 +197,7 @@ JammerNetzChannelSetup JammerNetzAudioData::channelSetup() const
 	return activeBlock_->channelSetup;
 }
 
-std::shared_ptr<AudioBlock> JammerNetzAudioData::readAudioHeaderAndBytes(uint8 *data, int &bytesread) {
+std::shared_ptr<AudioBlock> JammerNetzAudioData::readAudioHeaderAndBytes(uint8 *data, size_t &bytesread) {
 	auto result = std::make_shared<AudioBlock>();
 	JammerNetzAudioBlock *block = reinterpret_cast<JammerNetzAudioBlock *>(&data[bytesread]);
 	result->messageCounter = block->messageCounter;
@@ -212,7 +212,7 @@ std::shared_ptr<AudioBlock> JammerNetzAudioData::readAudioHeaderAndBytes(uint8 *
 	return result;
 }
 
-void JammerNetzAudioData::readAudioBytes(uint8 *data, int numchannels, int numsamples, std::shared_ptr<AudioBuffer<float>> destBuffer, int &bytesRead, int upsampleRate) {
+void JammerNetzAudioData::readAudioBytes(uint8 *data, int numchannels, int numsamples, std::shared_ptr<AudioBuffer<float>> destBuffer, size_t &bytesRead, int upsampleRate) {
 	for (int channel = 0; channel < numchannels; channel++) {
 		//TODO we might not have enough bytes in the package for this operation
 		if (upsampleRate == 1) {
@@ -253,7 +253,7 @@ JammerNetzFlare::JammerNetzFlare()
 {
 }
 
-void JammerNetzFlare::serialize(uint8 *output, int &byteswritten) const
+void JammerNetzFlare::serialize(uint8 *output, size_t &byteswritten) const
 {
 	writeHeader(output, FLARE);
 	byteswritten += sizeof(JammerNetzHeader);
@@ -290,7 +290,7 @@ void JammerNetzClientInfoMessage::setClientInfo(uint8 clientNo, IPAddress const 
 	std::copy(ipAddress.address, ipAddress.address + 16, info()->clientInfos[clientNo].ipAddress);
 }
 
-void JammerNetzClientInfoMessage::serialize(uint8 *output, int &byteswritten) const
+void JammerNetzClientInfoMessage::serialize(uint8 *output, size_t &byteswritten) const
 {
 	std::copy(data_.begin(), data_.end(), output);
 	byteswritten += data_.size();

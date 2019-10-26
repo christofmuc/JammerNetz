@@ -123,7 +123,7 @@ public:
 		FLARE = 255
 	};
 
-	virtual void serialize(uint8 *output, int &byteswritten) const = 0;
+	virtual void serialize(uint8 *output, size_t &byteswritten) const = 0;
 	static std::shared_ptr<JammerNetzMessage> deserialize(uint8 *data, size_t bytes);
 
 protected:
@@ -132,15 +132,15 @@ protected:
 
 class JammerNetzAudioData : public JammerNetzMessage {
 public:
-	JammerNetzAudioData(uint8 *data, int bytes);
+	JammerNetzAudioData(uint8 *data, size_t bytes);
 	JammerNetzAudioData(uint64 messageCounter, double timestamp, JammerNetzChannelSetup const &channelSetup, std::shared_ptr<AudioBuffer<float>> audioBuffer);
 	JammerNetzAudioData(AudioBlock const &audioBlock);
 
 	std::shared_ptr<JammerNetzAudioData> createFillInPackage(uint64 messageNumber) const;
 	std::shared_ptr<JammerNetzAudioData> createPrePaddingPackage() const;
 
-	virtual void serialize(uint8 *output, int &byteswritten) const override;
-	void serialize(uint8 *output, int &byteswritten, std::shared_ptr<AudioBlock> src, uint16 sampleRate, uint16 reductionFactor) const;
+	virtual void serialize(uint8 *output, size_t &byteswritten) const override;
+	void serialize(uint8 *output, size_t &byteswritten, std::shared_ptr<AudioBlock> src, uint16 sampleRate, uint16 reductionFactor) const;
 
 	// Read access, those use the "active block"
 	std::shared_ptr<AudioBuffer<float>> audioBuffer() const;
@@ -149,9 +149,9 @@ public:
 	JammerNetzChannelSetup channelSetup() const;
 
 private:
-	void appendAudioBuffer(AudioBuffer<float> &buffer, uint8 *output, int &writeIndex, uint16 reductionFactor) const;
-	std::shared_ptr<AudioBlock> readAudioHeaderAndBytes(uint8 *data, int &bytesread);
-	void readAudioBytes(uint8 *data, int numchannels, int numsamples, std::shared_ptr<AudioBuffer<float>> destBuffer, int &bytesRead, int upsampleRate);
+	void appendAudioBuffer(AudioBuffer<float> &buffer, uint8 *output, size_t &writeIndex, uint16 reductionFactor) const;
+	std::shared_ptr<AudioBlock> readAudioHeaderAndBytes(uint8 *data, size_t &bytesread);
+	void readAudioBytes(uint8 *data, int numchannels, int numsamples, std::shared_ptr<AudioBuffer<float>> destBuffer, size_t &bytesRead, int upsampleRate);
 
 	std::shared_ptr<AudioBlock> audioBlock_;
 	std::shared_ptr<AudioBlock> fecBlock_;
@@ -177,7 +177,7 @@ public:
 	JammerNetzClientInfoMessage(uint8 *data, size_t bytes);
 
 	// Implementing the serialization interface
-	virtual void serialize(uint8 *output, int &byteswritten) const override;
+	virtual void serialize(uint8 *output, size_t &byteswritten) const override;
 
 private:
 	const JammerNetzClientInfoPackage *info() const;
@@ -189,5 +189,5 @@ private:
 class JammerNetzFlare : public JammerNetzMessage {
 public:
 	JammerNetzFlare();
-	virtual void serialize(uint8 *output, int &byteswritten) const override;
+	virtual void serialize(uint8 *output, size_t &byteswritten) const override;
 };

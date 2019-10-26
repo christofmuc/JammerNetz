@@ -22,7 +22,7 @@ void SendThread::run()
 
 		// Now serialize the buffer and create the datagram to send back to the client
 		JammerNetzAudioData dataForClient(nextBlock.audioBlock);
-		int bytesWritten;
+		size_t bytesWritten;
 		dataForClient.serialize(writebuffer, bytesWritten);
 
 		if (fecData_.find(nextBlock.targetAddress) == fecData_.end()) {
