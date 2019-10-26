@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <JUCERPROJECT id="YUJbef" name="JammerNetzServer" projectType="consoleapp"
-              jucerVersion="5.4.3">
+              jucerVersion="5.4.5">
   <MAINGROUP id="cLYj2b" name="JammerNetzServer">
     <GROUP id="{769CAA7A-DA3A-37B9-BE27-D6407825935D}" name="docker">
       <GROUP id="{0875CC80-8AAC-BFF8-2BFE-9BA632C0710E}" name="buildmachine">
