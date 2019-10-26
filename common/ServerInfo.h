@@ -9,7 +9,7 @@
 #include "JuceHeader.h"
 
 struct ServerInfo {
-	static std::string serverName; //TODO this is no longer read only, should somehow Lock access to it!
+	static std::string serverName; //TODO this is no longer read only, should somehow lock access to it!
 	static int serverPort;
 	static int bufferSize; // Should be the same for all clients
 	static int sampleRate; // Should be the same for all clients
