@@ -16,9 +16,14 @@ class SendThread : public Thread {
 public:
 	SendThread(DatagramSocket& socket, TOutgoingQueue &sendQueue);
 
+
 	virtual void run() override;
 
 private:
+	void determineTargetIP(std::string const &targetAddress, String &ipAddress, int &portNumber);
+	void sendWriteBuffer(String ipAddress, int port, size_t size);
+	void sendAudioBlock(std::string const &targetAddress, AudioBlock &audioBlock);
+	
 	TOutgoingQueue& sendQueue_;
 	DatagramSocket& sendSocket_;
 	uint8 writebuffer[MAXFRAMESIZE];
