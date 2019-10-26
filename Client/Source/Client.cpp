@@ -55,7 +55,7 @@ bool Client::sendData(JammerNetzChannelSetup const &channelSetup, std::shared_pt
 	// Create a message
 	JammerNetzAudioData audioMessage(messageCounter_, Time::getMillisecondCounterHiRes(), channelSetup, audioBuffer);
 	messageCounter_++;
-	int totalBytes;
+	size_t totalBytes;
 	audioMessage.serialize(sendBuffer_, totalBytes);
 	// If we have FEC data, append the last block sent
 	if (!fecBuffer_.isEmpty()) {
@@ -83,7 +83,7 @@ bool Client::sendData(JammerNetzChannelSetup const &channelSetup, std::shared_pt
 	if (numberOfFlares_ > 0) {
 		// Send two flares to distract routers
 		JammerNetzFlare flare;
-		int bytes = 0;
+		size_t bytes = 0;
 		flare.serialize(sendBuffer_, bytes);
 		encryptedLength = blowFish_.encrypt(sendBuffer_, bytes, MAXFRAMESIZE);
 		if (encryptedLength == -1) {
