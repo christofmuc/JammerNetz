@@ -287,7 +287,7 @@ JammerNetzClientInfoMessage::JammerNetzClientInfoMessage(uint8 numClients)
 	info()->clientInfoHeader.numConnectedClients = numClients;
 }
 
-void JammerNetzClientInfoMessage::setClientInfo(uint8 clientNo, IPAddress const ipAddress, int port)
+void JammerNetzClientInfoMessage::setClientInfo(uint8 clientNo, IPAddress const ipAddress, int port, JammerNetzStreamQualityInfo infoData)
 {
 	jassert(info());
 	if (clientNo > getNumClients()) {
@@ -298,6 +298,7 @@ void JammerNetzClientInfoMessage::setClientInfo(uint8 clientNo, IPAddress const 
 	info()->clientInfos[clientNo].isIPV6 = ipAddress.isIPv6;
 	info()->clientInfos[clientNo].portNumber = port;
 	std::copy(ipAddress.address, ipAddress.address + 16, info()->clientInfos[clientNo].ipAddress); // Copy the 16 bytes of IPAddress data
+	info()->clientInfos[clientNo].qualityInfo = infoData;
 }
 
 JammerNetzMessage::MessageType JammerNetzClientInfoMessage::getType() const
@@ -324,6 +325,15 @@ String JammerNetzClientInfoMessage::getIPAddress(uint8 clientNo) const
 		return address.toString() + ":" + String(info()->clientInfos[clientNo].portNumber);
 	}
 	return "0.0.0.0";
+}
+
+JammerNetzStreamQualityInfo JammerNetzClientInfoMessage::getStreamQuality(uint8 clientNo) const
+{
+	JammerNetzStreamQualityInfo result{ 0 };
+	if (clientNo < getNumClients()) {
+		return info()->clientInfos[clientNo].qualityInfo;
+	}
+	return result;
 }
 
 JammerNetzClientInfoPackage * JammerNetzClientInfoMessage::info() 

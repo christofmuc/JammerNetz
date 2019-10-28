@@ -210,6 +210,28 @@ void MainComponent::numConnectedClientsChanged() {
 	resized();
 }
 
+void MainComponent::fillConnectedClientsStatistics() {
+	auto info = callback_.getClientInfo();
+	for (uint8 i = 0; i < info->getNumClients(); i++) {
+		auto label = clientInfo_[i];
+		std::stringstream status;
+		status << info->getIPAddress(i) << ":";
+		auto quality = info->getStreamQuality(i);
+		status 
+			<< quality.packagesPushed - quality.packagesPopped << " len, "
+			<< quality.outOfOrderPacketCounter << " ooO, "
+			<< quality.maxWrongOrderSpan << " span, "
+			<< quality.duplicatePacketCounter << " dup, "
+			<< quality.dropsHealed << " heal, "
+			<< quality.tooLateOrDuplicate << " late, "
+			<< quality.droppedPacketCounter << " drop ("
+			<< std::setprecision(2) << quality.droppedPacketCounter / (float)quality.packagesPopped * 100.0f << "%), "
+			<< quality.maxLengthOfGap << " gap";
+
+		label->setText(status.str(), dontSendNotification);
+	}
+}
+
 void MainComponent::timerCallback()
 {
 	// Refresh the UI with info from the Audio callback
@@ -231,7 +253,7 @@ void MainComponent::timerCallback()
 		<< callback_.currentPacketSize() * 8 * (ServerInfo::sampleRate / (float)ServerInfo::bufferSize) / (1024 * 1024.0f) << "MBit/s. ";
 	connectionInfo_.setText(connectionInfo.str(), dontSendNotification);
 
-	if (callback_.getClientInfo()->getNumClients() != clientInfo_.size()) {
+	if (callback_.getClientInfo() && callback_.getClientInfo()->getNumClients() != clientInfo_.size()) {
 		// Need to re-setup the UI
 		numConnectedClientsChanged();
 	}

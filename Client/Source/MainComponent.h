@@ -33,6 +33,7 @@ private:
 	void outputSetupChanged(std::shared_ptr<ChannelSetup> setup);
 	void newServerSelected();
 	void numConnectedClientsChanged();
+	void fillConnectedClientsStatistics();
 
 	AudioDeviceManager deviceManager_;
 	std::shared_ptr<AudioIODevice> audioDevice_;

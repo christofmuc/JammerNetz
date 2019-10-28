@@ -174,12 +174,13 @@ class JammerNetzClientInfoMessage : public JammerNetzMessage {
 public:
 	JammerNetzClientInfoMessage(uint8 numClients);
 	JammerNetzClientInfoMessage(JammerNetzClientInfoMessage const &other) = default;
-	void setClientInfo(uint8 clientNo, IPAddress const ipAddress, int port);
+	void setClientInfo(uint8 clientNo, IPAddress const ipAddress, int port, JammerNetzStreamQualityInfo infoData);
 
 	virtual MessageType getType() const override;
 
 	uint8 getNumClients() const;
 	String getIPAddress(uint8 clientNo) const;
+	JammerNetzStreamQualityInfo getStreamQuality(uint8 clientNo) const;
 
 	// Deserializing constructor, used by JammerNetzMessage::deserialize()
 	JammerNetzClientInfoMessage(uint8 *data, size_t bytes);
