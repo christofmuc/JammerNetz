@@ -8,8 +8,8 @@
 
 #include "BuffersConfig.h"
 
-SendThread::SendThread(DatagramSocket& socket, TOutgoingQueue &sendQueue) 
-	: Thread("SenderThread"), sendSocket_(socket), sendQueue_(sendQueue), blowFish_(BinaryData::RandomNumbers_bin, BinaryData::RandomNumbers_binSize)
+SendThread::SendThread(DatagramSocket& socket, TOutgoingQueue &sendQueue, TPacketStreamBundle &incomingData)
+	: Thread("SenderThread"), sendSocket_(socket), sendQueue_(sendQueue), incomingData_(incomingData), blowFish_(BinaryData::RandomNumbers_bin, BinaryData::RandomNumbers_binSize)
 {
 }
 
@@ -45,16 +45,32 @@ void SendThread::sendAudioBlock(std::string const &targetAddress, AudioBlock &au
 
 void SendThread::sendClientInfoPackage(std::string const &targetAddress)
 {
-	JammerNetzClientInfoMessage clientInfoPackage(1);
+	uint8 numClients = 0;
+	for (auto &incoming : incomingData_) {
+		if (incoming.second && !incoming.second->size() == 0) {
+			numClients++;
+		}
+	}
+			
+	JammerNetzClientInfoMessage clientInfoPackage(numClients);
 	
-	String ipAddress;
-	int port;
-	determineTargetIP(targetAddress, ipAddress, port);
-	clientInfoPackage.setClientInfo(0, IPAddress(ipAddress), port);
+	// Loop over the incoming data streams and add them to our statistics package we are going to send to the client
+	uint8 i = 0;
+	for (auto &incoming : incomingData_) {
+		if (incoming.second && !incoming.second->size() == 0) {
+			String ipAddress;
+			int port;
+			determineTargetIP(incoming.first, ipAddress, port);
+			clientInfoPackage.setClientInfo(i++, IPAddress(ipAddress), port);
+		}
+	}
 
 	size_t bytesWritten = 0;
 	clientInfoPackage.serialize(writebuffer_, bytesWritten);
 
+	String ipAddress;
+	int port;
+	determineTargetIP(targetAddress, ipAddress, port);
 	sendWriteBuffer(ipAddress, port, bytesWritten);
 }
 
