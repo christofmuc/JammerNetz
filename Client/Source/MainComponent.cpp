@@ -174,7 +174,7 @@ void MainComponent::resized()
 	bpmDisplay_->setBounds(midiRecordingInfo);
 	statusInfo_.setBounds(settingsArea.removeFromTop(settingsArea.getHeight()/2));
 	for (auto clientInfo : clientInfo_) {
-		clientInfo->setBounds(settingsArea.removeFromTop(kLineHeight));
+		clientInfo->setBounds(settingsArea.removeFromTop(kLineHeight * 2));
 	}
 	downstreamInfo_.setBounds(settingsArea);
 
@@ -203,10 +203,10 @@ void MainComponent::numConnectedClientsChanged() {
 	auto info = callback_.getClientInfo();
 	for (uint8 i = 0; i < info->getNumClients(); i++) {
 		auto label = new Label();
-		label->setText(info->getIPAddress(i), dontSendNotification);
 		addAndMakeVisible(label);
 		clientInfo_.add(label);
 	}
+	fillConnectedClientsStatistics();
 	resized();
 }
 
@@ -256,6 +256,9 @@ void MainComponent::timerCallback()
 	if (callback_.getClientInfo() && callback_.getClientInfo()->getNumClients() != clientInfo_.size()) {
 		// Need to re-setup the UI
 		numConnectedClientsChanged();
+	}
+	else {
+		fillConnectedClientsStatistics();
 	}
 
 	serverStatus_.setConnected(callback_.isReceivingData());
