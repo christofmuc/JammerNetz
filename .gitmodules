@@ -7,3 +7,6 @@
 [submodule "third_party/infra"]
 	path = third_party/infra
 	url = https://github.com/cycfi/infra.git
+[submodule "third_party/capnproto"]
+	path = third_party/capnproto
+	url = https://github.com/capnproto/capnproto.git
