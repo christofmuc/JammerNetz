@@ -146,6 +146,7 @@ JammerNetzStreamQualityInfo StreamQualityData::qualityInfoPackage() const
 	result.droppedPacketCounter = droppedPacketCounter;
 	result.outOfOrderPacketCounter = outOfOrderPacketCounter;
 	result.duplicatePacketCounter = duplicatePacketCounter;
+	result.dropsHealed = dropsHealed;
 	result.packagesPushed = packagesPushed;
 	result.packagesPopped = packagesPopped;
 	result.maxLengthOfGap = maxLengthOfGap;
