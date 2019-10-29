@@ -55,11 +55,13 @@
       <CONFIGURATIONS>
         <CONFIGURATION isDebug="1" name="Debug" headerPath="../../../common&#10;../../../third_party/tbb2019_20190605oss/include&#10;../../../third_party/capnproto-c++-0.7.0/src"
                        warningsAreErrors="1" libraryPath="../../../third_party/tbb2019_20190605oss/lib/intel64/vc14&#10;../../../third_party/capnproto-c++-0.7.0/build/src/capnp/Debug&#10;../../../third_party/capnproto-c++-0.7.0/build/src/kj/Debug&#10;"
-                       defines="TBB_USE_DEBUG =1&#10;JAMMER_IS_SERVER" postbuildCommand=" xcopy &quot;$(ProjectDir)..\..\..\third_party\tbb2019_20190605oss\bin\intel64\vc14\*.dll&quot; &quot;$(TargetDir)&quot; /i /r /y"/>
-        <CONFIGURATION isDebug="0" name="Release" headerPath="../../../common&#10;../../../third_party/tbb2019_20190605oss/include"
+                       defines="TBB_USE_DEBUG =1&#10;JAMMER_IS_SERVER" postbuildCommand=" xcopy &quot;$(ProjectDir)..\..\..\third_party\tbb2019_20190605oss\bin\intel64\vc14\*.dll&quot; &quot;$(TargetDir)&quot; /i /r /y"
+                       prebuildCommand="SET PATH=%PATH%;$(ProjectDir)..\..\..\third_party\capnproto-tools-win32-0.7.0&#10;cd $(ProjectDir)..\..\..\common&#10;capnp.exe compile -oc++ JammerNetzPackages.capnp&#10;"/>
+        <CONFIGURATION isDebug="0" name="Release" headerPath="../../../common&#10;../../../third_party/tbb2019_20190605oss/include&#10;../../../third_party/capnproto-c++-0.7.0/src"
                        warningsAreErrors="1" postbuildCommand=" xcopy &quot;$(ProjectDir)..\..\..\third_party\tbb2019_20190605oss\bin\intel64\vc14\*.dll&quot; &quot;$(TargetDir)&quot; /i /r /y&#10;rem $(ProjectDir)..\..\docker\buildmachine\makeLinux.bat //d/Development/JammerNetz-OS&#10;"
-                       libraryPath="../../../third_party/tbb2019_20190605oss/lib/intel64/vc14&#10;&#10;"
-                       alwaysGenerateDebugSymbols="1" defines="JAMMER_IS_SERVER&#10;"/>
+                       libraryPath="../../../third_party/tbb2019_20190605oss/lib/intel64/vc14&#10;../../../third_party/capnproto-c++-0.7.0/build/src/capnp/Release&#10;../../../third_party/capnproto-c++-0.7.0/build/src/kj/Release&#10;&#10;"
+                       alwaysGenerateDebugSymbols="1" defines="JAMMER_IS_SERVER&#10;"
+                       prebuildCommand="SET PATH=%PATH%;$(ProjectDir)..\..\..\third_party\capnproto-tools-win32-0.7.0&#10;cd $(ProjectDir)..\..\..\common&#10;capnp.exe compile -oc++ JammerNetzPackages.capnp&#10;"/>
       </CONFIGURATIONS>
       <MODULEPATHS>
         <MODULEPATH id="juce_audio_basics" path="C:/Users/Christof/JUCE/modules"/>
