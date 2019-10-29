@@ -6,3 +6,7 @@ third_party/tbb2019_20190605oss/
 common/RandomNumbers.bin
 Server/docker/buildmachine/juce-5.4.3-linux.zip
 Client/Redist/vc_redist.x64.exe
+third_party/capnproto-c++-0.7.0/
+third_party/capnproto-tools-win32-0.7.0/
+common/JammerNetzPackages.capnp.h
+common/JammerNetzPackages.capnp.c++

@@ -45,25 +45,17 @@ void SendThread::sendAudioBlock(std::string const &targetAddress, AudioBlock &au
 
 void SendThread::sendClientInfoPackage(std::string const &targetAddress)
 {
-	
-	
 	// Loop over the incoming data streams and add them to our statistics package we are going to send to the client
-	std::vector<std::pair<std::string, JammerNetzStreamQualityInfo>> infos;
-	uint8 i = 0;
+	JammerNetzClientInfoMessage clientInfoPackage;
 	for (auto &incoming : incomingData_) {
 		if (incoming.second && !incoming.second->size() == 0) {
-			infos.emplace_back( incoming.first, incoming.second->qualityInfoPackage() );
+			String ipAddress;
+			int port;
+			determineTargetIP(incoming.first, ipAddress, port);
+			clientInfoPackage.addClientInfo(IPAddress(ipAddress), port, incoming.second->qualityInfoPackage());
 		}
 	}
-
-	// Now create a package to send this info to
-	JammerNetzClientInfoMessage clientInfoPackage((uint8) infos.size());
-	for (auto info: infos) {
-		String ipAddress;
-		int port;
-		determineTargetIP(info.first, ipAddress, port);
-		clientInfoPackage.setClientInfo(i++, IPAddress(ipAddress), port, info.second);
-	}
+	jassert(clientInfoPackage.getNumClients() > 0);
 
 	size_t bytesWritten = 0;
 	clientInfoPackage.serialize(writebuffer_, bytesWritten);

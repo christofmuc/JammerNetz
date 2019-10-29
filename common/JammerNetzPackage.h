@@ -98,23 +98,14 @@ struct JammerNetzStreamQualityInfo {
 	uint64_t maxWrongOrderSpan;
 };
 
-struct JammerNetzClientInfoHeader {
-	uint8 numConnectedClients;
-};
-
 struct JammerNetzClientInfo {
+	JammerNetzClientInfo(IPAddress ipAddress, int portNumber, JammerNetzStreamQualityInfo qualityInfo);
+
 	uint8 ipAddress[16]; // The whole V6 IP address data. IP V4 would only use the first 4 bytes
 	bool isIPV6; // Not sure if I need this
 	int portNumber;
 	JammerNetzStreamQualityInfo qualityInfo;
 };
-
-struct JammerNetzClientInfoPackage {
-	JammerNetzHeader header;
-	JammerNetzClientInfoHeader clientInfoHeader;
-	JammerNetzClientInfo clientInfos[1];
-};
-
 
 class JammerNetzMessage {
 public:
@@ -172,9 +163,9 @@ public:
 
 class JammerNetzClientInfoMessage : public JammerNetzMessage {
 public:
-	JammerNetzClientInfoMessage(uint8 numClients);
+	JammerNetzClientInfoMessage();
 	JammerNetzClientInfoMessage(JammerNetzClientInfoMessage const &other) = default;
-	void setClientInfo(uint8 clientNo, IPAddress const ipAddress, int port, JammerNetzStreamQualityInfo infoData);
+	void addClientInfo(IPAddress ipAddress, int port, JammerNetzStreamQualityInfo infoData);
 
 	virtual MessageType getType() const override;
 
@@ -189,10 +180,7 @@ public:
 	virtual void serialize(uint8 *output, size_t &byteswritten) const override;
 
 private:
-	const JammerNetzClientInfoPackage *info() const;
-	JammerNetzClientInfoPackage *info();
-
-	std::vector<uint8> data_;
+	std::vector<JammerNetzClientInfo> clientInfos_;
 };
 
 class JammerNetzFlare : public JammerNetzMessage {

@@ -17,6 +17,12 @@
             file="../common/JammerNetzPackage.cpp"/>
       <FILE id="neGd7A" name="JammerNetzPackage.h" compile="0" resource="0"
             file="../common/JammerNetzPackage.h"/>
+      <FILE id="ZH5apk" name="JammerNetzPackages.capnp" compile="0" resource="0"
+            file="../common/JammerNetzPackages.capnp"/>
+      <FILE id="bbJvsk" name="JammerNetzPackages.capnp.c++" compile="1" resource="0"
+            file="../common/JammerNetzPackages.capnp.c++"/>
+      <FILE id="ZKeV0Z" name="JammerNetzPackages.capnp.h" compile="0" resource="0"
+            file="../common/JammerNetzPackages.capnp.h"/>
       <FILE id="h11cgu" name="PacketStreamQueue.cpp" compile="1" resource="0"
             file="../common/PacketStreamQueue.cpp"/>
       <FILE id="PK7uKl" name="PacketStreamQueue.h" compile="0" resource="0"
@@ -44,10 +50,11 @@
     </GROUP>
   </MAINGROUP>
   <EXPORTFORMATS>
-    <VS2017 targetFolder="Builds/VisualStudio2017">
+    <VS2017 targetFolder="Builds/VisualStudio2017" extraCompilerFlags="/wd4100 /wd4244 /wd4267 /wd4127 /wd4245"
+            externalLibraries="capnp.lib&#10;kj.lib">
       <CONFIGURATIONS>
-        <CONFIGURATION isDebug="1" name="Debug" headerPath="../../../common&#10;../../../third_party/tbb2019_20190605oss/include"
-                       warningsAreErrors="1" libraryPath="../../../third_party/tbb2019_20190605oss/lib/intel64/vc14&#10;&#10;"
+        <CONFIGURATION isDebug="1" name="Debug" headerPath="../../../common&#10;../../../third_party/tbb2019_20190605oss/include&#10;../../../third_party/capnproto-c++-0.7.0/src"
+                       warningsAreErrors="1" libraryPath="../../../third_party/tbb2019_20190605oss/lib/intel64/vc14&#10;../../../third_party/capnproto-c++-0.7.0/build/src/capnp/Debug&#10;../../../third_party/capnproto-c++-0.7.0/build/src/kj/Debug&#10;"
                        defines="TBB_USE_DEBUG =1&#10;JAMMER_IS_SERVER" postbuildCommand=" xcopy &quot;$(ProjectDir)..\..\..\third_party\tbb2019_20190605oss\bin\intel64\vc14\*.dll&quot; &quot;$(TargetDir)&quot; /i /r /y"/>
         <CONFIGURATION isDebug="0" name="Release" headerPath="../../../common&#10;../../../third_party/tbb2019_20190605oss/include"
                        warningsAreErrors="1" postbuildCommand=" xcopy &quot;$(ProjectDir)..\..\..\third_party\tbb2019_20190605oss\bin\intel64\vc14\*.dll&quot; &quot;$(TargetDir)&quot; /i /r /y&#10;rem $(ProjectDir)..\..\docker\buildmachine\makeLinux.bat //d/Development/JammerNetz-OS&#10;"

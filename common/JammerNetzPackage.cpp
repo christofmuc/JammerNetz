@@ -8,6 +8,11 @@
 
 #include "BuffersConfig.h"
 
+#include "JammerNetzPackages.capnp.h"
+
+#include <capnp/message.h>
+#include <capnp/serialize.h>
+
 JammerNetzSingleChannelSetup::JammerNetzSingleChannelSetup() :
 	target(JammerNetzChannelTarget::Unused), volume(1.0f), balanceLeftRight(0.0f)
 {
@@ -270,35 +275,44 @@ void JammerNetzFlare::serialize(uint8 *output, size_t &byteswritten) const
 }
 
 // Deserializing constructor
-JammerNetzClientInfoMessage::JammerNetzClientInfoMessage(uint8 *data, size_t bytes) : data_(data, data + bytes)
+JammerNetzClientInfoMessage::JammerNetzClientInfoMessage(uint8 *data, size_t bytes) 
 {
-	if ((bytes < sizeof(JammerNetzHeader) + sizeof(JammerNetzClientInfoHeader)) || 
-		(bytes < (sizeof(JammerNetzHeader) + sizeof(JammerNetzClientInfoHeader) + getNumClients() * sizeof(JammerNetzClientInfo)))) {
-		// Not enough bytes for message
-		jassert(false);
-		data_.clear();
+	size_t headerSize = sizeof(JammerNetzHeader);
+	kj::ArrayInputStream inputStream(kj::ArrayPtr<uint8>(data + headerSize, bytes - headerSize));
+	capnp::InputStreamMessageReader reader(inputStream);
+
+	auto root = reader.getRoot<JammerNetzPNPClientInfoPackage>();
+	auto infos = root.getClientInfos();
+	for (auto && info : infos) {
+		auto ipData = info.getIpAddress();
+		jassert(ipData.size() == 16);
+		if (ipData.size() == 16) {
+			IPAddress ipAddress(ipData.asBytes().begin(), info.getIsIPV6());
+			JammerNetzStreamQualityInfo qualityInfo;
+			auto qi = info.getQualityInfo();
+
+			qualityInfo.tooLateOrDuplicate = qi.getTooLateOrDuplicate();
+			qualityInfo.droppedPacketCounter = qi.getDroppedPacketCounter();
+			qualityInfo.outOfOrderPacketCounter = qi.getOutOfOrderPacketCounter();
+			qualityInfo.duplicatePacketCounter = qi.getDuplicatePacketCounter();
+			qualityInfo.dropsHealed = qi.getDropsHealed();
+			qualityInfo.packagesPushed = qi.getPackagesPushed();
+			qualityInfo.packagesPopped = qi.getPackagesPopped();
+			qualityInfo.maxLengthOfGap = qi.getMaxLengthOfGap();
+			qualityInfo.maxWrongOrderSpan = qi.getMaxWrongOrderSpan();
+				
+			clientInfos_.emplace_back(ipAddress, info.getPortNumber(), qualityInfo);
+		}
 	}
 }
 
-JammerNetzClientInfoMessage::JammerNetzClientInfoMessage(uint8 numClients)
+JammerNetzClientInfoMessage::JammerNetzClientInfoMessage()
 {
-	data_.resize(sizeof(JammerNetzHeader) + sizeof(JammerNetzClientInfoHeader) + numClients * sizeof(JammerNetzClientInfo), 0);
-	JammerNetzMessage::writeHeader(data_.data(), CLIENTINFO);
-	info()->clientInfoHeader.numConnectedClients = numClients;
 }
 
-void JammerNetzClientInfoMessage::setClientInfo(uint8 clientNo, IPAddress const ipAddress, int port, JammerNetzStreamQualityInfo infoData)
+void JammerNetzClientInfoMessage::addClientInfo(IPAddress ipAddress, int port, JammerNetzStreamQualityInfo infoData)
 {
-	jassert(info());
-	if (clientNo > getNumClients()) {
-		jassert(false);
-		return;
-	}
-
-	info()->clientInfos[clientNo].isIPV6 = ipAddress.isIPv6;
-	info()->clientInfos[clientNo].portNumber = port;
-	std::copy(ipAddress.address, ipAddress.address + 16, info()->clientInfos[clientNo].ipAddress); // Copy the 16 bytes of IPAddress data
-	info()->clientInfos[clientNo].qualityInfo = infoData;
+	clientInfos_.emplace_back(ipAddress, port, infoData);
 }
 
 JammerNetzMessage::MessageType JammerNetzClientInfoMessage::getType() const
@@ -308,21 +322,55 @@ JammerNetzMessage::MessageType JammerNetzClientInfoMessage::getType() const
 
 void JammerNetzClientInfoMessage::serialize(uint8 *output, size_t &byteswritten) const
 {
-	std::copy(data_.begin(), data_.end(), output);
-	byteswritten += data_.size();
+	byteswritten += writeHeader(output, CLIENTINFO);
+
+	capnp::MallocMessageBuilder message;
+
+	// Use Captain Proto to fill our message
+	JammerNetzPNPClientInfoPackage::Builder jn = message.initRoot<JammerNetzPNPClientInfoPackage>();
+
+	auto infos = jn.initClientInfos(clientInfos_.size());
+	int i = 0;
+	for (auto clientInfo : clientInfos_) {
+		auto ip = infos[i].initIpAddress(16);
+		std::copy(clientInfo.ipAddress, clientInfo.ipAddress + 16, ip.begin());
+		infos[i].setIsIPV6(clientInfo.isIPV6);
+		infos[i].setPortNumber(clientInfo.portNumber);
+
+		// Setting the various fields of the quality info, separately
+		auto qi = infos[i].initQualityInfo();
+		
+		qi.setTooLateOrDuplicate(clientInfo.qualityInfo.tooLateOrDuplicate);
+		qi.setDroppedPacketCounter(clientInfo.qualityInfo.droppedPacketCounter);
+
+		// Healed problems
+		qi.setOutOfOrderPacketCounter(clientInfo.qualityInfo.outOfOrderPacketCounter);
+		qi.setDuplicatePacketCounter(clientInfo.qualityInfo.duplicatePacketCounter);
+		qi.setDropsHealed(clientInfo.qualityInfo.dropsHealed);
+
+		// Pure statistics
+		qi.setPackagesPushed(clientInfo.qualityInfo.packagesPushed);
+		qi.setPackagesPopped(clientInfo.qualityInfo.packagesPopped);
+		qi.setMaxLengthOfGap(clientInfo.qualityInfo.maxLengthOfGap);
+		qi.setMaxWrongOrderSpan(clientInfo.qualityInfo.maxWrongOrderSpan);
+	}
+
+	// Serialize to binary to send over the network
+	kj::ArrayOutputStream outputStream(kj::ArrayPtr<uint8>(output + byteswritten, MAXFRAMESIZE - byteswritten)); // TODO - this is incorrect, as there might be less bytes left in the block than MAXFRAMESIZE
+	writeMessage(outputStream, message);
+	byteswritten += outputStream.getArray().size();
 }
 
 uint8 JammerNetzClientInfoMessage::getNumClients() const
 {
-	if (info()) return info()->clientInfoHeader.numConnectedClients;
-	return 0;
+	return (uint8) clientInfos_.size();
 }
 
 String JammerNetzClientInfoMessage::getIPAddress(uint8 clientNo) const
 {
 	if (clientNo < getNumClients()) {
-		IPAddress address(info()->clientInfos[clientNo].ipAddress, info()->clientInfos[clientNo].isIPV6);
-		return address.toString() + ":" + String(info()->clientInfos[clientNo].portNumber);
+		IPAddress address(clientInfos_[clientNo].ipAddress, clientInfos_[clientNo].isIPV6);
+		return address.toString() + ":" + String(clientInfos_[clientNo].portNumber);
 	}
 	return "0.0.0.0";
 }
@@ -331,20 +379,14 @@ JammerNetzStreamQualityInfo JammerNetzClientInfoMessage::getStreamQuality(uint8 
 {
 	JammerNetzStreamQualityInfo result{ 0 };
 	if (clientNo < getNumClients()) {
-		return info()->clientInfos[clientNo].qualityInfo;
+		return clientInfos_[clientNo].qualityInfo;
 	}
 	return result;
 }
 
-JammerNetzClientInfoPackage * JammerNetzClientInfoMessage::info() 
+JammerNetzClientInfo::JammerNetzClientInfo(IPAddress ip, int port, JammerNetzStreamQualityInfo qual) :
+	portNumber(port), qualityInfo(qual)
 {
-	if (data_.empty()) return nullptr;
-	return reinterpret_cast<JammerNetzClientInfoPackage *>(data_.data());
+	std::copy(ip.address, ip.address + 16, ipAddress);
+	isIPV6 = ip.isIPv6;
 }
-
-const JammerNetzClientInfoPackage * JammerNetzClientInfoMessage::info() const
-{
-	if (data_.empty()) return nullptr;
-	return reinterpret_cast<const JammerNetzClientInfoPackage *>(data_.data());
-}
-
