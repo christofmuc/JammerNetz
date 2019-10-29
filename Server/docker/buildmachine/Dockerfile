@@ -11,8 +11,8 @@ RUN apt-get -y install g++ make
 # Stuff required to use JUCE in the basic version for the server
 RUN apt-get -y install libasound2-dev libcurl4-openssl-dev pkg-config
 
-COPY juce-5.4.3-linux.zip /root
-RUN cd /root && unzip /root/juce-5.4.3-linux.zip && rm juce-5.4.3-linux.zip
+COPY juce-5.4.5-linux.zip /root
+RUN cd /root && unzip /root/juce-5.4.5-linux.zip && rm juce-5.4.5-linux.zip
 
 # Stuff required by my code
 RUN apt-get -y install libtbb-dev 
