@@ -212,23 +212,25 @@ void MainComponent::numConnectedClientsChanged() {
 
 void MainComponent::fillConnectedClientsStatistics() {
 	auto info = callback_.getClientInfo();
-	for (uint8 i = 0; i < info->getNumClients(); i++) {
-		auto label = clientInfo_[i];
-		std::stringstream status;
-		status << info->getIPAddress(i) << ":";
-		auto quality = info->getStreamQuality(i);
-		status 
-			<< quality.packagesPushed - quality.packagesPopped << " len, "
-			<< quality.outOfOrderPacketCounter << " ooO, "
-			<< quality.maxWrongOrderSpan << " span, "
-			<< quality.duplicatePacketCounter << " dup, "
-			<< quality.dropsHealed << " heal, "
-			<< quality.tooLateOrDuplicate << " late, "
-			<< quality.droppedPacketCounter << " drop ("
-			<< std::setprecision(2) << quality.droppedPacketCounter / (float)quality.packagesPopped * 100.0f << "%), "
-			<< quality.maxLengthOfGap << " gap";
+	if (info) {
+		for (uint8 i = 0; i < info->getNumClients(); i++) {
+			auto label = clientInfo_[i];
+			std::stringstream status;
+			status << info->getIPAddress(i) << ":";
+			auto quality = info->getStreamQuality(i);
+			status
+				<< quality.packagesPushed - quality.packagesPopped << " len, "
+				<< quality.outOfOrderPacketCounter << " ooO, "
+				<< quality.maxWrongOrderSpan << " span, "
+				<< quality.duplicatePacketCounter << " dup, "
+				<< quality.dropsHealed << " heal, "
+				<< quality.tooLateOrDuplicate << " late, "
+				<< quality.droppedPacketCounter << " drop ("
+				<< std::setprecision(2) << quality.droppedPacketCounter / (float)quality.packagesPopped * 100.0f << "%), "
+				<< quality.maxLengthOfGap << " gap";
 
-		label->setText(status.str(), dontSendNotification);
+			label->setText(status.str(), dontSendNotification);
+		}
 	}
 }
 
