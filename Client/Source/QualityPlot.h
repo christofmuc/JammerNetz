@@ -13,6 +13,8 @@ public:
 	QualityPlot();
 
 	virtual void resized() override;
-	virtual void paint(Graphics& g) override;
 
+private:
+	class QualityPlotImpl;
+	std::unique_ptr<QualityPlotImpl> impl;
 };

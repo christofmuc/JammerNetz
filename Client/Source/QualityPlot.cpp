@@ -16,41 +16,68 @@
 #include "mgl2/mgl.h"
 #pragma warning( pop )
 
+class QualityPlot::QualityPlotImpl: public Component {
+public:
+	QualityPlotImpl() {
+		// 0 is the "default" kind, 1 would select OpenGL for rendering, but that wouldn't work in this context
+		gr = std::make_unique<mglGraph>(0, 256, 256);
+	}
+
+	virtual void resized() override {
+		auto newSize = getLocalBounds();
+		gr->SetSize(newSize.getWidth(), newSize.getHeight(), true);
+		repaint();
+	}
+
+	virtual void paint(Graphics& g) override {
+		jassert(gr->GetWidth() == getWidth());
+		jassert(gr->GetHeight() == getHeight());
+		const auto &luf = getLookAndFeel();
+		auto bg = luf.findColour(ComboBox::backgroundColourId);
+		gr->Clf(bg.getRed()/255.0, bg.getGreen() / 255.0, bg.getBlue() / 255.0);
+		gr->FPlot("sin(pi*x)");
+		gr->Axis("xy");
+		gr->Finish();
+
+		Image blitImage(Image::PixelFormat::ARGB, getWidth(), getHeight(), false);
+		{
+			// Restrict lifetime of bitmapData object, because it might write back into the image on deletion only
+			Image::BitmapData bitmapData(blitImage, Image::BitmapData::writeOnly);
+			const unsigned char *source = gr->GetRGBA();
+			uint8 *lineStart = bitmapData.data;
+			for (int y = 0; y < getHeight(); y++) {
+				auto dest = lineStart;
+				for (int x = 0; x < getWidth(); x++) {
+					//*(dest) = *(source + 3);
+					*(dest) = *(source+2);
+					*(dest + 1) = *(source + 1);
+					*(dest + 2) = *(source);
+
+					// Advance pointers to next pixel
+					source += 4;
+					dest += bitmapData.pixelStride;
+				}
+				lineStart += bitmapData.lineStride;
+			}
+		}
+
+		// Now we want to display that image!
+		g.drawImage(blitImage, 0, 0, getWidth(), getHeight(), 0, 0, gr->GetWidth(), gr->GetHeight());
+	}
+
+private:
+	std::unique_ptr<mglGraph> gr;
+};
+
 QualityPlot::QualityPlot()
 {
+	impl = std::make_unique<QualityPlotImpl>();
+	addAndMakeVisible(*impl);
 }
 
 void QualityPlot::resized()
 {
+	auto area = getLocalBounds();
+	if (impl) impl->setBounds(area);
 }
 
-void QualityPlot::paint(Graphics& g)
-{
-	mglGraph gr(0, 200, 200);
-	gr.FPlot("sin(pi*x)");
-
-	Image blitImage(Image::PixelFormat::RGB, 200, 200, false);
-	{
-		// Restrict lifetime of bitmapData object, because it might write back into the image on deletion only
-		Image::BitmapData bitmapData(blitImage, Image::BitmapData::writeOnly);
-		const unsigned char *source = gr.GetRGBA();
-		uint8 *lineStart = bitmapData.data;
-		for (int y = 0; y < 200; y++) {
-			auto dest = lineStart;
-			for (int x = 0; x < 200; x++) {
-				// Copy pixel
-				*dest = *source;
-				*(dest + 1) = *(source + 1);
-				*(dest + 2) = *(source + 2);
-
-				// Advance pointers to next pixel
-				source += 4;
-				dest += bitmapData.pixelStride;
-			}
-			lineStart += bitmapData.lineStride;
-		}
-	}
-	
-	// Now we want to display that image!
-	g.drawImage(blitImage, 0, 0, getWidth(), getHeight(), 0, 0, 200, 200);
-}
