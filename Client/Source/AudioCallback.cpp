@@ -225,3 +225,8 @@ std::shared_ptr<Recorder> AudioCallback::getMasterRecorder() const
 	return masterRecorder_;
 }
 
+std::shared_ptr<JammerNetzClientInfoMessage> AudioCallback::getClientInfo() const
+{
+	return client_.getClientInfo();
+}
+

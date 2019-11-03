@@ -86,6 +86,11 @@ std::string PacketStreamQueue::qualityStatement() const
 	return qualityData_.qualityStatement();
 }
 
+JammerNetzStreamQualityInfo PacketStreamQueue::qualityInfoPackage() const
+{
+	return qualityData_.qualityInfoPackage();
+}
+
 bool PacketStreamQueue::hasBeenPushedBefore(std::shared_ptr<JammerNetzAudioData> packet)
 {
 	// Easy case - if the message number of the packet is lower than the number of the last popped packet, it is too old
@@ -132,4 +137,19 @@ std::string StreamQualityData::qualityStatement() const {
 		<< maxLengthOfGap << " gap";
 		
 	return text.str();
+}
+
+JammerNetzStreamQualityInfo StreamQualityData::qualityInfoPackage() const
+{
+	JammerNetzStreamQualityInfo result;
+	result.tooLateOrDuplicate = tooLateOrDuplicate;
+	result.droppedPacketCounter = droppedPacketCounter;
+	result.outOfOrderPacketCounter = outOfOrderPacketCounter;
+	result.duplicatePacketCounter = duplicatePacketCounter;
+	result.dropsHealed = dropsHealed;
+	result.packagesPushed = packagesPushed;
+	result.packagesPopped = packagesPopped;
+	result.maxLengthOfGap = maxLengthOfGap;
+	result.maxWrongOrderSpan = maxWrongOrderSpan;
+	return result;
 }

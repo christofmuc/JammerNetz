@@ -3,6 +3,10 @@ Client/Builds
 third_party/ASIOSDK/
 third_party/pstl2019_20190605oss/
 third_party/tbb2019_20190605oss/
+third_party/capnproto-c++-0.7.0/
+third_party/capnproto-tools-win32-0.7.0/
 common/RandomNumbers.bin
-Server/docker/buildmachine/juce-5.4.3-linux.zip
 Client/Redist/vc_redist.x64.exe
+common/JammerNetzPackages.capnp.h
+common/JammerNetzPackages.capnp.c++
+Server/docker/buildmachine/juce-5.4.5-linux.zip

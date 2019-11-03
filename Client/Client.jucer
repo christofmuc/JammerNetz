@@ -102,15 +102,18 @@
   </MAINGROUP>
   <EXPORTFORMATS>
     <VS2017 targetFolder="Builds/VisualStudio2017" extraDefs="JUCE_ASIO "
-            extraCompilerFlags="/wd4244  /wd4100 /wd4456 /wd4267 /wd4702 /wd4305">
+            extraCompilerFlags="/wd4244  /wd4100 /wd4456 /wd4267 /wd4702 /wd4305 /wd4100 /wd4244 /wd4267 /wd4127 /wd4245"
+            externalLibraries="capnp.lib&#10;kj.lib">
       <CONFIGURATIONS>
-        <CONFIGURATION isDebug="1" name="Debug" headerPath="../../../third_party/ASIOSDK/common&#10;../../../common&#10;../../../third_party/Q/q_lib/include&#10;../../../third_party/infra/include&#10;../../../third_party/tbb2019_20190605oss/include"
-                       warningsAreErrors="1" libraryPath="../../../third_party/tbb2019_20190605oss/lib/intel64/vc14&#10;&#10;"
-                       defines="TBB_USE_DEBUG =1&#10;JAMMER_IS_CLIENT" postbuildCommand=" xcopy &quot;$(ProjectDir)..\..\..\third_party\tbb2019_20190605oss\bin\intel64\vc14\*.dll&quot; &quot;$(TargetDir)&quot; /i /r /y"/>
-        <CONFIGURATION isDebug="0" name="Release" headerPath="../../../third_party/ASIOSDK/common&#10;../../../common&#10;../../../third_party/Q/q_lib/include&#10;../../../third_party/infra/include&#10;../../../third_party/tbb2019_20190605oss/include"
-                       libraryPath="../../../third_party/tbb2019_20190605oss/lib/intel64/vc14&#10;"
-                       postbuildCommand="xcopy &quot;$(ProjectDir)..\..\..\third_party\tbb2019_20190605oss\bin\intel64\vc14\*.dll&quot; &quot;$(TargetDir)&quot; /i /r /y&#10;rem &quot;C:\Program Files (x86)\Inno Setup 6\iscc.exe&quot; &quot;$(ProjectDir)..\..\setup_client.iss&quot;&#10;"
-                       alwaysGenerateDebugSymbols="1" warningsAreErrors="1" defines="JAMMER_IS_CLIENT&#10;"/>
+        <CONFIGURATION isDebug="1" name="Debug" headerPath="../../../third_party/ASIOSDK/common&#10;../../../common&#10;../../../third_party/Q/q_lib/include&#10;../../../third_party/infra/include&#10;../../../third_party/tbb2019_20190605oss/include&#10;../../../third_party/capnproto-c++-0.7.0/src"
+                       warningsAreErrors="1" libraryPath="../../../third_party/tbb2019_20190605oss/lib/intel64/vc14&#10;../../../third_party/capnproto-c++-0.7.0/build/src/capnp/Debug&#10;../../../third_party/capnproto-c++-0.7.0/build/src/kj/Debug&#10;"
+                       defines="TBB_USE_DEBUG =1&#10;JAMMER_IS_CLIENT" postbuildCommand=" xcopy &quot;$(ProjectDir)..\..\..\third_party\tbb2019_20190605oss\bin\intel64\vc14\*.dll&quot; &quot;$(TargetDir)&quot; /i /r /y"
+                       prebuildCommand="SET PATH=%PATH%;$(ProjectDir)..\..\..\third_party\capnproto-tools-win32-0.7.0&#10;cd $(ProjectDir)..\..\..\common&#10;capnp.exe compile -oc++ JammerNetzPackages.capnp&#10;"/>
+        <CONFIGURATION isDebug="0" name="Release" headerPath="../../../third_party/ASIOSDK/common&#10;../../../common&#10;../../../third_party/Q/q_lib/include&#10;../../../third_party/infra/include&#10;../../../third_party/tbb2019_20190605oss/include&#10;../../../third_party/capnproto-c++-0.7.0/src"
+                       libraryPath="../../../third_party/tbb2019_20190605oss/lib/intel64/vc14&#10;../../../third_party/capnproto-c++-0.7.0/build/src/capnp/Release&#10;../../../third_party/capnproto-c++-0.7.0/build/src/kj/Release&#10;"
+                       postbuildCommand="xcopy &quot;$(ProjectDir)..\..\..\third_party\tbb2019_20190605oss\bin\intel64\vc14\*.dll&quot; &quot;$(TargetDir)&quot; /i /r /y&#10;&quot;C:\Program Files (x86)\Inno Setup 6\iscc.exe&quot; &quot;$(ProjectDir)..\..\setup_client.iss&quot;&#10;"
+                       alwaysGenerateDebugSymbols="1" warningsAreErrors="1" defines="JAMMER_IS_CLIENT&#10;"
+                       prebuildCommand="SET PATH=%PATH%;$(ProjectDir)..\..\..\third_party\capnproto-tools-win32-0.7.0&#10;cd $(ProjectDir)..\..\..\common&#10;capnp.exe compile -oc++ JammerNetzPackages.capnp&#10;"/>
       </CONFIGURATIONS>
       <MODULEPATHS>
         <MODULEPATH id="juce_audio_basics" path="C:/Users/Christof/JUCE/modules"/>

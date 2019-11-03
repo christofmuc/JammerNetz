@@ -44,7 +44,7 @@ public:
 	float channelPitch(int channel) const;
 
 	std::shared_ptr<Recorder> getMasterRecorder() const;
-
+	std::shared_ptr<JammerNetzClientInfoMessage> getClientInfo() const;
 private:
 	void clearOutput(float** outputChannelData, int numOutputChannels, int numSamples);
 

@@ -33,6 +33,8 @@ private:
 	void setupChanged(std::shared_ptr<ChannelSetup> setup);
 	void outputSetupChanged(std::shared_ptr<ChannelSetup> setup);
 	void newServerSelected();
+	void numConnectedClientsChanged();
+	void fillConnectedClientsStatistics();
 
 	AudioDeviceManager deviceManager_;
 	std::shared_ptr<AudioIODevice> audioDevice_;
@@ -49,6 +51,7 @@ private:
 	ServerStatus serverStatus_;
 	GroupComponent serverGroup_;
 	Label connectionInfo_;
+	OwnedArray<Label> clientInfo_;
 	Label statusInfo_;
 	Label downstreamInfo_;
 	std::unique_ptr<BPMDisplay> bpmDisplay_;
