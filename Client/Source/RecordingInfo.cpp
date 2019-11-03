@@ -42,6 +42,15 @@ RecordingInfo::RecordingInfo(std::weak_ptr<Recorder> recorder) : recorder_(recor
 	browse_.addListener(this);
 	freeDiskSpace_.setText("Free disk space", dontSendNotification);
 
+	PNGImageFormat reader;
+	MemoryInputStream image(BinaryData::live_png, BinaryData::live_pngSize, false);
+	auto im = reader.decodeImage(image);
+	recording_.setClickingTogglesState(true);
+	recording_.setImages(false, true, false, im, 1.0f, Colours::transparentWhite, im, 1.0f, Colours::transparentWhite, im, .2f, Colours::transparentBlack);
+	recording_.addListener(this);
+
+	recordingTime_.setJustificationType(Justification::centred);
+
 	addAndMakeVisible(recordingPath_);
 	addAndMakeVisible(browse_);
 	addAndMakeVisible(recording_);
@@ -59,6 +68,10 @@ void RecordingInfo::resized()
 {
 	auto area = getLocalBounds();
 
+	auto row2 = area.removeFromTop(kLineSpacing + kNormalInset);
+	recording_.setBounds(row2.withSizeKeepingCentre(kLabelWidth, kLineHeight + kNormalInset));
+	recordingTime_.setBounds(area.removeFromTop(kLineSpacing));
+
 	auto row3 = area.removeFromTop(kLineSpacing);
 	freeDiskSpace_.setBounds(row3.removeFromLeft(kLabelWidth));
 	diskSpace_.setBounds(row3.withSizeKeepingCentre(row3.getWidth() - 2 * kNormalInset, kLineHeight));
@@ -66,11 +79,6 @@ void RecordingInfo::resized()
 	auto row1 = area.removeFromTop(kLineSpacing);
 	browse_.setBounds(row1.removeFromLeft(kLabelWidth).withHeight(kLineHeight));
 	recordingPath_.setBounds(row1.withTrimmedLeft(kNormalInset));
-	
-	auto row2 = area.removeFromTop(kLineSpacing);
-	recordingTime_.setBounds(row2.removeFromRight(kLabelWidth));
-	recording_.setBounds(row2.removeFromRight(kLabelWidth));
-	
 }
 
 void RecordingInfo::buttonClicked(Button *clicked)
@@ -82,6 +90,11 @@ void RecordingInfo::buttonClicked(Button *clicked)
 			recorder_.lock()->setDirectory(chosen);
 		}
 	}
+	else if (clicked == &recording_) {
+		if (!recorder_.expired()) {
+			recorder_.lock()->setRecording(!recording_.getToggleState());
+		}
+	}
 }
 
 void RecordingInfo::updateData()
@@ -91,8 +104,12 @@ void RecordingInfo::updateData()
 		recordingPath_.setText(dir.getFullPathName(), dontSendNotification);
 		diskSpacePercentage_ =  1.0 - dir.getBytesFreeOnVolume() / (double)dir.getVolumeTotalSize();
 		diskSpace_.setTextToDisplay(humanReadableByteCount(dir.getBytesFreeOnVolume(), false));
+		bool isLive = recorder_.lock()->isRecording();
+		recording_.setToggleState(!isLive, dontSendNotification);
+
+		auto elapsed = Time::getCurrentTime() - recorder_.lock()->getStartTime();
+		recordingTime_.setText(elapsed.getDescription(), dontSendNotification);
+		recordingTime_.setVisible(isLive && elapsed.inSeconds() > 1);
 	}
-	recording_.setButtonText("Recording!");
-	recordingTime_.setText("00:00:00 s", dontSendNotification);
 	
 }

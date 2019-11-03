@@ -21,7 +21,9 @@ public:
 	Recorder(File directory, std::string const &baseFileName, RecordingType recordingType);
 	~Recorder();
 
+	void setRecording(bool recordOn);
 	bool isRecording() const;
+	Time getStartTime() const;
 	void updateChannelInfo(int sampleRate, JammerNetzChannelSetup const &channelSetup);
 	void saveBlock(const float* const* data, int numSamples);
 
@@ -29,10 +31,15 @@ public:
 	void setDirectory(File &directory);
 
 private:
+	Time startTime_;
+	String fileName_;
 	File directory_;
 	std::string baseFileName_;
 	RecordingType recordingType_;
 	AudioFormatWriter *writer_;
 	std::unique_ptr<TimeSliceThread> thread_;
 	std::unique_ptr<AudioFormatWriter::ThreadedWriter> writeThread_;
+
+	int lastSampleRate_;
+	JammerNetzChannelSetup lastChannelSetup_;
 };

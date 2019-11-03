@@ -14,11 +14,14 @@ namespace BinaryData
     extern const char*   cloud_png;
     const int            cloud_pngSize = 10853;
 
+    extern const char*   live_png;
+    const int            live_pngSize = 11583;
+
     extern const char*   RandomNumbers_bin;
     const int            RandomNumbers_binSize = 72;
 
     // Number of elements in the namedResourceList and originalFileNames arrays.
-    const int namedResourceListSize = 3;
+    const int namedResourceListSize = 4;
 
     // Points to the start of a list of resource names.
     extern const char* namedResourceList[];

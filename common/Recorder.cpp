@@ -22,12 +22,30 @@ Recorder::~Recorder()
 	thread_->stopThread(1000);
 }
 
+void Recorder::setRecording(bool recordOn)
+{
+	if (isRecording()) {
+		writeThread_.reset();
+	}
+	else {
+		updateChannelInfo(lastSampleRate_, lastChannelSetup_);
+	}
+}
+
 bool Recorder::isRecording() const
 {
-	return writeThread_.get() != nullptr;
+	return writeThread_ != nullptr;
+}
+
+juce::Time Recorder::getStartTime() const
+{
+	return startTime_;
 }
 
 void Recorder::updateChannelInfo(int sampleRate, JammerNetzChannelSetup const &channelSetup) {
+	lastSampleRate_ = sampleRate;
+	lastChannelSetup_ = channelSetup;
+
 	// We have changed the channel setup - as our output files do like a varying number of channels (you need a DAW project for that)
 	// let's close the current file and start a new one
 	writeThread_.reset();
@@ -90,9 +108,10 @@ void Recorder::updateChannelInfo(int sampleRate, JammerNetzChannelSetup const &c
 	}
 
 	// Setup a new audio file to write to
-	Time now = Time::getCurrentTime();
-	File wavFile = directory_.getNonexistentChildFile(String(baseFileName_) + now.formatted("-%Y-%m-%d-%H-%M-%S"), fileExtension, false);
-	OutputStream *outStream = new FileOutputStream(wavFile, 16384);
+	startTime_ = Time::getCurrentTime();
+	File wavFile = directory_.getNonexistentChildFile(String(baseFileName_) + startTime_.formatted("-%Y-%m-%d-%H-%M-%S"), fileExtension, false);
+	fileName_ = wavFile.getFileName();
+	OutputStream * outStream = new FileOutputStream(wavFile, 16384);
 
 	// Create the writer based on the format and file
 	StringPairArray metaData;

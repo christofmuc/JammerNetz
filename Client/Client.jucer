@@ -13,6 +13,7 @@
     <GROUP id="{32961355-17E7-94F0-4669-25517BCE74D2}" name="Resources">
       <FILE id="pYF29V" name="about.txt" compile="0" resource="1" file="Resources/about.txt"/>
       <FILE id="ASUSYC" name="cloud.png" compile="0" resource="1" file="Resources/cloud.png"/>
+      <FILE id="AMIMNa" name="live.png" compile="0" resource="1" file="Resources/live.png"/>
     </GROUP>
     <GROUP id="{A2C4E24A-E15E-AC8B-EADC-C4CDB0F5FD6D}" name="Common">
       <FILE id="z3X48N" name="RandomNumbers.bin" compile="0" resource="1"
