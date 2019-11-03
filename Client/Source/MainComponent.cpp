@@ -173,8 +173,9 @@ void MainComponent::resized()
 	auto midiRecordingInfo = settingsArea.removeFromBottom(30);
 	bpmDisplay_->setBounds(midiRecordingInfo);
 	statusInfo_.setBounds(settingsArea.removeFromTop(settingsArea.getHeight()/2));
-	for (auto clientInfo : clientInfo_) {
-		clientInfo->setBounds(settingsArea.removeFromTop(kLineHeight * 2));
+	for (int i = 0; i < clientInfo_.size(); i++) {
+		clientInfo_[i]->setBounds(settingsArea.removeFromTop(kLineHeight * 2));
+		qualityPlots_[i]->setBounds(settingsArea.removeFromTop(200));
 	}
 	downstreamInfo_.setBounds(settingsArea);
 
@@ -199,12 +200,16 @@ void MainComponent::resized()
 
 void MainComponent::numConnectedClientsChanged() {
 	clientInfo_.clear();
+	qualityPlots_.clear();
 
 	auto info = callback_.getClientInfo();
 	for (uint8 i = 0; i < info->getNumClients(); i++) {
 		auto label = new Label();
 		addAndMakeVisible(label);
 		clientInfo_.add(label);
+		auto plot = new QualityPlot();
+		addAndMakeVisible(plot);
+		qualityPlots_.add(plot);
 	}
 	fillConnectedClientsStatistics();
 	resized();

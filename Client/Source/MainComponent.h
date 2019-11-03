@@ -15,6 +15,7 @@
 #include "ServerStatus.h"
 #include "ClientConfig.h"
 #include "BPMDisplay.h"
+#include "QualityPlot.h"
 
 class MainComponent   : public Component, private Timer
 {
@@ -51,6 +52,7 @@ private:
 	GroupComponent serverGroup_;
 	Label connectionInfo_;
 	OwnedArray<Label> clientInfo_;
+	OwnedArray<QualityPlot> qualityPlots_;
 	Label statusInfo_;
 	Label downstreamInfo_;
 	std::unique_ptr<BPMDisplay> bpmDisplay_;

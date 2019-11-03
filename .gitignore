@@ -10,3 +10,4 @@ Client/Redist/vc_redist.x64.exe
 common/JammerNetzPackages.capnp.h
 common/JammerNetzPackages.capnp.c++
 Server/docker/buildmachine/juce-5.4.5-linux.zip
+third_party/mathgl-2.4.4/
