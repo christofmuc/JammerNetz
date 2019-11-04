@@ -42,6 +42,11 @@ juce::Time Recorder::getStartTime() const
 	return startTime_;
 }
 
+juce::String Recorder::getFilename() const
+{
+	return fileName_;
+}
+
 void Recorder::updateChannelInfo(int sampleRate, JammerNetzChannelSetup const &channelSetup) {
 	lastSampleRate_ = sampleRate;
 	lastChannelSetup_ = channelSetup;

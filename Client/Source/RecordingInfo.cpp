@@ -50,11 +50,13 @@ RecordingInfo::RecordingInfo(std::weak_ptr<Recorder> recorder) : recorder_(recor
 	recording_.addListener(this);
 
 	recordingTime_.setJustificationType(Justification::centred);
+	recordingFileName_.setJustificationType(Justification::centred);
 
 	addAndMakeVisible(recordingPath_);
 	addAndMakeVisible(browse_);
 	addAndMakeVisible(recording_);
 	addAndMakeVisible(recordingTime_);
+	addAndMakeVisible(recordingFileName_);
 	addAndMakeVisible(freeDiskSpace_);
 	addAndMakeVisible(diskSpace_);
 
@@ -71,6 +73,7 @@ void RecordingInfo::resized()
 	auto row2 = area.removeFromTop(kLineSpacing + kNormalInset);
 	recording_.setBounds(row2.withSizeKeepingCentre(kLabelWidth, kLineHeight + kNormalInset));
 	recordingTime_.setBounds(area.removeFromTop(kLineSpacing));
+	recordingFileName_.setBounds(area.removeFromTop(kLineSpacing));
 
 	auto row3 = area.removeFromTop(kLineSpacing);
 	freeDiskSpace_.setBounds(row3.removeFromLeft(kLabelWidth));
@@ -110,6 +113,9 @@ void RecordingInfo::updateData()
 		auto elapsed = Time::getCurrentTime() - recorder_.lock()->getStartTime();
 		recordingTime_.setText(elapsed.getDescription(), dontSendNotification);
 		recordingTime_.setVisible(isLive && elapsed.inSeconds() > 1);
+
+		recordingFileName_.setText(recorder_.lock()->getFilename(), dontSendNotification);
+		recordingFileName_.setVisible(isLive);
 	}
 	
 }

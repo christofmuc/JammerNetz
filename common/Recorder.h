@@ -23,7 +23,10 @@ public:
 
 	void setRecording(bool recordOn);
 	bool isRecording() const;
+
 	Time getStartTime() const;
+	String getFilename() const;
+
 	void updateChannelInfo(int sampleRate, JammerNetzChannelSetup const &channelSetup);
 	void saveBlock(const float* const* data, int numSamples);
 
