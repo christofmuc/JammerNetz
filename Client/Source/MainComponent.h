@@ -57,7 +57,8 @@ private:
 	std::unique_ptr<BPMDisplay> bpmDisplay_;
 	GroupComponent qualityGroup_;
 	GroupComponent recordingGroup_;
-	std::unique_ptr<RecordingInfo> recordingInfo_;
+	std::unique_ptr<RecordingInfo> recordingInfo_; // For the master files
+	std::unique_ptr<RecordingInfo> localRecordingInfo_; // For the local data
 
 	std::shared_ptr<ChannelSetup> currentInputSetup_;
 	std::shared_ptr<ChannelSetup> currentOutputSetup_;

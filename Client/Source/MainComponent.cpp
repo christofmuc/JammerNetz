@@ -26,6 +26,7 @@ callback_(deviceManager_)
 {
 	bpmDisplay_ = std::make_unique<BPMDisplay>(callback_.getClocker());
 	recordingInfo_ = std::make_unique<RecordingInfo>(callback_.getMasterRecorder());
+	localRecordingInfo_ = std::make_unique<RecordingInfo>(callback_.getLocalRecorder());
 
 	outputController_.setMeterSource(callback_.getOutputMeterSource(), -1);
 
@@ -50,6 +51,7 @@ callback_(deviceManager_)
 	addAndMakeVisible(qualityGroup_);
 	addAndMakeVisible(recordingGroup_);
 	addAndMakeVisible(*recordingInfo_);
+	addAndMakeVisible(*localRecordingInfo_);
 	std::stringstream list;
 	AudioDeviceDiscovery::listAudioDevices(deviceManager_, list);
 	StreamLogger::instance() << list.str(); // For performance, send it to the output only once
@@ -191,9 +193,10 @@ void MainComponent::resized()
 	auto recordingArea = settingsArea.removeFromLeft(settingsSectionWidth);
 	recordingGroup_.setBounds(recordingArea);
 	recordingArea.reduce(kNormalInset, kNormalInset);
-	auto midiRecordingInfo = recordingArea.removeFromBottom(30);
-	bpmDisplay_->setBounds(midiRecordingInfo);	
-	recordingInfo_->setBounds(recordingArea.reduced(kNormalInset));
+	//auto midiRecordingInfo = recordingArea.removeFromBottom(30);
+	//bpmDisplay_->setBounds(midiRecordingInfo);	
+	recordingInfo_->setBounds(recordingArea.removeFromTop(recordingArea.getHeight() / 2));
+	localRecordingInfo_->setBounds(recordingArea);
 
 	// To the left, the input selector
 	auto inputArea = area.removeFromLeft(inputMixerWidth + inputSelectorWidth);

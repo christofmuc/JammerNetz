@@ -44,6 +44,7 @@ public:
 	float channelPitch(int channel) const;
 
 	std::shared_ptr<Recorder> getMasterRecorder() const;
+	std::shared_ptr<Recorder> getLocalRecorder() const;
 	std::shared_ptr<JammerNetzClientInfoMessage> getClientInfo() const;
 private:
 	void clearOutput(float** outputChannelData, int numOutputChannels, int numSamples);
@@ -61,7 +62,7 @@ private:
 	FFAU::LevelMeterSource meterSource_; // This is for peak metering
 	FFAU::LevelMeterSource outMeterSource_;
 
-	std::unique_ptr<Recorder> uploadRecorder_;
+	std::shared_ptr<Recorder> uploadRecorder_;
 	std::shared_ptr<Recorder> masterRecorder_;
 	std::unique_ptr<MidiRecorder> midiRecorder_;
 

@@ -76,7 +76,7 @@ void RecordingInfo::resized()
 
 	auto row = area.removeFromTop(kLineSpacing + kNormalInset);
 	recording_.setBounds(row.withSizeKeepingCentre(kLabelWidth, kLineHeight + kNormalInset));
-	recordingTime_.setBounds(area.removeFromTop(kLineSpacing));
+	recordingTime_.setBounds(area.removeFromTop(kLineHeight));
 	row = area.removeFromTop(kLineSpacing);
 	reveal_.setBounds(row.removeFromRight(kLabelWidth).withHeight(kLineHeight));
 	recordingFileName_.setBounds(row.withTrimmedRight(kNormalInset));

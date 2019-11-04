@@ -21,7 +21,7 @@ AudioCallback::AudioCallback(AudioDeviceManager &deviceManager) : client_([this]
 	maxPlayoutBufferLength_ = CLIENT_PLAYOUT_MAX_BUFFER;
 
 	// Where to record to?
-	uploadRecorder_ = std::make_unique<Recorder>(Settings::instance().getSessionStorageDir(), "LocalRecording", RecordingType::AIFF);
+	uploadRecorder_ = std::make_shared<Recorder>(Settings::instance().getSessionStorageDir(), "LocalRecording", RecordingType::WAV);
 	masterRecorder_ = std::make_shared<Recorder>(Settings::instance().getSessionStorageDir(), "MasterRecording", RecordingType::FLAC);
 	masterRecorder_->updateChannelInfo(SAMPLE_RATE, JammerNetzChannelSetup({ JammerNetzChannelTarget::Left, JammerNetzChannelTarget::Right }));
 	midiRecorder_ = std::make_unique<MidiRecorder>(deviceManager);
@@ -139,12 +139,14 @@ void AudioCallback::audioDeviceStopped()
 
 void AudioCallback::setChannelSetup(JammerNetzChannelSetup const &channelSetup)
 {
-	channelSetup_ = channelSetup;
-	if (uploadRecorder_) {
-		uploadRecorder_->updateChannelInfo(SAMPLE_RATE, channelSetup_);
-	}
-	if (midiRecorder_) {
-		midiRecorder_->startRecording();
+	if (!(channelSetup_ == channelSetup)) {
+		channelSetup_ = channelSetup;
+		if (uploadRecorder_) {
+			uploadRecorder_->updateChannelInfo(SAMPLE_RATE, channelSetup_);
+		}
+		if (midiRecorder_) {
+			midiRecorder_->startRecording();
+		}
 	}
 }
 
@@ -223,6 +225,11 @@ float AudioCallback::channelPitch(int channel) const
 std::shared_ptr<Recorder> AudioCallback::getMasterRecorder() const
 {
 	return masterRecorder_;
+}
+
+std::shared_ptr<Recorder> AudioCallback::getLocalRecorder() const
+{
+	return uploadRecorder_;
 }
 
 std::shared_ptr<JammerNetzClientInfoMessage> AudioCallback::getClientInfo() const

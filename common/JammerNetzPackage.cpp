@@ -24,6 +24,11 @@ JammerNetzSingleChannelSetup::JammerNetzSingleChannelSetup(uint8 target) :
 }
 
 
+bool JammerNetzSingleChannelSetup::operator==(const JammerNetzSingleChannelSetup &other) const
+{
+	return target == other.target && volume == other.volume && balanceLeftRight == other.balanceLeftRight;
+}
+
 JammerNetzChannelSetup::JammerNetzChannelSetup()
 {
 }
@@ -37,6 +42,14 @@ JammerNetzChannelSetup::JammerNetzChannelSetup(std::vector<JammerNetzSingleChann
 			channels[i++] = info;
 		}
 	}
+}
+
+bool JammerNetzChannelSetup::operator==(const JammerNetzChannelSetup &other) const
+{
+	for (int i = 0; i < MAXCHANNELSPERCLIENT; i++) {
+		if (!(channels[i] == other.channels[i])) return false;
+	}
+	return true;
 }
 
 AudioBlock::AudioBlock(double timestamp, uint64 messageCounter, uint16 sampleRate, JammerNetzChannelSetup const &channelSetup, std::shared_ptr<AudioBuffer<float>> audioBuffer) :

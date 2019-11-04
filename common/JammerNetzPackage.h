@@ -48,12 +48,16 @@ struct JammerNetzSingleChannelSetup {
 	uint8 target;
 	float volume;
 	float balanceLeftRight;
+
+	bool operator ==(const JammerNetzSingleChannelSetup &other) const;
 };
 
 struct JammerNetzChannelSetup {
 	JammerNetzChannelSetup();
 	JammerNetzChannelSetup(std::vector<JammerNetzSingleChannelSetup> const &channelInfo);
 	JammerNetzSingleChannelSetup channels[MAXCHANNELSPERCLIENT];
+
+	bool operator ==(const JammerNetzChannelSetup &other) const;
 };
 
 struct JammerNetzAudioBlock {
