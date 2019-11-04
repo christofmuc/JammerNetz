@@ -16,6 +16,7 @@ find_package(JUCE REQUIRED
 		juce_audio_devices
 		juce_audio_formats
 		juce_data_structures
+		juce_cryptography
 )
 
 # 
@@ -27,6 +28,8 @@ find_package(CapnProto REQUIRED)
 
 add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/../common" "${CMAKE_BINARY_DIR}/common")
 
+include_directories("../third_party/tbb2019_20190605oss/include/")
+
 set(SOURCES
 	Source/Main.cpp
 	Source/AcceptThread.cpp Source/AcceptThread.h
@@ -36,5 +39,5 @@ set(SOURCES
 )
 
 add_executable(${PROJECT_NAME} ${SOURCES})
-target_link_libraries(${PROJECT_NAME} ${JUCE_LIBRARIES})
+target_link_libraries(${PROJECT_NAME} ${JUCE_LIBRARIES} JammerCommon)
 source_group(Source FILES ${SOURCES})

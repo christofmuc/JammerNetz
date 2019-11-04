@@ -1,6 +1,6 @@
 
 
-include_directories("../Server/JuceLibraryCode" ${JUCE_INCLUDE_DIR} "../third_party/tbb2019_20190605oss/include/")
+include_directories("../third_party/tbb2019_20190605oss/include/")
 
 set(CAPNPC_OUTPUT_DIR ${CMAKE_CURRENT_LIST_DIR})
 capnp_generate_cpp(CAPNP_SRCS CAPNP_HDRS JammerNetzPackages.capnp)
@@ -28,4 +28,5 @@ set(Sources
 
  
 add_library(JammerCommon ${Sources})
-target_link_libraries(JammerCommon PRIVATE CapnProto::capnp)
+target_include_directories(JammerCommon INTERFACE ${CMAKE_CURRENT_LIST_DIR})
+target_link_libraries(JammerCommon PRIVATE ${JUCE_LIBRARIES} CapnProto::capnp)
