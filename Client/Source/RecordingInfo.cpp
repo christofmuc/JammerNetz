@@ -46,7 +46,7 @@ RecordingInfo::RecordingInfo(std::weak_ptr<Recorder> recorder) : recorder_(recor
 	MemoryInputStream image(BinaryData::live_png, BinaryData::live_pngSize, false);
 	auto im = reader.decodeImage(image);
 	recording_.setClickingTogglesState(true);
-	recording_.setImages(false, true, false, im, 1.0f, Colours::transparentWhite, im, 1.0f, Colours::transparentWhite, im, .2f, Colours::transparentBlack);
+	recording_.setImages(false, true, false, im, .9f, Colours::transparentBlack, im, 1.f, Colours::transparentWhite, im, .2f, Colours::transparentBlack);
 	recording_.addListener(this);
 
 	recordingTime_.setJustificationType(Justification::centred);
