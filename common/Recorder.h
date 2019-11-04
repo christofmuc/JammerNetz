@@ -24,8 +24,9 @@ public:
 	void setRecording(bool recordOn);
 	bool isRecording() const;
 
-	Time getStartTime() const;
+	RelativeTime getElapsedTime() const;
 	String getFilename() const;
+	File getFile() const;
 
 	void updateChannelInfo(int sampleRate, JammerNetzChannelSetup const &channelSetup);
 	void saveBlock(const float* const* data, int numSamples);
@@ -35,7 +36,8 @@ public:
 
 private:
 	Time startTime_;
-	String fileName_;
+	uint64 samplesWritten_;
+	File activeFile_;
 	File directory_;
 	std::string baseFileName_;
 	RecordingType recordingType_;

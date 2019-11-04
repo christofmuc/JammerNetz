@@ -7,7 +7,7 @@
 #include "Recorder.h"
 
 Recorder::Recorder(File directory, std::string const &baseFileName, RecordingType recordingType) 
-	: directory_(directory), baseFileName_(baseFileName), writer_(nullptr), recordingType_(recordingType)
+	: directory_(directory), baseFileName_(baseFileName), writer_(nullptr), recordingType_(recordingType), samplesWritten_(0)
 {
 	thread_ = std::make_unique<TimeSliceThread>("RecorderDiskWriter");
 	thread_->startThread();
@@ -37,14 +37,19 @@ bool Recorder::isRecording() const
 	return writeThread_ != nullptr;
 }
 
-juce::Time Recorder::getStartTime() const
+RelativeTime Recorder::getElapsedTime() const
 {
-	return startTime_;
+	return RelativeTime(samplesWritten_ / (double) lastSampleRate_);
 }
 
 juce::String Recorder::getFilename() const
 {
-	return fileName_;
+	return activeFile_.getFileName();
+}
+
+juce::File Recorder::getFile() const
+{
+	return activeFile_;
 }
 
 void Recorder::updateChannelInfo(int sampleRate, JammerNetzChannelSetup const &channelSetup) {
@@ -114,9 +119,8 @@ void Recorder::updateChannelInfo(int sampleRate, JammerNetzChannelSetup const &c
 
 	// Setup a new audio file to write to
 	startTime_ = Time::getCurrentTime();
-	File wavFile = directory_.getNonexistentChildFile(String(baseFileName_) + startTime_.formatted("-%Y-%m-%d-%H-%M-%S"), fileExtension, false);
-	fileName_ = wavFile.getFileName();
-	OutputStream * outStream = new FileOutputStream(wavFile, 16384);
+	activeFile_ = directory_.getNonexistentChildFile(String(baseFileName_) + startTime_.formatted("-%Y-%m-%d-%H-%M-%S"), fileExtension, false);
+	OutputStream * outStream = new FileOutputStream(activeFile_, 16384);
 
 	// Create the writer based on the format and file
 	StringPairArray metaData;
@@ -130,6 +134,7 @@ void Recorder::updateChannelInfo(int sampleRate, JammerNetzChannelSetup const &c
 
 	// Finally, create the new writer associating it with the background thread
 	writeThread_ = std::make_unique<AudioFormatWriter::ThreadedWriter>(writer_, *thread_, 16384);
+	samplesWritten_ = 0;
 }
 
 void Recorder::saveBlock(const float* const* data, int numSamples) {
@@ -139,6 +144,7 @@ void Recorder::saveBlock(const float* const* data, int numSamples) {
 			//TODO - need a smarter strategy than that
 			std::cerr << "Ups, FIFO full and can't write block to disk, lost it!" << std::endl;
 		}
+		samplesWritten_ += numSamples;
 	}
 }
 

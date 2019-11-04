@@ -110,7 +110,7 @@ void RecordingInfo::updateData()
 		bool isLive = recorder_.lock()->isRecording();
 		recording_.setToggleState(!isLive, dontSendNotification);
 
-		auto elapsed = Time::getCurrentTime() - recorder_.lock()->getStartTime();
+		auto elapsed = recorder_.lock()->getElapsedTime();
 		recordingTime_.setText(elapsed.getDescription(), dontSendNotification);
 		recordingTime_.setVisible(isLive && elapsed.inSeconds() > 1);
 
