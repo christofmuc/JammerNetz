@@ -1,6 +1,6 @@
 
 
-include_directories("../Server/JuceLibraryCode" ${JUCE_INCLUDE_DIR})
+include_directories("../Server/JuceLibraryCode" ${JUCE_INCLUDE_DIR} "../third_party/tbb2019_20190605oss/include/")
 
 set(CAPNPC_OUTPUT_DIR ${CMAKE_CURRENT_LIST_DIR})
 capnp_generate_cpp(CAPNP_SRCS CAPNP_HDRS JammerNetzPackages.capnp)
