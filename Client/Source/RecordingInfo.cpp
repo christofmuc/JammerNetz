@@ -38,7 +38,7 @@ private:
 
 RecordingInfo::RecordingInfo(std::weak_ptr<Recorder> recorder) : recorder_(recorder), diskSpace_(diskSpacePercentage_), diskSpacePercentage_(0.0)
 {
-	browse_.setButtonText("Browse");
+	browse_.setButtonText("Change");
 	browse_.addListener(this);
 	freeDiskSpace_.setText("Free disk space", dontSendNotification);
 
@@ -48,6 +48,9 @@ RecordingInfo::RecordingInfo(std::weak_ptr<Recorder> recorder) : recorder_(recor
 	recording_.setClickingTogglesState(true);
 	recording_.setImages(false, true, false, im, .9f, Colours::transparentBlack, im, 1.f, Colours::transparentWhite, im, .2f, Colours::transparentBlack);
 	recording_.addListener(this);
+
+	reveal_.setButtonText("Show");
+	reveal_.addListener(this);
 
 	recordingTime_.setJustificationType(Justification::centred);
 	recordingFileName_.setJustificationType(Justification::centred);
@@ -59,6 +62,7 @@ RecordingInfo::RecordingInfo(std::weak_ptr<Recorder> recorder) : recorder_(recor
 	addAndMakeVisible(recordingFileName_);
 	addAndMakeVisible(freeDiskSpace_);
 	addAndMakeVisible(diskSpace_);
+	addAndMakeVisible(reveal_);
 
 	timer_ = std::make_unique<UpdateTimer>(this);
 	timer_->startTimerHz(5);
@@ -70,18 +74,20 @@ void RecordingInfo::resized()
 {
 	auto area = getLocalBounds();
 
-	auto row2 = area.removeFromTop(kLineSpacing + kNormalInset);
-	recording_.setBounds(row2.withSizeKeepingCentre(kLabelWidth, kLineHeight + kNormalInset));
+	auto row = area.removeFromTop(kLineSpacing + kNormalInset);
+	recording_.setBounds(row.withSizeKeepingCentre(kLabelWidth, kLineHeight + kNormalInset));
 	recordingTime_.setBounds(area.removeFromTop(kLineSpacing));
-	recordingFileName_.setBounds(area.removeFromTop(kLineSpacing));
+	row = area.removeFromTop(kLineSpacing);
+	reveal_.setBounds(row.removeFromRight(kLabelWidth).withHeight(kLineHeight));
+	recordingFileName_.setBounds(row.withTrimmedRight(kNormalInset));
 
-	auto row3 = area.removeFromTop(kLineSpacing);
-	freeDiskSpace_.setBounds(row3.removeFromLeft(kLabelWidth));
-	diskSpace_.setBounds(row3.withSizeKeepingCentre(row3.getWidth() - 2 * kNormalInset, kLineHeight));
+	row = area.removeFromTop(kLineSpacing);
+	freeDiskSpace_.setBounds(row.removeFromLeft(kLabelWidth));
+	diskSpace_.setBounds(row.withSizeKeepingCentre(row.getWidth() - 2 * kNormalInset, kLineHeight - kSmallInset));
 
-	auto row1 = area.removeFromTop(kLineSpacing);
-	browse_.setBounds(row1.removeFromLeft(kLabelWidth).withHeight(kLineHeight));
-	recordingPath_.setBounds(row1.withTrimmedLeft(kNormalInset));
+	row = area.removeFromTop(kLineSpacing);
+	browse_.setBounds(row.removeFromRight(kLabelWidth).withHeight(kLineHeight));
+	recordingPath_.setBounds(row.withTrimmedRight(kNormalInset));
 }
 
 void RecordingInfo::buttonClicked(Button *clicked)
@@ -96,6 +102,12 @@ void RecordingInfo::buttonClicked(Button *clicked)
 	else if (clicked == &recording_) {
 		if (!recorder_.expired()) {
 			recorder_.lock()->setRecording(!recording_.getToggleState());
+		}
+	}
+	else if (clicked == &reveal_) {
+		if (!recorder_.expired()) {
+			auto currentFile = recorder_.lock()->getFile();
+			currentFile.revealToUser();
 		}
 	}
 }

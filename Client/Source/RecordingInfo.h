@@ -28,6 +28,7 @@ private:
 
 	Label recordingFileName_;
 	Label recordingPath_;
+	TextButton reveal_;
 	TextButton browse_;
 	ImageButton recording_;
 	Label recordingTime_;
