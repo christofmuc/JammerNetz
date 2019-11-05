@@ -12,3 +12,4 @@ Server/docker/buildmachine/juce-5.4.5-linux.zip
 Builds/
 common/BinaryResources.h
 common/resources/RandomNumbers.bin
+Client/Source/Resources.h

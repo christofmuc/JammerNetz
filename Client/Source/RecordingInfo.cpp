@@ -7,6 +7,7 @@
 #include "RecordingInfo.h"
 
 #include "LayoutConstants.h"
+#include "Resources.h"
 
 #include <cmath>
 
@@ -43,7 +44,7 @@ RecordingInfo::RecordingInfo(std::weak_ptr<Recorder> recorder) : recorder_(recor
 	freeDiskSpace_.setText("Free disk space", dontSendNotification);
 
 	PNGImageFormat reader;
-	MemoryInputStream image(BinaryData::live_png, BinaryData::live_pngSize, false);
+	MemoryInputStream image(live_png, live_png_size, false);
 	auto im = reader.decodeImage(image);
 	recording_.setClickingTogglesState(true);
 	recording_.setImages(false, true, false, im, .9f, Colours::transparentBlack, im, 1.f, Colours::transparentWhite, im, .2f, Colours::transparentBlack);

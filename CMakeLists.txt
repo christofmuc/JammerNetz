@@ -18,5 +18,7 @@ set(CapnProto_DIR "${CMAKE_CURRENT_LIST_DIR}/third_party/capnproto/c++/build/cma
 find_package(CapnProto REQUIRED) 
 
 # Nothing to be done here on top level, just go one level down 
+add_subdirectory("third_party")
 add_subdirectory("common")
 add_subdirectory("Server")
+add_subdirectory("Client")

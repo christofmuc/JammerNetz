@@ -7,12 +7,13 @@
 #include "ServerStatus.h"
 
 #include "LayoutConstants.h"
+#include "Resources.h"
 
 ServerStatus::ServerStatus(std::function<void()> notify) : serverSelector_(notify)
 {
 	addAndMakeVisible(serverSelector_);
 	PNGImageFormat reader;
-	MemoryInputStream image(BinaryData::cloud_png, BinaryData::cloud_pngSize, false);
+	MemoryInputStream image(cloud_png, cloud_png_size, false);
 	auto im = reader.decodeImage(image);
 	cloudImage_.setClickingTogglesState(false);
 	cloudImage_.setEnabled(false);

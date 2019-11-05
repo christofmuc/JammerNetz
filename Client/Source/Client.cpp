@@ -12,9 +12,10 @@
 #include "JammerNetzPackage.h"
 #include "ServerInfo.h"
 #include "StreamLogger.h"
+#include "BinaryResources.h"
 
 Client::Client(std::function<void(std::shared_ptr<JammerNetzAudioData>)> newDataHandler) : messageCounter_(10) /* TODO - because of the pre-fill on server side, can't be 0 */
-	, currentBlockSize_(0), fecBuffer_(16), blowFish_(BinaryData::RandomNumbers_bin, BinaryData::RandomNumbers_binSize)
+	, currentBlockSize_(0), fecBuffer_(16), blowFish_(RandomNumbers_bin, RandomNumbers_bin_size)
 {
 	// We will send data to the server via this port
 	int randomPort = 8888 + (Random().nextInt() % 64);

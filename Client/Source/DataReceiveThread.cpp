@@ -7,11 +7,11 @@
 #include "DataReceiveThread.h"
 
 #include "StreamLogger.h"
-
 #include "ServerInfo.h"
+#include "BinaryResources.h"
 
 DataReceiveThread::DataReceiveThread(DatagramSocket &socket, std::function<void(std::shared_ptr<JammerNetzAudioData>)> newDataHandler)
-	: Thread("ReceiveDataFromServer"), socket_(socket), newDataHandler_(newDataHandler), currentRTT_(0.0), blowFish_(BinaryData::RandomNumbers_bin, BinaryData::RandomNumbers_binSize), isReceiving_(false)
+	: Thread("ReceiveDataFromServer"), socket_(socket), newDataHandler_(newDataHandler), currentRTT_(0.0), blowFish_(RandomNumbers_bin, RandomNumbers_bin_size), isReceiving_(false)
 {
 }
 
