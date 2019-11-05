@@ -17,6 +17,9 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/third_party/juce-cmake/
 set(CapnProto_DIR "${CMAKE_CURRENT_LIST_DIR}/third_party/capnproto/c++/build/cmake")
 find_package(CapnProto REQUIRED) 
 
+# Use all cores
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP")
+
 # Nothing to be done here on top level, just go one level down 
 add_subdirectory("third_party")
 add_subdirectory("common")
