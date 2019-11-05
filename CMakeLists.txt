@@ -20,10 +20,6 @@ find_package(CapnProto REQUIRED)
 # Use all cores
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP")
 
-# Multi-generator support for Windows
-set(IS_DEBUG "$<IF:$<CONFIG:Debug>,YES,NO>")
-set(IS_RELEASE "$<IF:$<CONFIG:Release>,YES,NO>")
-
 # Nothing to be done here on top level, just go one level down 
 add_subdirectory("third_party")
 add_subdirectory("common")
