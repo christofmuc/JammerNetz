@@ -81,7 +81,15 @@ set(SOURCES
 	Source/Resources.h
 )
 
-add_executable(JammerNetzClient WIN32 ${SOURCES})
+set(OTHER_FILES
+	setup_client.iss
+	Client.jucer
+	Resources/About.txt
+	Resources/cloud.png
+	Resources/live.png
+)
+
+add_executable(JammerNetzClient WIN32 ${SOURCES} ${OTHER_FILES})
 target_link_directories(JammerNetzClient PRIVATE "${CMAKE_CURRENT_LIST_DIR}/../third_party/tbb2019_20190605oss/lib/intel64/vc14")
 target_link_libraries(JammerNetzClient ${JUCE_LIBRARIES} JammerCommon ff_meters)
 source_group(Source FILES ${SOURCES})
