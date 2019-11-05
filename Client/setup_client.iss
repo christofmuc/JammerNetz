@@ -37,9 +37,8 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-Source: "Builds\VisualStudio2017\x64\Release\App\JammerNetzClient.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "Builds\VisualStudio2017\x64\Release\App\tbb.dll"; DestDir: "{app}"; Flags: ignoreversion
-Source: "Builds\VisualStudio2017\x64\Release\App\tbbmalloc.dll"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\Builds\CMake\Client\Release\JammerNetzClient.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\Builds\CMake\Client\Release\tbb.dll"; DestDir: "{app}"; Flags: ignoreversion
 Source: "Redist\{#VCRedistFileName}"; DestDir: {tmp}; Flags: dontcopy
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 ; VC++ redistributable runtime. Extracted by VC2017RedistNeedsInstall(), if needed.
