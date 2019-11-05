@@ -98,7 +98,7 @@ source_group(Source FILES ${SOURCES})
 add_custom_command(
         TARGET JammerNetzClient POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy
-                ${CMAKE_CURRENT_LIST_DIR}/../third_party/tbb2019_20190605oss/bin/intel64/vc14/tbb_debug.dll
+                ${CMAKE_CURRENT_LIST_DIR}/../third_party/tbb2019_20190605oss/bin/intel64/vc14/$<IF:$<CONFIG:Release>,tbb,tbb_debug>.dll
                 ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>)
 
 
@@ -114,5 +114,5 @@ set(no_copy $<NOT:$<CONFIG:Release>>)
 add_custom_command(
 	TARGET JammerNetzClient POST_BUILD
 	COMMAND  "${CMAKE_COMMAND}" -E $<${no_copy}:echo> $<${no_copy}:"Not building Installer with "> chdir . ${INNOSETUP} "${CMAKE_CURRENT_LIST_DIR}/setup_client.iss"
-	#COMMAND $<${no_copy}:echo> $<${no_copy}:"Skipping installer as this is no release build: "> ${INNOSETUP} "${CMAKE_CURRENT_LIST_DIR}/setup_client.iss"
+	DEPENDS setup_client.iss 
 )
