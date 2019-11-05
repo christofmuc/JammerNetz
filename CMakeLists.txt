@@ -1,0 +1,22 @@
+#
+#  Copyright (c) 2019 Christof Ruch. All rights reserved.
+#
+#  Dual licensed: Distributed under Affero GPL license by default, an MIT license is available for purchase
+#
+
+cmake_minimum_required(VERSION 3.4)
+
+project(JammerNetz)
+
+# We need a little bit support for the JUCE library, and also want to put our own CMake helpers on the module path
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/third_party/juce-cmake/cmake" "${CMAKE_CURRENT_LIST_DIR}/cmake")
+
+# 
+# Find CapnProto via CMAKE - strangely, this wants to be compiled as the build output of CapnProto build is the CMake file to include
+# 
+set(CapnProto_DIR "${CMAKE_CURRENT_LIST_DIR}/third_party/capnproto/c++/build/cmake")
+find_package(CapnProto REQUIRED) 
+
+# Nothing to be done here on top level, just go one level down 
+add_subdirectory("common")
+add_subdirectory("Server")
