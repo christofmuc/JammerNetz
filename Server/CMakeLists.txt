@@ -29,7 +29,14 @@ set(SOURCES
 	Source/SharedServerTypes.h
 )
 
-add_executable(${PROJECT_NAME} ${SOURCES})
+add_executable(JammerNetzServer ${SOURCES})
 target_link_directories(JammerNetzServer PRIVATE "${CMAKE_CURRENT_LIST_DIR}/../third_party/tbb2019_20190605oss/lib/intel64/vc14")
 target_link_libraries(JammerNetzServer  ${JUCE_LIBRARIES} JammerCommon)
 source_group(Source FILES ${SOURCES})
+
+# Post build commands - copy the DLLs (Windows only I guess)
+add_custom_command(
+        TARGET JammerNetzServer POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy
+                ${CMAKE_CURRENT_LIST_DIR}/../third_party/tbb2019_20190605oss/bin/intel64/vc14/tbb_debug.dll
+                ${CMAKE_CURRENT_BINARY_DIR})
