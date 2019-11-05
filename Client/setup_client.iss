@@ -24,7 +24,7 @@ DisableProgramGroupPage=yes
 LicenseFile=redist\agpl-3.0.txt
 ; Remove the following line to run in administrative install mode (install for all users.)
 PrivilegesRequired=lowest
-OutputDir=builds\Setup
+OutputDir=Setup
 OutputBaseFilename=jammernetz_setup
 Compression=lzma
 SolidCompression=yes
