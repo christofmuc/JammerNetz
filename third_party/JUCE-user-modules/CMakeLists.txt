@@ -32,7 +32,11 @@ set(ff_meters_sources
 	ff_meters/ff_meters_StereoFieldComponent.h
 )
 
+
 add_library(ff_meters ${ff_meters_sources})
 target_include_directories(ff_meters INTERFACE ${CMAKE_CURRENT_LIST_DIR})
 target_link_libraries(ff_meters PRIVATE ${JUCE_LIBRARIES})
+
+# Suppress warnings while compiling ff_meters because I nearly get a heart attack when that many warnings pop up on my screen
+target_compile_options(ff_meters PRIVATE /wd4244)
 

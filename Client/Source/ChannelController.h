@@ -11,7 +11,7 @@
 #include "JammerNetzPackage.h"
 #include "MidiNote.h"
 
-#include "ff_meters/ff_meters.h"
+#include "IncludeFFMeters.h"
 
 class ChannelController : public Component,
 	private Slider::Listener,

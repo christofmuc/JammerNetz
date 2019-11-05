@@ -8,7 +8,7 @@
 
 #include "JuceHeader.h"
 
-#include "ff_meters/ff_meters.h"
+#include "IncludeFFMeters.h"
 
 #include "Client.h"
 #include "PacketStreamQueue.h"
