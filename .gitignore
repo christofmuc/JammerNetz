@@ -13,3 +13,4 @@ Builds/
 common/BinaryResources.h
 common/resources/RandomNumbers.bin
 Client/Source/Resources.h
+Client/Setup/jammernetz_setup.exe

@@ -103,10 +103,14 @@ add_custom_command(
 
 
 # Windows only: Build InnoSetup installer
-find_program(INNOSETUP NAMES iscc.exe PATHS "c:/program files (x86)/Inno Setup 6")
-if (INNOSETUP)
-message("Generating installer with ${INNOSETUP}")
-execute_process(COMMAND ${INNOSETUP} "${CMAKE_CURRENT_LIST_DIR}/setup_client.iss")
-else(INNOSETUP)
-message("Didn't find InnoSetup 6 installation, skipping creation of Client installer '")
-endif(INNOSETUP)
+if (IS_RELEASE EQUAL "YES")
+	find_program(INNOSETUP NAMES iscc.exe PATHS "c:/program files (x86)/Inno Setup 6")
+	if (INNOSETUP)
+		add_custom_command(
+			TARGET JammerNetzClient POST_BUILD
+			COMMAND ${INNOSETUP} "${CMAKE_CURRENT_LIST_DIR}/setup_client.iss"
+		)
+	else(INNOSETUP)
+		message("Didn't find InnoSetup 6 installation, skipping creation of Client installer '")
+	endif(INNOSETUP)
+endif(IS_RELEASE EQUAL "YES")
