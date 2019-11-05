@@ -30,12 +30,16 @@ include(BinaryResources)
 
 # Setup some additional include directories for our header only libraries and those without CMake support
 include_directories("${CMAKE_CURRENT_LIST_DIR}/../third_party/tbb2019_20190605oss/include/"
+	"${CMAKE_CURRENT_LIST_DIR}/../third_party/ASIOSDK/common"
 	"${CMAKE_CURRENT_LIST_DIR}/../third_party/infra/include"
 	"${CMAKE_CURRENT_LIST_DIR}/../third_party/Q/q_lib/include"
 	"${CMAKE_CURRENT_LIST_DIR}/../third_party")
 
 # Create our binary resources
 create_resources(Resources Source/Resources.h)
+
+# Setup definition for ASIO support
+add_definitions(-DJUCE_ASIO)
 
 set(SOURCES
 	Source/AudioCallback.cpp
