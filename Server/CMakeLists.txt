@@ -39,4 +39,4 @@ add_custom_command(
         TARGET JammerNetzServer POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy
                 ${CMAKE_CURRENT_LIST_DIR}/../third_party/tbb2019_20190605oss/bin/intel64/vc14/tbb_debug.dll
-                ${CMAKE_CURRENT_BINARY_DIR})
+                ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>)
