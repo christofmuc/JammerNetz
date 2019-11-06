@@ -38,28 +38,48 @@ JUCE is a cross-platform library with support for all major platforms, but we ha
 
 ### Prerequisites
 
-We use the magnificent JUCE library to immensly reduce the amount of work we have to do. You can download it for free from [JUCE.com](https://juce.com/).
+We use [CMake 3.14](https://cmake.org/). Make sure to have both of these installed. Newer Visual Studios might work as well, you can select them as generators in CMake.
 
-Clone with submodules from github
+### Building
+
+Clone with submodules from github (make sure you have your github credentials set in your ssh-agent!)
 
     git clone --recurse-submodules -j8 https://github.com/christofmuc/JammerNetz
 
 The recursive clone with  submodules is required to retrieve the following additional modules already into the right spot inside the source tree:
 
-1. the nice JUCE module [ff_meters](https://github.com/ffAudio/ff_meters) from ffAudio to display the level meters for each channel.
-2. [Q](https://github.com/cycfi/Q), a highly interesting modern C++ DSP library we use for the instrument tuning/pitch detection. Go check it out, it's really cool!
-3. [Infra](https://github.com/cycfi/infra), a little helper library required by Q
+1. We use the magnificent [JUCE library](https://juce.com/) to immensly reduce the amount of work we have to do. 
+2. the nice JUCE module [ff_meters](https://github.com/ffAudio/ff_meters) from ffAudio to display the level meters for each channel.
+3. [Q](https://github.com/cycfi/Q), a highly interesting modern C++ DSP library we use for the instrument tuning/pitch detection. Go check it out, it's really cool!
+4. [Infra](https://github.com/cycfi/infra), a little helper library required by Q.
+5. [CapnProto](https://capnproto.org/), a C++ serialization library we use for parts of the network protocol.
+6. [juce-cmake] to allow us to use JUCE and CMake together.
 
 As we don't want to send any unecrpyted audio data through the internet, we use a simple BlowFish encryption scheme to make sure that only authorized people join the jam session. For now, we have simply compiled a shared secret into server and client, more elaborate schemes might follow.
 
 To generate the shared secret, create a file named RandomNumbers.bin in the &lt;JammerNetzDir&gt;\common subdirectory. For example, you can use an external source like (https://www.random.org/bytes/) to generate 72 random bytes, or use a more trustworthy key source as you choose.
 
-### Additional Windows prerequisites
+#### Building CapnProto
 
-In addition, you will need the [Steinberg ASIO SDK](https://www.steinberg.net/en/company/developers.html), which can be downloaded from their webseite. Unzip the contents into the third_party\ASIOSDK directory.
+Regrettably we need to build CapnProto before we can build JammerNetz. CD into the third_party/capnproto directory and
 
-For the multithreading aspects of the application, we use the [Intel Threading Building Blocks](https://software.intel.com/en-us/tbb) library. Download the matching binary release from github [here](https://github.com/intel/tbb/releases). Unzip the file downloaded into the third_party subdirectory. We have used version tbb2019_20190605oss. If you have a different version, you need to adapt the paths in the Projucer exporter later.
+    cmake -S . -B builds -G "Visual Studio 15 2017 Win64"
 
+which will generate the sln file required to build. Open an MS Developer command prompt and run
+
+    msbuild builds/"Cap'n Proto Root.sln" /p:Flavor=Debug
+    msbuild builds/"Cap'n Proto Root.sln" /p:Flavor=Release
+
+#### Building JammerNetz
+
+Now we're ready to roll and can cd into the JammerNetz directory created by the git clone command, and issue a 
+
+    cmake -S . -B Builds -G "Visual Studio 15 2017 Win64"
+
+after that run, you will find the Solution file for Visual Studio in Builds\JammerNetz.sln. You can open this in Visual Studio and start developing, or if you just want to build just run 
+
+    msbuild builds\JammerNetz.sln /p:Configuration=Debug
+    msbuild builds\JammerNetz.sln /p:Configuration=Release
 
 ### Building the server
 
