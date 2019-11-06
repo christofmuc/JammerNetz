@@ -40,7 +40,7 @@ set(VCREDIST_PATH "${CMAKE_CURRENT_BINARY_DIR}/_deps/vcredist-subbuild/vcredist-
 # 
 # Find CapnProto via CMAKE - strangely, this wants to be compiled as the build output of CapnProto build is the CMake file to include
 # 
-set(CapnProto_DIR "${CMAKE_CURRENT_LIST_DIR}/third_party/capnproto/c++/build/cmake")
+set(CapnProto_DIR "${CMAKE_CURRENT_LIST_DIR}/third_party/capnproto/builds/c++/cmake")
 find_package(CapnProto REQUIRED) 
 
 # Use all cores
