@@ -11,6 +11,17 @@ project(JammerNetz)
 # We need a little bit support for the JUCE library, and also want to put our own CMake helpers on the module path
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/third_party/juce-cmake/cmake" "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
+# Include useful scripts for CMake
+include(FetchContent)
+
+# Configure time downloads of more third_party libraries that can not be maintained as git submodules
+# Make sure to read and accept the Steinberg licensing agreement in the directory _deps/asiosdk-src!
+FetchContent_Declare(
+  asiosdk
+  URL https://www.steinberg.net/asiosdk
+)
+FetchContent_MakeAvailable(asiosdk)
+
 # 
 # Find CapnProto via CMAKE - strangely, this wants to be compiled as the build output of CapnProto build is the CMake file to include
 # 
