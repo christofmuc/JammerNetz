@@ -39,9 +39,20 @@ set(VCREDIST_PATH "${CMAKE_CURRENT_BINARY_DIR}/_deps/vcredist-subbuild/vcredist-
 
 # 
 # Find CapnProto via CMAKE - strangely, this wants to be compiled as the build output of CapnProto build is the CMake file to include
-# 
-set(CapnProto_DIR "${CMAKE_CURRENT_LIST_DIR}/third_party/capnproto/c++/build/cmake")
+# And even more strange is that it really wants an "include" directory at top level, which can be empty
+set(CapnProto_DIR "${CMAKE_CURRENT_LIST_DIR}/third_party/capnproto/builds/c++/cmake")
 find_package(CapnProto REQUIRED) 
+file(MAKE_DIRECTORY "${CMAKE_CURRENT_LIST_DIR}/third_party/capnproto/include")
+
+#
+# We need a cryptographic key that server and client will share so they can communicate. In its simplest form, we will just take some random numbers from the internet
+set(CRYPTO_FILE "common/resources/RandomNumbers.bin")
+if(NOT EXISTS ${CRYPTO_FILE})
+	message(STATUS "Creating 72 random byte crypto seed with the help of random.org")
+	file(DOWNLOAD "https://www.random.org/cgi-bin/randbyte?nbytes=72&format=f" ${CRYPTO_FILE}
+		   TIMEOUT 60  # seconds
+		  )
+endif()
 
 # Use all cores
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP")
