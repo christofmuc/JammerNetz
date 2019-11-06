@@ -22,8 +22,7 @@ find_package(JUCE REQUIRED
 include(BinaryResources)
 
 # Add an include for a library that is not included via CMake itself
-# Adding the include path for the ff_meters JUCE module. As juce-cmake doesn't support modules at user locations, we need to be a bit creative here
-include_directories(AFTER "../third_party/tbb2019_20190605oss/include/")
+include_directories(AFTER "${INTEL_TBB_DIRECTORY}/include/")
 
 # Call the Cap'n Proto interface generator
 set(CAPNPC_OUTPUT_DIR ${CMAKE_CURRENT_LIST_DIR})

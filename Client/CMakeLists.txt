@@ -29,7 +29,7 @@ find_package(JUCE REQUIRED
 include(BinaryResources)
 
 # Setup some additional include directories for our header only libraries and those without CMake support
-include_directories("${CMAKE_CURRENT_LIST_DIR}/../third_party/tbb2019_20190605oss/include/"
+include_directories("${INTEL_TBB_DIRECTORY}/include/"
 	"${asiosdk_SOURCE_DIR}/common"
 	"${CMAKE_CURRENT_LIST_DIR}/../third_party/infra/include"
 	"${CMAKE_CURRENT_LIST_DIR}/../third_party/Q/q_lib/include"
@@ -90,7 +90,7 @@ set(OTHER_FILES
 )
 
 add_executable(JammerNetzClient WIN32 ${SOURCES} ${OTHER_FILES})
-target_link_directories(JammerNetzClient PRIVATE "${CMAKE_CURRENT_LIST_DIR}/../third_party/tbb2019_20190605oss/lib/intel64/vc14")
+target_link_directories(JammerNetzClient PRIVATE "${INTEL_TBB_DIRECTORY}/lib/intel64/vc14")
 target_link_libraries(JammerNetzClient ${JUCE_LIBRARIES} JammerCommon ff_meters)
 source_group(Source FILES ${SOURCES})
 
@@ -98,21 +98,25 @@ source_group(Source FILES ${SOURCES})
 add_custom_command(
         TARGET JammerNetzClient POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy
-                ${CMAKE_CURRENT_LIST_DIR}/../third_party/tbb2019_20190605oss/bin/intel64/vc14/$<IF:$<CONFIG:Release>,tbb,tbb_debug>.dll
+                ${INTEL_TBB_DIRECTORY}/bin/intel64/vc14/$<IF:$<CONFIG:Release>,tbb,tbb_debug>.dll
                 ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>)
 
 
 # Windows only: Build InnoSetup installer
-find_program(INNOSETUP NAMES iscc.exe PATHS "c:/program files (x86)/Inno Setup 6")
+find_program(INNOSETUP NAMES iscc ISCC HINTS "c:/program files (x86)/Inno Setup 6")
 if (INNOSETUP)
 	message("InnoSetup found at ${INNOSETUP}")
 else(INNOSETUP)
 	message("Didn't find InnoSetup 6 installation, skipping creation of Client installer '")
 endif(INNOSETUP)
 
+ # Parse Inno Setup config file
+configure_file("${CMAKE_CURRENT_LIST_DIR}/setup_client.iss"
+               "${CMAKE_CURRENT_BINARY_DIR}/setup_client.iss")
+
 set(no_copy $<NOT:$<CONFIG:Release>>)
 add_custom_command(
 	TARGET JammerNetzClient POST_BUILD
-	COMMAND  "${CMAKE_COMMAND}" -E $<${no_copy}:echo> $<${no_copy}:"Not building Installer with "> chdir . ${INNOSETUP} "${CMAKE_CURRENT_LIST_DIR}/setup_client.iss"
+	COMMAND  "${CMAKE_COMMAND}" -E $<${no_copy}:echo> $<${no_copy}:"Not building Installer with "> chdir . ${INNOSETUP} "${CMAKE_CURRENT_BINARY_DIR}/setup_client.iss"
 	DEPENDS setup_client.iss 
 )

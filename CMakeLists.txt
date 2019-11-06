@@ -22,6 +22,21 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(asiosdk)
 
+FetchContent_Declare(
+	inteltbb
+	URL https://github.com/intel/tbb/releases/download/2019_U9/tbb2019_20191006oss_win.zip
+)
+FetchContent_MakeAvailable(inteltbb)
+set(INTEL_TBB_DIRECTORY "${inteltbb_SOURCE_DIR}/tbb2019_20191006oss/") # This includes the version number - use this variable for easy upgrade of TBB
+
+FetchContent_Declare(
+	vcredist
+	URL https://aka.ms/vs/16/release/vc_redist.x64.exe
+	DOWNLOAD_NO_EXTRACT true
+)
+FetchContent_MakeAvailable(vcredist)
+set(VCREDIST_PATH "${CMAKE_CURRENT_BINARY_DIR}/_deps/vcredist-subbuild/vcredist-populate-prefix/src")
+
 # 
 # Find CapnProto via CMAKE - strangely, this wants to be compiled as the build output of CapnProto build is the CMake file to include
 # 

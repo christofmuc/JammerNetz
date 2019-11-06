@@ -18,7 +18,7 @@ find_package(JUCE REQUIRED
 		juce_cryptography
 )
 
-include_directories("${CMAKE_CURRENT_LIST_DIR}/../third_party/tbb2019_20190605oss/include/")
+include_directories("${INTEL_TBB_DIRECTORY}/include/")
 
 
 set(SOURCES
@@ -30,7 +30,7 @@ set(SOURCES
 )
 
 add_executable(JammerNetzServer ${SOURCES})
-target_link_directories(JammerNetzServer PRIVATE "${CMAKE_CURRENT_LIST_DIR}/../third_party/tbb2019_20190605oss/lib/intel64/vc14")
+target_link_directories(JammerNetzServer PRIVATE "${INTEL_TBB_DIRECTORY}/lib/intel64/vc14")
 target_link_libraries(JammerNetzServer  ${JUCE_LIBRARIES} JammerCommon)
 source_group(Source FILES ${SOURCES})
 
@@ -38,5 +38,5 @@ source_group(Source FILES ${SOURCES})
 add_custom_command(
         TARGET JammerNetzServer POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy
-                ${CMAKE_CURRENT_LIST_DIR}/../third_party/tbb2019_20190605oss/bin/intel64/vc14/tbb_debug.dll
+                ${INTEL_TBB_DIRECTORY}/bin/intel64/vc14/tbb_debug.dll
                 ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>)

@@ -21,10 +21,10 @@ AppSupportURL={#MyAppURL}
 AppUpdatesURL={#MyAppURL}
 DefaultDirName={autopf}\{#MyAppName}
 DisableProgramGroupPage=yes
-LicenseFile=redist\agpl-3.0.txt
+LicenseFile=${CMAKE_CURRENT_SOURCE_DIR}/redist/agpl-3.0.txt
 ; Remove the following line to run in administrative install mode (install for all users.)
 PrivilegesRequired=lowest
-OutputDir=Setup
+OutputDir=${CMAKE_CURRENT_BINARY_DIR}
 OutputBaseFilename=jammernetz_setup
 Compression=lzma
 SolidCompression=yes
@@ -37,9 +37,9 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-Source: "..\Builds\CMake\Client\Release\JammerNetzClient.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\Builds\CMake\Client\Release\tbb.dll"; DestDir: "{app}"; Flags: ignoreversion
-Source: "Redist\{#VCRedistFileName}"; DestDir: {tmp}; Flags: dontcopy
+Source: "${CMAKE_CURRENT_BINARY_DIR}\Release\JammerNetzClient.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "${CMAKE_CURRENT_BINARY_DIR}\Release\tbb.dll"; DestDir: "{app}"; Flags: ignoreversion
+Source: "${VCREDIST_PATH}\{#VCRedistFileName}"; DestDir: {tmp}; Flags: dontcopy
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 ; VC++ redistributable runtime. Extracted by VC2017RedistNeedsInstall(), if needed.
 
