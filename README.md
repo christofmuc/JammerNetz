@@ -38,7 +38,9 @@ JUCE is a cross-platform library with support for all major platforms, but we ha
 
 ### Prerequisites
 
-We use [CMake 3.14](https://cmake.org/). Make sure to have both of these installed. Newer Visual Studios might work as well, you can select them as generators in CMake.
+We use [CMake 3.14](https://cmake.org/) and Visual Studio 2017 for C++. Make sure to have both of these installed. Newer Visual Studios might work as well, you can select them as generators in CMake.
+
+Optionally, if you want to produce a Windows-style installer: We always recommend the [InnoSetup](http://www.jrsoftware.org/isinfo.php) tool, really one of these golden tools that despite its age shines on and on. Download it and install it, it will automatically be picked up and used by the build process.
 
 ### Building
 
@@ -52,25 +54,24 @@ The recursive clone with  submodules is required to retrieve the following addit
 2. the nice JUCE module [ff_meters](https://github.com/ffAudio/ff_meters) from ffAudio to display the level meters for each channel.
 3. [Q](https://github.com/cycfi/Q), a highly interesting modern C++ DSP library we use for the instrument tuning/pitch detection. Go check it out, it's really cool!
 4. [Infra](https://github.com/cycfi/infra), a little helper library required by Q.
-5. [CapnProto](https://capnproto.org/), a C++ serialization library we use for parts of the network protocol.
+5. [Flatbuffers](https://google.github.io/flatbuffers/), a C++ serialization library we use for parts of the network protocol.
 6. [juce-cmake] to allow us to use JUCE and CMake together.
 
 As we don't want to send any unecrpyted audio data through the internet, we use a simple BlowFish encryption scheme to make sure that only authorized people join the jam session. For now, we have simply compiled a shared secret into server and client, more elaborate schemes might follow.
 
 To generate the shared secret, create a file named RandomNumbers.bin in the &lt;JammerNetzDir&gt;\common subdirectory. For example, you can use an external source like (https://www.random.org/bytes/) to generate 72 random bytes, or use a more trustworthy key source as you choose.
 
-#### Building CapnProto
+#### Building Flatbuffers
 
-Regrettably we need to build CapnProto before we can build JammerNetz. CD into the third_party/capnproto directory and
+Regrettably we need to build Flatbuffers before we can build JammerNetz. CD into the third_party/flatbuffers directory and
 
     cmake -S . -B builds -G "Visual Studio 15 2017 Win64"
 
 which will generate the sln file required to build. Open an MS Developer command prompt and run
 
-    msbuild builds/"Cap'n Proto Root.sln" /p:Flavor=Debug
-    msbuild builds/"Cap'n Proto Root.sln" /p:Flavor=Release
+    msbuild Builds\FlatBuffers.sln    
 
-#### Building JammerNetz
+#### Building JammerNetz Client and Server
 
 Now we're ready to roll and can cd into the JammerNetz directory created by the git clone command, and issue a 
 
@@ -80,45 +81,18 @@ after that run, you will find the Solution file for Visual Studio in Builds\Jamm
 
     msbuild builds\JammerNetz.sln /p:Configuration=Debug
     msbuild builds\JammerNetz.sln /p:Configuration=Release
+	
+This will produce a JammerNetzClient.exe and a JammerNetzServer.exe in the respective directories, as well as a client installer that can be used to distribute the client. 
+The installer executable is created as `<JammerNetzDir>\Builds\Client\jammernetz_setup.exe`
 
-### Building the server
+### Building the server for Linux
 
-On Windows using Visual Studio 2017
-
-  1. After downloading the JUCE library and unzipping it, start the provided "Projucer" application. This is the JUCE IDE which you will use to generate the build files for the target.
-  2. The Projucer file is preloaded with "Exporters" for MS Visual Studio 2017 and a Linux makefile. Right click the "Visual Studio 2017" and select "Save this exporter". This will generate a Visual Studio 2017 solution file.
-  3. Open the generated &lt;JammerNetzDir&gt;\Server\Builds\VisualStudio2017\JammerNetzServer.sln file in Visual Studio. You can now select Debug or Release config and build and run it normally with the IDE.
-
+Most likely, you're not going to run your server on a Windows machine but prefer a Linux cloud machine located at some strategic position in the Internet.
+ 
 Other targets:
 
   1. We create the Linux build of the server using cross-platform compilation from my Windows machine. See below for more instructions on that using Docker.
   2. A native Linux makefile can also be created using the Projucer on Ubuntu, as well as Mac OS support should be theoretically possible.
-
-
-### Building the client
-
-On Windows using Visual Studio 2017
-
-  1. Start Projucer and open the file &lt;JammerNetzDir&gt;\Client\Client.jucer
-  2. Save the exporter and open the generated solution file, or just click the Visual Studio icon which will open it for you.
-  3. You can now select Debug or Release config and build and run it normally with the IDE.
-
-## Creating an installer for the client
-
-Now you got the client, but you may want your mates to join you in the jam - they will need a client executable as well. As we have compiled in our secret, the best way to get them to join you is to distribute your client build in the form of an installer. Luckily, we have prepared something for you!
-
-We always recommend the [InnoSetup](http://www.jrsoftware.org/isinfo.php) tool, really one of these golden tools that despite its age shines on and on. Download it and install it, the use is really trivial.
-
-The only thing you will need to add is the Microsoft Visual C++ Redistributable binary - if you have a license (can be a Community License) of Visual Studio, you will find the file `vc_redist.x64.exe` already on your local harddisk in the correct directory, just copy it to the directory &lt;JammerNetzDir&gt;\Client\Redist. It will be in a folder called ...\VC\redist in your Visual Studio installation directory.
-
-Now with everything in place, building an installer is as easy as opening a command line in the &lt;JammerNetzDir&gt; and running the following command:
-
-```
-"c:\Program Files (x86)\Inno Setup 6\ISCC.exe" Client\setup_client.iss
-```
-
-This will create a fully functional installer as `<JammerNetzDir>\Client\builds\Setup\jammernetz_setup.exe`. Additionally, you can edit the Release exporter configuration in Projucer and remove the rem statement from the post-built command to have the installer created automatically with every release build.
-
 
 ## Cross-platform building Linux server on Windows 10 using Docker
 

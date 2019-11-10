@@ -17,19 +17,23 @@ find_package(JUCE REQUIRED
 		juce_cryptography
 )
 
+# Add flatbuffers
+find_package(Flatbuffers REQUIRED PATHS "${CMAKE_CURRENT_LIST_DIR}/../third_party/flatbuffers")
+include(HomegrownFlatC)
 
 # Load the macro to process binary resources
 include(BinaryResources)
 
 # Add an include for a library that is not included via CMake itself
-include_directories(AFTER "${INTEL_TBB_DIRECTORY}/include/")
-
-# Call the Cap'n Proto interface generator
-set(CAPNPC_OUTPUT_DIR ${CMAKE_CURRENT_LIST_DIR})
-capnp_generate_cpp(CAPNP_SRCS CAPNP_HDRS JammerNetzPackages.capnp)
+include_directories(AFTER "${INTEL_TBB_DIRECTORY}/include/" "${CMAKE_CURRENT_LIST_DIR}/../third_party/flatbuffers/include" "${CMAKE_CURRENT_BINARY_DIR}")
 
 # Create our binary resources
 create_resources(resources BinaryResources.h)
+
+# Compile Flatbuffers. The output will be found because we added CMAKE_CURRENT_BINARY_DIR to the list of includes above
+set(FLATBUFFERS_FLATC_EXECUTABLE "${CMAKE_CURRENT_LIST_DIR}/../third_party/flatbuffers/builds/Debug/flatc.exe")
+FLATBUFFERS_GENERATE_C_HEADERS(FlatJammer JammerNetzPackages.fbs)
+message("Generated ${FlatJammer_OUTPUTS}")
 
 # Define the sources for the static library
 set(Sources
@@ -37,8 +41,8 @@ set(Sources
 	CMakeLists.txt
 	JammerNetzPackage.cpp
 	JammerNetzPackage.h	
-	${CAPNP_SRCS}
-	${CAPNP_HDRS}
+	JammerNetzPackages.fbs
+	JammerNetzPackages_generated.h
 	PacketStreamQueue.cpp
 	PacketStreamQueue.h
 	BinaryResources.h
@@ -56,4 +60,4 @@ set(Sources
 # Setup library
 add_library(JammerCommon ${Sources})
 target_include_directories(JammerCommon INTERFACE ${CMAKE_CURRENT_LIST_DIR})
-target_link_libraries(JammerCommon PRIVATE ${JUCE_LIBRARIES} CapnProto::capnp)
+target_link_libraries(JammerCommon PRIVATE ${JUCE_LIBRARIES})

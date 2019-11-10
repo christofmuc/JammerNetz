@@ -37,13 +37,6 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(vcredist)
 set(VCREDIST_PATH "${CMAKE_CURRENT_BINARY_DIR}/_deps/vcredist-subbuild/vcredist-populate-prefix/src")
 
-# 
-# Find CapnProto via CMAKE - strangely, this wants to be compiled as the build output of CapnProto build is the CMake file to include
-# And even more strange is that it really wants an "include" directory at top level, which can be empty
-set(CapnProto_DIR "${CMAKE_CURRENT_LIST_DIR}/third_party/capnproto/builds/c++/cmake")
-find_package(CapnProto REQUIRED "0.8-dev (64bit)") 
-file(MAKE_DIRECTORY "${CMAKE_CURRENT_LIST_DIR}/third_party/capnproto/include")
-
 #
 # We need a cryptographic key that server and client will share so they can communicate. In its simplest form, we will just take some random numbers from the internet
 set(CRYPTO_FILE "${CMAKE_CURRENT_LIST_DIR}/common/resources/RandomNumbers.bin")
