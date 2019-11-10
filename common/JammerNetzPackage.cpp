@@ -288,9 +288,9 @@ void JammerNetzFlare::serialize(uint8 *output, size_t &byteswritten) const
 // Deserializing constructor
 JammerNetzClientInfoMessage::JammerNetzClientInfoMessage(uint8 *data, size_t bytes) 
 {
-	flatbuffers::Verifier verifier(data, bytes);
+	flatbuffers::Verifier verifier(data + sizeof(JammerNetzHeader), bytes);
 	if (VerifyJammerNetzPNPClientInfoPackageBuffer(verifier)) {
-		auto root = GetJammerNetzPNPClientInfoPackage(data);
+		auto root = GetJammerNetzPNPClientInfoPackage(data + sizeof(JammerNetzHeader));
 		auto infos = root->clientInfos();
 		for (auto info = infos->cbegin(); info != infos->cend(); info++) {
 			auto ipData = info->ipAddress();
@@ -337,37 +337,40 @@ void JammerNetzClientInfoMessage::serialize(uint8 *output, size_t &byteswritten)
 {
 	byteswritten += writeHeader(output, CLIENTINFO);
 
-	JammerNetzPNPClientInfoPackageT infoPackage;
+ 	flatbuffers::FlatBufferBuilder fbb;
+	std::vector<flatbuffers::Offset<JammerNetzPNPClientInfo>> infos;
 	for (auto clientInfo : clientInfos_) {
-		std::unique_ptr<JammerNetzPNPClientInfoT> info = std::make_unique<JammerNetzPNPClientInfoT>();
-		std::copy(clientInfo.ipAddress, clientInfo.ipAddress + 16, std::back_inserter(info->ipAddress));
-		info->isIPV6 = clientInfo.isIPV6;
-		info->portNumber = clientInfo.portNumber;
-
 		// Setting the various fields of the quality info, separately
-		info->qualityInfo = std::make_unique<JammerNetzPNPStreamQualityInfoT>();
-		info->qualityInfo->tooLateOrDuplicate = (clientInfo.qualityInfo.tooLateOrDuplicate);
-		info->qualityInfo->droppedPacketCounter = (clientInfo.qualityInfo.droppedPacketCounter);
+		JammerNetzPNPStreamQualityInfoBuilder quality(fbb);
+		quality.add_tooLateOrDuplicate(clientInfo.qualityInfo.tooLateOrDuplicate);
+		quality.add_droppedPacketCounter(clientInfo.qualityInfo.droppedPacketCounter);
 
 		// Healed problems
-		info->qualityInfo->outOfOrderPacketCounter = (clientInfo.qualityInfo.outOfOrderPacketCounter);
-		info->qualityInfo->duplicatePacketCounter = (clientInfo.qualityInfo.duplicatePacketCounter);
-		info->qualityInfo->dropsHealed = (clientInfo.qualityInfo.dropsHealed);
+		quality.add_outOfOrderPacketCounter(clientInfo.qualityInfo.outOfOrderPacketCounter);
+		quality.add_duplicatePacketCounter(clientInfo.qualityInfo.duplicatePacketCounter);
+		quality.add_dropsHealed(clientInfo.qualityInfo.dropsHealed);
 
 		// Pure statistics
-		info->qualityInfo->packagesPushed = (clientInfo.qualityInfo.packagesPushed);
-		info->qualityInfo->packagesPopped = (clientInfo.qualityInfo.packagesPopped);
-		info->qualityInfo->maxLengthOfGap = (clientInfo.qualityInfo.maxLengthOfGap);
-		info->qualityInfo->maxWrongOrderSpan = (clientInfo.qualityInfo.maxWrongOrderSpan);
+		quality.add_packagesPushed(clientInfo.qualityInfo.packagesPushed);
+		quality.add_packagesPopped(clientInfo.qualityInfo.packagesPopped);
+		quality.add_maxLengthOfGap(clientInfo.qualityInfo.maxLengthOfGap);
+		quality.add_maxWrongOrderSpan(clientInfo.qualityInfo.maxWrongOrderSpan);
+		auto qualityEnd = quality.Finish();
 
-		infoPackage.clientInfos.push_back(std::move(info));
+		auto ipVector = fbb.CreateVector(clientInfo.ipAddress, 16);
+		JammerNetzPNPClientInfoBuilder info(fbb);
+		info.add_ipAddress(ipVector);
+		info.add_isIPV6(clientInfo.isIPV6);
+		info.add_portNumber(clientInfo.portNumber);
+		info.add_qualityInfo(qualityEnd);
+
+		// Put into vector
+		infos.push_back(info.Finish());
 	}
-
-	// Serialize to binary to send over the network
-	flatbuffers::FlatBufferBuilder fbb;
-	auto end = JammerNetzPNPClientInfoPackage::Pack(fbb, &infoPackage);
-	auto s = fbb.GetSize();
-	fbb.Finish(end);
+	auto infoVec = fbb.CreateVector(infos);
+	JammerNetzPNPClientInfoPackageBuilder infoPackage(fbb);
+	infoPackage.add_clientInfos(infoVec);
+	fbb.Finish(infoPackage.Finish());
 	memcpy(output + byteswritten, fbb.GetBufferPointer(), fbb.GetSize());
 	byteswritten += fbb.GetSize();
 }
