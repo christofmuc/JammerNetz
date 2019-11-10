@@ -258,8 +258,9 @@ void MainComponent::timerCallback()
 {
 	// Refresh the UI with info from the Audio callback
 	std::stringstream status;
-	status << "Quality information" << std::endl;
-	status << "Underruns: " << std::fixed << std::setprecision(2) << callback_.numberOfUnderruns() << std::endl;
+	status << "Quality information" << std::endl << std::fixed << std::setprecision(2);
+	status << "Sample rate measured " << callback_.currentSampleRate() << std::endl;
+	status << "Underruns: " << callback_.numberOfUnderruns() << std::endl;
 	status << "Buffers: " << callback_.currentBufferSize() << std::endl;
 	status << "Input latency: " << inputLatencyInMS_ << "ms" << std::endl;
 	status << "Output latency: " << outputLatencyInMS_ << "ms" << std::endl;

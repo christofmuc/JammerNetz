@@ -50,6 +50,18 @@ void AudioCallback::newServer()
 	while (playBuffer_.try_pop(elem, isFillIn));
 }
 
+void AudioCallback::samplesPerTime(int numSamples) {
+	if (numSamplesSinceStart_ == -1) {
+		// Take start time
+		startTime_ = std::chrono::steady_clock::now();
+		numSamplesSinceStart_ = 0;
+	}
+	else {
+		numSamplesSinceStart_ += numSamples;
+		lastTime_ = std::chrono::steady_clock::now();
+	}
+}
+
 void AudioCallback::audioDeviceIOCallback(const float** inputChannelData, int numInputChannels, float** outputChannelData, int numOutputChannels, int numSamples)
 {
 	float *const *constnessCorrection = const_cast<float *const*>(inputChannelData);
@@ -57,6 +69,7 @@ void AudioCallback::audioDeviceIOCallback(const float** inputChannelData, int nu
 
 	// Measure the peak values for each channel
 	meterSource_.measureBlock(*audioBuffer);
+	samplesPerTime(numSamples);
 
 	// Send it to pitch detection
 	tuner_->detectPitch(audioBuffer);
@@ -130,6 +143,7 @@ void AudioCallback::audioDeviceIOCallback(const float** inputChannelData, int nu
 void AudioCallback::audioDeviceAboutToStart(AudioIODevice* device)
 {
 	StreamLogger::instance() << "Audio device " << device->getName() << " starting" << std::endl;
+	numSamplesSinceStart_ = -1;
 }
 
 void AudioCallback::audioDeviceStopped()
@@ -205,6 +219,12 @@ double AudioCallback::currentToPlayLatency() const
 std::string AudioCallback::currentReceptionQuality() const
 {
 	return playBuffer_.qualityStatement();
+}
+
+double AudioCallback::currentSampleRate() const
+{
+	auto timeElapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(lastTime_ - startTime_);
+	return (numSamplesSinceStart_) / (double)(timeElapsed.count() / (double) 1e9);
 }
 
 bool AudioCallback::isReceivingData() const
