@@ -6,9 +6,6 @@
 
 #include "Client.h"
 
-//TODO this needs to go away, just used for better error messages
-#include <winsock.h>
-
 #include "JammerNetzPackage.h"
 #include "ServerInfo.h"
 #include "StreamLogger.h"
@@ -45,8 +42,9 @@ bool Client::sendData(String const &remoteHostname, int remotePort, void *data, 
 	// Writing will block until the socket is ready to write
 	auto bytesWritten = socket_.write(remoteHostname, remotePort, data, numbytes);
 	if (bytesWritten == -1 || bytesWritten != numbytes) {
-		int errorcode = ::WSAGetLastError();
-		StreamLogger::instance() << "Error writing to socket! Error code is " << errorcode << std::endl;
+		//int errorcode = ::WSAGetLastError();
+		//StreamLogger::instance() << "Error writing to socket! Error code is " << errorcode << std::endl;
+		StreamLogger::instance() << "Error writing to socket!" << std::endl;
 	}
 	return true;
 }
