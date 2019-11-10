@@ -42,57 +42,76 @@ create_resources(Resources Source/Resources.h)
 add_definitions(-DJUCE_ASIO)
 
 set(SOURCES
-	Source/AudioCallback.cpp
-	Source/AudioCallback.h
 	Source/AudioDeviceDiscovery.cpp
 	Source/AudioDeviceDiscovery.h
-	Source/BPMDisplay.cpp
-	Source/BPMDisplay.h
-	Source/ChannelController.cpp
-	Source/ChannelController.h
-	Source/Client.cpp
-	Source/Client.h
-	Source/ClientConfig.cpp
-	Source/ClientConfig.h
 	Source/Data.cpp
 	Source/Data.h
-	Source/DataReceiveThread.cpp
-	Source/DataReceiveThread.h
-	Source/DeviceSelector.cpp
-	Source/DeviceSelector.h
 	Source/LayoutConstants.h
 	Source/Main.cpp
 	Source/MainComponent.cpp
 	Source/MainComponent.h
+	Source/Resources.h
+)
+source_group(Source FILES ${SOURCES})
+
+set(INSTALLER_FILES
+	setup_client.iss
+	Redist/agpl-3.0.txt
+)
+source_group(Source\\Installer FILES ${INSTALLER_FILES})
+
+set(RESOURCE_FILES
+	Resources/About.txt
+	Resources/cloud.png
+	Resources/live.png
+)
+source_group(Source\\Resources FILES ${RESOURCE_FILES})
+
+set(MIDI_FILES
 	Source/MidiClocker.cpp
 	Source/MidiClocker.h
 	Source/MidiNote.cpp
 	Source/MidiNote.h
 	Source/MidiRecorder.cpp
 	Source/MidiRecorder.h
+)
+source_group(Source\\MIDI FILES ${MIDI_FILES})
+
+set(AUDIO_PROCESSING_FILES
+	Source/AudioCallback.cpp
+	Source/AudioCallback.h
+	Source/Tuner.cpp
+	Source/Tuner.h
+	Source/Client.cpp
+	Source/Client.h
+	Source/DataReceiveThread.cpp
+	Source/DataReceiveThread.h
+)
+source_group(Source\\AudioProcessing FILES ${AUDIO_PROCESSING_FILES})
+
+set(UICOMPONENT_FILES
+	Source/BPMDisplay.cpp
+	Source/BPMDisplay.h
+	Source/ChannelController.cpp
+	Source/ChannelController.h
+	Source/ClientConfig.cpp
+	Source/ClientConfig.h
+	Source/DeviceSelector.cpp
+	Source/DeviceSelector.h
 	Source/RecordingInfo.cpp
 	Source/RecordingInfo.h
 	Source/ServerSelector.cpp
 	Source/ServerSelector.h
 	Source/ServerStatus.cpp
 	Source/ServerStatus.h
-	Source/Tuner.cpp
-	Source/Tuner.h
-	Source/Resources.h
 )
+source_group(Source\\UIComponents FILES ${UICOMPONENT_FILES})
 
-set(OTHER_FILES
-	setup_client.iss
-	Client.jucer
-	Resources/About.txt
-	Resources/cloud.png
-	Resources/live.png
-)
 
-add_executable(JammerNetzClient WIN32 ${SOURCES} ${OTHER_FILES})
+
+add_executable(JammerNetzClient WIN32 ${SOURCES} ${UICOMPONENT_FILES} ${AUDIO_PROCESSING_FILES} ${MIDI_FILES} ${RESOURCE_FILES} ${INSTALLER_FILES})
 target_link_directories(JammerNetzClient PRIVATE "${INTEL_TBB_DIRECTORY}/lib/intel64/vc14")
 target_link_libraries(JammerNetzClient ${JUCE_LIBRARIES} JammerCommon ff_meters)
-source_group(Source FILES ${SOURCES})
 
 # Post build commands - copy the DLLs (Windows only I guess)
 add_custom_command(
