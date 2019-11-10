@@ -3,7 +3,7 @@
 	url = https://github.com/christofmuc/ff_meters.git
 [submodule "third_party/Q"]
 	path = third_party/Q
-	url = https://github.com/cycfi/Q.git
+	url = https://github.com/christofmuc/Q.git
 [submodule "third_party/infra"]
 	path = third_party/infra
 	url = https://github.com/cycfi/infra.git
