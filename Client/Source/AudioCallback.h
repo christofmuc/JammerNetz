@@ -14,6 +14,8 @@
 #include "Tuner.h"
 #include "MidiRecorder.h"
 
+#include <chrono>
+
 class AudioCallback : public AudioIODeviceCallback {
 public:
 	AudioCallback(AudioDeviceManager &deviceManager);
@@ -39,6 +41,7 @@ public:
 	double currentToPlayLatency() const;
 
 	std::string currentReceptionQuality() const;
+	double currentSampleRate() const;
 	bool isReceivingData() const;
 	double currentRTT() const;
 	float channelPitch(int channel) const;
@@ -48,6 +51,7 @@ public:
 	std::shared_ptr<JammerNetzClientInfoMessage> getClientInfo() const;
 private:
 	void clearOutput(float** outputChannelData, int numOutputChannels, int numSamples);
+	void samplesPerTime(int numSamples);
 
 	PacketStreamQueue playBuffer_;
 	std::atomic_bool isPlaying_;
@@ -55,6 +59,7 @@ private:
 	std::atomic_uint64_t minPlayoutBufferLength_;
 	std::atomic_uint64_t maxPlayoutBufferLength_;
 	std::atomic_int64_t currentPlayQueueLength_;
+	std::atomic_int64_t numSamplesSinceStart_;
 	int discardedPackageCounter_;
 	double toPlayLatency_;
 	Client client_;
@@ -67,4 +72,8 @@ private:
 	std::unique_ptr<MidiRecorder> midiRecorder_;
 
 	std::unique_ptr<Tuner> tuner_;
+
+	std::chrono::time_point<std::chrono::steady_clock> startTime_;
+	std::chrono::time_point<std::chrono::steady_clock> lastTime_;
 };
+
