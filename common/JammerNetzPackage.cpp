@@ -8,10 +8,8 @@
 
 #include "BuffersConfig.h"
 
-#include "JammerNetzPackages.capnp.h"
-
-#include <capnp/message.h>
-#include <capnp/serialize.h>
+#include "flatbuffers/flatbuffers.h"
+#include "JammerNetzPackages_generated.h"
 
 JammerNetzSingleChannelSetup::JammerNetzSingleChannelSetup() :
 	target(JammerNetzChannelTarget::Unused), volume(1.0f), balanceLeftRight(0.0f)
@@ -290,32 +288,34 @@ void JammerNetzFlare::serialize(uint8 *output, size_t &byteswritten) const
 // Deserializing constructor
 JammerNetzClientInfoMessage::JammerNetzClientInfoMessage(uint8 *data, size_t bytes) 
 {
-	size_t headerSize = sizeof(JammerNetzHeader);
-	kj::ArrayInputStream inputStream(kj::ArrayPtr<uint8>(data + headerSize, bytes - headerSize));
-	capnp::InputStreamMessageReader reader(inputStream);
+	flatbuffers::Verifier verifier(data, bytes);
+	if (VerifyJammerNetzPNPClientInfoPackageBuffer(verifier)) {
+		auto root = GetJammerNetzPNPClientInfoPackage(data);
+		auto infos = root->clientInfos();
+		for (auto info = infos->cbegin(); info != infos->cend(); info++) {
+			auto ipData = info->ipAddress();
+			jassert(ipData->size() == 16);
+			if (ipData->size() == 16) {
+				IPAddress ipAddress(ipData->data(), info->isIPV6());
+				JammerNetzStreamQualityInfo qualityInfo;
+				auto qi = info->qualityInfo();
 
-	auto root = reader.getRoot<JammerNetzPNPClientInfoPackage>();
-	auto infos = root.getClientInfos();
-	for (auto && info : infos) {
-		auto ipData = info.getIpAddress();
-		jassert(ipData.size() == 16);
-		if (ipData.size() == 16) {
-			IPAddress ipAddress(ipData.asBytes().begin(), info.getIsIPV6());
-			JammerNetzStreamQualityInfo qualityInfo;
-			auto qi = info.getQualityInfo();
+				qualityInfo.tooLateOrDuplicate = qi->tooLateOrDuplicate();
+				qualityInfo.droppedPacketCounter = qi->droppedPacketCounter();
+				qualityInfo.outOfOrderPacketCounter = qi->outOfOrderPacketCounter();
+				qualityInfo.duplicatePacketCounter = qi->duplicatePacketCounter();
+				qualityInfo.dropsHealed = qi->dropsHealed();
+				qualityInfo.packagesPushed = qi->packagesPushed();
+				qualityInfo.packagesPopped = qi->packagesPopped();
+				qualityInfo.maxLengthOfGap = qi->maxLengthOfGap();
+				qualityInfo.maxWrongOrderSpan = qi->maxWrongOrderSpan();
 
-			qualityInfo.tooLateOrDuplicate = qi.getTooLateOrDuplicate();
-			qualityInfo.droppedPacketCounter = qi.getDroppedPacketCounter();
-			qualityInfo.outOfOrderPacketCounter = qi.getOutOfOrderPacketCounter();
-			qualityInfo.duplicatePacketCounter = qi.getDuplicatePacketCounter();
-			qualityInfo.dropsHealed = qi.getDropsHealed();
-			qualityInfo.packagesPushed = qi.getPackagesPushed();
-			qualityInfo.packagesPopped = qi.getPackagesPopped();
-			qualityInfo.maxLengthOfGap = qi.getMaxLengthOfGap();
-			qualityInfo.maxWrongOrderSpan = qi.getMaxWrongOrderSpan();
-				
-			clientInfos_.emplace_back(ipAddress, info.getPortNumber(), qualityInfo);
+				clientInfos_.emplace_back(ipAddress, info->portNumber(), qualityInfo);
+			}
 		}
+	}
+	else {
+		jassert(false);
 	}
 }
 
@@ -337,41 +337,39 @@ void JammerNetzClientInfoMessage::serialize(uint8 *output, size_t &byteswritten)
 {
 	byteswritten += writeHeader(output, CLIENTINFO);
 
-	capnp::MallocMessageBuilder message;
-
-	// Use Captain Proto to fill our message
-	JammerNetzPNPClientInfoPackage::Builder jn = message.initRoot<JammerNetzPNPClientInfoPackage>();
-
-	auto infos = jn.initClientInfos(clientInfos_.size());
-	int i = 0;
+	JammerNetzPNPClientInfoPackageT infoPackage;
 	for (auto clientInfo : clientInfos_) {
-		auto ip = infos[i].initIpAddress(16);
-		std::copy(clientInfo.ipAddress, clientInfo.ipAddress + 16, ip.begin());
-		infos[i].setIsIPV6(clientInfo.isIPV6);
-		infos[i].setPortNumber(clientInfo.portNumber);
+		std::unique_ptr<JammerNetzPNPClientInfoT> info = std::make_unique<JammerNetzPNPClientInfoT>();
+		std::copy(clientInfo.ipAddress, clientInfo.ipAddress + 16, std::back_inserter(info->ipAddress));
+		info->isIPV6 = clientInfo.isIPV6;
+		info->portNumber = clientInfo.portNumber;
 
 		// Setting the various fields of the quality info, separately
-		auto qi = infos[i].initQualityInfo();
-		
-		qi.setTooLateOrDuplicate(clientInfo.qualityInfo.tooLateOrDuplicate);
-		qi.setDroppedPacketCounter(clientInfo.qualityInfo.droppedPacketCounter);
+		info->qualityInfo = std::make_unique<JammerNetzPNPStreamQualityInfoT>();
+		info->qualityInfo->tooLateOrDuplicate = (clientInfo.qualityInfo.tooLateOrDuplicate);
+		info->qualityInfo->droppedPacketCounter = (clientInfo.qualityInfo.droppedPacketCounter);
 
 		// Healed problems
-		qi.setOutOfOrderPacketCounter(clientInfo.qualityInfo.outOfOrderPacketCounter);
-		qi.setDuplicatePacketCounter(clientInfo.qualityInfo.duplicatePacketCounter);
-		qi.setDropsHealed(clientInfo.qualityInfo.dropsHealed);
+		info->qualityInfo->outOfOrderPacketCounter = (clientInfo.qualityInfo.outOfOrderPacketCounter);
+		info->qualityInfo->duplicatePacketCounter = (clientInfo.qualityInfo.duplicatePacketCounter);
+		info->qualityInfo->dropsHealed = (clientInfo.qualityInfo.dropsHealed);
 
 		// Pure statistics
-		qi.setPackagesPushed(clientInfo.qualityInfo.packagesPushed);
-		qi.setPackagesPopped(clientInfo.qualityInfo.packagesPopped);
-		qi.setMaxLengthOfGap(clientInfo.qualityInfo.maxLengthOfGap);
-		qi.setMaxWrongOrderSpan(clientInfo.qualityInfo.maxWrongOrderSpan);
+		info->qualityInfo->packagesPushed = (clientInfo.qualityInfo.packagesPushed);
+		info->qualityInfo->packagesPopped = (clientInfo.qualityInfo.packagesPopped);
+		info->qualityInfo->maxLengthOfGap = (clientInfo.qualityInfo.maxLengthOfGap);
+		info->qualityInfo->maxWrongOrderSpan = (clientInfo.qualityInfo.maxWrongOrderSpan);
+
+		infoPackage.clientInfos.push_back(std::move(info));
 	}
 
 	// Serialize to binary to send over the network
-	kj::ArrayOutputStream outputStream(kj::ArrayPtr<uint8>(output + byteswritten, MAXFRAMESIZE - byteswritten)); // TODO - this is incorrect, as there might be less bytes left in the block than MAXFRAMESIZE
-	writeMessage(outputStream, message);
-	byteswritten += outputStream.getArray().size();
+	flatbuffers::FlatBufferBuilder fbb;
+	auto end = JammerNetzPNPClientInfoPackage::Pack(fbb, &infoPackage);
+	auto s = fbb.GetSize();
+	fbb.Finish(end);
+	memcpy(output + byteswritten, fbb.GetBufferPointer(), fbb.GetSize());
+	byteswritten += fbb.GetSize();
 }
 
 uint8 JammerNetzClientInfoMessage::getNumClients() const

@@ -38,5 +38,5 @@ source_group(Source FILES ${SOURCES})
 add_custom_command(
         TARGET JammerNetzServer POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy
-                ${INTEL_TBB_DIRECTORY}/bin/intel64/vc14/tbb_debug.dll
+                ${INTEL_TBB_DIRECTORY}/bin/intel64/vc14/$<IF:$<CONFIG:Release>,tbb,tbb_debug>.dll
                 ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>)
