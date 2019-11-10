@@ -15,9 +15,9 @@ void Settings::setSettingsID(String const &id)
 	settingsID_ = id;
 }
 
-std::string Settings::get(std::string const &key, std::string const &default) 
+std::string Settings::get(std::string const &key, std::string const &defaultValue) 
 {
-	return properties_.getUserSettings()->getValue(key, default).toStdString();
+	return properties_.getUserSettings()->getValue(key, defaultValue).toStdString();
 }
 
 void Settings::set(std::string const &key, std::string const &value)

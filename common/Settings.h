@@ -8,7 +8,7 @@ public:
 	static Settings & instance();
 	void saveAndClose();
 
-	std::string get(std::string const &key, std::string const &default = std::string());
+	std::string get(std::string const &key, std::string const &defaultValue = std::string());
 	void set(std::string const &key, std::string const &value);
 
 	File getSessionStorageDir() const;
