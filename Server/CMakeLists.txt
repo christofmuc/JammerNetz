@@ -30,13 +30,18 @@ set(SOURCES
 )
 
 add_executable(JammerNetzServer ${SOURCES})
-target_link_directories(JammerNetzServer PRIVATE "${INTEL_TBB_DIRECTORY}/lib/intel64/vc14")
-target_link_libraries(JammerNetzServer  ${JUCE_LIBRARIES} JammerCommon)
+if (WIN32)
+	target_link_directories(JammerNetzServer PRIVATE "${INTEL_TBB_DIRECTORY}/lib/intel64/vc14")
+	target_link_libraries(JammerNetzServer  ${JUCE_LIBRARIES} JammerCommon)
+
+	# Post build commands - copy the DLLs
+	add_custom_command(
+			TARGET JammerNetzServer POST_BUILD
+			COMMAND ${CMAKE_COMMAND} -E copy
+					${INTEL_TBB_DIRECTORY}/bin/intel64/vc14/$<IF:$<CONFIG:Release>,tbb,tbb_debug>.dll
+					${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>)
+else()
+	target_link_libraries(JammerNetzServer  ${JUCE_LIBRARIES} JammerCommon tbb ${CMAKE_DL_LIBS} pthread asound curl)
+endif()
 source_group(Source FILES ${SOURCES})
 
-# Post build commands - copy the DLLs (Windows only I guess)
-add_custom_command(
-        TARGET JammerNetzServer POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy
-                ${INTEL_TBB_DIRECTORY}/bin/intel64/vc14/$<IF:$<CONFIG:Release>,tbb,tbb_debug>.dll
-                ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>)

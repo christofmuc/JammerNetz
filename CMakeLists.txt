@@ -16,26 +16,28 @@ include(FetchContent)
 
 # Configure time downloads of more third_party libraries that can not be maintained as git submodules
 # Make sure to read and accept the Steinberg licensing agreement in the directory _deps/asiosdk-src!
-FetchContent_Declare(
-  asiosdk
-  URL https://www.steinberg.net/asiosdk
-)
-FetchContent_MakeAvailable(asiosdk)
+IF (WIN32)
+	FetchContent_Declare(
+	  asiosdk
+	  URL https://www.steinberg.net/asiosdk
+	)
+	FetchContent_MakeAvailable(asiosdk)
 
-FetchContent_Declare(
-	inteltbb
-	URL https://github.com/intel/tbb/releases/download/2019_U9/tbb2019_20191006oss_win.zip
-)
-FetchContent_MakeAvailable(inteltbb)
-set(INTEL_TBB_DIRECTORY "${inteltbb_SOURCE_DIR}/tbb2019_20191006oss/") # This includes the version number - use this variable for easy upgrade of TBB
+	FetchContent_Declare(
+		inteltbb
+		URL https://github.com/intel/tbb/releases/download/2019_U9/tbb2019_20191006oss_win.zip
+	)
+	FetchContent_MakeAvailable(inteltbb)
+	set(INTEL_TBB_DIRECTORY "${inteltbb_SOURCE_DIR}/tbb2019_20191006oss/") # This includes the version number - use this variable for easy upgrade of TBB
 
-FetchContent_Declare(
-	vcredist
-	URL https://aka.ms/vs/16/release/vc_redist.x64.exe
-	DOWNLOAD_NO_EXTRACT true
-)
-FetchContent_MakeAvailable(vcredist)
-set(VCREDIST_PATH "${CMAKE_CURRENT_BINARY_DIR}/_deps/vcredist-subbuild/vcredist-populate-prefix/src")
+	FetchContent_Declare(
+		vcredist
+		URL https://aka.ms/vs/16/release/vc_redist.x64.exe
+		DOWNLOAD_NO_EXTRACT true
+	)
+	FetchContent_MakeAvailable(vcredist)
+	set(VCREDIST_PATH "${CMAKE_CURRENT_BINARY_DIR}/_deps/vcredist-subbuild/vcredist-populate-prefix/src")
+endif()
 
 #
 # We need a cryptographic key that server and client will share so they can communicate. In its simplest form, we will just take some random numbers from the internet
@@ -48,7 +50,9 @@ if(NOT EXISTS ${CRYPTO_FILE})
 endif()
 
 # Use all cores
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP")
+IF (WIN32)
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP")
+endif()
 
 # Nothing to be done here on top level, just go one level down 
 add_subdirectory("third_party")

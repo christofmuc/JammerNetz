@@ -31,9 +31,12 @@ include_directories(AFTER "${INTEL_TBB_DIRECTORY}/include/" "${CMAKE_CURRENT_LIS
 create_resources(resources BinaryResources.h)
 
 # Compile Flatbuffers. The output will be found because we added CMAKE_CURRENT_BINARY_DIR to the list of includes above
-set(FLATBUFFERS_FLATC_EXECUTABLE "${CMAKE_CURRENT_LIST_DIR}/../third_party/flatbuffers/builds/Debug/flatc.exe")
+IF (WIN32)	
+	set(FLATBUFFERS_FLATC_EXECUTABLE "${CMAKE_CURRENT_LIST_DIR}/../third_party/flatbuffers/builds/Debug/flatc.exe")
+ELSE()	
+    set(FLATBUFFERS_FLATC_EXECUTABLE "flatc")
+ENDIF()
 FLATBUFFERS_GENERATE_C_HEADERS(FlatJammer JammerNetzPackages.fbs)
-message("Generated ${FlatJammer_OUTPUTS}")
 
 # Define the sources for the static library
 set(Sources
@@ -42,7 +45,7 @@ set(Sources
 	JammerNetzPackage.cpp
 	JammerNetzPackage.h	
 	JammerNetzPackages.fbs
-	JammerNetzPackages_generated.h
+	${FlatJammer_OUTPUTS}
 	PacketStreamQueue.cpp
 	PacketStreamQueue.h
 	BinaryResources.h

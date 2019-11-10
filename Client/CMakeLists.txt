@@ -121,11 +121,13 @@ add_custom_command(
                 ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>)
 
 
-# Windows only: Build InnoSetup installer
-find_program(INNOSETUP NAMES iscc ISCC HINTS "c:/program files (x86)/Inno Setup 6")
-if (INNOSETUP)
-else()
-	message(WARNING "Didn't find InnoSetup 6 installation, skipping creation of Client installer '")
+IF (WIN32)
+	# Windows only: Build InnoSetup installer
+	find_program(INNOSETUP NAMES iscc ISCC HINTS "c:/program files (x86)/Inno Setup 6")
+	if (INNOSETUP)
+	else()
+		message(WARNING "Didn't find InnoSetup 6 installation, skipping creation of Client installer '")
+	endif()
 endif()
 
  # Parse Inno Setup config file
