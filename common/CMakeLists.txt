@@ -18,18 +18,22 @@ find_package(JUCE REQUIRED
 )
 
 # Add flatbuffers
-#add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/../third_party/flatbuffers"
-#                 ${CMAKE_CURRENT_BINARY_DIR}/flatbuffers-build
-#                 EXCLUDE_FROM_ALL)
+find_package(Flatbuffers REQUIRED PATHS "${CMAKE_CURRENT_LIST_DIR}/../third_party/flatbuffers")
+include(HomegrownFlatC)
 
 # Load the macro to process binary resources
 include(BinaryResources)
 
 # Add an include for a library that is not included via CMake itself
-include_directories(AFTER "${INTEL_TBB_DIRECTORY}/include/" "${CMAKE_CURRENT_LIST_DIR}/../third_party/flatbuffers/include")
+include_directories(AFTER "${INTEL_TBB_DIRECTORY}/include/" "${CMAKE_CURRENT_LIST_DIR}/../third_party/flatbuffers/include" "${CMAKE_CURRENT_BINARY_DIR}")
 
 # Create our binary resources
 create_resources(resources BinaryResources.h)
+
+# Compile Flatbuffers. The output will be found because we added CMAKE_CURRENT_BINARY_DIR to the list of includes above
+set(FLATBUFFERS_FLATC_EXECUTABLE "${CMAKE_CURRENT_LIST_DIR}/../third_party/flatbuffers/builds/Debug/flatc.exe")
+FLATBUFFERS_GENERATE_C_HEADERS(FlatJammer JammerNetzPackages.fbs)
+message("Generated ${FlatJammer_OUTPUTS}")
 
 # Define the sources for the static library
 set(Sources
