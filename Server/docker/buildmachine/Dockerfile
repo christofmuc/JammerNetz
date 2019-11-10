@@ -11,21 +11,21 @@ RUN apt-get -y install g++ make
 # Stuff required to use JUCE in the basic version for the server
 RUN apt-get -y install libasound2-dev libcurl4-openssl-dev pkg-config
 
-COPY juce-5.4.5-linux.zip /root
-RUN cd /root && unzip /root/juce-5.4.5-linux.zip && rm juce-5.4.5-linux.zip
-
 # Stuff required by my code
 RUN apt-get -y install libtbb-dev 
 
-# Install Capt'n Proto by their own instructions
-COPY capnproto-c++-0.7.0.tar.gz /root
-RUN cd /root && tar zxf /root/capnproto-c++-0.7.0.tar.gz
-RUN cd /root/capnproto-c++-0.7.0 && ./configure && make -j6 check && make install
+COPY cmake-3.15.5.tar.gz /root
+RUN cd /root && tar -xzf cmake-3.15.5.tar.gz && cd cmake-3.15.5 && ./bootstrap && make && make install
 
-RUN echo "cd /src/Server/Builds/LinuxMakefile && make" > /root/run_make.sh
+RUN apt-get update
+RUN apt-get -y install libssl-dev
+COPY curl-7.67.0.tar.gz /root
+RUN cd /root && tar -xzf curl-7.67.0.tar.gz && cd curl-7.67.0 && ./configure --with-ssl && make -j4 && make install
+
+RUN echo "cd /src/Server/Builds/LinuxMakefile && cmake ../../.. -G 'Unix Makefiles' && make" > /root/run_make.sh
 RUN chmod +x /root/run_make.sh
 
-ENTRYPOINT /root/run_make.sh
+#ENTRYPOINT /root/run_make.sh
 
 # Build the container via
 #
