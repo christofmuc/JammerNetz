@@ -100,13 +100,11 @@ Thanks to Docker, it has never been that easy to do cross-platform development o
 
 ### Building the Linux version from command line
 
-After installing Docker Desktop, be sure to also download the Linux version of JUCE from [here](https://shop.juce.com/get-juce/download) and place the downloaded zip file (don't unzip this!) into the directory &lt;JammerNetzDir&gt;\server\docker\buildmachine.
+After installing Docker Desktop, we're ready to do a cross-platform build for Linux.
 
 First, what we are going to do is to create a docker image for the build machine we are going to use. For that, open a command line, cd into the directory &lt;JammerNetzDir&gt;\Server\docker\buildmachine and run the command
 
     buildBuildmachine.bat
-
-Make sure to have saved the LinuxMakefile exporter from within Projucer before the next step!
 
 You can build the Linux version from a Windows command line by just running the provided batch file inside the buildmachine directory. You need to specify the JammerNetz top level directory in the funky Docker volume syntax with forward slashes and a double slash for the drive letter. E.g. the Windows directory D:\Development\JammerNetz needs to be specfied as //d/Development/JammerNetz:
 
