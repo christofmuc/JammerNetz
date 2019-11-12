@@ -44,8 +44,6 @@ add_definitions(-DJUCE_ASIO)
 set(SOURCES
 	Source/AudioDeviceDiscovery.cpp
 	Source/AudioDeviceDiscovery.h
-	Source/Data.cpp
-	Source/Data.h
 	Source/LayoutConstants.h
 	Source/Main.cpp
 	Source/MainComponent.cpp
@@ -66,16 +64,6 @@ set(RESOURCE_FILES
 	Resources/live.png
 )
 source_group(Source\\Resources FILES ${RESOURCE_FILES})
-
-set(MIDI_FILES
-	Source/MidiClocker.cpp
-	Source/MidiClocker.h
-	Source/MidiNote.cpp
-	Source/MidiNote.h
-	Source/MidiRecorder.cpp
-	Source/MidiRecorder.h
-)
-source_group(Source\\MIDI FILES ${MIDI_FILES})
 
 set(AUDIO_PROCESSING_FILES
 	Source/AudioCallback.cpp
@@ -110,7 +98,7 @@ source_group(Source\\UIComponents FILES ${UICOMPONENT_FILES})
 
 add_executable(JammerNetzClient WIN32 ${SOURCES} ${UICOMPONENT_FILES} ${AUDIO_PROCESSING_FILES} ${MIDI_FILES} ${RESOURCE_FILES} ${INSTALLER_FILES})
 target_link_directories(JammerNetzClient PRIVATE "${INTEL_TBB_DIRECTORY}/lib/intel64/vc14")
-target_link_libraries(JammerNetzClient ${JUCE_LIBRARIES} JammerCommon ff_meters)
+target_link_libraries(JammerNetzClient ${JUCE_LIBRARIES} JammerCommon juce-utils ff_meters)
 
 # Pedantic about warnings
 if (MSVC)

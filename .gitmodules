@@ -16,3 +16,6 @@
 [submodule "third_party/flatbuffers"]
 	path = third_party/flatbuffers
 	url = https://github.com/google/flatbuffers.git
+[submodule "modules/juce-utils"]
+	path = modules/juce-utils
+	url = https://github.com/christofmuc/juce-utils.git

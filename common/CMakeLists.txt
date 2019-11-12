@@ -54,16 +54,12 @@ set(Sources
 	RingOfAudioBuffers.h
 	ServerInfo.cpp
 	ServerInfo.h
-	Settings.cpp
-	Settings.h
-	StreamLogger.cpp
-	StreamLogger.h
 )
 
 # Setup library
 add_library(JammerCommon ${Sources})
 target_include_directories(JammerCommon INTERFACE ${CMAKE_CURRENT_LIST_DIR})
-target_link_libraries(JammerCommon PRIVATE ${JUCE_LIBRARIES})
+target_link_libraries(JammerCommon PRIVATE ${JUCE_LIBRARIES} juce-utils)
 
 # Pedantic about warnings
 if (MSVC)

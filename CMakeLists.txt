@@ -56,6 +56,7 @@ endif()
 
 # Nothing to be done here on top level, just go one level down 
 add_subdirectory("third_party")
+add_subdirectory("modules/juce-utils")
 add_subdirectory("common")
 add_subdirectory("Server")
 add_subdirectory("Client")
