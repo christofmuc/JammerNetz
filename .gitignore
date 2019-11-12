@@ -5,4 +5,3 @@ common/JammerNetzPackages.capnp.c++
 common/BinaryResources.h
 common/resources/RandomNumbers.bin
 Server/docker/buildmachine/juce-5.4.5-linux.zip
-WindowsBuilds/
