@@ -64,3 +64,12 @@ set(Sources
 add_library(JammerCommon ${Sources})
 target_include_directories(JammerCommon INTERFACE ${CMAKE_CURRENT_LIST_DIR})
 target_link_libraries(JammerCommon PRIVATE ${JUCE_LIBRARIES})
+
+# Pedantic about warnings
+if (MSVC)
+    # warning level 4 and all warnings as errors
+    target_compile_options(JammerCommon PRIVATE /W4 /WX)
+else()
+    # lots of warnings and all warnings as errors
+    target_compile_options(JammerCommon PRIVATE -Wall -Wextra -pedantic -Werror)
+endif()

@@ -150,11 +150,15 @@ void ChannelController::toData() const
 void ChannelController::comboBoxChanged(ComboBox* comboBoxThatHasChanged)
 {
 	jassert(hasTarget_);
-	updateHandler_(volumeSlider_.getValue(), getCurrentTarget());
+	if (comboBoxThatHasChanged == &channelType_) {
+		updateHandler_(volumeSlider_.getValue(), getCurrentTarget());
+	}
 }
 
 void ChannelController::sliderValueChanged(Slider* slider)
 {
 	jassert(hasVolume_);
-	updateHandler_(slider->getValue(), getCurrentTarget());
+	if (slider == &volumeSlider_) {
+		updateHandler_(slider->getValue(), getCurrentTarget());
+	}
 }

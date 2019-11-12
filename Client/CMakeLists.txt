@@ -112,6 +112,15 @@ add_executable(JammerNetzClient WIN32 ${SOURCES} ${UICOMPONENT_FILES} ${AUDIO_PR
 target_link_directories(JammerNetzClient PRIVATE "${INTEL_TBB_DIRECTORY}/lib/intel64/vc14")
 target_link_libraries(JammerNetzClient ${JUCE_LIBRARIES} JammerCommon ff_meters)
 
+# Pedantic about warnings
+if (MSVC)
+    # warning level 4 and all warnings as errors
+    target_compile_options(JammerNetzClient PRIVATE /W4 /WX)
+else()
+    # lots of warnings and all warnings as errors
+    target_compile_options(JammerNetzClient PRIVATE -Wall -Wextra -pedantic -Werror)
+endif()
+
 IF(WIN32)
 	# Post build commands - copy the DLLs (Windows only I guess)
 	add_custom_command(

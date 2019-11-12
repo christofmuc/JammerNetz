@@ -22,7 +22,7 @@ int MidiNote::frequencyToNoteNumber(double frequency, double frequencyA4 /* = 44
 {
 	// https://en.wikipedia.org/wiki/Piano_key_frequencies
 	if (frequency > 0.0) {
-		return std::round(12 * std::log2(frequency / frequencyA4) + 69);
+		return (int) std::round(12 * std::log2(frequency / frequencyA4) + 69);
 	}
 	else {
 		return 0;

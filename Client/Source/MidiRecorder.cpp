@@ -77,6 +77,7 @@ void MidiRecorder::handleIncomingMidiMessage(MidiInput* source, const MidiMessag
 void MidiRecorder::handlePartialSysexMessage(MidiInput* source, const uint8* messageData, int numBytesSoFar, double timestamp)
 {
 	 // What to do with this one?
+	ignoreUnused(source, messageData, numBytesSoFar, timestamp);
 }
 
 void MidiRecorder::enableMidiInput(String name)

@@ -16,7 +16,7 @@ public:
 
 	MidiClocker();
 
-	int getCurrentBPM();
+	double getCurrentBPM();
 
 	void processClockMessage(String const & midiSource, MidiMessage const &message);
 

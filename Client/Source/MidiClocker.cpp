@@ -12,7 +12,7 @@ MidiClocker::MidiClocker()
 {
 }
 
-int MidiClocker::getCurrentBPM()
+double MidiClocker::getCurrentBPM()
 {
 	// Do we have at least one clock source?
 	if (clockTimes_.size() == 0) {
@@ -33,7 +33,7 @@ int MidiClocker::getCurrentBPM()
 		count++;
 	}
 	double averageSecondsPerBPM = delta / count;
-	return std::round(60 / averageSecondsPerBPM / 24); // MIDI Clock sends at 24 pulses per quarter note (ppqn)
+	return 60.0 / averageSecondsPerBPM / 24; // MIDI Clock sends at 24 pulses per quarter note (ppqn)
 }
 
 void MidiClocker::processClockMessage(String const & midiSource, MidiMessage const &message)

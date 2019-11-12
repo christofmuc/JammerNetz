@@ -97,7 +97,7 @@ void MainComponent::refreshChannelSetup(std::shared_ptr<ChannelSetup> setup) {
 		for (int i = 0; i < setup->activeChannelIndices.size(); i++) {
 			jassert(i < MAXCHANNELSPERCLIENT);
 			if (i < MAXCHANNELSPERCLIENT) {
-				channelSetup.channels[i].target = channelControllers_[i]->getCurrentTarget();
+				channelSetup.channels[i].target = (uint8) channelControllers_[i]->getCurrentTarget();
 				channelSetup.channels[i].volume = channelControllers_[i]->getCurrentVolume();
 			}
 		}
@@ -303,6 +303,7 @@ void MainComponent::setupChanged(std::shared_ptr<ChannelSetup> setup)
 	int i = 0;
 	for (const auto& channelName : setup->activeChannelNames) {
 		auto controller = new ChannelController(channelName, "Input" + String(i), [this, setup](double newVolume, JammerNetzChannelTarget newTarget) {
+			ignoreUnused(newVolume, newTarget);
 			refreshChannelSetup(setup);
 		}, true, true, true);
 		addAndMakeVisible(controller);

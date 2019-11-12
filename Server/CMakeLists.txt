@@ -45,3 +45,11 @@ else()
 endif()
 source_group(Source FILES ${SOURCES})
 
+# Pedantic about warnings
+if (MSVC)
+    # warning level 4 and all warnings as errors
+    target_compile_options(JammerNetzServer PRIVATE /W4 /WX)
+else()
+    # lots of warnings and all warnings as errors
+    target_compile_options(JammerNetzServer PRIVATE -Wall -Wextra -pedantic -Werror)
+endif()
