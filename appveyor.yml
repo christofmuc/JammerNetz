@@ -7,20 +7,6 @@ install:
 environment:
   matrix:
   - {}
-cache:
-  #- packages
 build_script:
 - cmd: >-
-    cd third_party/flatbuffers
-
-    cmake -S . -B builds -G "Visual Studio 15 2017 Win64"
-
-    msbuild Builds\FlatBuffers.sln
-
-    cd ../..
-
-    cmake -S . -B Builds -G "Visual Studio 15 2017 Win64"
-
-    msbuild builds\JammerNetz.sln /p:Configuration=Debug
-
-    msbuild builds\JammerNetz.sln /p:Configuration=Release
+    buildWindows.bat
