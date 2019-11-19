@@ -20,7 +20,7 @@ const int SAMPLES_PER_MILLISECOND = 48000 / 1000;
 const int SERVER_INCOMING_JITTER_BUFFER = 10 * SAMPLES_PER_MILLISECOND / SAMPLE_BUFFER_SIZE;
 
 // We cannot wait forever with mixing - if this number is reached for one client, we will send out anyway, even if one of clients hasn't delivered INCOMING_JITTER_BUFFER packages
-const int SERVER_INCOMING_MAXIMUM_BUFFER = 30 * SAMPLES_PER_MILLISECOND / SAMPLE_BUFFER_SIZE;
+const int SERVER_INCOMING_MAXIMUM_BUFFER = 15 * SAMPLES_PER_MILLISECOND / SAMPLE_BUFFER_SIZE;
 
 // When a client connects anew and sends a first package, fill this number of fake packages into his queue so he has a chance to not get kicked out of the mixer again
 const int BUFFER_PREFILL_ON_CONNECT = SERVER_INCOMING_JITTER_BUFFER;
