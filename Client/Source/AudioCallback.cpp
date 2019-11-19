@@ -186,12 +186,12 @@ std::weak_ptr<MidiClocker> AudioCallback::getClocker()
 	return midiRecorder_->getClocker();
 }
 
-int AudioCallback::numberOfUnderruns() const
+int64 AudioCallback::numberOfUnderruns() const
 {
 	return playUnderruns_;
 }
 
-int AudioCallback::currentBufferSize() const
+uint64 AudioCallback::currentBufferSize() const
 {
 	return minPlayoutBufferLength_;
 }

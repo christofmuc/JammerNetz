@@ -8,6 +8,8 @@
 
 #include "BuffersConfig.h"
 
+#include "BinaryResources.h"
+
 #include <stack>
 
 class PrintQualityTimer : public HighResolutionTimer {
@@ -29,7 +31,7 @@ private:
 };
 
 AcceptThread::AcceptThread(DatagramSocket &socket, TPacketStreamBundle &incomingData, TMessageQueue &wakeUpQueue) 
-	: Thread("ReceiverThread"), receiveSocket_(socket), incomingData_(incomingData), wakeUpQueue_(wakeUpQueue), blowFish_(BinaryData::RandomNumbers_bin, BinaryData::RandomNumbers_binSize)
+	: Thread("ReceiverThread"), receiveSocket_(socket), incomingData_(incomingData), wakeUpQueue_(wakeUpQueue), blowFish_(RandomNumbers_bin, RandomNumbers_bin_size)
 {
 	if (!receiveSocket_.bindToPort(7777)) {
 		std::cerr << "Failed to bind port to 7777" << std::endl;

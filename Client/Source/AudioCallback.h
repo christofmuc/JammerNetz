@@ -8,6 +8,8 @@
 
 #include "JuceHeader.h"
 
+#include "IncludeFFMeters.h"
+
 #include "Client.h"
 #include "PacketStreamQueue.h"
 #include "Recorder.h"
@@ -33,8 +35,8 @@ public:
 	std::weak_ptr<MidiClocker> getClocker();
 
 	// Statistics
-	int numberOfUnderruns() const;
-	int currentBufferSize() const;
+	int64 numberOfUnderruns() const;
+	uint64 currentBufferSize() const;
 	int currentPacketSize() const;
 	uint64 currentPlayQueueSize() const;
 	int currentDiscardedPackageCounter() const;

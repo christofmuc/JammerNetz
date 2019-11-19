@@ -11,6 +11,8 @@
 #include "JammerNetzPackage.h"
 #include "MidiNote.h"
 
+#include "IncludeFFMeters.h"
+
 class ChannelController : public Component,
 	private Slider::Listener,
 	private ComboBox::Listener

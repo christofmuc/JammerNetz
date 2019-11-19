@@ -7,17 +7,23 @@
 #include "RecordingInfo.h"
 
 #include "LayoutConstants.h"
+#include "Resources.h"
 
 #include <cmath>
 
 // https://stackoverflow.com/questions/3758606/how-to-convert-byte-size-into-human-readable-format-in-java
-String humanReadableByteCount(int64 bytes, bool si) {
-	if (bytes < 0) return "";
-
-	int64 unit = si ? 1000 : 1024;
-	if (bytes < unit) return bytes + " B";
-	auto exp = (int64) std::floor(std::log(bytes) / std::log(unit));
-	String pre = String(si ? "kMGTPE" : "KMGTPE")[exp - 1] + String(si ? "" : "i");
+//
+String humanReadableByteCount(size_t bytes, bool si) {
+	size_t unit = si ? 1000 : 1024;
+	if (bytes < unit) {
+		return String(bytes) + " B";
+	}
+	size_t exp = (size_t) std::floor(std::log(bytes) / std::log(unit));
+	if (exp == 0) {
+		jassert(false);
+		return "NaN B";
+	}
+	String pre = String(si ? "kMGTPE" : "KMGTPE")[(int) (exp - 1)] + String(si ? "" : "i"); // Yikes, JUCE String operator[] takes a signed int as index
 	std::stringstream str;
 	str << std::setprecision(1) << std::fixed << bytes / std::pow(unit, exp) << " " << pre << "B";
 	return str.str();
@@ -43,7 +49,7 @@ RecordingInfo::RecordingInfo(std::weak_ptr<Recorder> recorder) : recorder_(recor
 	freeDiskSpace_.setText("Free disk space", dontSendNotification);
 
 	PNGImageFormat reader;
-	MemoryInputStream image(BinaryData::live_png, BinaryData::live_pngSize, false);
+	MemoryInputStream image(live_png, live_png_size, false);
 	auto im = reader.decodeImage(image);
 	recording_.setClickingTogglesState(true);
 	recording_.setImages(false, true, false, im, .9f, Colours::transparentBlack, im, 1.f, Colours::transparentWhite, im, .2f, Colours::transparentBlack);

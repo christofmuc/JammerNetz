@@ -8,8 +8,10 @@
 
 #include "BuffersConfig.h"
 
+#include "BinaryResources.h"
+
 SendThread::SendThread(DatagramSocket& socket, TOutgoingQueue &sendQueue, TPacketStreamBundle &incomingData)
-	: Thread("SenderThread"), sendSocket_(socket), sendQueue_(sendQueue), incomingData_(incomingData), blowFish_(BinaryData::RandomNumbers_bin, BinaryData::RandomNumbers_binSize)
+	: Thread("SenderThread"), sendSocket_(socket), sendQueue_(sendQueue), incomingData_(incomingData), blowFish_(RandomNumbers_bin, RandomNumbers_bin_size)
 {
 }
 

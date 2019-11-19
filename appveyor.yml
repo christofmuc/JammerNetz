@@ -1,0 +1,13 @@
+version: 1.0.{build}
+image:
+- Visual Studio 2017
+- Ubuntu1804
+install:
+- cinst innosetup
+- cmd: git submodule update --init --recursive
+environment:
+  matrix:
+  - {}
+build_script:
+- cmd: >-
+    buildWindows.bat

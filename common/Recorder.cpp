@@ -24,11 +24,10 @@ Recorder::~Recorder()
 
 void Recorder::setRecording(bool recordOn)
 {
-	if (isRecording()) {
-		writeThread_.reset();
-	}
-	else {
+	if (recordOn && !isRecording()) {
 		updateChannelInfo(lastSampleRate_, lastChannelSetup_);
+	} else if (!recordOn && isRecording()) {
+		writeThread_.reset();
 	}
 }
 
