@@ -59,4 +59,7 @@ add_subdirectory("third_party")
 add_subdirectory("modules/juce-utils")
 add_subdirectory("common")
 add_subdirectory("Server")
+# For now, the Client only compiles on Windows
+if (WIN32)
 add_subdirectory("Client")
+endif()
