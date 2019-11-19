@@ -13,7 +13,7 @@
 #include "Settings.h"
 
 AudioCallback::AudioCallback(AudioDeviceManager &deviceManager) : client_([this](std::shared_ptr < JammerNetzAudioData> buffer) { playBuffer_.push(buffer); }),
-	toPlayLatency_(0.0), currentPlayQueueLength_(0), discardedPackageCounter_(0), playBuffer_("server")
+toPlayLatency_(0.0), currentPlayQueueLength_(0), discardedPackageCounter_(0), playBuffer_("server")
 {
 	isPlaying_ = false;
 	playUnderruns_ = 0;
@@ -28,6 +28,10 @@ AudioCallback::AudioCallback(AudioDeviceManager &deviceManager) : client_([this]
 
 	// We want to be able to tune our instruments
 	tuner_ = std::make_unique<Tuner>();
+
+	// Calculate nice spectrogram for display
+	spectrogram_ = std::make_unique<Spectrogram>([]() {
+	});
 }
 
 void AudioCallback::clearOutput(float** outputChannelData, int numOutputChannels, int numSamples) {
@@ -73,6 +77,9 @@ void AudioCallback::audioDeviceIOCallback(const float** inputChannelData, int nu
 
 	// Send it to pitch detection
 	tuner_->detectPitch(audioBuffer);
+
+	// Calculate Spectrogram
+	spectrogram_->newData(AudioSourceChannelInfo(*audioBuffer));
 
 	client_.sendData(channelSetup_, audioBuffer); //TODO offload the real sending to a different thread
 	if (uploadRecorder_ && uploadRecorder_->isRecording()) {

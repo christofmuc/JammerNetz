@@ -16,6 +16,8 @@
 #include "Tuner.h"
 #include "MidiRecorder.h"
 
+#include "Spectrogram.h"
+
 #include <chrono>
 
 class AudioCallback : public AudioIODeviceCallback {
@@ -74,6 +76,8 @@ private:
 	std::unique_ptr<MidiRecorder> midiRecorder_;
 
 	std::unique_ptr<Tuner> tuner_;
+
+	std::unique_ptr<Spectrogram> spectrogram_;
 
 	std::chrono::time_point<std::chrono::steady_clock> startTime_;
 	std::chrono::time_point<std::chrono::steady_clock> lastTime_;

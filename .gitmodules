@@ -19,3 +19,6 @@
 [submodule "modules/juce-utils"]
 	path = modules/juce-utils
 	url = https://github.com/christofmuc/juce-utils.git
+[submodule "modules/juce-spectroscope19"]
+	path = modules/juce-spectroscope19
+	url = https://github.com/christofmuc/juce-spectroscope19.git

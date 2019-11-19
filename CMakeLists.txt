@@ -37,6 +37,15 @@ IF (WIN32)
 	)
 	FetchContent_MakeAvailable(vcredist)
 	set(VCREDIST_PATH "${CMAKE_CURRENT_BINARY_DIR}/_deps/vcredist-subbuild/vcredist-populate-prefix/src")
+
+	FetchContent_Declare(
+		glew
+		URL https://github.com/nigels-com/glew/releases/download/glew-2.1.0/glew-2.1.0-win32.zip
+	)
+	FetchContent_MakeAvailable(glew)
+	set(GLEW_DIRECTORY "${glew_SOURCE_DIR}/include/")
+	set(GLEW_LIB_DIRECTORY "${glew_SOURCE_DIR}/lib/Release/x64")
+	set(GLEW_DLL_DIRECTORY "${glew_SOURCE_DIR}/bin/Release/x64")
 endif()
 
 #
@@ -57,6 +66,7 @@ endif()
 # Nothing to be done here on top level, just go one level down 
 add_subdirectory("third_party")
 add_subdirectory("modules/juce-utils")
+add_subdirectory("modules/juce-spectroscope19")
 add_subdirectory("common")
 add_subdirectory("Server")
 # For now, the Client only compiles on Windows
