@@ -12,7 +12,7 @@
 #include "BuffersConfig.h"
 #include "Settings.h"
 
-AudioCallback::AudioCallback(AudioDeviceManager &deviceManager) : client_([this](std::shared_ptr < JammerNetzAudioData> buffer) { playBuffer_.push(buffer); }),
+AudioCallback::AudioCallback(AudioDeviceManager &deviceManager, std::function<void()> newDataCallback) : client_([this](std::shared_ptr < JammerNetzAudioData> buffer) { playBuffer_.push(buffer); }),
 toPlayLatency_(0.0), currentPlayQueueLength_(0), discardedPackageCounter_(0), playBuffer_("server")
 {
 	isPlaying_ = false;
@@ -30,7 +30,8 @@ toPlayLatency_(0.0), currentPlayQueueLength_(0), discardedPackageCounter_(0), pl
 	tuner_ = std::make_unique<Tuner>();
 
 	// Calculate nice spectrogram for display
-	spectrogram_ = std::make_unique<Spectrogram>([]() {
+	spectrogram_ = std::make_shared<Spectrogram>([newDataCallback]() {
+		newDataCallback();
 	});
 }
 
@@ -77,9 +78,6 @@ void AudioCallback::audioDeviceIOCallback(const float** inputChannelData, int nu
 
 	// Send it to pitch detection
 	tuner_->detectPitch(audioBuffer);
-
-	// Calculate Spectrogram
-	spectrogram_->newData(AudioSourceChannelInfo(*audioBuffer));
 
 	client_.sendData(channelSetup_, audioBuffer); //TODO offload the real sending to a different thread
 	if (uploadRecorder_ && uploadRecorder_->isRecording()) {
@@ -138,6 +136,8 @@ void AudioCallback::audioDeviceIOCallback(const float** inputChannelData, int nu
 			jassert(false);
 		}
 		outMeterSource_.measureBlock(*toPlay->audioBuffer());
+		// Calculate Spectrogram
+		spectrogram_->newData(AudioSourceChannelInfo(*toPlay->audioBuffer()));
 	}
 	else {
 		// This is a serious problem - either the server never started to send data, or we have a buffer underflow.
@@ -191,6 +191,11 @@ FFAU::LevelMeterSource* AudioCallback::getOutputMeterSource()
 std::weak_ptr<MidiClocker> AudioCallback::getClocker()
 {
 	return midiRecorder_->getClocker();
+}
+
+std::weak_ptr<Spectrogram> AudioCallback::getSpectrogram()
+{
+	return spectrogram_;
 }
 
 int64 AudioCallback::numberOfUnderruns() const

@@ -22,7 +22,7 @@
 
 class AudioCallback : public AudioIODeviceCallback {
 public:
-	AudioCallback(AudioDeviceManager &deviceManager);
+	AudioCallback(AudioDeviceManager &deviceManager, std::function<void()> newDataCallback);
 
 	virtual void audioDeviceIOCallback(const float** inputChannelData, int numInputChannels, float** outputChannelData, int numOutputChannels, int numSamples) override;
 	virtual void audioDeviceAboutToStart(AudioIODevice* device) override;
@@ -35,6 +35,7 @@ public:
 	FFAU::LevelMeterSource* getMeterSource();
 	FFAU::LevelMeterSource* getOutputMeterSource();
 	std::weak_ptr<MidiClocker> getClocker();
+	std::weak_ptr<Spectrogram> getSpectrogram();
 
 	// Statistics
 	int64 numberOfUnderruns() const;
@@ -77,7 +78,7 @@ private:
 
 	std::unique_ptr<Tuner> tuner_;
 
-	std::unique_ptr<Spectrogram> spectrogram_;
+	std::shared_ptr<Spectrogram> spectrogram_;
 
 	std::chrono::time_point<std::chrono::steady_clock> startTime_;
 	std::chrono::time_point<std::chrono::steady_clock> lastTime_;

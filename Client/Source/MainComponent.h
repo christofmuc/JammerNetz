@@ -16,6 +16,7 @@
 #include "ClientConfig.h"
 #include "BPMDisplay.h"
 #include "RecordingInfo.h"
+#include "SpectrogramWidget.h"
 
 class MainComponent   : public Component, private Timer
 {
@@ -59,6 +60,7 @@ private:
 	GroupComponent recordingGroup_;
 	std::unique_ptr<RecordingInfo> recordingInfo_; // For the master files
 	std::unique_ptr<RecordingInfo> localRecordingInfo_; // For the local data
+	std::unique_ptr<SpectogramWidget> spectrogramWidget_;
 
 	std::shared_ptr<ChannelSetup> currentInputSetup_;
 	std::shared_ptr<ChannelSetup> currentOutputSetup_;

@@ -22,11 +22,12 @@ outputSelector_("Outputs", false, "OutputSetup", deviceManager_, false, [this](s
 outputController_("Master", "OutputController", [](double, JammerNetzChannelTarget) {}, false, false),
 clientConfigurator_([this](int clientBuffer, int maxBuffer, int flares) { callback_.changeClientConfig(clientBuffer, maxBuffer, flares);  }),
 serverStatus_([this]() { newServerSelected();  }),
-callback_(deviceManager_)
+callback_(deviceManager_, [this]() { if (spectrogramWidget_) spectrogramWidget_->refreshData();  })
 {
 	bpmDisplay_ = std::make_unique<BPMDisplay>(callback_.getClocker());
 	recordingInfo_ = std::make_unique<RecordingInfo>(callback_.getMasterRecorder());
 	localRecordingInfo_ = std::make_unique<RecordingInfo>(callback_.getLocalRecorder());
+	
 
 	outputController_.setMeterSource(callback_.getOutputMeterSource(), -1);
 
@@ -52,6 +53,7 @@ callback_(deviceManager_)
 	addAndMakeVisible(recordingGroup_);
 	addAndMakeVisible(*recordingInfo_);
 	addAndMakeVisible(*localRecordingInfo_);
+	
 	std::stringstream list;
 	AudioDeviceDiscovery::listAudioDevices(deviceManager_, list);
 	StreamLogger::instance() << list.str(); // For performance, send it to the output only once
@@ -71,11 +73,14 @@ callback_(deviceManager_)
 
 	// Make sure you set the size of the component after
 	// you add any child components.
-	setSize(1024, 800);
+	setSize(1280, 800);
 }
 
 MainComponent::~MainComponent()
 {
+	if (OpenGLContext::getCurrentContext()) {
+		OpenGLContext::getCurrentContext()->detach();
+	}
 	stopAudioIfRunning();
 	clientConfigurator_.toData();
 	serverStatus_.toData();
@@ -144,6 +149,13 @@ void MainComponent::restartAudio(std::shared_ptr<ChannelSetup> inputSetup, std::
 			audioDevice_->start(&callback_);
 		}
 	}
+
+	// The lifetime of the spectrogram Widget is bound to the startAudio() stopAudio()
+	// This is not really necessary, but it will make the handling of changes easier (e.g. sample rate change)
+	// It also plays better with the OpenGL Context cleanup
+	spectrogramWidget_ = std::make_unique<SpectogramWidget>(callback_.getSpectrogram());
+	addAndMakeVisible(*spectrogramWidget_);
+	spectrogramWidget_->setContinuousRedrawing(true);
 }
 
 void MainComponent::stopAudioIfRunning()
@@ -156,6 +168,9 @@ void MainComponent::stopAudioIfRunning()
 			}
 		}
 	}
+	// Release resources of spectrogram widget by deleting it
+	if (spectrogramWidget_) spectrogramWidget_->setContinuousRedrawing(false);
+	spectrogramWidget_.reset();
 }
 
 void MainComponent::resized()
@@ -165,7 +180,8 @@ void MainComponent::resized()
 	int settingsHeight = 400;
 	int inputSelectorWidth = std::min(area.getWidth() / 4, 250);
 	int masterMixerWidth = 100;
-	int inputMixerWidth = area.getWidth() - masterMixerWidth - 2 * inputSelectorWidth;
+	int displaySpectrumWidth = 256;
+	int inputMixerWidth = area.getWidth() - masterMixerWidth - 2 * inputSelectorWidth - displaySpectrumWidth;
 
 	// To the bottom, the server info and status area
 	auto settingsArea = area.removeFromBottom(settingsHeight);
@@ -208,6 +224,10 @@ void MainComponent::resized()
 	for (auto controller : channelControllers_) {
 		controller->setBounds(inputArea.removeFromLeft(sizePerController));
 	}
+
+	// Most right - spectrum display
+	auto spectrumArea = area.removeFromRight(displaySpectrumWidth);
+	if (spectrogramWidget_) spectrogramWidget_->setBounds(spectrumArea);
 
 	// To the right, the output selector
 	auto outputArea = area.removeFromRight(masterMixerWidth + inputSelectorWidth);
