@@ -116,6 +116,11 @@ IF(WIN32)
 			COMMAND ${CMAKE_COMMAND} -E copy
 					${INTEL_TBB_DIRECTORY}/bin/intel64/vc14/$<IF:$<CONFIG:Release>,tbb,tbb_debug>.dll
 					${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>)
+	add_custom_command(
+			TARGET JammerNetzClient POST_BUILD
+			COMMAND ${CMAKE_COMMAND} -E copy
+					${GLEW_DLL_DIRECTORY}/glew32.dll
+					${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>)
 ENDIF()
 
 IF(WIN32)
