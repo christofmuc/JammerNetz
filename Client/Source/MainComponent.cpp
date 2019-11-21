@@ -78,9 +78,6 @@ callback_(deviceManager_, [this]() { if (spectrogramWidget_) spectrogramWidget_-
 
 MainComponent::~MainComponent()
 {
-	if (OpenGLContext::getCurrentContext()) {
-		OpenGLContext::getCurrentContext()->detach();
-	}
 	stopAudioIfRunning();
 	clientConfigurator_.toData();
 	serverStatus_.toData();
@@ -169,8 +166,11 @@ void MainComponent::stopAudioIfRunning()
 		}
 	}
 	// Release resources of spectrogram widget by deleting it
-	if (spectrogramWidget_) spectrogramWidget_->setContinuousRedrawing(false);
-	spectrogramWidget_.reset();
+	if (spectrogramWidget_) {
+		spectrogramWidget_->setContinuousRedrawing(false);
+		removeChildComponent(spectrogramWidget_.get());
+		spectrogramWidget_.reset();
+	}
 }
 
 void MainComponent::resized()
