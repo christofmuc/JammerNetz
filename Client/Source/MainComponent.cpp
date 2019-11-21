@@ -22,12 +22,12 @@ outputSelector_("Outputs", false, "OutputSetup", deviceManager_, false, [this](s
 outputController_("Master", "OutputController", [](double, JammerNetzChannelTarget) {}, false, false),
 clientConfigurator_([this](int clientBuffer, int maxBuffer, int flares) { callback_.changeClientConfig(clientBuffer, maxBuffer, flares);  }),
 serverStatus_([this]() { newServerSelected();  }),
-callback_(deviceManager_, [this]() { if (spectrogramWidget_) spectrogramWidget_->refreshData();  })
+callback_(deviceManager_, [this]() { if (spectrogramWidget_) spectrogramWidget_->glComponent()->refreshData();  })
 {
 	bpmDisplay_ = std::make_unique<BPMDisplay>(callback_.getClocker());
 	recordingInfo_ = std::make_unique<RecordingInfo>(callback_.getMasterRecorder());
 	localRecordingInfo_ = std::make_unique<RecordingInfo>(callback_.getLocalRecorder());
-	
+	spectrogramWidget_ = std::make_unique<ManagedOpenGLComponent<SpectogramWidget>>();
 
 	outputController_.setMeterSource(callback_.getOutputMeterSource(), -1);
 
@@ -53,6 +53,7 @@ callback_(deviceManager_, [this]() { if (spectrogramWidget_) spectrogramWidget_-
 	addAndMakeVisible(recordingGroup_);
 	addAndMakeVisible(*recordingInfo_);
 	addAndMakeVisible(*localRecordingInfo_);
+	addAndMakeVisible(spectrogramWidget_.get());
 	
 	std::stringstream list;
 	AudioDeviceDiscovery::listAudioDevices(deviceManager_, list);
@@ -150,9 +151,8 @@ void MainComponent::restartAudio(std::shared_ptr<ChannelSetup> inputSetup, std::
 	// The lifetime of the spectrogram Widget is bound to the startAudio() stopAudio()
 	// This is not really necessary, but it will make the handling of changes easier (e.g. sample rate change)
 	// It also plays better with the OpenGL Context cleanup
-	spectrogramWidget_ = std::make_unique<SpectogramWidget>(callback_.getSpectrogram());
-	addAndMakeVisible(*spectrogramWidget_);
-	spectrogramWidget_->setContinuousRedrawing(true);
+	auto c = new SpectogramWidget(callback_.getSpectrogram());
+	spectrogramWidget_->start(c);
 }
 
 void MainComponent::stopAudioIfRunning()
@@ -166,11 +166,7 @@ void MainComponent::stopAudioIfRunning()
 		}
 	}
 	// Release resources of spectrogram widget by deleting it
-	if (spectrogramWidget_) {
-		spectrogramWidget_->setContinuousRedrawing(false);
-		removeChildComponent(spectrogramWidget_.get());
-		spectrogramWidget_.reset();
-	}
+	spectrogramWidget_->stop();
 }
 
 void MainComponent::resized()
