@@ -91,7 +91,7 @@ void AudioCallback::audioDeviceIOCallback(const float** inputChannelData, int nu
 	}
 	else if (playBuffer_.size() > maxPlayoutBufferLength_) {
 		// That's too many packages in our buffer, where did those come from? Did the server deliver too many packets/did our playback stop?
-		// Reduce the length of the queue until it is the right size, through away audio that is too old to be played out
+		// Reduce the length of the queue until it is the right size, throw away audio that is too old to be played out
 		std::shared_ptr<JammerNetzAudioData> data;
 		while (playBuffer_.size() > CLIENT_PLAYOUT_JITTER_BUFFER) {
 			discardedPackageCounter_++;
