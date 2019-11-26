@@ -1,3 +1,7 @@
+[![Build status](https://ci.appveyor.com/api/projects/status/p1rtas99sg84f9ni?svg=true)](https://ci.appveyor.com/project/christofmuc/jammernetz)
+
+[![Build status](https://ci.appveyor.com/api/projects/status/p1rtas99sg84f9ni/branch/differentCMake?svg=true)](https://ci.appveyor.com/project/christofmuc/jammernetz/branch/differentCMake)
+
 # Introduction
 
 JammerNetz is an Open Source system for "networked music performance" (NMP), also known as "jamming over the internet". It consists of a lightweight server software, and a little UI client software that can use your audio devices and stream multiple uncompressed high-quality audio channels to other participants as a common mixdown.
