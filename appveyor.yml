@@ -3,11 +3,20 @@ image:
 - Visual Studio 2017
 - Ubuntu1804
 install:
-- cinst innosetup
-- cmd: git submodule update --init --recursive
+- cmd: cinst innosetup
+- sh: apt-get install -y libtbb-dev
+- git submodule update --init --recursive
 environment:
   matrix:
   - {}
 build_script:
 - cmd: >-
     buildWindows.bat
+- sh: >-
+    cd third_party/flatbuffers
+    cmake -S . -B LinuxBuilds
+    cmake --build LinuxBuilds
+    cd ../..
+    cmake -S . -B builds
+    cmake --build builds
+    
