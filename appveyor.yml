@@ -13,10 +13,10 @@ build_script:
 - cmd: >-
     buildWindows.bat
 - sh: >-
-    cd third_party/flatbuffers
-    cmake -S . -B LinuxBuilds
-    cmake --build LinuxBuilds
-    cd ../..
-    cmake -S . -B builds
+    cd third_party/flatbuffers &&
+    cmake -S . -B LinuxBuilds &&
+    cmake --build LinuxBuilds &&
+    cd ../.. &&
+    cmake -S . -B builds &&
     cmake --build builds
     
