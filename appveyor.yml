@@ -4,7 +4,7 @@ image:
 - Ubuntu1804
 install:
 - cmd: cinst innosetup
-- sh: apt-get install -y libtbb-dev
+- sh: sudo apt-get install -y libtbb-dev
 - git submodule update --init --recursive
 environment:
   matrix:
