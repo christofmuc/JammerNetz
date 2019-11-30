@@ -5,17 +5,19 @@
 #
 
 # Find JUCE, and add the components we need
-SET(JUCE_DIR_HINT "${CMAKE_CURRENT_LIST_DIR}/../thirdparty")
-find_package(JUCE REQUIRED 
-	COMPONENTS 
-		juce_core		
-		juce_events
-		juce_audio_basics
-		juce_audio_devices
-		juce_audio_formats
-		juce_data_structures
-		juce_cryptography
-)
+IF(NOT DEFINED JUCE_LIBRARIES)
+	SET(JUCE_DIR_HINT "${CMAKE_CURRENT_LIST_DIR}/../thirdparty")
+	find_package(JUCE REQUIRED 
+		COMPONENTS 
+			juce_core		
+			juce_events
+			juce_audio_basics
+			juce_audio_devices
+			juce_audio_formats
+			juce_data_structures
+			juce_cryptography
+	)
+ENDIF()
 
 # Add flatbuffers
 find_package(Flatbuffers REQUIRED PATHS "${CMAKE_CURRENT_LIST_DIR}/../third_party/flatbuffers")
@@ -23,9 +25,6 @@ include(HomegrownFlatC)
 
 # Load the macro to process binary resources
 include(BinaryResources)
-
-# Add an include for a library that is not included via CMake itself
-include_directories(AFTER "${INTEL_TBB_DIRECTORY}/include/" "${CMAKE_CURRENT_LIST_DIR}/../third_party/flatbuffers/include" "${CMAKE_CURRENT_BINARY_DIR}")
 
 # Create our binary resources
 create_resources(resources BinaryResources.h)
@@ -58,8 +57,12 @@ set(Sources
 
 # Setup library
 add_library(JammerCommon ${Sources})
-target_include_directories(JammerCommon INTERFACE ${CMAKE_CURRENT_LIST_DIR})
-target_link_libraries(JammerCommon PRIVATE ${JUCE_LIBRARIES} juce-utils)
+target_include_directories(JammerCommon 
+	PUBLIC "${INTEL_TBB_DIRECTORY}/include/" "${CMAKE_CURRENT_LIST_DIR}/../third_party/flatbuffers/include" "${CMAKE_CURRENT_BINARY_DIR}"
+	INTERFACE ${CMAKE_CURRENT_LIST_DIR}
+	PRIVATE ${JUCE_INCLUDES}
+)
+target_link_libraries(JammerCommon PRIVATE juce-utils)
 
 # Pedantic about warnings
 if (MSVC)
