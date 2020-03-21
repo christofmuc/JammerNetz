@@ -37,7 +37,7 @@ IF (WIN32)
 	)
 	FetchContent_MakeAvailable(vcredist)
 	set(VCREDIST_PATH "${CMAKE_CURRENT_BINARY_DIR}/_deps/vcredist-subbuild/vcredist-populate-prefix/src")
-ELSEIF()
+ELSE()
 	ADD_DEFINITIONS(-DJUCE_JACK)
 
 	# Include useful scripts for CMake
@@ -46,6 +46,7 @@ ELSEIF()
 	# These calls create special `PkgConfig::<MODULE>` variables
 	pkg_check_modules(GTK REQUIRED IMPORTED_TARGET gtk+-3.0)
 	pkg_check_modules(WEBKIT REQUIRED IMPORTED_TARGET webkit2gtk-4.0)
+	pkg_check_modules(GLEW REQUIRED IMPORTED_TARGET glew)
 ENDIF()
 
 #

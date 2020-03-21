@@ -106,6 +106,7 @@ ELSE()
 		${JUCE_LIBRARIES} 
 		PkgConfig::WEBKIT 
 		PkgConfig::GTK 		
+		PkgConfig::GLEW 		
 		Xext 
 		X11 
 		pthread 
