@@ -8,6 +8,10 @@ ec2 = session.client('ec2')
 
 # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2.html#EC2.Client.run_instances
 def run_new_server():
+    with open('cloud-init.sh', "rt") as cloud_init:
+        # http://fbrnc.net/blog/2015/11/how-to-provision-an-ec2-instance
+        user_data = "".join(cloud_init.readlines())
+
     response = ec2.run_instances(
         #ImageId='ami-0ec1ba09723e5bfac',  # Got this via console, Launch Instance wizard. This is AWS Linux 2
         ImageId='ami-0b418580298265d5c',  # This is Ubuntu 18.04 LTS
@@ -19,6 +23,7 @@ def run_new_server():
             'Enabled': False
         },
         KeyName='AWS photogenity',  # Required for SSH access
+            UserData=user_data,
         SecurityGroupIds=[
             # 'sg-69908406',
             'sg-016f395831eedd70a'
@@ -46,6 +51,12 @@ def instance_state(instance_id):
     return data['State']
 
 
+def instance_status(instance_id):
+    response = ec2.describe_instance_status()
+    for status in response['InstanceStatuses']:
+        if status['InstanceId'] == instance_id:
+            return status['InstanceStatus']['Status']
+
 # Create a new server
 instanceID = run_new_server()
 
@@ -60,6 +71,12 @@ while not running:
         print(".", end='')
         time.sleep(0.2)
 
-
-# http://fbrnc.net/blog/2015/11/how-to-provision-an-ec2-instance
-
+initialized = False
+print("Waiting for instance to be done initializing...", end='')
+while not initialized:
+    status = instance_status(instanceID)
+    if status != 'ok':
+        print('.', end='')
+        time.sleep(0.5)
+    else:
+        initialized = True
