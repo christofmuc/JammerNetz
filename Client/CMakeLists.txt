@@ -97,8 +97,24 @@ source_group(Source\\UIComponents FILES ${UICOMPONENT_FILES})
 
 
 add_executable(JammerNetzClient WIN32 ${SOURCES} ${UICOMPONENT_FILES} ${AUDIO_PROCESSING_FILES} ${MIDI_FILES} ${RESOURCE_FILES} ${INSTALLER_FILES})
-target_link_directories(JammerNetzClient PRIVATE "${INTEL_TBB_DIRECTORY}/lib/intel64/vc14")
-target_link_libraries(JammerNetzClient ${JUCE_LIBRARIES} JammerCommon juce-utils ff_meters)
+
+IF(WIN32)
+	target_link_directories(JammerNetzClient PRIVATE "${INTEL_TBB_DIRECTORY}/lib/intel64/vc14")
+	target_link_libraries(JammerNetzClient ${JUCE_LIBRARIES} JammerCommon juce-utils ff_meters)
+ELSE()
+	target_link_libraries(JammerNetzClient 
+		${JUCE_LIBRARIES} 
+		PkgConfig::WEBKIT 
+		PkgConfig::GTK 		
+		Xext 
+		X11 
+		pthread 
+		${CMAKE_DL_LIBS} 
+		freetype 
+		curl 
+		asound 
+		JammerCommon juce-utils ff_meters)
+ENDIF()
 
 # Pedantic about warnings
 if (MSVC)

@@ -37,7 +37,16 @@ IF (WIN32)
 	)
 	FetchContent_MakeAvailable(vcredist)
 	set(VCREDIST_PATH "${CMAKE_CURRENT_BINARY_DIR}/_deps/vcredist-subbuild/vcredist-populate-prefix/src")
-endif()
+ELSEIF()
+	ADD_DEFINITIONS(-DJUCE_JACK)
+
+	# Include useful scripts for CMake
+	find_package(PkgConfig REQUIRED) 
+
+	# These calls create special `PkgConfig::<MODULE>` variables
+	pkg_check_modules(GTK REQUIRED IMPORTED_TARGET gtk+-3.0)
+	pkg_check_modules(WEBKIT REQUIRED IMPORTED_TARGET webkit2gtk-4.0)
+ENDIF()
 
 #
 # We need a cryptographic key that server and client will share so they can communicate. In its simplest form, we will just take some random numbers from the internet
