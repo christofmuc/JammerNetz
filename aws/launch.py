@@ -30,14 +30,47 @@ def delete_key_pair(key_name):
     print("Deleted key pair", key_name, "and deleted file", filename)
 
 
+def add_inbound_rules(group):
+    response = group.authorize_ingress(
+        CidrIp='0.0.0.0/0',
+        ToPort=22,
+        FromPort=22,
+        IpProtocol='tcp'
+    )
+    print(response)
+    response = group.authorize_ingress(
+        CidrIp='0.0.0.0/0',
+        ToPort=7777,
+        FromPort=7777,
+        IpProtocol='udp'
+    )
+    print(response)
+
+
+def create_security_group(group_name, vpc_id):
+    new_group = ec2_res.create_security_group(
+        Description="Auto generated security group for JammerNetz",
+        GroupName=group_name,
+        VpcId=vpc_id)
+    group_id = new_group.id
+    print("Created security group", group_name, "with id", group_id)
+    add_inbound_rules(new_group)
+    return group_id
+
+
+def delete_security_group(group_id):
+    print("Removing security group", group_id)
+    response = ec2.delete_security_group(GroupId=group_id)
+    print(response)
+
+
 # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2.html#EC2.Client.run_instances
-def run_new_server(keyname):
+def run_new_server(keyname, security_group_id):
     with open('cloud-init.sh', "rt") as cloud_init:
         # http://fbrnc.net/blog/2015/11/how-to-provision-an-ec2-instance
         user_data = "".join(cloud_init.readlines())
 
         response = ec2.run_instances(
-            # ImageId='ami-0ec1ba09723e5bfac',  # Got this via console, Launch Instance wizard. This is AWS Linux 2
             ImageId='ami-0b418580298265d5c',  # This is Ubuntu 18.04 LTS
             InstanceType='m5a.large',
             AdditionalInfo='JammerNetz auto-created',
@@ -48,10 +81,8 @@ def run_new_server(keyname):
             },
             KeyName=keyname,  # Required for potential SSH access
             UserData=user_data,
-            SecurityGroupIds=[
-                # 'sg-69908406',
-                'sg-016f395831eedd70a'
-            ], )
+            SecurityGroupIds=[security_group_id],
+        )
 
         print(response)
     instance_id = response['Instances'][0]['InstanceId']
@@ -99,11 +130,15 @@ def instance_public_ip(instance_id):
 
 # Create a keypair should we want to ssh into the machine later.
 # Append 8 random bytes to not create conflicts with stale key pairs
-key_pair_name = 'jammernetz-keys-' + str(uuid.uuid4())[:8]
-create_key_pair(key_pair_name)
+jammernetz_run_id = str(uuid.uuid4())[:8]
+key_pair_name = 'jammernetz-keys-' + jammernetz_run_id
+# create_key_pair(key_pair_name)
+
+# Create security group
+security_group_id = create_security_group('jammernetz-sg-' + jammernetz_run_id, 'vpc-2af9c641')
 
 # Create a new server
-# instanceID = run_new_server(key_pair_name)
+# instanceID = run_new_server(key_pair_name, security_group_id)
 instanceID = 'i-0d22be14c8936a40b'
 
 # Wait for the state to become "running"
@@ -139,3 +174,6 @@ terminate_server(instanceID)
 
 print("Deleting key pair")
 delete_key_pair(key_pair_name)
+
+print("Deleting security group")
+delete_security_group(security_group_id)
