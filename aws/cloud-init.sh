@@ -39,3 +39,6 @@ WantedBy=multi-user.target" > /etc/systemd/system/JammerNetz.service
 
 # Enable service to launch on start
 systemctl enable JammerNetz
+
+# Launch now (for first start)
+systemctl start JammerNetz
