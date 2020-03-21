@@ -12,7 +12,7 @@ cmake -S . -B builds -G "Unix Makefiles"
 
 # Build Flatbuffers library
 cd third_party/flatbuffers
-cmake -S . -B Builds -G "Unix Makefiles"
+cmake -S . -B LinuxBuilds -G "Unix Makefiles"
 cmake --build LinuxBuilds
 
 # Now build the server
