@@ -59,7 +59,7 @@ set(INSTALLER_FILES
 source_group(Source\\Installer FILES ${INSTALLER_FILES})
 
 set(RESOURCE_FILES
-	Resources/About.txt
+	Resources/about.txt
 	Resources/cloud.png
 	Resources/live.png
 )
@@ -106,7 +106,7 @@ if (MSVC)
     target_compile_options(JammerNetzClient PRIVATE /W4 /WX)
 else()
     # lots of warnings and all warnings as errors
-    target_compile_options(JammerNetzClient PRIVATE -Wall -Wextra -pedantic -Werror)
+    #target_compile_options(JammerNetzClient PRIVATE -Wall -Wextra -pedantic -Werror)
 endif()
 
 IF(WIN32)
