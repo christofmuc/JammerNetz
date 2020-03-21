@@ -38,7 +38,7 @@ As of today, the system is still in a build-and-run-yourself state. You will nee
 
 ### Supported platforms
 
-We use JUCE, a cross-platform library with support for all major platforms, but we have tested the system at the moment only on Windows 10 using MS Visual Studio 2017, and the server on an up-to-date Ubuntu Linux 18. Other platforms might work as well, but might require some fiddling and fixing.
+We use JUCE, a cross-platform library with support for all major platforms, but we have tested the system at the moment only on Windows 10 using MS Visual Studio 2017, and the server on an up-to-date Ubuntu Linux 18.04 LTS. Other platforms might work as well, but might require some fiddling and fixing.
 
 ## Prerequisites
 
@@ -71,18 +71,13 @@ Using CMake and building JammerNetz client and server is a multi-step build, whi
 
 Have a look inside that file in case you're interested in the required build commands. The build will take a few minutes, and produce both Debug and Release versions of Client and Server software, as well as a client installer in case you have InnoSetup installeed before kicking off. The installer executable is created as `<JammerNetzDir>\Builds\Client\jammernetz_setup.exe`
 
-## Building the server for Linux
+### Building the server for Linux
 
 Most likely, you're not going to run your server on a Windows machine but prefer a Linux cloud machine located at some strategic position in the Internet.
  
-Other targets:
-
-  1. We create the Linux build of the server using cross-platform compilation from my Windows machine. See below for more instructions on that using Docker.
-  2. A native Linux makefile can also be created using the Projucer on Ubuntu, as well as Mac OS support should be theoretically possible.
-
 ## Cross-platform building Linux server on Windows 10 using Docker
 
-Thanks to Docker, it has never been that easy to do cross-platform development on Windows. If you don't have it, get yourself [Docker Desktop](https://www.docker.com/products/docker-desktop) and experience the power!
+Thanks to Docker, it has never been easier to do cross-platform development on Windows. If you don't have it, get yourself [Docker Desktop](https://www.docker.com/products/docker-desktop) and experience the power!
 
 ### Building the Linux version from command line
 
@@ -110,6 +105,23 @@ You can also enable the cross-platform build in the Release export configuration
 and save the Exporter again from within Projucer. 
 
 Now, when you compile a release version of the Windows server, after the Windows build is done it will automatically run the Linux build. Neat!
+
+## Native Linux builds
+
+If you are working on Linux, make sure to have all development prerequisites installed! On a fresh Debian 9 machine, that would e.g. require the following installs:
+
+    sudo apt-get -y install g++ libasound2-dev libcurl4-openssl-dev libfreetype6-dev libjack-dev libx11-dev mesa-common-dev webkit2gtk-4.0
+
+With those installs and the the recursive git clone from above, cd into the cloned directory and run cmake with the following commands:
+
+    cmake -S . -B builds -G "Unix Makefiles"
+    cd third_party/flatbuffers
+    cmake -S . -B LinuxBuilds -G "Unix Makefiles"
+    cmake --build LinuxBuilds/
+    cd ../..
+    cmake --build builds
+
+This should have created a server binary as `builds/Server/JammerNetzServer` and a client binary as `builds/Client/JammerNetzClient`.
 
 ## Changing the shared secret for encryption
 
