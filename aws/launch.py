@@ -15,9 +15,10 @@ def create_key_pair(key_name):
     with open(filename, 'w') as outfile:
         key_pair = ec2_res.create_key_pair(KeyName=key_name)
         key_pair_content = str(key_pair.key_material)
-        print("Created", key_pair_content)
+        print("Created key pair", key_name)
         outfile.write(key_pair_content)
     os.chmod(filename, 0o400)
+    print("Stored keys in file", filename)
 
 
 def delete_key_pair(key_name):
@@ -26,6 +27,7 @@ def delete_key_pair(key_name):
     print(response)
     os.chmod(filename, 0o600)
     os.remove(filename)
+    print("Deleted key pair", key_name, "and deleted file", filename)
 
 
 # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2.html#EC2.Client.run_instances
@@ -95,7 +97,8 @@ def instance_public_ip(instance_id):
     return data['PublicIpAddress'], data['PublicDnsName']
 
 
-# Create a keypair should we want to ssh into the machine later. Append 8 random bytes to not create conflicts with stale key pairs
+# Create a keypair should we want to ssh into the machine later.
+# Append 8 random bytes to not create conflicts with stale key pairs
 key_pair_name = 'jammernetz-keys-' + str(uuid.uuid4())[:8]
 create_key_pair(key_pair_name)
 
