@@ -1,35 +1,57 @@
 import boto3
 import time
+import os
+import uuid
 
 # noinspection PyUnresolvedReferences
 session = boto3.Session(profile_name='ecs')
 ec2 = session.client('ec2')
+ec2_res = session.resource('ec2')
+
+
+# https://blog.ipswitch.com/how-to-create-an-ec2-instance-with-python
+def create_key_pair(key_name):
+    filename = key_name + '.pem'
+    with open(filename, 'w') as outfile:
+        key_pair = ec2_res.create_key_pair(KeyName=key_name)
+        key_pair_content = str(key_pair.key_material)
+        print("Created", key_pair_content)
+        outfile.write(key_pair_content)
+    os.chmod(filename, 0o400)
+
+
+def delete_key_pair(key_name):
+    filename = key_name + '.pem'
+    response = ec2.delete_key_pair(KeyName=key_name)
+    print(response)
+    os.chmod(filename, 0o600)
+    os.remove(filename)
 
 
 # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2.html#EC2.Client.run_instances
-def run_new_server():
+def run_new_server(keyname):
     with open('cloud-init.sh', "rt") as cloud_init:
         # http://fbrnc.net/blog/2015/11/how-to-provision-an-ec2-instance
         user_data = "".join(cloud_init.readlines())
 
-    response = ec2.run_instances(
-        #ImageId='ami-0ec1ba09723e5bfac',  # Got this via console, Launch Instance wizard. This is AWS Linux 2
-        ImageId='ami-0b418580298265d5c',  # This is Ubuntu 18.04 LTS
-        InstanceType='m5a.large',
-        AdditionalInfo='JammerNetz auto-created',
-        MaxCount=1,
-        MinCount=1,
-        Monitoring={
-            'Enabled': False
-        },
-        KeyName='AWS photogenity',  # Required for SSH access
+        response = ec2.run_instances(
+            # ImageId='ami-0ec1ba09723e5bfac',  # Got this via console, Launch Instance wizard. This is AWS Linux 2
+            ImageId='ami-0b418580298265d5c',  # This is Ubuntu 18.04 LTS
+            InstanceType='m5a.large',
+            AdditionalInfo='JammerNetz auto-created',
+            MaxCount=1,
+            MinCount=1,
+            Monitoring={
+                'Enabled': False
+            },
+            KeyName=keyname,  # Required for potential SSH access
             UserData=user_data,
-        SecurityGroupIds=[
-            # 'sg-69908406',
-            'sg-016f395831eedd70a'
-        ], )
+            SecurityGroupIds=[
+                # 'sg-69908406',
+                'sg-016f395831eedd70a'
+            ], )
 
-    print(response)
+        print(response)
     instance_id = response['Instances'][0]['InstanceId']
     print("Instance ID", instance_id)
     return instance_id
@@ -73,8 +95,13 @@ def instance_public_ip(instance_id):
     return data['PublicIpAddress'], data['PublicDnsName']
 
 
+# Create a keypair should we want to ssh into the machine later. Append 8 random bytes to not create conflicts with stale key pairs
+key_pair_name = 'jammernetz-keys-' + str(uuid.uuid4())[:8]
+create_key_pair(key_pair_name)
+
 # Create a new server
-instanceID = run_new_server()
+# instanceID = run_new_server(key_pair_name)
+instanceID = 'i-0d22be14c8936a40b'
 
 # Wait for the state to become "running"
 running = False
@@ -107,3 +134,5 @@ input("Press Enter to terminate the instance or CTRL-C to keep it...")
 print("Terminating instance")
 terminate_server(instanceID)
 
+print("Deleting key pair")
+delete_key_pair(key_pair_name)
