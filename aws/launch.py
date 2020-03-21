@@ -35,6 +35,16 @@ def run_new_server():
     return instance_id
 
 
+def terminate_server(instance_id):
+    response = ec2.terminate_instances(
+        InstanceIds=[
+            instance_id,
+        ],
+        DryRun=False
+    )
+    print(response)
+
+
 def get_instance_info(instance_id):
     response = ec2.describe_instances()
     # print(response)
@@ -57,6 +67,12 @@ def instance_status(instance_id):
         if status['InstanceId'] == instance_id:
             return status['InstanceStatus']['Status']
 
+
+def instance_public_ip(instance_id):
+    data = get_instance_info(instance_id)
+    return data['PublicIpAddress'], data['PublicDnsName']
+
+
 # Create a new server
 instanceID = run_new_server()
 
@@ -70,6 +86,7 @@ while not running:
     else:
         print(".", end='')
         time.sleep(0.2)
+print()
 
 initialized = False
 print("Waiting for instance to be done initializing...", end='')
@@ -80,3 +97,13 @@ while not initialized:
         time.sleep(0.5)
     else:
         initialized = True
+print()
+
+# Reporting public IP here?
+print(instance_public_ip(instanceID))
+
+input("Press Enter to terminate the instance or CTRL-C to keep it...")
+
+print("Terminating instance")
+terminate_server(instanceID)
+
