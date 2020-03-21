@@ -9,6 +9,40 @@ ec2 = session.client('ec2')
 ec2_res = session.resource('ec2')
 
 
+# https://gist.github.com/nguyendv/8cfd92fc8ed32ebb78e366f44c2daea6
+def create_vpc(jammernetz_run_id):
+    vpc = ec2_res.create_vpc(CidrBlock='192.168.0.0/16')
+    vpc.create_tags(Tags=[{"Key": "Name", "Value": "jammernetz-" + jammernetz_run_id}])
+    vpc.wait_until_available()
+    print("Created VPC with id", vpc.id)
+
+    # create then attach internet gateway
+    ig = ec2_res.create_internet_gateway()
+    vpc.attach_internet_gateway(InternetGatewayId=ig.id)
+    print("Created Internet Gateway with id", ig.id)
+
+    # create a route table and a public route
+    route_table = vpc.create_route_table()
+    route = route_table.create_route(
+        DestinationCidrBlock='0.0.0.0/0',
+        GatewayId=ig.id
+    )
+    print("Created route table with id", route_table.id)
+
+    # create subnet
+    subnet = ec2_res.create_subnet(CidrBlock='192.168.1.0/24', VpcId=vpc.id)
+    print("Created subnet with id", subnet.id)
+
+    # associate the route table with the subnet
+    route_table.associate_with_subnet(SubnetId=subnet.id)
+    return vpc.id, subnet.id
+
+
+def delete_vpc(vpc_id):
+    response = ec2.delete_vpc(vpc_id)
+    print(response)
+
+
 # https://blog.ipswitch.com/how-to-create-an-ec2-instance-with-python
 def create_key_pair(key_name):
     filename = key_name + '.pem'
@@ -65,7 +99,7 @@ def delete_security_group(group_id):
 
 
 # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2.html#EC2.Client.run_instances
-def run_new_server(keyname, security_group_id):
+def run_new_server(keyname, security_group_id, subnet_id):
     with open('cloud-init.sh', "rt") as cloud_init:
         # http://fbrnc.net/blog/2015/11/how-to-provision-an-ec2-instance
         user_data = "".join(cloud_init.readlines())
@@ -81,7 +115,8 @@ def run_new_server(keyname, security_group_id):
             },
             KeyName=keyname,  # Required for potential SSH access
             UserData=user_data,
-            SecurityGroupIds=[security_group_id],
+            NetworkInterfaces=[{'SubnetId': subnet_id, 'DeviceIndex': 0, 'AssociatePublicIpAddress': True,
+                                'Groups': [security_group_id]}]
         )
 
         print(response)
@@ -131,15 +166,18 @@ def instance_public_ip(instance_id):
 # Create a keypair should we want to ssh into the machine later.
 # Append 8 random bytes to not create conflicts with stale key pairs
 jammernetz_run_id = str(uuid.uuid4())[:8]
+
+vpc_id, subnet_id = create_vpc(jammernetz_run_id)
+
 key_pair_name = 'jammernetz-keys-' + jammernetz_run_id
-# create_key_pair(key_pair_name)
+create_key_pair(key_pair_name)
 
 # Create security group
-security_group_id = create_security_group('jammernetz-sg-' + jammernetz_run_id, 'vpc-2af9c641')
+security_group_id = create_security_group('jammernetz-sg-' + jammernetz_run_id, vpc_id)
 
 # Create a new server
-# instanceID = run_new_server(key_pair_name, security_group_id)
-instanceID = 'i-0d22be14c8936a40b'
+instanceID = run_new_server(key_pair_name, security_group_id, subnet_id)
+#instanceID = 'i-0d22be14c8936a40b'
 
 # Wait for the state to become "running"
 running = False
@@ -175,5 +213,8 @@ terminate_server(instanceID)
 print("Deleting key pair")
 delete_key_pair(key_pair_name)
 
-print("Deleting security group")
-delete_security_group(security_group_id)
+#print("Deleting security group")
+#delete_security_group(security_group_id)
+
+print("Deleting VPC")
+delete_vpc(vpc_id)
