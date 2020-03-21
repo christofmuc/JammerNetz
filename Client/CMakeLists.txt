@@ -114,6 +114,7 @@ ELSE()
 		freetype 
 		curl 
 		asound 
+		tbb
 		JammerCommon juce-utils ff_meters)
 ENDIF()
 
