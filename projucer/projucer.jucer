@@ -125,7 +125,10 @@
                        prebuildCommand="..\..\..\third_party\flatbuffers\builds\Debug\flatc.exe -c ../../../common/JammerNetzPackages.fbs"
                        libraryPath="../../../Builds/Windows/_deps/inteltbb-src/tbb2019_20191006oss/lib/intel64/vc14"
                        postbuildCommand="copy ..\..\..\Builds\Windows\_deps\inteltbb-src\tbb2019_20191006oss\bin\intel64\vc14\tbb_debug.dll x64\Debug\App"/>
-        <CONFIGURATION isDebug="0" name="Release" headerPath="../modules/juce-utils"/>
+        <CONFIGURATION isDebug="0" name="Release" headerPath="../../../common&#10;../../../modules/juce-utils&#10;../../../third_party&#10;../../../third_party/infra/include&#10;../../../third_party/Q/q_lib/include&#10;../../../third_party/flatbuffers/include&#10;../../../Builds/Windows/common&#10;../../../Builds/Windows/_deps/inteltbb-src/tbb2019_20191006oss/include&#10;&#10;"
+                       libraryPath="../../../Builds/Windows/_deps/inteltbb-src/tbb2019_20191006oss/lib/intel64/vc14"
+                       prebuildCommand="..\..\..\third_party\flatbuffers\builds\Debug\flatc.exe -c ../../../common/JammerNetzPackages.fbs"
+                       postbuildCommand="copy ..\..\..\Builds\Windows\_deps\inteltbb-src\tbb2019_20191006oss\bin\intel64\vc14\tbb.dll x64\Release\App"/>
       </CONFIGURATIONS>
       <MODULEPATHS>
         <MODULEPATH id="juce_audio_basics" path="C:/Users/Christof/JUCE/modules"/>
