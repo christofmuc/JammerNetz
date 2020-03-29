@@ -32,18 +32,13 @@ JammerNetzChannelSetup::JammerNetzChannelSetup()
 
 JammerNetzChannelSetup::JammerNetzChannelSetup(std::vector<JammerNetzSingleChannelSetup> const &channelInfo)
 {
-	jassert(channelInfo.size() < MAXCHANNELSPERCLIENT);
-	int i = 0;
-	for (auto info : channelInfo) {
-		if (i < MAXCHANNELSPERCLIENT) {
-			channels[i++] = info;
-		}
-	}
+	channels = channelInfo;
 }
 
 bool JammerNetzChannelSetup::operator==(const JammerNetzChannelSetup &other) const
 {
-	for (int i = 0; i < MAXCHANNELSPERCLIENT; i++) {
+	if (channels.size() != other.channels.size()) return false;
+	for (int i = 0; i < channels.size(); i++) {
 		if (!(channels[i] == other.channels[i])) return false;
 	}
 	return true;
@@ -91,18 +86,26 @@ JammerNetzAudioData::JammerNetzAudioData(uint8 *data, size_t bytes) {
 		return;
 	}
 
-	// Read the first audio block
-	size_t bytesread = sizeof(JammerNetzHeader);
-	audioBlock_ = readAudioHeaderAndBytes(data, bytesread);
-	activeBlock_ = audioBlock_;
-
-	// Check if there is more data - if yes, it is the FEC info
-	while (bytesread < bytes) {
-		//TODO - what to do with more than one FEC block?
-		fecBlock_ = readAudioHeaderAndBytes(data, bytesread);
-#ifdef JAMMER_IS_CLIENT2
-		activeBlock_ = fecBlock_;
-#endif
+	flatbuffers::Verifier verifier(data + sizeof(JammerNetzHeader), bytes - sizeof(JammerNetzHeader));
+	if (VerifyJammerNetzPNPAudioDataBuffer(verifier)) {
+		auto root = GetJammerNetzPNPAudioData(data + sizeof(JammerNetzHeader));
+		int blockNo = 0;
+		for (auto block = root->audioBlocks()->cbegin(); block != root->audioBlocks()->cend(); block++) {
+			if (blockNo == 0) {
+				audioBlock_ = readAudioHeaderAndBytes(*block);
+				activeBlock_ = audioBlock_;
+			}
+			else if (blockNo == 1) {
+				fecBlock_ = readAudioHeaderAndBytes(*block);
+			}
+			else {
+				jassert(false);
+			}
+			blockNo++;
+		}
+	}
+	else {
+		jassert(false);
 	}
 }
 
@@ -240,55 +243,60 @@ JammerNetzChannelSetup JammerNetzAudioData::channelSetup() const
 	return activeBlock_->channelSetup;
 }
 
-std::shared_ptr<AudioBlock> JammerNetzAudioData::readAudioHeaderAndBytes(uint8 *data, size_t &bytesread) {
+std::shared_ptr<AudioBlock> JammerNetzAudioData::readAudioHeaderAndBytes(JammerNetzPNPAudioBlock const *block) {
 	auto result = std::make_shared<AudioBlock>();
-	JammerNetzAudioBlock *block = reinterpret_cast<JammerNetzAudioBlock *>(&data[bytesread]);
-	result->messageCounter = block->messageCounter;
-	result->timestamp = block->timestamp;
-	result->channelSetup = block->channelSetup;
+
+	result->messageCounter = block->messageCounter();
+	result->timestamp = block->timestamp();
+	for (auto channel = block->channelSetup()->cbegin(); channel != block->channelSetup()->cend(); channel++) {
+		JammerNetzSingleChannelSetup setup(channel->target());
+		setup.volume = channel->volume();
+		result->channelSetup.channels.push_back(setup);
+	};
 	result->sampleRate = 48000;
-	int upsampleRate = 48000 / block->sampleRate;
-	jassert(block->numberOfSamples * upsampleRate == SAMPLE_BUFFER_SIZE);
-	result->audioBuffer = std::make_shared<AudioBuffer<float>>(block->numchannels, block->numberOfSamples * upsampleRate);
-	bytesread += sizeof(JammerNetzAudioHeader);
-	readAudioBytes(data, block->numchannels, block->numberOfSamples, result->audioBuffer, bytesread, upsampleRate);
+	int upsampleRate = 48000 / block->sampleRate();
+	jassert(block->numberOfSamples() * upsampleRate == SAMPLE_BUFFER_SIZE);
+	result->audioBuffer = std::make_shared<AudioBuffer<float>>(block->numChannels(), block->numberOfSamples() * upsampleRate);
+	readAudioBytes(block->channels(), result->audioBuffer, upsampleRate);
 	return result;
 }
 
-void JammerNetzAudioData::readAudioBytes(uint8 *data, int numchannels, int numsamples, std::shared_ptr<AudioBuffer<float>> destBuffer, size_t &bytesRead, int upsampleRate) {
-	for (int channel = 0; channel < numchannels; channel++) {
+void JammerNetzAudioData::readAudioBytes(flatbuffers::Vector<flatbuffers::Offset<JammerNetzPNPAudioSamples>> const *samples, std::shared_ptr<AudioBuffer<float>> destBuffer, int upsampleRate) {
+	int c = 0;
+	for (auto channel = samples->cbegin(); channel != samples->cend(); channel++) {
 		//TODO we might not have enough bytes in the package for this operation
 		if (upsampleRate == 1) {
+			
 			AudioData::Pointer <AudioData::Int16,
 				AudioData::LittleEndian,
 				AudioData::NonInterleaved,
-				AudioData::Const> src_pointer(&data[bytesRead + channel * numsamples * sizeof(uint16)]);
+				AudioData::Const> src_pointer(channel->audioSamples()->data());
 			AudioData::Pointer<AudioData::Float32,
 				AudioData::LittleEndian,
 				AudioData::NonInterleaved,
-				AudioData::NonConst> dst_pointer(destBuffer->getWritePointer(channel));
-			dst_pointer.convertSamples(src_pointer, numsamples);
+				AudioData::NonConst> dst_pointer(destBuffer->getWritePointer(c));
+			dst_pointer.convertSamples(src_pointer, channel->audioSamples()->Length());
 		}
 		else {
 			float tempBuffer[MAXFRAMESIZE];
 			AudioData::Pointer <AudioData::Int16,
 				AudioData::LittleEndian,
 				AudioData::NonInterleaved,
-				AudioData::Const> src_pointer(&data[bytesRead + channel * numsamples * sizeof(uint16)]);
+				AudioData::Const> src_pointer(channel->audioSamples()->data());
 			AudioData::Pointer<AudioData::Float32,
 				AudioData::LittleEndian,
 				AudioData::NonInterleaved,
 				AudioData::NonConst> dst_pointer(tempBuffer);
-			dst_pointer.convertSamples(src_pointer, numsamples);
+			dst_pointer.convertSamples(src_pointer, channel->audioSamples()->Length());
 
-			auto write = destBuffer->getWritePointer(channel);
-			for (int i = 0; i < numsamples; i++) {
+			auto write = destBuffer->getWritePointer(c);
+			for (size_t i = 0; i < channel->audioSamples()->Length(); i++) {
 				for (int j = 0; j < upsampleRate; j++) {
 					write[i * upsampleRate + j] = tempBuffer[i];
 				}
 			}
 		}
+		c++;
 	}
-	bytesRead += numchannels * numsamples * sizeof(uint16);
 }
 

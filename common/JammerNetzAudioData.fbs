@@ -1,0 +1,31 @@
+//
+//   Copyright (c) 2019 Christof Ruch. All rights reserved.
+//
+//   Dual licensed: Distributed under Affero GPL license by default, an MIT license is available for purchase
+//
+
+table JammerNetzPNPChannelSetup {
+	target :uint8;
+	volume :float;
+}
+
+table JammerNetzPNPAudioSamples {
+	audioSamples :[uint16]; 
+}
+
+table JammerNetzPNPAudioBlock {
+	timestamp :double;
+	messageCounter :uint64;
+	numChannels :uint8;
+	numberOfSamples :uint16;
+	sampleRate :uint16;
+	channelSetup :[JammerNetzPNPChannelSetup];
+	channels :[JammerNetzPNPAudioSamples];
+}
+
+table JammerNetzPNPAudioData {
+	audioBlocks :[JammerNetzPNPAudioBlock];
+}
+
+root_type JammerNetzPNPAudioData;
+

@@ -35,7 +35,7 @@ IF (WIN32)
 ELSE()	
     set(FLATBUFFERS_FLATC_EXECUTABLE "${CMAKE_CURRENT_LIST_DIR}/../third_party/flatbuffers/LinuxBuilds/flatc")
 ENDIF()
-FLATBUFFERS_GENERATE_C_HEADERS(FlatJammer JammerNetzPackages.fbs)
+FLATBUFFERS_GENERATE_C_HEADERS(FlatJammer JammerNetzPackages.fbs JammerNetzAudioData.fbs)
 
 # Define the sources for the static library
 set(Sources
@@ -44,6 +44,7 @@ set(Sources
 	JammerNetzClientInfoMessage.cpp JammerNetzClientInfoMessage.h
 	JammerNetzPackage.cpp JammerNetzPackage.h	
 	JammerNetzPackages.fbs
+	JammerNetzAudioData.fbs
 	${FlatJammer_OUTPUTS}
 	PacketStreamQueue.cpp PacketStreamQueue.h
 	BinaryResources.h

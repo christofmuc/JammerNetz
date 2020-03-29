@@ -89,8 +89,8 @@ void Recorder::updateChannelInfo(int sampleRate, JammerNetzChannelSetup const &c
 	// Setup the channel layout
 	AudioChannelSet channels;
 	int numChannels = 0;
-	for (int c = 0; c < MAXCHANNELSPERCLIENT; c++) {
-		switch (channelSetup.channels[c].target) {
+	for (auto channel : channelSetup.channels) {
+		switch (channel.target) {
 		case Unused:
 			// Ignore
 			break;

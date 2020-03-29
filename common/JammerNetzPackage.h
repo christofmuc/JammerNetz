@@ -9,11 +9,10 @@
 #include "JuceHeader.h"
 
 #include "flatbuffers/flatbuffers.h"
-#include "JammerNetzPackages_generated.h"
+#include "JammerNetzAudioData_generated.h"
 
 
 const size_t MAXFRAMESIZE = 65536;
-const size_t MAXCHANNELSPERCLIENT = 4;
 
 /*
  For lazi-ness and stateless-ness Jammernetz works with only a single message type for now. This is the format:
@@ -55,7 +54,7 @@ struct JammerNetzSingleChannelSetup {
 struct JammerNetzChannelSetup {
 	JammerNetzChannelSetup();
 	JammerNetzChannelSetup(std::vector<JammerNetzSingleChannelSetup> const &channelInfo);
-	JammerNetzSingleChannelSetup channels[MAXCHANNELSPERCLIENT];
+	std::vector<JammerNetzSingleChannelSetup> channels;
 
 	bool operator ==(const JammerNetzChannelSetup &other) const;
 };
@@ -123,8 +122,8 @@ public:
 private:
 	flatbuffers::Offset<JammerNetzPNPAudioBlock> serializeAudioBlock(flatbuffers::FlatBufferBuilder &fbb, std::shared_ptr<AudioBlock> src, uint16 sampleRate, uint16 reductionFactor) const;
 	flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<JammerNetzPNPAudioSamples>>> appendAudioBuffer(flatbuffers::FlatBufferBuilder &fbb, AudioBuffer<float> &buffer, uint16 reductionFactor) const;
-	std::shared_ptr<AudioBlock> readAudioHeaderAndBytes(uint8 *data, size_t &bytesread);
-	void readAudioBytes(uint8 *data, int numchannels, int numsamples, std::shared_ptr<AudioBuffer<float>> destBuffer, size_t &bytesRead, int upsampleRate);
+	std::shared_ptr<AudioBlock> readAudioHeaderAndBytes(JammerNetzPNPAudioBlock const *block);
+	void readAudioBytes(flatbuffers::Vector<flatbuffers::Offset<JammerNetzPNPAudioSamples >> const *samples, std::shared_ptr<AudioBuffer<float>> destBuffer, int upsampleRate);
 
 	std::shared_ptr<AudioBlock> audioBlock_;
 	std::shared_ptr<AudioBlock> fecBlock_;
