@@ -21,7 +21,7 @@ AudioCallback::AudioCallback(AudioDeviceManager &deviceManager) : client_([this]
 	maxPlayoutBufferLength_ = CLIENT_PLAYOUT_MAX_BUFFER;
 
 	// Where to record to?
-	uploadRecorder_ = std::make_unique<Recorder>(Settings::instance().getSessionStorageDir(), "LocalRecording", RecordingType::AIFF);
+	uploadRecorder_ = std::make_shared<Recorder>(Settings::instance().getSessionStorageDir(), "LocalRecording", RecordingType::WAV);
 	masterRecorder_ = std::make_shared<Recorder>(Settings::instance().getSessionStorageDir(), "MasterRecording", RecordingType::FLAC);
 	masterRecorder_->updateChannelInfo(SAMPLE_RATE, JammerNetzChannelSetup({ JammerNetzChannelTarget::Left, JammerNetzChannelTarget::Right }));
 	midiRecorder_ = std::make_unique<MidiRecorder>(deviceManager);
@@ -53,6 +53,18 @@ void AudioCallback::newServer()
 	while (playBuffer_.try_pop(elem, isFillIn));
 }
 
+void AudioCallback::samplesPerTime(int numSamples) {
+	if (numSamplesSinceStart_ == -1) {
+		// Take start time
+		startTime_ = std::chrono::steady_clock::now();
+		numSamplesSinceStart_ = 0;
+	}
+	else {
+		numSamplesSinceStart_ += numSamples;
+		lastTime_ = std::chrono::steady_clock::now();
+	}
+}
+
 void AudioCallback::audioDeviceIOCallback(const float** inputChannelData, int numInputChannels, float** outputChannelData, int numOutputChannels, int numSamples)
 {
 	float *const *constnessCorrection = const_cast<float *const*>(inputChannelData);
@@ -60,6 +72,7 @@ void AudioCallback::audioDeviceIOCallback(const float** inputChannelData, int nu
 
 	// Measure the peak values for each channel
 	meterSource_.measureBlock(*audioBuffer);
+	samplesPerTime(numSamples);
 
 	// Get play-along data. The MIDI Buffer should be ready to be played out now, but we will only look at the text events for now
 	std::vector<MidiMessage> buffer;
@@ -144,6 +157,7 @@ void AudioCallback::audioDeviceIOCallback(const float** inputChannelData, int nu
 void AudioCallback::audioDeviceAboutToStart(AudioIODevice* device)
 {
 	StreamLogger::instance() << "Audio device " << device->getName() << " starting" << std::endl;
+	numSamplesSinceStart_ = -1;
 }
 
 void AudioCallback::audioDeviceStopped()
@@ -153,12 +167,14 @@ void AudioCallback::audioDeviceStopped()
 
 void AudioCallback::setChannelSetup(JammerNetzChannelSetup const &channelSetup)
 {
-	channelSetup_ = channelSetup;
-	if (uploadRecorder_) {
-		uploadRecorder_->updateChannelInfo(SAMPLE_RATE, channelSetup_);
-	}
-	if (midiRecorder_) {
-		midiRecorder_->startRecording();
+	if (!(channelSetup_ == channelSetup)) {
+		channelSetup_ = channelSetup;
+		if (uploadRecorder_) {
+			uploadRecorder_->updateChannelInfo(SAMPLE_RATE, channelSetup_);
+		}
+		if (midiRecorder_) {
+			midiRecorder_->startRecording();
+		}
 	}
 }
 
@@ -189,12 +205,12 @@ MidiPlayAlong *AudioCallback::getPlayalong()
 	return midiPlayalong_.get();
 }
 
-int AudioCallback::numberOfUnderruns() const
+int64 AudioCallback::numberOfUnderruns() const
 {
 	return playUnderruns_;
 }
 
-int AudioCallback::currentBufferSize() const
+uint64 AudioCallback::currentBufferSize() const
 {
 	return minPlayoutBufferLength_;
 }
@@ -224,6 +240,12 @@ std::string AudioCallback::currentReceptionQuality() const
 	return playBuffer_.qualityStatement();
 }
 
+double AudioCallback::currentSampleRate() const
+{
+	auto timeElapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(lastTime_ - startTime_);
+	return (numSamplesSinceStart_) / (double)(timeElapsed.count() / (double) 1e9);
+}
+
 bool AudioCallback::isReceivingData() const
 {
 	return client_.isReceivingData();
@@ -242,5 +264,15 @@ float AudioCallback::channelPitch(int channel) const
 std::shared_ptr<Recorder> AudioCallback::getMasterRecorder() const
 {
 	return masterRecorder_;
+}
+
+std::shared_ptr<Recorder> AudioCallback::getLocalRecorder() const
+{
+	return uploadRecorder_;
+}
+
+std::shared_ptr<JammerNetzClientInfoMessage> AudioCallback::getClientInfo() const
+{
+	return client_.getClientInfo();
 }
 

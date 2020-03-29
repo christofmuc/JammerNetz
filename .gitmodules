@@ -1,9 +1,21 @@
 [submodule "third_party/ff_meters"]
-	path = third_party/ff_meters
+	path = third_party/JUCE-user-modules/ff_meters
 	url = https://github.com/christofmuc/ff_meters.git
 [submodule "third_party/Q"]
 	path = third_party/Q
-	url = https://github.com/cycfi/Q.git
+	url = https://github.com/christofmuc/Q.git
 [submodule "third_party/infra"]
 	path = third_party/infra
 	url = https://github.com/cycfi/infra.git
+[submodule "third_party/juce-cmake"]
+	path = third_party/juce-cmake
+	url = https://github.com/remymuller/juce-cmake.git
+[submodule "third_party/JUCE"]
+	path = third_party/JUCE
+	url = https://github.com/WeAreROLI/JUCE.git
+[submodule "third_party/flatbuffers"]
+	path = third_party/flatbuffers
+	url = https://github.com/google/flatbuffers.git
+[submodule "modules/juce-utils"]
+	path = modules/juce-utils
+	url = https://github.com/christofmuc/juce-utils.git

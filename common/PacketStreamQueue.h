@@ -35,6 +35,7 @@ struct StreamQualityData {
 	std::string streamName;
 
 	std::string qualityStatement() const;
+	JammerNetzStreamQualityInfo qualityInfoPackage() const;
 };
 
 class PacketStreamQueue {
@@ -46,6 +47,7 @@ public:
 	size_t size() const;
 
 	std::string qualityStatement() const;
+	JammerNetzStreamQualityInfo qualityInfoPackage() const;
 
 private:
 	bool hasBeenPushedBefore(std::shared_ptr<JammerNetzAudioData> packet);

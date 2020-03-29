@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <JUCERPROJECT id="YUJbef" name="JammerNetzServer" projectType="consoleapp"
-              jucerVersion="5.4.3">
+              jucerVersion="5.4.5">
   <MAINGROUP id="cLYj2b" name="JammerNetzServer">
     <GROUP id="{769CAA7A-DA3A-37B9-BE27-D6407825935D}" name="docker">
       <GROUP id="{0875CC80-8AAC-BFF8-2BFE-9BA632C0710E}" name="buildmachine">
@@ -17,6 +17,12 @@
             file="../common/JammerNetzPackage.cpp"/>
       <FILE id="neGd7A" name="JammerNetzPackage.h" compile="0" resource="0"
             file="../common/JammerNetzPackage.h"/>
+      <FILE id="ZH5apk" name="JammerNetzPackages.capnp" compile="0" resource="0"
+            file="../common/JammerNetzPackages.capnp"/>
+      <FILE id="bbJvsk" name="JammerNetzPackages.capnp.c++" compile="1" resource="0"
+            file="../common/JammerNetzPackages.capnp.c++"/>
+      <FILE id="ZKeV0Z" name="JammerNetzPackages.capnp.h" compile="0" resource="0"
+            file="../common/JammerNetzPackages.capnp.h"/>
       <FILE id="h11cgu" name="PacketStreamQueue.cpp" compile="1" resource="0"
             file="../common/PacketStreamQueue.cpp"/>
       <FILE id="PK7uKl" name="PacketStreamQueue.h" compile="0" resource="0"
@@ -44,15 +50,18 @@
     </GROUP>
   </MAINGROUP>
   <EXPORTFORMATS>
-    <VS2017 targetFolder="Builds/VisualStudio2017">
+    <VS2017 targetFolder="Builds/VisualStudio2017" extraCompilerFlags="/wd4100 /wd4244 /wd4267 /wd4127 /wd4245"
+            externalLibraries="capnp.lib&#10;kj.lib">
       <CONFIGURATIONS>
-        <CONFIGURATION isDebug="1" name="Debug" headerPath="../../../common&#10;../../../third_party/tbb2019_20190605oss/include"
-                       warningsAreErrors="1" libraryPath="../../../third_party/tbb2019_20190605oss/lib/intel64/vc14&#10;&#10;"
-                       defines="TBB_USE_DEBUG =1&#10;JAMMER_IS_SERVER" postbuildCommand=" xcopy &quot;$(ProjectDir)..\..\..\third_party\tbb2019_20190605oss\bin\intel64\vc14\*.dll&quot; &quot;$(TargetDir)&quot; /i /r /y"/>
-        <CONFIGURATION isDebug="0" name="Release" headerPath="../../../common&#10;../../../third_party/tbb2019_20190605oss/include"
-                       warningsAreErrors="1" postbuildCommand=" xcopy &quot;$(ProjectDir)..\..\..\third_party\tbb2019_20190605oss\bin\intel64\vc14\*.dll&quot; &quot;$(TargetDir)&quot; /i /r /y&#10;rem $(ProjectDir)..\..\docker\buildmachine\makeLinux.bat //d/Development/JammerNetz-OS&#10;"
-                       libraryPath="../../../third_party/tbb2019_20190605oss/lib/intel64/vc14&#10;&#10;"
-                       alwaysGenerateDebugSymbols="1" defines="JAMMER_IS_SERVER&#10;"/>
+        <CONFIGURATION isDebug="1" name="Debug" headerPath="../../../common&#10;../../../third_party/tbb2019_20190605oss/include&#10;../../../third_party/capnproto-c++-0.7.0/src"
+                       warningsAreErrors="1" libraryPath="../../../third_party/tbb2019_20190605oss/lib/intel64/vc14&#10;../../../third_party/capnproto-c++-0.7.0/build/src/capnp/Debug&#10;../../../third_party/capnproto-c++-0.7.0/build/src/kj/Debug&#10;"
+                       defines="TBB_USE_DEBUG =1&#10;JAMMER_IS_SERVER" postbuildCommand=" xcopy &quot;$(ProjectDir)..\..\..\third_party\tbb2019_20190605oss\bin\intel64\vc14\*.dll&quot; &quot;$(TargetDir)&quot; /i /r /y"
+                       prebuildCommand="SET PATH=%PATH%;$(ProjectDir)..\..\..\third_party\capnproto-tools-win32-0.7.0&#10;cd $(ProjectDir)..\..\..\common&#10;capnp.exe compile -oc++ JammerNetzPackages.capnp&#10;"/>
+        <CONFIGURATION isDebug="0" name="Release" headerPath="../../../common&#10;../../../third_party/tbb2019_20190605oss/include&#10;../../../third_party/capnproto-c++-0.7.0/src"
+                       warningsAreErrors="1" postbuildCommand=" xcopy &quot;$(ProjectDir)..\..\..\third_party\tbb2019_20190605oss\bin\intel64\vc14\*.dll&quot; &quot;$(TargetDir)&quot; /i /r /y&#10;$(ProjectDir)..\..\docker\buildmachine\makeLinux.bat //d/Development/JammerNetz-OS&#10;"
+                       libraryPath="../../../third_party/tbb2019_20190605oss/lib/intel64/vc14&#10;../../../third_party/capnproto-c++-0.7.0/build/src/capnp/Release&#10;../../../third_party/capnproto-c++-0.7.0/build/src/kj/Release&#10;&#10;"
+                       alwaysGenerateDebugSymbols="1" defines="JAMMER_IS_SERVER&#10;"
+                       prebuildCommand="SET PATH=%PATH%;$(ProjectDir)..\..\..\third_party\capnproto-tools-win32-0.7.0&#10;cd $(ProjectDir)..\..\..\common&#10;capnp.exe compile -oc++ JammerNetzPackages.capnp&#10;"/>
       </CONFIGURATIONS>
       <MODULEPATHS>
         <MODULEPATH id="juce_audio_basics" path="C:/Users/Christof/JUCE/modules"/>
@@ -63,10 +72,10 @@
         <MODULEPATH id="juce_cryptography" path="C:/Users/Christof/JUCE/modules"/>
       </MODULEPATHS>
     </VS2017>
-    <LINUX_MAKE targetFolder="Builds/LinuxMakefile" externalLibraries="tbb">
+    <LINUX_MAKE targetFolder="Builds/LinuxMakefile" externalLibraries="tbb&#10;kj&#10;capnp">
       <CONFIGURATIONS>
-        <CONFIGURATION isDebug="1" name="Debug" headerPath="../../../common&#10;../../../third_party/hiir&#10;../../third_party/tbb2019_20190605oss/include"/>
-        <CONFIGURATION isDebug="0" name="Release" headerPath="../../../third_party/hiir"/>
+        <CONFIGURATION isDebug="1" name="Debug" headerPath="../../../common&#10;../../../third_party&#10;../../third_party/tbb2019_20190605oss/include"/>
+        <CONFIGURATION isDebug="0" name="Release" headerPath="../../../third_party"/>
       </CONFIGURATIONS>
       <MODULEPATHS>
         <MODULEPATH id="juce_audio_basics" path="C:/Users/Christof/JUCE/modules"/>

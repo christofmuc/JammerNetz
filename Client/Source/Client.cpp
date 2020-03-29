@@ -6,15 +6,13 @@
 
 #include "Client.h"
 
-//TODO this needs to go away, just used for better error messages
-#include <winsock.h>
-
 #include "JammerNetzPackage.h"
 #include "ServerInfo.h"
 #include "StreamLogger.h"
+#include "BinaryResources.h"
 
 Client::Client(std::function<void(std::shared_ptr<JammerNetzAudioData>)> newDataHandler) : messageCounter_(10) /* TODO - because of the pre-fill on server side, can't be 0 */
-	, currentBlockSize_(0), fecBuffer_(16), blowFish_(BinaryData::RandomNumbers_bin, BinaryData::RandomNumbers_binSize)
+	, currentBlockSize_(0), fecBuffer_(16), blowFish_(RandomNumbers_bin, RandomNumbers_bin_size)
 {
 	// We will send data to the server via this port
 	int randomPort = 8888 + (Random().nextInt() % 64);
@@ -44,8 +42,9 @@ bool Client::sendData(String const &remoteHostname, int remotePort, void *data, 
 	// Writing will block until the socket is ready to write
 	auto bytesWritten = socket_.write(remoteHostname, remotePort, data, numbytes);
 	if (bytesWritten == -1 || bytesWritten != numbytes) {
-		int errorcode = ::WSAGetLastError();
-		StreamLogger::instance() << "Error writing to socket! Error code is " << errorcode << std::endl;
+		//int errorcode = ::WSAGetLastError();
+		//StreamLogger::instance() << "Error writing to socket! Error code is " << errorcode << std::endl;
+		StreamLogger::instance() << "Error writing to socket!" << std::endl;
 	}
 	return true;
 }
@@ -55,7 +54,7 @@ bool Client::sendData(JammerNetzChannelSetup const &channelSetup, std::shared_pt
 	// Create a message
 	JammerNetzAudioData audioMessage(messageCounter_, Time::getMillisecondCounterHiRes(), channelSetup, audioBuffer);
 	messageCounter_++;
-	int totalBytes;
+	size_t totalBytes;
 	audioMessage.serialize(sendBuffer_, totalBytes);
 	// If we have FEC data, append the last block sent
 	if (!fecBuffer_.isEmpty()) {
@@ -83,7 +82,7 @@ bool Client::sendData(JammerNetzChannelSetup const &channelSetup, std::shared_pt
 	if (numberOfFlares_ > 0) {
 		// Send two flares to distract routers
 		JammerNetzFlare flare;
-		int bytes = 0;
+		size_t bytes = 0;
 		flare.serialize(sendBuffer_, bytes);
 		encryptedLength = blowFish_.encrypt(sendBuffer_, bytes, MAXFRAMESIZE);
 		if (encryptedLength == -1) {
@@ -105,6 +104,11 @@ int Client::getCurrentBlockSize() const
 double Client::currentRTT() const
 {
 	return receiver_->currentRTT();
+}
+
+std::shared_ptr<JammerNetzClientInfoMessage> Client::getClientInfo() const
+{
+	return receiver_->getClientInfo();
 }
 
 void Client::setFlareNumber(int numberOfFlares)

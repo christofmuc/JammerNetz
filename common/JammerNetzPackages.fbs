@@ -1,0 +1,36 @@
+//
+//   Copyright (c) 2019 Christof Ruch. All rights reserved.
+//
+//   Dual licensed: Distributed under Affero GPL license by default, an MIT license is available for purchase
+//
+
+table JammerNetzPNPStreamQualityInfo {
+	// Unhealed problems
+	tooLateOrDuplicate :uint64;
+	droppedPacketCounter :int64;
+
+	// Healed problems
+	outOfOrderPacketCounter :int64;
+	duplicatePacketCounter :int64;
+	dropsHealed :uint64;
+
+	// Pure statistics
+	packagesPushed :uint64;
+	packagesPopped :uint64;
+	maxLengthOfGap :uint64;
+	maxWrongOrderSpan :uint64;
+}
+
+table JammerNetzPNPClientInfo {
+	ipAddress :[uint8];  // The whole V6 IP address data. IP V4 would only use the first 4 bytes, V6 needs 16 bytes
+	isIPV6 :bool; 
+	portNumber :int;
+	qualityInfo :JammerNetzPNPStreamQualityInfo;
+}
+
+table JammerNetzPNPClientInfoPackage {
+	clientInfos : [JammerNetzPNPClientInfo];
+}
+
+root_type JammerNetzPNPClientInfoPackage;
+

@@ -26,7 +26,9 @@ private:
 	std::weak_ptr<Recorder> recorder_;
 	std::unique_ptr<UpdateTimer> timer_;
 
+	Label recordingFileName_;
 	Label recordingPath_;
+	TextButton reveal_;
 	TextButton browse_;
 	ImageButton recording_;
 	Label recordingTime_;

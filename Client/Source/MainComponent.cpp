@@ -27,6 +27,7 @@ callback_(deviceManager_)
 	bpmDisplay_ = std::make_unique<BPMDisplay>(callback_.getClocker());
 	recordingInfo_ = std::make_unique<RecordingInfo>(callback_.getMasterRecorder());
 	playalongDisplay_ = std::make_unique<PlayalongDisplay>(*callback_.getPlayalong());
+	localRecordingInfo_ = std::make_unique<RecordingInfo>(callback_.getLocalRecorder());
 
 	outputController_.setMeterSource(callback_.getOutputMeterSource(), -1);
 
@@ -52,6 +53,7 @@ callback_(deviceManager_)
 	addAndMakeVisible(recordingGroup_);
 	addAndMakeVisible(*recordingInfo_);
 	addAndMakeVisible(*playalongDisplay_);
+	addAndMakeVisible(*localRecordingInfo_);
 	std::stringstream list;
 	AudioDeviceDiscovery::listAudioDevices(deviceManager_, list);
 	StreamLogger::instance() << list.str(); // For performance, send it to the output only once
@@ -97,7 +99,7 @@ void MainComponent::refreshChannelSetup(std::shared_ptr<ChannelSetup> setup) {
 		for (int i = 0; i < setup->activeChannelIndices.size(); i++) {
 			jassert(i < MAXCHANNELSPERCLIENT);
 			if (i < MAXCHANNELSPERCLIENT) {
-				channelSetup.channels[i].target = channelControllers_[i]->getCurrentTarget();
+				channelSetup.channels[i].target = (uint8) channelControllers_[i]->getCurrentTarget();
 				channelSetup.channels[i].volume = channelControllers_[i]->getCurrentVolume();
 			}
 		}
@@ -117,14 +119,14 @@ void MainComponent::restartAudio(std::shared_ptr<ChannelSetup> inputSetup, std::
 	if (audioDevice_) {
 		BigInteger inputChannelMask = 0;
 		if (inputSetup) {
-			for (int i = 0; i < inputSetup->activeChannelIndices.size(); i++) {
-				inputChannelMask.setBit(inputSetup->activeChannelIndices[i]);
+			for (int activeChannelIndex : inputSetup->activeChannelIndices) {
+				inputChannelMask.setBit(activeChannelIndex);
 			}
 		}
 		BigInteger outputChannelMask = 0;
 		if (outputSetup) {
-			for (int i = 0; i < outputSetup->activeChannelIndices.size(); i++) {
-				outputChannelMask.setBit(outputSetup->activeChannelIndices[i]);
+			for (int activeChannelIndex : outputSetup->activeChannelIndices) {
+				outputChannelMask.setBit(activeChannelIndex);
 			}
 		}
 		String error = audioDevice_->open(inputChannelMask, outputChannelMask, ServerInfo::sampleRate, ServerInfo::bufferSize);
@@ -184,15 +186,19 @@ void MainComponent::resized()
 	qualityGroup_.setBounds(qualityArea);
 	qualityArea.reduce(kNormalInset, kNormalInset);
 	statusInfo_.setBounds(qualityArea.removeFromTop(qualityArea.getHeight()/2));
+	for (auto clientInfo : clientInfo_) {
+		clientInfo->setBounds(qualityArea.removeFromTop(kLineHeight * 2));
+	}
 	downstreamInfo_.setBounds(qualityArea);
 
 	// Lower right - everything with recording!
 	auto recordingArea = settingsArea.removeFromLeft(settingsSectionWidth);
 	recordingGroup_.setBounds(recordingArea);
 	recordingArea.reduce(kNormalInset, kNormalInset);
-	auto midiRecordingInfo = recordingArea.removeFromBottom(30);
-	bpmDisplay_->setBounds(midiRecordingInfo);	
-	recordingInfo_->setBounds(recordingArea.reduced(kNormalInset));
+	//auto midiRecordingInfo = recordingArea.removeFromBottom(30);
+	//bpmDisplay_->setBounds(midiRecordingInfo);	
+	recordingInfo_->setBounds(recordingArea.removeFromTop(recordingArea.getHeight() / 2));
+	localRecordingInfo_->setBounds(recordingArea);
 
 	// To the left, the input selector
 	auto inputArea = area.removeFromLeft(inputMixerWidth + inputSelectorWidth);
@@ -217,12 +223,50 @@ void MainComponent::resized()
 	outputController_.setBounds(outputArea);
 }
 
+void MainComponent::numConnectedClientsChanged() {
+	clientInfo_.clear();
+
+	auto info = callback_.getClientInfo();
+	for (uint8 i = 0; i < info->getNumClients(); i++) {
+		auto label = new Label();
+		addAndMakeVisible(label);
+		clientInfo_.add(label);
+	}
+	fillConnectedClientsStatistics();
+	resized();
+}
+
+void MainComponent::fillConnectedClientsStatistics() {
+	auto info = callback_.getClientInfo();
+	if (info) {
+		for (uint8 i = 0; i < info->getNumClients(); i++) {
+			auto label = clientInfo_[i];
+			std::stringstream status;
+			status << info->getIPAddress(i) << ":";
+			auto quality = info->getStreamQuality(i);
+			status
+				<< quality.packagesPushed - quality.packagesPopped << " len, "
+				<< quality.outOfOrderPacketCounter << " ooO, "
+				<< quality.maxWrongOrderSpan << " span, "
+				<< quality.duplicatePacketCounter << " dup, "
+				<< quality.dropsHealed << " heal, "
+				<< quality.tooLateOrDuplicate << " late, "
+				<< quality.droppedPacketCounter << " drop ("
+				<< std::setprecision(2) << quality.droppedPacketCounter / (float)quality.packagesPopped * 100.0f << "%), "
+				<< quality.maxLengthOfGap << " gap";
+
+			label->setText(status.str(), dontSendNotification);
+		}
+	}
+}
+
 void MainComponent::timerCallback()
 {
 	// Refresh the UI with info from the Audio callback
 	std::stringstream status;
-	status << "Quality information" << std::endl;
-	status << "Underruns: " << std::fixed << std::setprecision(2) << callback_.numberOfUnderruns() << std::endl;
+	status << "Quality information" << std::endl << std::fixed << std::setprecision(2);
+	status << "Sample rate measured " << callback_.currentSampleRate() << std::endl;
+	status << "Underruns: " << callback_.numberOfUnderruns() << std::endl;
 	status << "Buffers: " << callback_.currentBufferSize() << std::endl;
 	status << "Input latency: " << inputLatencyInMS_ << "ms" << std::endl;
 	status << "Output latency: " << outputLatencyInMS_ << "ms" << std::endl;
@@ -237,6 +281,14 @@ void MainComponent::timerCallback()
 		<< "Network MTU: " << callback_.currentPacketSize() << " bytes. Bandwidth: "
 		<< callback_.currentPacketSize() * 8 * (ServerInfo::sampleRate / (float)ServerInfo::bufferSize) / (1024 * 1024.0f) << "MBit/s. ";
 	connectionInfo_.setText(connectionInfo.str(), dontSendNotification);
+
+	if (callback_.getClientInfo() && callback_.getClientInfo()->getNumClients() != clientInfo_.size()) {
+		// Need to re-setup the UI
+		numConnectedClientsChanged();
+	}
+	else {
+		fillConnectedClientsStatistics();
+	}
 
 	serverStatus_.setConnected(callback_.isReceivingData());
 
@@ -255,8 +307,9 @@ void MainComponent::setupChanged(std::shared_ptr<ChannelSetup> setup)
 	// Rebuild UI for the channel controllers
 	channelControllers_.clear(true);
 	int i = 0;
-	for (auto channelName : setup->activeChannelNames) {
+	for (const auto& channelName : setup->activeChannelNames) {
 		auto controller = new ChannelController(channelName, "Input" + String(i), [this, setup](double newVolume, JammerNetzChannelTarget newTarget) {
+			ignoreUnused(newVolume, newTarget);
 			refreshChannelSetup(setup);
 		}, true, true, true);
 		addAndMakeVisible(controller);

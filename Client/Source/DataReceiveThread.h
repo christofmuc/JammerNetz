@@ -18,13 +18,17 @@ public:
 	virtual void run() override;
 
 	bool isReceivingData() const;
-	double currentRTT() const;
+	double currentRTT() const; 
+	std::shared_ptr<JammerNetzClientInfoMessage> getClientInfo() const;
 
 private:
 	DatagramSocket &socket_;
 	uint8 readbuffer_[MAXFRAMESIZE];
 	std::function<void(std::shared_ptr<JammerNetzAudioData>)> newDataHandler_;
-	double currentRTT_;
 	BlowFish blowFish_;
+
+	// Thread safe storage of info for the UI thread
+	std::atomic<double> currentRTT_;	
 	std::atomic<bool> isReceiving_;
+	std::shared_ptr<JammerNetzClientInfoMessage> lastClientInfoMessage_;
 };

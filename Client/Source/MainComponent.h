@@ -34,6 +34,8 @@ private:
 	void setupChanged(std::shared_ptr<ChannelSetup> setup);
 	void outputSetupChanged(std::shared_ptr<ChannelSetup> setup);
 	void newServerSelected();
+	void numConnectedClientsChanged();
+	void fillConnectedClientsStatistics();
 
 	AudioDeviceManager deviceManager_;
 	std::shared_ptr<AudioIODevice> audioDevice_;
@@ -50,12 +52,14 @@ private:
 	ServerStatus serverStatus_;
 	GroupComponent serverGroup_;
 	Label connectionInfo_;
+	OwnedArray<Label> clientInfo_;
 	Label statusInfo_;
 	Label downstreamInfo_;
 	std::unique_ptr<BPMDisplay> bpmDisplay_;
 	GroupComponent qualityGroup_;
 	GroupComponent recordingGroup_;
-	std::unique_ptr<RecordingInfo> recordingInfo_;
+	std::unique_ptr<RecordingInfo> recordingInfo_; // For the master files
+	std::unique_ptr<RecordingInfo> localRecordingInfo_; // For the local data
 	std::unique_ptr<PlayalongDisplay> playalongDisplay_;
 
 	std::shared_ptr<ChannelSetup> currentInputSetup_;

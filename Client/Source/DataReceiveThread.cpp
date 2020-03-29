@@ -7,11 +7,11 @@
 #include "DataReceiveThread.h"
 
 #include "StreamLogger.h"
-
 #include "ServerInfo.h"
+#include "BinaryResources.h"
 
 DataReceiveThread::DataReceiveThread(DatagramSocket &socket, std::function<void(std::shared_ptr<JammerNetzAudioData>)> newDataHandler)
-	: Thread("ReceiveDataFromServer"), socket_(socket), newDataHandler_(newDataHandler), currentRTT_(0.0), blowFish_(BinaryData::RandomNumbers_bin, BinaryData::RandomNumbers_binSize), isReceiving_(false)
+	: Thread("ReceiveDataFromServer"), socket_(socket), newDataHandler_(newDataHandler), currentRTT_(0.0), blowFish_(RandomNumbers_bin, RandomNumbers_bin_size), isReceiving_(false)
 {
 }
 
@@ -51,11 +51,27 @@ void DataReceiveThread::run()
 				auto message = JammerNetzMessage::deserialize(readbuffer_, messageLength);
 				if (message) {
 					isReceiving_ = true;
-					auto audioData = std::dynamic_pointer_cast<JammerNetzAudioData>(message);
-					if (audioData) {
-						// Hand off to player 
-						currentRTT_ = Time::getMillisecondCounterHiRes() - audioData->timestamp();
-						newDataHandler_(audioData);
+					switch (message->getType()) {
+					case JammerNetzMessage::AUDIODATA: {
+						auto audioData = std::dynamic_pointer_cast<JammerNetzAudioData>(message);
+						if (audioData) {
+							// Hand off to player 
+							currentRTT_ = Time::getMillisecondCounterHiRes() - audioData->timestamp();
+							newDataHandler_(audioData);
+						}
+						break;
+					}
+					case JammerNetzMessage::CLIENTINFO: {
+						auto clientInfo = std::dynamic_pointer_cast<JammerNetzClientInfoMessage>(message);
+						if (clientInfo) {
+							// Yes, got it. Copy it! This is thread safe if and only if the read function to the shared_ptr is atomic!
+							lastClientInfoMessage_ = std::make_shared<JammerNetzClientInfoMessage>(*clientInfo);
+						}
+						break;
+					}
+					default:
+						// What's this?
+						jassert(false);
 					}
 				}
 			}
@@ -71,6 +87,12 @@ void DataReceiveThread::run()
 double DataReceiveThread::currentRTT() const
 {
 	return currentRTT_;
+}
+
+std::shared_ptr<JammerNetzClientInfoMessage> DataReceiveThread::getClientInfo() const
+{
+	// Atomic read access to the shared ptr - the receive method might just now update it
+	return std::atomic_load_explicit(&lastClientInfoMessage_, std::memory_order_acquire);
 }
 
 bool DataReceiveThread::isReceivingData() const

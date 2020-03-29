@@ -53,7 +53,7 @@ void ClientConfigurator::resized()
 
 void ClientConfigurator::sliderValueChanged(Slider*)
 {
-	updateHandler_(bufferLength_.getValue(), maxLength_.getValue(), flares_.getValue());
+	updateHandler_((int) bufferLength_.getValue(), (int) maxLength_.getValue(), (int) flares_.getValue());
 }
 
 void ClientConfigurator::fromData()

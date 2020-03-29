@@ -95,8 +95,8 @@ bool AudioDeviceDiscovery::canDeviceDoSampleRate(AudioIODeviceType *type, String
 	if (device) {
 		auto rates = device->getAvailableSampleRates();
 		delete device;
-		for (int rate : rates) {
-			if (rate == sampleRate) {
+		for (auto rate : rates) {
+			if (((int) std::round(rate)) == sampleRate) {
 				return true;
 			}
 		}

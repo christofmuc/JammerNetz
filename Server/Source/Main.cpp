@@ -26,7 +26,7 @@ public:
 		// Start the recorder of the mix down
 		//mixdownRecorder_.updateChannelInfo(48000, mixdownSetup_);
 		acceptThread_ = std::make_unique<AcceptThread>(socket_, incomingStreams_, wakeUpQueue_);
-		sendThread_ = std::make_unique <SendThread>(socket_, sendQueue_);
+		sendThread_ = std::make_unique <SendThread>(socket_, sendQueue_, incomingStreams_);
 		mixerThread_ = std::make_unique<MixerThread>(incomingStreams_, mixdownSetup_, sendQueue_, wakeUpQueue_);
 
 		sendQueue_.set_capacity(128); // This is an arbitrary number only to prevent memory overflow should the sender thread somehow die (i.e. no network or something)

@@ -8,8 +8,11 @@
 
 #include "BuffersConfig.h"
 
+#pragma warning( push )
+#pragma warning( disable: 4244 4267 4305)
 #include <q/pitch/pitch_detector.hpp>
 #include <q/support/frequency.hpp>
+#pragma warning ( pop )
 
 namespace q = cycfi::q;
 using namespace q::literals;

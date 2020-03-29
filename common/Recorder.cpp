@@ -7,7 +7,7 @@
 #include "Recorder.h"
 
 Recorder::Recorder(File directory, std::string const &baseFileName, RecordingType recordingType) 
-	: directory_(directory), baseFileName_(baseFileName), writer_(nullptr), recordingType_(recordingType)
+	: directory_(directory), baseFileName_(baseFileName), writer_(nullptr), recordingType_(recordingType), samplesWritten_(0)
 {
 	thread_ = std::make_unique<TimeSliceThread>("RecorderDiskWriter");
 	thread_->startThread();
@@ -22,12 +22,39 @@ Recorder::~Recorder()
 	thread_->stopThread(1000);
 }
 
+void Recorder::setRecording(bool recordOn)
+{
+	if (recordOn && !isRecording()) {
+		updateChannelInfo(lastSampleRate_, lastChannelSetup_);
+	} else if (!recordOn && isRecording()) {
+		writeThread_.reset();
+	}
+}
+
 bool Recorder::isRecording() const
 {
-	return writeThread_.get() != nullptr;
+	return writeThread_ != nullptr;
+}
+
+RelativeTime Recorder::getElapsedTime() const
+{
+	return RelativeTime(samplesWritten_ / (double) lastSampleRate_);
+}
+
+juce::String Recorder::getFilename() const
+{
+	return activeFile_.getFileName();
+}
+
+juce::File Recorder::getFile() const
+{
+	return activeFile_;
 }
 
 void Recorder::updateChannelInfo(int sampleRate, JammerNetzChannelSetup const &channelSetup) {
+	lastSampleRate_ = sampleRate;
+	lastChannelSetup_ = channelSetup;
+
 	// We have changed the channel setup - as our output files do like a varying number of channels (you need a DAW project for that)
 	// let's close the current file and start a new one
 	writeThread_.reset();
@@ -90,9 +117,9 @@ void Recorder::updateChannelInfo(int sampleRate, JammerNetzChannelSetup const &c
 	}
 
 	// Setup a new audio file to write to
-	Time now = Time::getCurrentTime();
-	File wavFile = directory_.getNonexistentChildFile(String(baseFileName_) + now.formatted("-%Y-%m-%d-%H-%M-%S"), fileExtension, false);
-	OutputStream *outStream = new FileOutputStream(wavFile, 16384);
+	startTime_ = Time::getCurrentTime();
+	activeFile_ = directory_.getNonexistentChildFile(String(baseFileName_) + startTime_.formatted("-%Y-%m-%d-%H-%M-%S"), fileExtension, false);
+	OutputStream * outStream = new FileOutputStream(activeFile_, 16384);
 
 	// Create the writer based on the format and file
 	StringPairArray metaData;
@@ -106,6 +133,7 @@ void Recorder::updateChannelInfo(int sampleRate, JammerNetzChannelSetup const &c
 
 	// Finally, create the new writer associating it with the background thread
 	writeThread_ = std::make_unique<AudioFormatWriter::ThreadedWriter>(writer_, *thread_, 16384);
+	samplesWritten_ = 0;
 }
 
 void Recorder::saveBlock(const float* const* data, int numSamples) {
@@ -115,6 +143,7 @@ void Recorder::saveBlock(const float* const* data, int numSamples) {
 			//TODO - need a smarter strategy than that
 			std::cerr << "Ups, FIFO full and can't write block to disk, lost it!" << std::endl;
 		}
+		samplesWritten_ += numSamples;
 	}
 }
 

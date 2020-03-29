@@ -8,12 +8,16 @@
 
 #include "JuceHeader.h"
 
+#include "IncludeFFMeters.h"
+
 #include "Client.h"
 #include "PacketStreamQueue.h"
 #include "Recorder.h"
 #include "Tuner.h"
 #include "MidiRecorder.h"
 #include "MidiPlayAlong.h"
+
+#include <chrono>
 
 class AudioCallback : public AudioIODeviceCallback {
 public:
@@ -33,22 +37,25 @@ public:
 	MidiPlayAlong *getPlayalong();
 
 	// Statistics
-	int numberOfUnderruns() const;
-	int currentBufferSize() const;
+	int64 numberOfUnderruns() const;
+	uint64 currentBufferSize() const;
 	int currentPacketSize() const;
 	uint64 currentPlayQueueSize() const;
 	int currentDiscardedPackageCounter() const;
 	double currentToPlayLatency() const;
 
 	std::string currentReceptionQuality() const;
+	double currentSampleRate() const;
 	bool isReceivingData() const;
 	double currentRTT() const;
 	float channelPitch(int channel) const;
 
 	std::shared_ptr<Recorder> getMasterRecorder() const;
-
+	std::shared_ptr<Recorder> getLocalRecorder() const;
+	std::shared_ptr<JammerNetzClientInfoMessage> getClientInfo() const;
 private:
 	void clearOutput(float** outputChannelData, int numOutputChannels, int numSamples);
+	void samplesPerTime(int numSamples);
 
 	PacketStreamQueue playBuffer_;
 	std::atomic_bool isPlaying_;
@@ -57,6 +64,7 @@ private:
 	std::atomic_uint64_t maxPlayoutBufferLength_;
 	std::atomic_int64_t currentPlayQueueLength_;
 	std::string currentText_;
+	std::atomic_int64_t numSamplesSinceStart_;
 	int discardedPackageCounter_;
 	double toPlayLatency_;
 	Client client_;
@@ -64,10 +72,14 @@ private:
 	FFAU::LevelMeterSource meterSource_; // This is for peak metering
 	FFAU::LevelMeterSource outMeterSource_;
 
-	std::unique_ptr<Recorder> uploadRecorder_;
+	std::shared_ptr<Recorder> uploadRecorder_;
 	std::shared_ptr<Recorder> masterRecorder_;
 	std::unique_ptr<MidiRecorder> midiRecorder_;
 	std::unique_ptr<MidiPlayAlong> midiPlayalong_;
 
 	std::unique_ptr<Tuner> tuner_;
+
+	std::chrono::time_point<std::chrono::steady_clock> startTime_;
+	std::chrono::time_point<std::chrono::steady_clock> lastTime_;
 };
+
