@@ -69,8 +69,6 @@ std::shared_ptr<JammerNetzMessage> JammerNetzMessage::deserialize(uint8 *data, s
 				return std::make_shared<JammerNetzAudioData>(data, bytes);
 			case CLIENTINFO:
 				return std::make_shared<JammerNetzClientInfoMessage>(data, bytes);
-			case FLARE:
-				return std::make_shared<JammerNetzFlare>();
 			default:
 				std::cerr << "Unknown message type received, ignoring it" << std::endl;
 			}
@@ -270,20 +268,5 @@ void JammerNetzAudioData::readAudioBytes(uint8 *data, int numchannels, int numsa
 		}
 	}
 	bytesRead += numchannels * numsamples * sizeof(uint16);
-}
-
-JammerNetzFlare::JammerNetzFlare()
-{
-}
-
-JammerNetzMessage::MessageType JammerNetzFlare::getType() const
-{
-	return FLARE;
-}
-
-void JammerNetzFlare::serialize(uint8 *output, size_t &byteswritten) const
-{
-	writeHeader(output, FLARE);
-	byteswritten += sizeof(JammerNetzHeader);
 }
 

@@ -29,7 +29,7 @@ public:
 
 	void newServer();
 	void setChannelSetup(JammerNetzChannelSetup const &channelSetup);
-	void changeClientConfig(int clientBuffers, int maxBuffers, int flares);
+	void changeClientConfig(int clientBuffers, int maxBuffers);
 
 	FFAU::LevelMeterSource* getMeterSource();
 	FFAU::LevelMeterSource* getOutputMeterSource();

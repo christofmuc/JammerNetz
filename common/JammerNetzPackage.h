@@ -86,7 +86,6 @@ public:
 	enum MessageType {
 		AUDIODATA = 1,
 		CLIENTINFO = 8,
-		FLARE = 255
 	};
 
 	virtual MessageType getType() const = 0;
@@ -133,11 +132,4 @@ public:
 	bool operator() (std::shared_ptr<JammerNetzAudioData> const &data1, std::shared_ptr<JammerNetzAudioData> const &data2) {
 		return data1->messageCounter() > data2->messageCounter();
 	}
-};
-
-class JammerNetzFlare : public JammerNetzMessage {
-public:
-	JammerNetzFlare();
-	virtual MessageType getType() const override;
-	virtual void serialize(uint8 *output, size_t &byteswritten) const override;
 };

@@ -11,7 +11,7 @@
 class ClientConfigurator : public Component,
 	private Slider::Listener {
 public:
-	ClientConfigurator(std::function<void(int, int, int)> updateHandler);
+	ClientConfigurator(std::function<void(int, int)> updateHandler);
 
 	virtual void resized() override;
 
@@ -22,11 +22,9 @@ public:
 private:
 	virtual void sliderValueChanged(Slider* slider) override;
 
-	std::function<void(int, int, int)> updateHandler_;
+	std::function<void(int, int)> updateHandler_;
 	Label bufferLabel_;
 	Slider bufferLength_;
 	Label maxLabel_;
 	Slider maxLength_;
-	Label flareLabel_;
-	Slider flares_;
 };

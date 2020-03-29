@@ -79,20 +79,6 @@ bool Client::sendData(JammerNetzChannelSetup const &channelSetup, std::shared_pt
 	sendData(ServerInfo::serverName, ServerInfo::serverPort, sendBuffer_, encryptedLength);
 	currentBlockSize_ = encryptedLength;
 
-	if (numberOfFlares_ > 0) {
-		// Send two flares to distract routers
-		JammerNetzFlare flare;
-		size_t bytes = 0;
-		flare.serialize(sendBuffer_, bytes);
-		encryptedLength = blowFish_.encrypt(sendBuffer_, bytes, MAXFRAMESIZE);
-		if (encryptedLength == -1) {
-			StreamLogger::instance() << "Fatal: Couldn't encrypt package, not sending to server!" << std::endl;
-			return false;
-		}
-		for (int i = 0; i < numberOfFlares_; i++) {
-			sendData(ServerInfo::serverName, ServerInfo::serverPort, sendBuffer_, encryptedLength);
-		}
-	}
 	return true;
 }
 
@@ -111,8 +97,4 @@ std::shared_ptr<JammerNetzClientInfoMessage> Client::getClientInfo() const
 	return receiver_->getClientInfo();
 }
 
-void Client::setFlareNumber(int numberOfFlares)
-{
-	numberOfFlares_ = numberOfFlares;
-}
 

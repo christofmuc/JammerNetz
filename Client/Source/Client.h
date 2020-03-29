@@ -23,8 +23,6 @@ public:
 	double currentRTT() const;
 	std::shared_ptr<JammerNetzClientInfoMessage> getClientInfo() const;
 
-	void setFlareNumber(int numberOfFlares);
-
 private:
 	bool sendData(String const &remoteHostname, int remotePort, void *data, int numbytes);
 
@@ -32,7 +30,6 @@ private:
 	uint64 messageCounter_;
 	uint8 sendBuffer_[65536];
 	std::atomic_int currentBlockSize_;
-	std::atomic_int numberOfFlares_;
 
 	std::unique_ptr<DataReceiveThread> receiver_;
 	RingOfAudioBuffers<AudioBlock> fecBuffer_; // Forward error correction buffer, keep the last n sent packages

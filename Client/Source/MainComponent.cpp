@@ -20,7 +20,7 @@ MainComponent::MainComponent(String clientID) : audioDevice_(nullptr),
 inputSelector_("Inputs", false, "InputSetup", deviceManager_, true, [this](std::shared_ptr<ChannelSetup> setup) { setupChanged(setup); }),
 outputSelector_("Outputs", false, "OutputSetup", deviceManager_, false, [this](std::shared_ptr<ChannelSetup> setup) { outputSetupChanged(setup);  }),
 outputController_("Master", "OutputController", [](double, JammerNetzChannelTarget) {}, false, false),
-clientConfigurator_([this](int clientBuffer, int maxBuffer, int flares) { callback_.changeClientConfig(clientBuffer, maxBuffer, flares);  }),
+clientConfigurator_([this](int clientBuffer, int maxBuffer) { callback_.changeClientConfig(clientBuffer, maxBuffer);  }),
 serverStatus_([this]() { newServerSelected();  }),
 callback_(deviceManager_)
 {

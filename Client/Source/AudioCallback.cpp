@@ -178,9 +178,8 @@ void AudioCallback::setChannelSetup(JammerNetzChannelSetup const &channelSetup)
 	}
 }
 
-void AudioCallback::changeClientConfig(int clientBuffers, int maxBuffers, int flares)
+void AudioCallback::changeClientConfig(int clientBuffers, int maxBuffers)
 {
-	client_.setFlareNumber(flares);
 	minPlayoutBufferLength_ = clientBuffers;
 	maxPlayoutBufferLength_ = maxBuffers;
 }
