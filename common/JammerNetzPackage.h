@@ -12,7 +12,7 @@ const size_t MAXFRAMESIZE = 65536;
 const size_t MAXCHANNELSPERCLIENT = 4;
 
 /*
- For lazi-ness and stateless-ness Jammernetz for now works with only a single message type for now. This is the format:
+ For lazi-ness and stateless-ness Jammernetz works with only a single message type for now. This is the format:
 
   | AUDIODATA type message - this is sent by the client to the server, and also the server sends its mixing result with this type of message
   | JammerNetzAudioHeader
@@ -20,10 +20,6 @@ const size_t MAXCHANNELSPERCLIENT = 4;
   | JammerNetzHeader                 | JammerNetzAudioBlock                                                                     | AudioData for Block                       |
   | magic0 magic1 magic2 messageType | timestamp messageCounter channelSetup            numChannels numberOfSamples sampleRate  | numChannels * numberOfSamples audio bytes | 
   | uint8  uint8  uint8  uint8       | double    uint64         JammerNetzChannelSetup  uint8       uint16          uint16      | uint16                                    |
-
-  | CLIENTINFO type message - these are sent only the the server to the clients
-  | JammerNetzClientInfoPackage
-  | JammerNetzHeader | JammerNetzClientInfoHeader | JammerNetzClientInfo |
 
 */
 
@@ -85,32 +81,6 @@ struct AudioBlock {
 	std::shared_ptr<AudioBuffer<float>> audioBuffer;
 };
 
-struct JammerNetzStreamQualityInfo {
-	// Unhealed problems
-	uint64_t tooLateOrDuplicate;
-	int64_t droppedPacketCounter;
-
-	// Healed problems
-	int64_t outOfOrderPacketCounter;
-	int64_t duplicatePacketCounter;
-	uint64_t dropsHealed;
-
-	// Pure statistics
-	uint64_t packagesPushed;
-	uint64_t packagesPopped;
-	uint64_t maxLengthOfGap;
-	uint64_t maxWrongOrderSpan;
-};
-
-struct JammerNetzClientInfo {
-	JammerNetzClientInfo(IPAddress ipAddress, int portNumber, JammerNetzStreamQualityInfo qualityInfo);
-
-	uint8 ipAddress[16]; // The whole V6 IP address data. IP V4 would only use the first 4 bytes
-	bool isIPV6; // Not sure if I need this
-	int portNumber;
-	JammerNetzStreamQualityInfo qualityInfo;
-};
-
 class JammerNetzMessage {
 public:
 	enum MessageType {
@@ -163,28 +133,6 @@ public:
 	bool operator() (std::shared_ptr<JammerNetzAudioData> const &data1, std::shared_ptr<JammerNetzAudioData> const &data2) {
 		return data1->messageCounter() > data2->messageCounter();
 	}
-};
-
-class JammerNetzClientInfoMessage : public JammerNetzMessage {
-public:
-	JammerNetzClientInfoMessage();
-	JammerNetzClientInfoMessage(JammerNetzClientInfoMessage const &other) = default;
-	void addClientInfo(IPAddress ipAddress, int port, JammerNetzStreamQualityInfo infoData);
-
-	virtual MessageType getType() const override;
-
-	uint8 getNumClients() const;
-	String getIPAddress(uint8 clientNo) const;
-	JammerNetzStreamQualityInfo getStreamQuality(uint8 clientNo) const;
-
-	// Deserializing constructor, used by JammerNetzMessage::deserialize()
-	JammerNetzClientInfoMessage(uint8 *data, size_t bytes);
-
-	// Implementing the serialization interface
-	virtual void serialize(uint8 *output, size_t &byteswritten) const override;
-
-private:
-	std::vector<JammerNetzClientInfo> clientInfos_;
 };
 
 class JammerNetzFlare : public JammerNetzMessage {

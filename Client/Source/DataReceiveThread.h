@@ -9,6 +9,7 @@
 #include "JuceHeader.h"
 
 #include "JammerNetzPackage.h"
+#include "JammerNetzClientInfoMessage.h"
 
 class DataReceiveThread : public Thread {
 public:

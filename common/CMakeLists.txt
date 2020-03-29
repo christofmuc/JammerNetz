@@ -41,18 +41,15 @@ FLATBUFFERS_GENERATE_C_HEADERS(FlatJammer JammerNetzPackages.fbs)
 set(Sources
 	BuffersConfig.h
 	CMakeLists.txt
-	JammerNetzPackage.cpp
-	JammerNetzPackage.h	
+	JammerNetzClientInfoMessage.cpp JammerNetzClientInfoMessage.h
+	JammerNetzPackage.cpp JammerNetzPackage.h	
 	JammerNetzPackages.fbs
 	${FlatJammer_OUTPUTS}
-	PacketStreamQueue.cpp
-	PacketStreamQueue.h
+	PacketStreamQueue.cpp PacketStreamQueue.h
 	BinaryResources.h
-	Recorder.cpp
-	Recorder.h
+	Recorder.cpp Recorder.h
 	RingOfAudioBuffers.h
-	ServerInfo.cpp
-	ServerInfo.h
+	ServerInfo.cpp ServerInfo.h
 )
 
 # Setup library
