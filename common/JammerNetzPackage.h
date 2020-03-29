@@ -8,6 +8,10 @@
 
 #include "JuceHeader.h"
 
+#include "flatbuffers/flatbuffers.h"
+#include "JammerNetzPackages_generated.h"
+
+
 const size_t MAXFRAMESIZE = 65536;
 const size_t MAXCHANNELSPERCLIENT = 4;
 
@@ -100,8 +104,8 @@ protected:
 class JammerNetzAudioData : public JammerNetzMessage {
 public:
 	JammerNetzAudioData(uint8 *data, size_t bytes);
-	JammerNetzAudioData(uint64 messageCounter, double timestamp, JammerNetzChannelSetup const &channelSetup, std::shared_ptr<AudioBuffer<float>> audioBuffer);
-	JammerNetzAudioData(AudioBlock const &audioBlock);
+	JammerNetzAudioData(uint64 messageCounter, double timestamp, JammerNetzChannelSetup const &channelSetup, std::shared_ptr<AudioBuffer<float>> audioBuffer, std::shared_ptr<AudioBlock> fecBlock);
+	JammerNetzAudioData(AudioBlock const &audioBlock, std::shared_ptr<AudioBlock> fecBlock);
 
 	std::shared_ptr<JammerNetzAudioData> createFillInPackage(uint64 messageNumber) const;
 	std::shared_ptr<JammerNetzAudioData> createPrePaddingPackage() const;
@@ -109,7 +113,6 @@ public:
 	virtual MessageType getType() const override;
 
 	virtual void serialize(uint8 *output, size_t &byteswritten) const override;
-	void serialize(uint8 *output, size_t &byteswritten, std::shared_ptr<AudioBlock> src, uint16 sampleRate, uint16 reductionFactor) const;
 
 	// Read access, those use the "active block"
 	std::shared_ptr<AudioBuffer<float>> audioBuffer() const;
@@ -118,7 +121,8 @@ public:
 	JammerNetzChannelSetup channelSetup() const;
 
 private:
-	void appendAudioBuffer(AudioBuffer<float> &buffer, uint8 *output, size_t &writeIndex, uint16 reductionFactor) const;
+	flatbuffers::Offset<JammerNetzPNPAudioBlock> serializeAudioBlock(flatbuffers::FlatBufferBuilder &fbb, std::shared_ptr<AudioBlock> src, uint16 sampleRate, uint16 reductionFactor) const;
+	flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<JammerNetzPNPAudioSamples>>> appendAudioBuffer(flatbuffers::FlatBufferBuilder &fbb, AudioBuffer<float> &buffer, uint16 reductionFactor) const;
 	std::shared_ptr<AudioBlock> readAudioHeaderAndBytes(uint8 *data, size_t &bytesread);
 	void readAudioBytes(uint8 *data, int numchannels, int numsamples, std::shared_ptr<AudioBuffer<float>> destBuffer, size_t &bytesRead, int upsampleRate);
 

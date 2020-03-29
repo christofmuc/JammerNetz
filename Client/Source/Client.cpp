@@ -51,15 +51,18 @@ bool Client::sendData(String const &remoteHostname, int remotePort, void *data, 
 
 bool Client::sendData(JammerNetzChannelSetup const &channelSetup, std::shared_ptr<AudioBuffer<float>> audioBuffer)
 {
+	// If we have FEC data, append the last block sent
+	std::shared_ptr<AudioBlock> fecBlock;
+	if (!fecBuffer_.isEmpty()) {
+		fecBlock = fecBuffer_.getLast();
+	}
+
 	// Create a message
-	JammerNetzAudioData audioMessage(messageCounter_, Time::getMillisecondCounterHiRes(), channelSetup, audioBuffer);
+	JammerNetzAudioData audioMessage(messageCounter_, Time::getMillisecondCounterHiRes(), channelSetup, audioBuffer, fecBlock);
+	
 	messageCounter_++;
 	size_t totalBytes;
 	audioMessage.serialize(sendBuffer_, totalBytes);
-	// If we have FEC data, append the last block sent
-	if (!fecBuffer_.isEmpty()) {
-		audioMessage.serialize(sendBuffer_, totalBytes, fecBuffer_.getLast(), 48000, 2);
-	}	
 
 	// Store the audio data somewhere else because we need it for forward error correction
 	std::shared_ptr<AudioBlock> redundencyData = std::make_shared<AudioBlock>();

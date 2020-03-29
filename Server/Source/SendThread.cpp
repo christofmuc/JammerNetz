@@ -21,18 +21,22 @@ void SendThread::determineTargetIP(std::string const &targetAddress, String &ipA
 }
 
 void SendThread::sendAudioBlock(std::string const &targetAddress, AudioBlock &audioBlock) {
-	JammerNetzAudioData dataForClient(audioBlock);
-	size_t bytesWritten = 0;
-	dataForClient.serialize(writebuffer_, bytesWritten);
-
 	if (fecData_.find(targetAddress) == fecData_.end()) {
 		// First time we send a package to this address, create a ring buffer!
 		fecData_.emplace(targetAddress, FEC_RINGBUFFER_SIZE);
 	}
+
+	std::shared_ptr<AudioBlock> fecBlock;
 	if (!fecData_.find(targetAddress)->second.isEmpty()) {
 		// Send FEC data
-		dataForClient.serialize(writebuffer_, bytesWritten, fecData_.find(targetAddress)->second.getLast(), SAMPLE_RATE, FEC_SAMPLERATE_REDUCTION);
+		fecBlock = fecData_.find(targetAddress)->second.getLast();
+		//dataForClient.serialize(writebuffer_, bytesWritten, fecData_.find(targetAddress)->second.getLast(), SAMPLE_RATE, FEC_SAMPLERATE_REDUCTION);
 	}
+
+	JammerNetzAudioData dataForClient(audioBlock, fecBlock);
+	size_t bytesWritten = 0;
+	dataForClient.serialize(writebuffer_, bytesWritten);
+
 	// Store the package sent in the FEC buffer for the next package to go out
 	auto redundancyData = std::make_shared<AudioBlock>(audioBlock);
 	fecData_.find(targetAddress)->second.push(redundancyData);
