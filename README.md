@@ -71,6 +71,29 @@ Using CMake and building JammerNetz client and server is a multi-step build, whi
 
 Have a look inside that file in case you're interested in the required build commands. The build will take a few minutes, and produce both Debug and Release versions of Client and Server software, as well as a client installer in case you have InnoSetup installeed before kicking off. The installer executable is created as `<JammerNetzDir>\Builds\Client\jammernetz_setup.exe`
 
+## Building on macOS
+
+There are multiple ways to build on macOS, this is what we have tried and what worked.
+macOS Mojave 10.14.6 (18G4032) with /Library/Developer/CommandLineTools/SDKs/MacOSX10.14.sdk 
+
+Prerequisities:
+
+    brew install tbb gtk+3 glew
+
+Please specify path to tbb when running CMake if default one does not work, other libs should be found automatically.
+
+    cd third_party/flatbuffers
+    cmake -S . -B LinuxBuilds -G "Unix Makefiles"
+    cmake --build LinuxBuilds -- -j8
+    cd ../..
+    cmake -S . -B Builds/macOS -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release
+    cmake --build Builds/macOS -- -j8
+
+Known issues for those who might try building differently:
+
+ * Some libs might incorrectly add "-frameworks A B" to linker command, while "-frameworks A -frameworks B" would be correct.
+   We found that adding some libs with pkg-build results in such an error. Fortunately, these libs are not necessary on macOS.
+
 ### Building the server for Linux
 
 Most likely, you're not going to run your server on a Windows machine but prefer a Linux cloud machine located at some strategic position in the Internet.
