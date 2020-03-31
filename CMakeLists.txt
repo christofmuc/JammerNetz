@@ -8,6 +8,9 @@ cmake_minimum_required(VERSION 3.14)
 
 project(JammerNetz)
 
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
 # We need a little bit support for the JUCE library, and also want to put our own CMake helpers on the module path
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/third_party/juce-cmake/cmake" "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
@@ -16,7 +19,7 @@ include(FetchContent)
 
 # Configure time downloads of more third_party libraries that can not be maintained as git submodules
 # Make sure to read and accept the Steinberg licensing agreement in the directory _deps/asiosdk-src!
-IF (WIN32)
+if (WIN32)
 	FetchContent_Declare(
 	  asiosdk
 	  URL https://www.steinberg.net/asiosdk
@@ -37,7 +40,17 @@ IF (WIN32)
 	)
 	FetchContent_MakeAvailable(vcredist)
 	set(VCREDIST_PATH "${CMAKE_CURRENT_BINARY_DIR}/_deps/vcredist-subbuild/vcredist-populate-prefix/src")
-ELSE()
+elseif(APPLE)
+	# TODO use Find modules or build TBB from sources
+	# This is where brew installs tbb, can be changed by user
+	set(INTEL_TBB_DIRECTORY "/usr/local/Cellar/tbb/2020_U1_1" CACHE PATH "Path to Intel TBB")
+	option(JUCE_CONFIG_JUCE_WEB_BROWSER OFF) # to avoid dependency on WebKit
+	# Supress a warning from juce_TargetPlatform by letting it know the build type
+	# NOTE that NDEBUG is set automatically in Release
+	if (NOT CMAKE_BUILD_TYPE MATCHES Release)
+		add_compile_definitions(DEBUG)
+	endif()
+else()
 	ADD_DEFINITIONS(-DJUCE_JACK)
 
 	# Include useful scripts for CMake
@@ -47,7 +60,7 @@ ELSE()
 	pkg_check_modules(GTK REQUIRED IMPORTED_TARGET gtk+-3.0)
 	pkg_check_modules(WEBKIT REQUIRED IMPORTED_TARGET webkit2gtk-4.0)
 	pkg_check_modules(GLEW REQUIRED IMPORTED_TARGET glew)
-ENDIF()
+endif()
 
 #
 # We need a cryptographic key that server and client will share so they can communicate. In its simplest form, we will just take some random numbers from the internet

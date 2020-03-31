@@ -101,6 +101,9 @@ add_executable(JammerNetzClient WIN32 ${SOURCES} ${UICOMPONENT_FILES} ${AUDIO_PR
 IF(WIN32)
 	target_link_directories(JammerNetzClient PRIVATE "${INTEL_TBB_DIRECTORY}/lib/intel64/vc14")
 	target_link_libraries(JammerNetzClient ${JUCE_LIBRARIES} JammerCommon juce-utils ff_meters)
+elseif(APPLE)
+	target_link_directories(JammerNetzClient PRIVATE "${INTEL_TBB_DIRECTORY}/lib/")
+	target_link_libraries(JammerNetzClient ${JUCE_LIBRARIES} JammerCommon juce-utils ff_meters tbb)
 ELSE()
 	target_link_libraries(JammerNetzClient 
 		${JUCE_LIBRARIES} 
