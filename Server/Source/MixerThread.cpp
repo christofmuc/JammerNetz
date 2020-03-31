@@ -128,18 +128,18 @@ void MixerThread::bufferMixdown(std::shared_ptr<AudioBuffer<float>> &outBuffer, 
 	}
 	// Loop over the input channels, and add them to either the left or right or both channels!
 	for (int channel = 0; channel < audioData->audioBuffer()->getNumChannels(); channel++) {
-		JammerNetzSingleChannelSetup *setup = &audioData->channelSetup().channels[channel];
-		switch (setup->target) {
+		JammerNetzSingleChannelSetup setup = audioData->channelSetup().channels[channel];
+		switch (setup.target) {
 		case Unused:
 			// Nothing to be done, ignore this channel; This is the same as Mute
 			break;
 		case Left:
 			// This is a left channel, going into the left. 
-			outBuffer->addFrom(0, 0, *audioData->audioBuffer(), channel, 0, audioData->audioBuffer()->getNumSamples(), setup->volume);
+			outBuffer->addFrom(0, 0, *audioData->audioBuffer(), channel, 0, audioData->audioBuffer()->getNumSamples(), setup.volume);
 			break;
 		case Right:
 			// And the same for the right channel
-			outBuffer->addFrom(1, 0, *audioData->audioBuffer(), channel, 0, audioData->audioBuffer()->getNumSamples(), setup->volume);
+			outBuffer->addFrom(1, 0, *audioData->audioBuffer(), channel, 0, audioData->audioBuffer()->getNumSamples(), setup.volume);
 			break;
 		case SendOnly:
 			if (isForSender) {
@@ -148,8 +148,8 @@ void MixerThread::bufferMixdown(std::shared_ptr<AudioBuffer<float>> &outBuffer, 
 			}
 			// Fall-through on purpose, treat it as Mono
 		case Mono:
-			outBuffer->addFrom(0, 0, *audioData->audioBuffer(), channel, 0, audioData->audioBuffer()->getNumSamples(), setup->volume);
-			outBuffer->addFrom(1, 0, *audioData->audioBuffer(), channel, 0, audioData->audioBuffer()->getNumSamples(), setup->volume);
+			outBuffer->addFrom(0, 0, *audioData->audioBuffer(), channel, 0, audioData->audioBuffer()->getNumSamples(), setup.volume);
+			outBuffer->addFrom(1, 0, *audioData->audioBuffer(), channel, 0, audioData->audioBuffer()->getNumSamples(), setup.volume);
 			break;
 		}
 	}

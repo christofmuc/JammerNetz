@@ -50,7 +50,7 @@ void SendThread::sendClientInfoPackage(std::string const &targetAddress)
 	// Loop over the incoming data streams and add them to our statistics package we are going to send to the client
 	JammerNetzClientInfoMessage clientInfoPackage;
 	for (auto &incoming : incomingData_) {
-		if (incoming.second && !incoming.second->size() == 0) {
+		if (incoming.second && incoming.second->size() != 0) {
 			String ipAddress;
 			int port;
 			determineTargetIP(incoming.first, ipAddress, port);
