@@ -73,14 +73,13 @@ Have a look inside that file in case you're interested in the required build com
 
 ## Building on macOS
 
-There are multiple ways to build on macOS, this is what we have tried and what worked.
-macOS Mojave 10.14.6 (18G4032) with /Library/Developer/CommandLineTools/SDKs/MacOSX10.14.sdk 
+There are multiple ways to build on macOS, this is what we have tried and what worked. We tested on macOS Mojave 10.14.6 (18G4032) with /Library/Developer/CommandLineTools/SDKs/MacOSX10.14.sdk.
 
-Prerequisities:
+First install your prerequisites with brew:
 
     brew install tbb gtk+3 glew
 
-Please specify path to tbb when running CMake if default one does not work, other libs should be found automatically.
+Please specify path to tbb when running CMake if default one does not work (via `-DINTEL_TBB_DIRECTORY=...path...`), other libs should be found automatically. Then run
 
     cd third_party/flatbuffers
     cmake -S . -B LinuxBuilds -G "Unix Makefiles"
@@ -91,14 +90,14 @@ Please specify path to tbb when running CMake if default one does not work, othe
 
 Known issues for those who might try building differently:
 
- * Some libs might incorrectly add "-frameworks A B" to linker command, while "-frameworks A -frameworks B" would be correct.
-   We found that adding some libs with pkg-build results in such an error. Fortunately, these libs are not necessary on macOS.
+ * Some libs might incorrectly add `-frameworks A B` to the linker command, while `-frameworks A -frameworks B` would be correct.
+   We found that adding some libs with pkg-config resulted in such an error. Fortunately, we do not need pkg-config on macOS.
 
-### Building the server for Linux
+## Building the server for Linux on Windows
 
 Most likely, you're not going to run your server on a Windows machine but prefer a Linux cloud machine located at some strategic position in the Internet.
  
-## Cross-platform building Linux server on Windows 10 using Docker
+### Cross-platform building Linux server on Windows 10 using Docker
 
 Thanks to Docker, it has never been easier to do cross-platform development on Windows. If you don't have it, get yourself [Docker Desktop](https://www.docker.com/products/docker-desktop) and experience the power!
 
@@ -163,6 +162,10 @@ As some substantial work has gone into the development of this, I decided to off
 ## Contributing
 
 All pull requests and issues welcome, I will try to get back to you as soon as I can. Due to the dual licensing please be aware that I will need to request transfer of copyright on accepting a PR. 
+
+## Special thanks
+
+Special thanks go to our contributors, namely Viktor for providing the build for macOS.
 
 ## About the author
 
