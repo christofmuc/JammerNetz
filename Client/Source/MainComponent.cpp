@@ -17,12 +17,12 @@
 #include "LayoutConstants.h"
 
 MainComponent::MainComponent(String clientID) : audioDevice_(nullptr),
-inputSelector_("Inputs", false, "InputSetup", deviceManager_, true, [this](std::shared_ptr<ChannelSetup> setup) { setupChanged(setup); }),
-outputSelector_("Outputs", false, "OutputSetup", deviceManager_, false, [this](std::shared_ptr<ChannelSetup> setup) { outputSetupChanged(setup);  }),
-outputController_("Master", "OutputController", [](double, JammerNetzChannelTarget) {}, false, false),
-clientConfigurator_([this](int clientBuffer, int maxBuffer, int flares) { callback_.changeClientConfig(clientBuffer, maxBuffer, flares);  }),
-serverStatus_([this]() { newServerSelected();  }),
-callback_(deviceManager_)
+	inputSelector_("Inputs", false, "InputSetup", deviceManager_, true, [this](std::shared_ptr<ChannelSetup> setup) { setupChanged(setup); }),
+	outputSelector_("Outputs", false, "OutputSetup", deviceManager_, false, [this](std::shared_ptr<ChannelSetup> setup) { outputSetupChanged(setup);  }),
+	outputController_("Master", "OutputController", [](double, JammerNetzChannelTarget) {}, false, false),
+	clientConfigurator_([this](int clientBuffer, int maxBuffer, int flares) { callback_.changeClientConfig(clientBuffer, maxBuffer, flares);  }),
+	serverStatus_([this]() { newServerSelected();  }),
+	callback_(deviceManager_)
 {
 	bpmDisplay_ = std::make_unique<BPMDisplay>(callback_.getClocker());
 	recordingInfo_ = std::make_unique<RecordingInfo>(callback_.getMasterRecorder());
@@ -118,12 +118,20 @@ void MainComponent::restartAudio(std::shared_ptr<ChannelSetup> inputSetup, std::
 	stopAudioIfRunning();
 
 	// Sample rate and buffer size are hard coded for now
-	if (!inputSetup->device.expired()) {
-		audioDevice_ = inputSetup->device.lock();
-	}
-	if (audioDevice_) {
-		if (inputSetup->isInputAndOutput) {
-			// Best case, this is for Windows ASIO device drivers where the same device is used for input and output
+	auto selectedType = inputSelector_.deviceType();
+	if (selectedType) {
+		if (selectedType->hasSeparateInputsAndOutputs()) {
+			// This is for other Audio types like DirectSound
+			audioDevice_.reset(selectedType->createDevice(outputSetup ? outputSetup->device : "", inputSetup ? inputSetup->device :  ""));
+		}
+		else {
+			// Try to create the device purely from the input name, this would be the path for ASIO)
+			if (inputSetup) {
+				audioDevice_.reset(selectedType->createDevice("", inputSetup->device));
+			}
+		}
+
+		if (audioDevice_) {
 			BigInteger inputChannelMask = inputSetup ? makeChannelMask(inputSetup->activeChannelIndices) : 0;
 			BigInteger outputChannelMask = outputSetup ? makeChannelMask(outputSetup->activeChannelIndices) : 0;
 			String error = audioDevice_->open(inputChannelMask, outputChannelMask, ServerInfo::sampleRate, ServerInfo::bufferSize);
@@ -141,44 +149,6 @@ void MainComponent::restartAudio(std::shared_ptr<ChannelSetup> inputSetup, std::
 				refreshChannelSetup(inputSetup);
 				// We can actually start recording and playing
 				//audioDevice_->start(&callback_);
-			}
-		}
-		else {
-			// This is a setup where we need to open two audio devices (and two different callbacks) - one for recording and one for playing
-			BigInteger inputChannelMask = inputSetup ? makeChannelMask(inputSetup->activeChannelIndices) : 0;
-			String error = audioDevice_->open(inputChannelMask, 0, ServerInfo::sampleRate, ServerInfo::bufferSize);
-			if (error.isNotEmpty()) {
-				jassert(false);
-				StreamLogger::instance() << "Error opening Audio Device: " << error << std::endl;
-				refreshChannelSetup(std::shared_ptr < ChannelSetup>());
-			}
-			else {
-				inputLatencyInMS_ = audioDevice_->getInputLatencyInSamples() / (float)ServerInfo::sampleRate * 1000.0f;
-				StreamLogger::instance() << "Input latency is at " << inputLatencyInMS_ << "ms" << std::endl;
-				refreshChannelSetup(inputSetup);
-				// We can actually start recording
-				audioDevice_->start(callback_.getRecordingCallback());
-			}
-
-			// Now open the output device
-			if (outputSetup && !outputSetup->device.expired()) {
-				outputAudioDevice_ = outputSetup->device.lock();
-			}
-			if (outputAudioDevice_) {
-				BigInteger outputChannelMask = outputSetup ? makeChannelMask(outputSetup->activeChannelIndices) : 0;
-				error = outputAudioDevice_->open(0, outputChannelMask, ServerInfo::sampleRate, ServerInfo::bufferSize);
-				if (error.isNotEmpty()) {
-					jassert(false);
-					StreamLogger::instance() << "Error opening Audio Device: " << error << std::endl;
-					refreshChannelSetup(std::shared_ptr < ChannelSetup>());
-				}
-				else {
-					outputLatencyInMS_ = outputAudioDevice_->getOutputLatencyInSamples() / (float)ServerInfo::sampleRate* 1000.0f;
-					StreamLogger::instance() << "Output latency is at " << outputLatencyInMS_ << "ms" << std::endl;
-					refreshChannelSetup(outputSetup);
-					// We can actually start playback
-					outputAudioDevice_->start(callback_.getPlaybackCallback());
-				}
 			}
 		}
 	}

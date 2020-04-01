@@ -38,7 +38,6 @@ private:
 
 	AudioDeviceManager deviceManager_;
 	std::shared_ptr<AudioIODevice> audioDevice_;
-	std::shared_ptr<AudioIODevice> outputAudioDevice_; // In case the audioDevice_ is not ASIO, we need another device for the output
 
 	AudioCallback callback_;
 

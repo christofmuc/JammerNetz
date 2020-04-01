@@ -60,9 +60,9 @@ void DeviceSelector::resized()
 	}
 }
 
-std::shared_ptr<AudioIODevice> DeviceSelector::currentDevice()
+juce::AudioIODeviceType * DeviceSelector::deviceType() const
 {
-	return currentDevice_;
+	return deviceTypes_[typeDropdown_.getSelectedItemIndex()];
 }
 
 void DeviceSelector::fromData()
@@ -96,7 +96,7 @@ void DeviceSelector::toData() const
 	ValueTree &data = Data::instance().get();
 	ValueTree deviceSelector = data.getOrCreateChildWithName(Identifier(titleLabel_.getText(false)), nullptr);
 	deviceSelector.setProperty("Type", typeDropdown_.getText(), nullptr);
-	deviceSelector.setProperty("Device", currentDevice_ ? currentDevice_->getName() : "none", nullptr);
+	deviceSelector.setProperty("Device", deviceDropdown_.getItemText(deviceDropdown_.getSelectedItemIndex()), nullptr);
 	ValueTree channels = deviceSelector.getOrCreateChildWithName("Channels", nullptr);
 	channels.removeAllChildren(nullptr);
 	for (int i = 0; i < channelSelectors_.size(); i++) {
@@ -110,7 +110,7 @@ void DeviceSelector::toData() const
 
 void DeviceSelector::comboBoxChanged(ComboBox* comboBoxThatHasChanged)
 {
-	auto selectedType = deviceTypes_[typeDropdown_.getSelectedItemIndex()];
+	auto selectedType = deviceType();
 	if (comboBoxThatHasChanged == &typeDropdown_) {
 		deviceDropdown_.clear();
 		if (selectedType) {
@@ -135,14 +135,15 @@ void DeviceSelector::comboBoxChanged(ComboBox* comboBoxThatHasChanged)
 		channelNames_.clear(true);
 		if (selectedType) {
 			String name = deviceDropdown_.getItemText(deviceDropdown_.getSelectedItemIndex());
+			std::shared_ptr<AudioIODevice> selectedDevice;
 			if (inputDevices_) {
-				currentDevice_.reset(selectedType->createDevice("", name));
+				selectedDevice.reset(selectedType->createDevice("", name));
 			}
 			else {
-				currentDevice_.reset(selectedType->createDevice(name, ""));
+				selectedDevice.reset(selectedType->createDevice(name, ""));
 			}
-			if (currentDevice_) {
-				auto channels = inputDevices_ ? currentDevice_->getInputChannelNames() : currentDevice_->getOutputChannelNames();
+			if (selectedDevice) {
+				auto channels = inputDevices_ ? selectedDevice->getInputChannelNames() : selectedDevice->getOutputChannelNames();
 				for (auto channel : channels) {
 					ToggleButton *channelButton = new ToggleButton();
 					channelButton->setButtonText(channel);
@@ -165,8 +166,9 @@ void DeviceSelector::buttonClicked(Button *)
 {
 	// Build the current setup as data record and notify whoever is interested
 	std::shared_ptr<ChannelSetup> channelSetup = std::make_shared<ChannelSetup>();
-	channelSetup->device = currentDevice_;
+	channelSetup->device = deviceDropdown_.getItemText(deviceDropdown_.getSelectedItemIndex()).toStdString();
 	auto selectedType = deviceTypes_[typeDropdown_.getSelectedItemIndex()];
+	channelSetup->typeName = selectedType->getTypeName().toStdString();
 	channelSetup->isInputAndOutput = !selectedType->hasSeparateInputsAndOutputs();
 	for (int i = 0; i < channelSelectors_.size(); i++) {
 		if (channelSelectors_[i]->getToggleState()) {
