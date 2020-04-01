@@ -148,7 +148,7 @@ void MainComponent::restartAudio(std::shared_ptr<ChannelSetup> inputSetup, std::
 
 				refreshChannelSetup(inputSetup);
 				// We can actually start recording and playing
-				//audioDevice_->start(&callback_);
+				audioDevice_->start(&callback_);
 			}
 		}
 	}

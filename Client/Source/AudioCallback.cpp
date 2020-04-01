@@ -13,8 +13,7 @@
 #include "Settings.h"
 
 AudioCallback::AudioCallback(AudioDeviceManager &deviceManager) : client_([this](std::shared_ptr < JammerNetzAudioData> buffer) { playBuffer_.push(buffer); }),
-	toPlayLatency_(0.0), currentPlayQueueLength_(0), discardedPackageCounter_(0), playBuffer_("server"),
-	recordingCallback_(this), playbackCallback_(this)
+	toPlayLatency_(0.0), currentPlayQueueLength_(0), discardedPackageCounter_(0), playBuffer_("server")
 {
 	isPlaying_ = false;
 	playUnderruns_ = 0;
@@ -52,71 +51,64 @@ void AudioCallback::newServer()
 }
 
 void AudioCallback::samplesPerTime(int numSamples) {
-	if (recordingCallback_.numSamplesSinceStart_ == -1) {
+	if (numSamplesSinceStart_ == -1) {
 		// Take start time
 		startTime_ = std::chrono::steady_clock::now();
-		recordingCallback_.numSamplesSinceStart_ = 0;
+		numSamplesSinceStart_ = 0;
 	}
 	else {
-		recordingCallback_.numSamplesSinceStart_ += numSamples;
+		numSamplesSinceStart_ += numSamples;
 		lastTime_ = std::chrono::steady_clock::now();
 	}
 }
 
-void AudioCallback::RecordingCallback::audioDeviceIOCallback(const float** inputChannelData, int numInputChannels, float** outputChannelData, int numOutputChannels, int numSamples)
+void AudioCallback::audioDeviceIOCallback(const float** inputChannelData, int numInputChannels, float** outputChannelData, int numOutputChannels, int numSamples)
 {
-	ignoreUnused(numOutputChannels, outputChannelData);
-
 	float *const *constnessCorrection = const_cast<float *const*>(inputChannelData);
 	auto audioBuffer = std::make_shared<AudioBuffer<float>>(constnessCorrection, numInputChannels, numSamples);
 
 	// Measure the peak values for each channel
-	parent_->meterSource_.measureBlock(*audioBuffer);
-	parent_->samplesPerTime(numSamples);
+	meterSource_.measureBlock(*audioBuffer);
+	samplesPerTime(numSamples);
 
 	// Send it to pitch detection
-	parent_->tuner_->detectPitch(audioBuffer);
+	tuner_->detectPitch(audioBuffer);
 
-	parent_->client_.sendData(parent_->channelSetup_, audioBuffer); //TODO offload the real sending to a different thread
-	if (parent_->uploadRecorder_ && parent_->uploadRecorder_->isRecording()) {
-		parent_->uploadRecorder_->saveBlock(audioBuffer->getArrayOfReadPointers(), audioBuffer->getNumSamples());
+	client_.sendData(channelSetup_, audioBuffer); //TODO offload the real sending to a different thread
+	if (uploadRecorder_ && uploadRecorder_->isRecording()) {
+		uploadRecorder_->saveBlock(audioBuffer->getArrayOfReadPointers(), audioBuffer->getNumSamples());
 	}
-}
-
-void AudioCallback::PlaybackCallback::audioDeviceIOCallback(const float** inputChannelData, int numInputChannels, float** outputChannelData, int numOutputChannels, int numSamples) 
-{
-	ignoreUnused(numInputChannels, inputChannelData);
 
 	// Don't start playing before the desired play-out buffer size is reached
-	if (!parent_->isPlaying_ && parent_->playBuffer_.size() < parent_->minPlayoutBufferLength_) {
-		parent_->clearOutput(outputChannelData, numOutputChannels, numSamples);
+	if (!isPlaying_ && playBuffer_.size() < minPlayoutBufferLength_) {
+		clearOutput(outputChannelData, numOutputChannels, numSamples);
 		return;
 	}
-	else if (parent_->playBuffer_.size() > parent_->maxPlayoutBufferLength_) {
+	else if (playBuffer_.size() > maxPlayoutBufferLength_) {
 		// That's too many packages in our buffer, where did those come from? Did the server deliver too many packets/did our playback stop?
 		// Reduce the length of the queue until it is the right size, through away audio that is too old to be played out
 		std::shared_ptr<JammerNetzAudioData> data;
-		while (parent_->playBuffer_.size() > CLIENT_PLAYOUT_JITTER_BUFFER) {
-			parent_->discardedPackageCounter_++;
+		while (playBuffer_.size() > CLIENT_PLAYOUT_JITTER_BUFFER) {
+			discardedPackageCounter_++;
 			bool isFillIn;
-			parent_->playBuffer_.try_pop(data, isFillIn);
+			playBuffer_.try_pop(data, isFillIn);
 		}
 	}
-	parent_->isPlaying_ = true;
+	isPlaying_ = true;
 
 	// Now, play the next audio block from the play buffer!
 	std::shared_ptr<JammerNetzAudioData> toPlay;
 	bool isFillIn;
-	if (parent_->playBuffer_.try_pop(toPlay, isFillIn)) {
-		parent_->currentPlayQueueLength_ = parent_->playBuffer_.size();
+	if (playBuffer_.try_pop(toPlay, isFillIn)) {
+		currentPlayQueueLength_ = playBuffer_.size();
 		// Ok, we have an Audio buffer to play. Hand over the data to the playback!
 		if (toPlay && toPlay->audioBuffer()) {
 			// Calculate the to-play latency
-			parent_->toPlayLatency_ = Time::getMillisecondCounterHiRes() - toPlay->timestamp();
+			toPlayLatency_ = Time::getMillisecondCounterHiRes() - toPlay->timestamp();
 
 			// We have Audio data to play! Make sure it is the correct size
 			if (toPlay->audioBuffer()->getNumSamples() == numSamples) {
-				parent_->clearOutput(outputChannelData, numOutputChannels, numSamples);
+				clearOutput(outputChannelData, numOutputChannels, numSamples);
 				for (int i = 0; i < std::min(numOutputChannels, toPlay->audioBuffer()->getNumChannels()); i++) {
 					//TODO - this would mean we always play the left channel, if we have only one output channel. There is no way to select if the output channel is left or right
 					// Need to add another channel selector.
@@ -125,36 +117,36 @@ void AudioCallback::PlaybackCallback::audioDeviceIOCallback(const float** inputC
 			}
 			else {
 				// Programming error, we should all agree on the buffer format!
-				parent_->clearOutput(outputChannelData, numOutputChannels, numSamples);
+				clearOutput(outputChannelData, numOutputChannels, numSamples);
 				jassert(false);
 			}
 
-			if (parent_->masterRecorder_ && parent_->masterRecorder_->isRecording()) {
-				parent_->masterRecorder_->saveBlock(toPlay->audioBuffer()->getArrayOfReadPointers(), toPlay->audioBuffer()->getNumSamples());
+			if (masterRecorder_ && masterRecorder_->isRecording()) {
+				masterRecorder_->saveBlock(toPlay->audioBuffer()->getArrayOfReadPointers(), toPlay->audioBuffer()->getNumSamples());
 			}
 		}
 		else {
 			// That would be considered a programming error, I shall not enqueue nullptr
-			parent_->clearOutput(outputChannelData, numOutputChannels, numSamples);
+			clearOutput(outputChannelData, numOutputChannels, numSamples);
 			jassert(false);
 		}
-		parent_->outMeterSource_.measureBlock(*toPlay->audioBuffer());
+		outMeterSource_.measureBlock(*toPlay->audioBuffer());
 	}
 	else {
 		// This is a serious problem - either the server never started to send data, or we have a buffer underflow.
-		parent_->playUnderruns_++;
-		parent_->isPlaying_ = false;
-		parent_->clearOutput(outputChannelData, numOutputChannels, numSamples);
+		playUnderruns_++;
+		isPlaying_ = false;
+		clearOutput(outputChannelData, numOutputChannels, numSamples);
 	}
 }
 
-void AudioCallback::AbstractCallback::audioDeviceAboutToStart(AudioIODevice* device)
+void AudioCallback::audioDeviceAboutToStart(AudioIODevice* device)
 {
 	StreamLogger::instance() << "Audio device " << device->getName() << " starting" << std::endl;
 	numSamplesSinceStart_ = -1;
 }
 
-void AudioCallback::AbstractCallback::audioDeviceStopped()
+void AudioCallback::audioDeviceStopped()
 {
 	StreamLogger::instance() << "Audio device stopped" << std::endl;
 }
@@ -232,7 +224,7 @@ std::string AudioCallback::currentReceptionQuality() const
 double AudioCallback::currentSampleRate() const
 {
 	auto timeElapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(lastTime_ - startTime_);
-	return 0; // (numSamplesSinceStart_) / (double)(timeElapsed.count() / (double) 1e9);
+	return (numSamplesSinceStart_) / (double)(timeElapsed.count() / (double) 1e9);
 }
 
 bool AudioCallback::isReceivingData() const
@@ -263,15 +255,5 @@ std::shared_ptr<Recorder> AudioCallback::getLocalRecorder() const
 std::shared_ptr<JammerNetzClientInfoMessage> AudioCallback::getClientInfo() const
 {
 	return client_.getClientInfo();
-}
-
-juce::AudioIODeviceCallback * AudioCallback::getRecordingCallback()
-{
-	return &recordingCallback_;
-}
-
-juce::AudioIODeviceCallback * AudioCallback::getPlaybackCallback()
-{
-	return &playbackCallback_;
 }
 
