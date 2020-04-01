@@ -96,7 +96,7 @@ void MainComponent::refreshChannelSetup(std::shared_ptr<ChannelSetup> setup) {
 		//TODO - warning this only allows 4 channels for now
 		for (int i = 0; i < setup->activeChannelIndices.size(); i++) {
 			jassert(i < MAXCHANNELSPERCLIENT);
-			if (i < MAXCHANNELSPERCLIENT) {
+			if (i < MAXCHANNELSPERCLIENT && i < channelControllers_.size()) {
 				channelSetup.channels[i].target = (uint8) channelControllers_[i]->getCurrentTarget();
 				channelSetup.channels[i].volume = channelControllers_[i]->getCurrentVolume();
 			}
