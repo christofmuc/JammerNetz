@@ -32,10 +32,10 @@ if (WIN32)
 
 	FetchContent_Declare(
 		inteltbb
-		URL https://github.com/intel/tbb/releases/download/2019_U9/tbb2019_20191006oss_win.zip
+		URL https://github.com/oneapi-src/oneTBB/releases/download/v2020.2/tbb-2020.2-win.zip
 	)
 	FetchContent_MakeAvailable(inteltbb)
-	set(INTEL_TBB_DIRECTORY "${inteltbb_SOURCE_DIR}/tbb2019_20191006oss/") # This includes the version number - use this variable for easy upgrade of TBB
+	set(INTEL_TBB_DIRECTORY "${inteltbb_SOURCE_DIR}/tbb/") 
 
 	FetchContent_Declare(
 		vcredist
