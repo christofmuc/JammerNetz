@@ -105,6 +105,14 @@ void MainComponent::refreshChannelSetup(std::shared_ptr<ChannelSetup> setup) {
 	callback_.setChannelSetup(channelSetup);
 }
 
+BigInteger makeChannelMask(std::vector<int> const &indices) {
+	BigInteger inputChannelMask;
+	for (int activeChannelIndex : indices) {
+		inputChannelMask.setBit(activeChannelIndex);
+	}
+	return inputChannelMask;
+}
+
 void MainComponent::restartAudio(std::shared_ptr<ChannelSetup> inputSetup, std::shared_ptr<ChannelSetup> outputSetup)
 {
 	stopAudioIfRunning();
@@ -113,35 +121,65 @@ void MainComponent::restartAudio(std::shared_ptr<ChannelSetup> inputSetup, std::
 	if (!inputSetup->device.expired()) {
 		audioDevice_ = inputSetup->device.lock();
 	}
-	jassert(audioDevice_);
 	if (audioDevice_) {
-		BigInteger inputChannelMask = 0;
-		if (inputSetup) {
-			for (int activeChannelIndex : inputSetup->activeChannelIndices) {
-				inputChannelMask.setBit(activeChannelIndex);
+		if (inputSetup->isInputAndOutput) {
+			// Best case, this is for Windows ASIO device drivers where the same device is used for input and output
+			BigInteger inputChannelMask = inputSetup ? makeChannelMask(inputSetup->activeChannelIndices) : 0;
+			BigInteger outputChannelMask = outputSetup ? makeChannelMask(outputSetup->activeChannelIndices) : 0;
+			String error = audioDevice_->open(inputChannelMask, outputChannelMask, ServerInfo::sampleRate, ServerInfo::bufferSize);
+			if (error.isNotEmpty()) {
+				jassert(false);
+				StreamLogger::instance() << "Error opening Audio Device: " << error << std::endl;
+				refreshChannelSetup(std::shared_ptr < ChannelSetup>());
 			}
-		}
-		BigInteger outputChannelMask = 0;
-		if (outputSetup) {
-			for (int activeChannelIndex : outputSetup->activeChannelIndices) {
-				outputChannelMask.setBit(activeChannelIndex);
+			else {
+				inputLatencyInMS_ = audioDevice_->getInputLatencyInSamples() / (float)ServerInfo::sampleRate * 1000.0f;
+				StreamLogger::instance() << "Input latency is at " << inputLatencyInMS_ << "ms" << std::endl;
+				outputLatencyInMS_ = audioDevice_->getOutputLatencyInSamples() / (float)ServerInfo::sampleRate* 1000.0f;
+				StreamLogger::instance() << "Output latency is at " << outputLatencyInMS_ << "ms" << std::endl;
+
+				refreshChannelSetup(inputSetup);
+				// We can actually start recording and playing
+				//audioDevice_->start(&callback_);
 			}
-		}
-		String error = audioDevice_->open(inputChannelMask, outputChannelMask, ServerInfo::sampleRate, ServerInfo::bufferSize);
-		if (error.isNotEmpty()) {
-			jassert(false);
-			StreamLogger::instance() << "Error opening Audio Device: " << error << std::endl;
-			refreshChannelSetup(std::shared_ptr < ChannelSetup>());
 		}
 		else {
-			inputLatencyInMS_ = audioDevice_->getInputLatencyInSamples() / (float)ServerInfo::sampleRate * 1000.0f;
-			StreamLogger::instance() << "Input latency is at " << inputLatencyInMS_ << "ms" << std::endl;
-			outputLatencyInMS_ = audioDevice_->getOutputLatencyInSamples() / (float)ServerInfo::sampleRate* 1000.0f;
-			StreamLogger::instance() << "Output latency is at " << outputLatencyInMS_ << "ms" << std::endl;
+			// This is a setup where we need to open two audio devices (and two different callbacks) - one for recording and one for playing
+			BigInteger inputChannelMask = inputSetup ? makeChannelMask(inputSetup->activeChannelIndices) : 0;
+			String error = audioDevice_->open(inputChannelMask, 0, ServerInfo::sampleRate, ServerInfo::bufferSize);
+			if (error.isNotEmpty()) {
+				jassert(false);
+				StreamLogger::instance() << "Error opening Audio Device: " << error << std::endl;
+				refreshChannelSetup(std::shared_ptr < ChannelSetup>());
+			}
+			else {
+				inputLatencyInMS_ = audioDevice_->getInputLatencyInSamples() / (float)ServerInfo::sampleRate * 1000.0f;
+				StreamLogger::instance() << "Input latency is at " << inputLatencyInMS_ << "ms" << std::endl;
+				refreshChannelSetup(inputSetup);
+				// We can actually start recording
+				audioDevice_->start(callback_.getRecordingCallback());
+			}
 
-			refreshChannelSetup(inputSetup);
-			// We can actually start playing
-			audioDevice_->start(&callback_);
+			// Now open the output device
+			if (outputSetup && !outputSetup->device.expired()) {
+				outputAudioDevice_ = outputSetup->device.lock();
+			}
+			if (outputAudioDevice_) {
+				BigInteger outputChannelMask = outputSetup ? makeChannelMask(outputSetup->activeChannelIndices) : 0;
+				error = outputAudioDevice_->open(0, outputChannelMask, ServerInfo::sampleRate, ServerInfo::bufferSize);
+				if (error.isNotEmpty()) {
+					jassert(false);
+					StreamLogger::instance() << "Error opening Audio Device: " << error << std::endl;
+					refreshChannelSetup(std::shared_ptr < ChannelSetup>());
+				}
+				else {
+					outputLatencyInMS_ = outputAudioDevice_->getOutputLatencyInSamples() / (float)ServerInfo::sampleRate* 1000.0f;
+					StreamLogger::instance() << "Output latency is at " << outputLatencyInMS_ << "ms" << std::endl;
+					refreshChannelSetup(outputSetup);
+					// We can actually start playback
+					outputAudioDevice_->start(callback_.getPlaybackCallback());
+				}
+			}
 		}
 	}
 }

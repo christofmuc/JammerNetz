@@ -18,13 +18,9 @@
 
 #include <chrono>
 
-class AudioCallback : public AudioIODeviceCallback {
+class AudioCallback {
 public:
 	AudioCallback(AudioDeviceManager &deviceManager);
-
-	virtual void audioDeviceIOCallback(const float** inputChannelData, int numInputChannels, float** outputChannelData, int numOutputChannels, int numSamples) override;
-	virtual void audioDeviceAboutToStart(AudioIODevice* device) override;
-	virtual void audioDeviceStopped() override;
 
 	void newServer();
 	void setChannelSetup(JammerNetzChannelSetup const &channelSetup);
@@ -51,7 +47,39 @@ public:
 	std::shared_ptr<Recorder> getMasterRecorder() const;
 	std::shared_ptr<Recorder> getLocalRecorder() const;
 	std::shared_ptr<JammerNetzClientInfoMessage> getClientInfo() const;
+
+	AudioIODeviceCallback *getRecordingCallback();
+	AudioIODeviceCallback *getPlaybackCallback();
+
 private:
+	class AbstractCallback : public AudioIODeviceCallback {
+	public:
+		AbstractCallback(AudioCallback *parent) : parent_(parent) {}
+		virtual void audioDeviceAboutToStart(AudioIODevice* device) override;
+		virtual void audioDeviceStopped() override;
+		std::atomic_int64_t numSamplesSinceStart_;
+	protected:
+		AudioCallback *parent_;
+	};
+	class RecordingCallback : public AbstractCallback {
+	public:
+		using AbstractCallback::AbstractCallback;
+		virtual void audioDeviceIOCallback(const float** inputChannelData, int numInputChannels, float** outputChannelData, int numOutputChannels, int numSamples) override;
+	};
+	friend RecordingCallback;
+	
+
+	class PlaybackCallback : public AbstractCallback {
+	public:
+		using AbstractCallback::AbstractCallback;
+		virtual void audioDeviceIOCallback(const float** inputChannelData, int numInputChannels, float** outputChannelData, int numOutputChannels, int numSamples) override;
+	};
+	friend PlaybackCallback;
+
+	RecordingCallback recordingCallback_;
+	PlaybackCallback playbackCallback_;
+
+
 	void clearOutput(float** outputChannelData, int numOutputChannels, int numSamples);
 	void samplesPerTime(int numSamples);
 
@@ -61,7 +89,7 @@ private:
 	std::atomic_uint64_t minPlayoutBufferLength_;
 	std::atomic_uint64_t maxPlayoutBufferLength_;
 	std::atomic_int64_t currentPlayQueueLength_;
-	std::atomic_int64_t numSamplesSinceStart_;
+	
 	int discardedPackageCounter_;
 	double toPlayLatency_;
 	Client client_;

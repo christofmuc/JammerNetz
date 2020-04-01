@@ -10,6 +10,7 @@
 
 struct ChannelSetup {
 	std::weak_ptr<AudioIODevice> device;
+	bool isInputAndOutput; // Flag that this device is input and output and the same time -> if this is the case, the output can be bound to the input
 	std::vector<std::string> activeChannelNames;
 	std::vector<int> activeChannelIndices;
 };

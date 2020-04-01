@@ -160,6 +160,8 @@ void DeviceSelector::buttonClicked(Button *)
 	// Build the current setup as data record and notify whoever is interested
 	std::shared_ptr<ChannelSetup> channelSetup = std::make_shared<ChannelSetup>();
 	channelSetup->device = currentDevice_;
+	auto selectedType = deviceTypes_[typeDropdown_.getSelectedItemIndex()];
+	channelSetup->isInputAndOutput = !selectedType->hasSeparateInputsAndOutputs();
 	for (int i = 0; i < channelSelectors_.size(); i++) {
 		if (channelSelectors_[i]->getToggleState()) {
 			channelSetup->activeChannelNames.push_back(channelSelectors_[i]->getButtonText().toStdString());
