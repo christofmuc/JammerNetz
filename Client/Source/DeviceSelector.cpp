@@ -134,7 +134,13 @@ void DeviceSelector::comboBoxChanged(ComboBox* comboBoxThatHasChanged)
 		channelSelectors_.clear(true);
 		channelNames_.clear(true);
 		if (selectedType) {
-			currentDevice_.reset(selectedType->createDevice("", deviceDropdown_.getText()));
+			String name = deviceDropdown_.getItemText(deviceDropdown_.getSelectedItemIndex());
+			if (inputDevices_) {
+				currentDevice_.reset(selectedType->createDevice("", name));
+			}
+			else {
+				currentDevice_.reset(selectedType->createDevice(name, ""));
+			}
 			if (currentDevice_) {
 				auto channels = inputDevices_ ? currentDevice_->getInputChannelNames() : currentDevice_->getOutputChannelNames();
 				for (auto channel : channels) {
