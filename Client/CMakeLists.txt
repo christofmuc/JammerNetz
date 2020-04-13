@@ -54,6 +54,7 @@ source_group(Source FILES ${SOURCES})
 
 set(INSTALLER_FILES
 	setup_client.iss
+	info.plist
 	Redist/agpl-3.0.txt
 )
 source_group(Source\\Installer FILES ${INSTALLER_FILES})
@@ -157,6 +158,14 @@ IF(WIN32)
 		TARGET JammerNetzClient POST_BUILD
 		COMMAND  "${CMAKE_COMMAND}" -E $<${no_copy}:echo> $<${no_copy}:"Not building Installer with "> chdir . ${INNOSETUP} "${CMAKE_CURRENT_BINARY_DIR}/setup_client.iss"
 		DEPENDS setup_client.iss 
+	)
+ENDIF()
+
+IF(APPLE)
+	# For apple, set the properties file to be included in the link. This is important to allow Microphone access on macOS (you will get a dialog asking for permission)
+	set_target_properties(JammerNetzClient PROPERTIES
+	  MACOSX_BUNDLE TRUE
+	  MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/Info.plist
 	)
 ENDIF()
 
