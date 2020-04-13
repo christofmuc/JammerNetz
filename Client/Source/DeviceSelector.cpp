@@ -168,6 +168,7 @@ void DeviceSelector::buttonClicked(Button *)
 	std::shared_ptr<ChannelSetup> channelSetup = std::make_shared<ChannelSetup>();
 	channelSetup->device = deviceDropdown_.getItemText(deviceDropdown_.getSelectedItemIndex()).toStdString();
 	auto selectedType = deviceTypes_[typeDropdown_.getSelectedItemIndex()];
+	if (selectedType && selectedType->getTypeName().isNotEmpty()) {
 	channelSetup->typeName = selectedType->getTypeName().toStdString();
 	channelSetup->isInputAndOutput = !selectedType->hasSeparateInputsAndOutputs();
 	for (int i = 0; i < channelSelectors_.size(); i++) {
@@ -175,6 +176,7 @@ void DeviceSelector::buttonClicked(Button *)
 			channelSetup->activeChannelNames.push_back(channelSelectors_[i]->getButtonText().toStdString());
 			channelSetup->activeChannelIndices.push_back(i);
 		}
+	}
 	}
 	updateHandler_(channelSetup);
 }
