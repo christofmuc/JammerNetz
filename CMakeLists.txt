@@ -45,9 +45,12 @@ if (WIN32)
 	FetchContent_MakeAvailable(vcredist)
 	set(VCREDIST_PATH "${CMAKE_CURRENT_BINARY_DIR}/_deps/vcredist-subbuild/vcredist-populate-prefix/src")
 elseif(APPLE)
-	# TODO use Find modules or build TBB from sources
-	# This is where brew installs tbb, can be changed by user
-	set(INTEL_TBB_DIRECTORY "/usr/local/Cellar/tbb/2020_U1_1" CACHE PATH "Path to Intel TBB")
+	FetchContent_Declare(
+		inteltbb
+		URL https://github.com/oneapi-src/oneTBB/releases/download/v2020.2/tbb-2020.2-mac.tgz
+	)
+	FetchContent_MakeAvailable(inteltbb)
+	set(INTEL_TBB_DIRECTORY "${inteltbb_SOURCE_DIR}/tbb/") 
 	
 	# Supress a warning from juce_TargetPlatform by letting it know the build type
 	# NOTE that NDEBUG is set automatically in Release
