@@ -169,14 +169,14 @@ void DeviceSelector::buttonClicked(Button *)
 	channelSetup->device = deviceDropdown_.getItemText(deviceDropdown_.getSelectedItemIndex()).toStdString();
 	auto selectedType = deviceTypes_[typeDropdown_.getSelectedItemIndex()];
 	if (selectedType && selectedType->getTypeName().isNotEmpty()) {
-	channelSetup->typeName = selectedType->getTypeName().toStdString();
-	channelSetup->isInputAndOutput = !selectedType->hasSeparateInputsAndOutputs();
-	for (int i = 0; i < channelSelectors_.size(); i++) {
-		if (channelSelectors_[i]->getToggleState()) {
-			channelSetup->activeChannelNames.push_back(channelSelectors_[i]->getButtonText().toStdString());
-			channelSetup->activeChannelIndices.push_back(i);
+		channelSetup->typeName = selectedType->getTypeName().toStdString();
+		channelSetup->isInputAndOutput = !selectedType->hasSeparateInputsAndOutputs();
+		for (int i = 0; i < channelSelectors_.size(); i++) {
+			if (channelSelectors_[i]->getToggleState()) {
+				channelSetup->activeChannelNames.push_back(channelSelectors_[i]->getButtonText().toStdString());
+				channelSetup->activeChannelIndices.push_back(i);
+			}
 		}
-	}
 	}
 	updateHandler_(channelSetup);
 }
