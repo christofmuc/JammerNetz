@@ -1,6 +1,5 @@
 [![Build status](https://ci.appveyor.com/api/projects/status/p1rtas99sg84f9ni?svg=true)](https://ci.appveyor.com/project/christofmuc/jammernetz)
 
-[![Build status](https://ci.appveyor.com/api/projects/status/p1rtas99sg84f9ni/branch/differentCMake?svg=true)](https://ci.appveyor.com/project/christofmuc/jammernetz/branch/differentCMake)
 
 # Introduction
 
@@ -8,7 +7,7 @@ JammerNetz is an Open Source system for "networked music performance" (NMP), als
 
 The design choice is that if you have a modern DSL or fibre connection, there is no need to degrade your music experience using CODECs mostly designed for speech transmission as used in some other internet jam solutions. We are happily using JammerNetz since months for our weekly sessions with synths, voice, and electric guitar.
 
-Of course be aware that the main influence on the quality has your internet provider and your choice where you are running the server. If you have high quality fibre and a good and fast ASIO-capable audio interface, you can expect 50ms total latency, which we think is awesome. Of course, if some participants are bound for cable internet and are trying to play together across all of Germany, even running the server in a suitable AWS instance in Frankfurt close to the internet's main hub will not get you much better than 70-80 ms total audio latency (including AD and DA conversion in your interface, not round trip time), which we feel stll is worth the effort!
+Of course be aware that the main influence on the quality has your internet provider and your choice where you are running the server. If you have high quality fibre and a good and fast ASIO-capable audio interface, you can expect 50ms total latency, which we think is awesome. Of course, if some participants are bound for cable internet and are trying to play together across all of Germany, even running the server in a suitable AWS instance in Frankfurt close to the internet's main hub will not get you much better than 70-80 ms total audio latency (including AD and DA conversion in your interface, not round trip time), which we feel is still worth the effort!
 
 ## Features
 
@@ -20,15 +19,15 @@ JammerNetz is quite feature rich, the following are the main items:
   * Does automatic hard-disk recording of your session to local disk on each client in a lossless compressed FLAC file. After the session, everybody has a record to revisit.
   * Does automatic MIDI recording in case it detects any incoming MIDI notes, thereby logging all keys played into a MIDI file for later revisit ("what did I play? Sounds great!")
   * Features a built-in instrument tuner display showing you the detected note and cents for each channel, so it is easy and quick to get everybody on the same A.
-  * BlowFish encryption based on a shared secret that is compiled into the software, so you are not sending data unsecured through the internet.
+  * BlowFish encryption based on a shared secret that is compiled into the software, so you are not sending data unsecured through the internet. We don't claim this is state of the art and probably not enough bits of encryption, but better than sending unencrypted audio data. This certainly is a point for improvement.
 
 ### Limitations
 
 It should be noted that due to the design of the system, we have a few limitations or restrictions that other systems might not have. We believe that we have made sensible trade-offs, but your milage may vary:
 
-  1. Only ASIO drivers are currently supported by the JammerNetz Client. As we are aiming for lowest-possible latency, you should really use an audio device with ASIO drivers on Windows. 
-  2. All clients need to run on the same sample rate (48000 is set in the source, but you might want to switch to 44100), else mixing the signals together isn't straightforward.
-  3. Even the buffer size used by the device must be identical. The file BuffersConfig.h has the constants and is currently set at 128 samples.
+  1. All clients need to run on the same sample rate (48000 is set in the source, but you might want to switch to 44100), else mixing the signals together isn't straightforward.
+  2. Even the buffer size used by the device must be identical. The file BuffersConfig.h has the constants and is currently set at 128 samples.
+  3. As we are aiming for lowest-possible latency, you should really use an audio device with ASIO drivers on Windows, even if Windows Audio and DirectSound are offered. Stay away from DirectSound. Mac CoreAudio works as well.
 
 ## Usage
 
@@ -38,13 +37,7 @@ As of today, the system is still in a build-and-run-yourself state. You will nee
 
 ### Supported platforms
 
-We use JUCE, a cross-platform library with support for all major platforms, but we have tested the system at the moment only on Windows 10 using MS Visual Studio 2017, and the server on an up-to-date Ubuntu Linux 18.04 LTS. Other platforms might work as well, but might require some fiddling and fixing.
-
-## Prerequisites
-
-We use [CMake 3.14](https://cmake.org/) and Visual Studio 2017 for C++. Make sure to have both of these installed. Newer Visual Studios might work as well, you can select them as generators in CMake.
-
-Optionally, if you want to produce a Windows-style installer for your band members: We always recommend the [InnoSetup](http://www.jrsoftware.org/isinfo.php) tool, really one of these golden tools that despite its age shines on and on. Download it and install it, it will automatically be picked up and used by the build process.
+We use JUCE, a cross-platform library with support for all major platforms, but we have tested the client software at the moment only on Windows 10 using MS Visual Studio 2017 and macOS 10.14.6 Mojave, and the server on an up-to-date Ubuntu Linux 18.04 LTS. Other platforms might work as well, but might require some fiddling and fixing.
 
 ## Downloading
 
@@ -65,6 +58,9 @@ As we don't want to send any unecrpyted audio data through the internet, we use 
 
 ## Building on Windows
 
+We use [CMake 3.14](https://cmake.org/) and Visual Studio 2017 for C++. Make sure to have both of these installed. Newer Visual Studios might work as well, you can select them as generators in CMake.
+
+Optionally, if you want to produce a Windows-style installer for your band members: We always recommend the [InnoSetup](http://www.jrsoftware.org/isinfo.php) tool, really one of these golden tools that despite its age shines on and on. Download it and install it, it will automatically be picked up and used by the build process.
 Using CMake and building JammerNetz client and server is a multi-step build, which we have simplified by providing a little batch script. Simply open a command line in the downloaded root directory `<JammerNetzDir>` and run
 
     buildWindows.bat
@@ -77,9 +73,9 @@ There are multiple ways to build on macOS, this is what we have tried and what w
 
 First install your prerequisites with brew:
 
-    brew install tbb gtk+3 glew
+    brew install cmake gtk+3 glew
 
-Please specify path to tbb when running CMake if default one does not work (via `-DINTEL_TBB_DIRECTORY=...path...`), other libs should be found automatically. Then run
+Then run
 
     cd third_party/flatbuffers
     cmake -S . -B LinuxBuilds -G "Unix Makefiles"
@@ -117,16 +113,24 @@ This is so the Linux virtual machine will mount the source directory from the ho
 
 You will find the output of the Build machine in the directory &lt;JammerNetzDir&gt;\Server\Builds\LinuxMakefile\build. The server executable is just called "JammerNetzServer" and is ready to run on a matching Linux machine.
 
-### Automatic Linux Release build
+### Deploying the Linux build to a real Ubuntu server
 
-You can also enable the cross-platform build in the Release export configuration of the Projucer. Just remove the "rem" from the line
+The build above produced a Linux executable. If you have an Ubuntu server running you want to use, e.g. an Amazon EC2 instance, you can copy the executable to the server e.g. with scp, then dial into the machine with ssh and launch it. For example (from within the `<JammerNetz>` directory, use the IP of your server of course):
 
-    rem $(ProjectDir)..\..\docker\buildmachine\makeLinux.bat //d/Development/JammerNetz-OS
+    scp Builds\LinuxBuilds\Server\JammerNetzServer ubuntu@192.168.172.1:.
 
+Then dial into your server, using ssh or putty, and make sure to have all runtime prequisites installed. With that done, you can just launch the server:
 
-and save the Exporter again from within Projucer. 
+    apt-get install -y libtbb-dev libasound2-dev libjack-dev 
+    ./JammerNetzServer
 
-Now, when you compile a release version of the Windows server, after the Windows build is done it will automatically run the Linux build. Neat!
+(I haven't tested the number of installs, refer to the native Linux builds section below should you encounter problems).
+The server should start up and announce its presensence with a happy
+
+    Server listening on port 7777
+    Starting JammerNetz server, using CTRL-C to stop
+    
+All clients *from the same build* should be able to connect to the server via its IP address.
 
 ## Native Linux builds
 
@@ -144,6 +148,12 @@ With those installs and the the recursive git clone from above, cd into the clon
     cmake --build builds
 
 This should have created a server binary as `builds/Server/JammerNetzServer` and a client binary as `builds/Client/JammerNetzClient`.
+
+To launch the server, just type
+
+    ./builds/Server/JammerNetzServer
+
+and it shall listen on port 7777.
 
 ## Changing the shared secret for encryption
 

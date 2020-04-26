@@ -5,8 +5,9 @@ rem Dual licensed: Distributed under Affero GPL license by default, an MIT licen
 
 if [%1]==[] goto usage
 
-rem docker run --volume=%1:/src --rm jammernetz_buildmachine
-docker run --volume=%1:/src -it --entrypoint=/bin/bash jammernetz_buildmachine
+docker run --volume=%1:/src --rm jammernetz_buildmachine
+rem For debugging the build, use this one:
+rem docker run --volume=%1:/src -it --entrypoint=/bin/bash jammernetz_buildmachine
 goto :eof
 
 :usage
