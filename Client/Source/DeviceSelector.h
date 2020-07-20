@@ -9,7 +9,9 @@
 #include "JuceHeader.h"
 
 struct ChannelSetup {
-	std::weak_ptr<AudioIODevice> device;
+	std::string typeName;
+	std::string device;
+	bool isInputAndOutput; // Flag that this device is input and output and the same time -> if this is the case, the output can be bound to the input
 	std::vector<std::string> activeChannelNames;
 	std::vector<int> activeChannelIndices;
 };
@@ -24,7 +26,7 @@ public:
 
 	virtual void resized() override;
 
-	std::shared_ptr<AudioIODevice> currentDevice();
+	AudioIODeviceType *deviceType() const;
 
 	// Store to and load from settings
 	void fromData();
@@ -48,7 +50,6 @@ private:
 	OwnedArray<ToggleButton> channelSelectors_;
 	OwnedArray<Label> channelNames_;
 
-	std::shared_ptr<AudioIODevice> currentDevice_;
 	String title_;
 	String settingsKey_;
 	bool inputDevices_;

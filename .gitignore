@@ -7,3 +7,5 @@ common/resources/RandomNumbers.bin
 Server/docker/buildmachine/juce-5.4.5-linux.zip
 aws/.idea/
 aws/venv/
+projucer/JuceLibraryCode/
+LinuxBuilds/

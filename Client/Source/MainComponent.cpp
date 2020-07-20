@@ -98,9 +98,17 @@ void MainComponent::refreshChannelSetup(std::shared_ptr<ChannelSetup> setup) {
 			JammerNetzSingleChannelSetup channel((uint8)channelControllers_[i]->getCurrentTarget());
 			channel.volume = channelControllers_[i]->getCurrentVolume();
 			channelSetup.channels.push_back(channel);
+			}
 		}
-	}
 	callback_.setChannelSetup(channelSetup);
+}
+
+BigInteger makeChannelMask(std::vector<int> const &indices) {
+	BigInteger inputChannelMask;
+	for (int activeChannelIndex : indices) {
+		inputChannelMask.setBit(activeChannelIndex);
+	}
+	return inputChannelMask;
 }
 
 void MainComponent::restartAudio(std::shared_ptr<ChannelSetup> inputSetup, std::shared_ptr<ChannelSetup> outputSetup)
@@ -108,23 +116,22 @@ void MainComponent::restartAudio(std::shared_ptr<ChannelSetup> inputSetup, std::
 	stopAudioIfRunning();
 
 	// Sample rate and buffer size are hard coded for now
-	if (!inputSetup->device.expired()) {
-		audioDevice_ = inputSetup->device.lock();
+	auto selectedType = inputSelector_.deviceType();
+	if (selectedType) {
+		if (selectedType->hasSeparateInputsAndOutputs()) {
+			// This is for other Audio types like DirectSound
+			audioDevice_.reset(selectedType->createDevice(outputSetup ? outputSetup->device : "", inputSetup ? inputSetup->device :  ""));
 	}
-	jassert(audioDevice_);
-	if (audioDevice_) {
-		BigInteger inputChannelMask = 0;
+		else {
+			// Try to create the device purely from the input name, this would be the path for ASIO)
 		if (inputSetup) {
-			for (int activeChannelIndex : inputSetup->activeChannelIndices) {
-				inputChannelMask.setBit(activeChannelIndex);
+				audioDevice_.reset(selectedType->createDevice("", inputSetup->device));
 			}
 		}
-		BigInteger outputChannelMask = 0;
-		if (outputSetup) {
-			for (int activeChannelIndex : outputSetup->activeChannelIndices) {
-				outputChannelMask.setBit(activeChannelIndex);
-			}
-		}
+
+		if (audioDevice_) {
+			BigInteger inputChannelMask = inputSetup ? makeChannelMask(inputSetup->activeChannelIndices) : 0;
+			BigInteger outputChannelMask = outputSetup ? makeChannelMask(outputSetup->activeChannelIndices) : 0;
 		String error = audioDevice_->open(inputChannelMask, outputChannelMask, ServerInfo::sampleRate, ServerInfo::bufferSize);
 		if (error.isNotEmpty()) {
 			jassert(false);
@@ -138,10 +145,11 @@ void MainComponent::restartAudio(std::shared_ptr<ChannelSetup> inputSetup, std::
 			StreamLogger::instance() << "Output latency is at " << outputLatencyInMS_ << "ms" << std::endl;
 
 			refreshChannelSetup(inputSetup);
-			// We can actually start playing
+				// We can actually start recording and playing
 			audioDevice_->start(&callback_);
 		}
 	}
+}
 }
 
 void MainComponent::stopAudioIfRunning()

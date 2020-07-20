@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<JUCERPROJECT id="XpPe0B" name="projucer" projectType="guiapp" jucerVersion="5.4.7">
+  <MAINGROUP id="n9Rizs" name="projucer">
+    <GROUP id="{5B0670AA-031F-8FAD-4B65-9364D6BCD607}" name="Client">
+      <GROUP id="{F5FAFA27-636D-BACE-1952-F201EB82E27F}" name="Source">
+        <FILE id="c3snny" name="AudioCallback.cpp" compile="1" resource="0"
+              file="../Client/Source/AudioCallback.cpp"/>
+        <FILE id="PuBkpW" name="AudioCallback.h" compile="0" resource="0" file="../Client/Source/AudioCallback.h"/>
+        <FILE id="AJ04RK" name="AudioDeviceDiscovery.cpp" compile="1" resource="0"
+              file="../Client/Source/AudioDeviceDiscovery.cpp"/>
+        <FILE id="JMhBTA" name="AudioDeviceDiscovery.h" compile="0" resource="0"
+              file="../Client/Source/AudioDeviceDiscovery.h"/>
+        <FILE id="CtvxnT" name="BPMDisplay.cpp" compile="1" resource="0" file="../Client/Source/BPMDisplay.cpp"/>
+        <FILE id="bms2Zo" name="BPMDisplay.h" compile="0" resource="0" file="../Client/Source/BPMDisplay.h"/>
+        <FILE id="asV126" name="ChannelController.cpp" compile="1" resource="0"
+              file="../Client/Source/ChannelController.cpp"/>
+        <FILE id="FnuuDN" name="ChannelController.h" compile="0" resource="0"
+              file="../Client/Source/ChannelController.h"/>
+        <FILE id="QCzWw7" name="Client.cpp" compile="1" resource="0" file="../Client/Source/Client.cpp"/>
+        <FILE id="LDrk3P" name="Client.h" compile="0" resource="0" file="../Client/Source/Client.h"/>
+        <FILE id="w4PjBE" name="ClientConfig.cpp" compile="1" resource="0"
+              file="../Client/Source/ClientConfig.cpp"/>
+        <FILE id="fKXKfS" name="ClientConfig.h" compile="0" resource="0" file="../Client/Source/ClientConfig.h"/>
+        <FILE id="UaoMni" name="DataReceiveThread.cpp" compile="1" resource="0"
+              file="../Client/Source/DataReceiveThread.cpp"/>
+        <FILE id="jLBvNr" name="DataReceiveThread.h" compile="0" resource="0"
+              file="../Client/Source/DataReceiveThread.h"/>
+        <FILE id="mauo8k" name="DeviceSelector.cpp" compile="1" resource="0"
+              file="../Client/Source/DeviceSelector.cpp"/>
+        <FILE id="hDV9hg" name="DeviceSelector.h" compile="0" resource="0"
+              file="../Client/Source/DeviceSelector.h"/>
+        <FILE id="XpAYJE" name="IncludeFFMeters.h" compile="0" resource="0"
+              file="../Client/Source/IncludeFFMeters.h"/>
+        <FILE id="PP4Mfk" name="LayoutConstants.h" compile="0" resource="0"
+              file="../Client/Source/LayoutConstants.h"/>
+        <FILE id="ghI5MZ" name="Main.cpp" compile="1" resource="0" file="../Client/Source/Main.cpp"/>
+        <FILE id="a8yxXj" name="MainComponent.cpp" compile="1" resource="0"
+              file="../Client/Source/MainComponent.cpp"/>
+        <FILE id="mcwkyF" name="MainComponent.h" compile="0" resource="0" file="../Client/Source/MainComponent.h"/>
+        <FILE id="Kr4v5U" name="RecordingInfo.cpp" compile="1" resource="0"
+              file="../Client/Source/RecordingInfo.cpp"/>
+        <FILE id="tHA7GH" name="RecordingInfo.h" compile="0" resource="0" file="../Client/Source/RecordingInfo.h"/>
+        <FILE id="FQb4xD" name="Resources.h" compile="0" resource="0" file="../Client/Source/Resources.h"/>
+        <FILE id="VgrSjW" name="ServerSelector.cpp" compile="1" resource="0"
+              file="../Client/Source/ServerSelector.cpp"/>
+        <FILE id="LYLmC2" name="ServerSelector.h" compile="0" resource="0"
+              file="../Client/Source/ServerSelector.h"/>
+        <FILE id="z5nQSl" name="ServerStatus.cpp" compile="1" resource="0"
+              file="../Client/Source/ServerStatus.cpp"/>
+        <FILE id="iQIjQ6" name="ServerStatus.h" compile="0" resource="0" file="../Client/Source/ServerStatus.h"/>
+        <FILE id="CFuOXV" name="Tuner.cpp" compile="1" resource="0" file="../Client/Source/Tuner.cpp"/>
+        <FILE id="r9B5Di" name="Tuner.h" compile="0" resource="0" file="../Client/Source/Tuner.h"/>
+      </GROUP>
+    </GROUP>
+    <GROUP id="{7AA171C7-BAE7-9D20-75AD-889D88530E23}" name="common">
+      <GROUP id="{46EBACC0-8B62-60AA-77FA-B1378F48FCEA}" name="Source">
+        <FILE id="FWq89m" name="BinaryResources.h" compile="0" resource="0"
+              file="../common/BinaryResources.h"/>
+        <FILE id="iALnSP" name="BuffersConfig.h" compile="0" resource="0" file="../common/BuffersConfig.h"/>
+        <FILE id="m3IRwL" name="CMakeLists.txt" compile="0" resource="0" file="../common/CMakeLists.txt"/>
+        <FILE id="d3uI0a" name="JammerNetzPackage.cpp" compile="1" resource="0"
+              file="../common/JammerNetzPackage.cpp"/>
+        <FILE id="Hz2eo5" name="JammerNetzPackage.h" compile="0" resource="0"
+              file="../common/JammerNetzPackage.h"/>
+        <FILE id="p0x4bs" name="JammerNetzPackages.fbs" compile="0" resource="0"
+              file="../common/JammerNetzPackages.fbs"/>
+        <FILE id="DP39xg" name="PacketStreamQueue.cpp" compile="1" resource="0"
+              file="../common/PacketStreamQueue.cpp"/>
+        <FILE id="woNYg2" name="PacketStreamQueue.h" compile="0" resource="0"
+              file="../common/PacketStreamQueue.h"/>
+        <FILE id="Tc1Hf5" name="Recorder.cpp" compile="1" resource="0" file="../common/Recorder.cpp"/>
+        <FILE id="xZi3XB" name="Recorder.h" compile="0" resource="0" file="../common/Recorder.h"/>
+        <FILE id="uE784X" name="RingOfAudioBuffers.h" compile="0" resource="0"
+              file="../common/RingOfAudioBuffers.h"/>
+        <FILE id="YlsWBw" name="ServerInfo.cpp" compile="1" resource="0" file="../common/ServerInfo.cpp"/>
+        <FILE id="xYNbpU" name="ServerInfo.h" compile="0" resource="0" file="../common/ServerInfo.h"/>
+      </GROUP>
+    </GROUP>
+    <GROUP id="{C1A4670D-E648-DBCF-E5B4-42C3F5517AD1}" name="juce-utils">
+      <FILE id="f4Nz9W" name="CMakeLists.txt" compile="0" resource="0" file="../modules/juce-utils/CMakeLists.txt"/>
+      <FILE id="s19STQ" name="Data.cpp" compile="1" resource="0" file="../modules/juce-utils/Data.cpp"/>
+      <FILE id="HLBPMX" name="Data.h" compile="0" resource="0" file="../modules/juce-utils/Data.h"/>
+      <FILE id="xAQMY8" name="LICENSE.md" compile="0" resource="0" file="../modules/juce-utils/LICENSE.md"/>
+      <FILE id="brOzZJ" name="MidiClocker.cpp" compile="1" resource="0" file="../modules/juce-utils/MidiClocker.cpp"/>
+      <FILE id="r7jzKZ" name="MidiClocker.h" compile="0" resource="0" file="../modules/juce-utils/MidiClocker.h"/>
+      <FILE id="CoElaQ" name="MidiNote.cpp" compile="1" resource="0" file="../modules/juce-utils/MidiNote.cpp"/>
+      <FILE id="YJSiXS" name="MidiNote.h" compile="0" resource="0" file="../modules/juce-utils/MidiNote.h"/>
+      <FILE id="HTpLgA" name="MidiRecorder.cpp" compile="1" resource="0"
+            file="../modules/juce-utils/MidiRecorder.cpp"/>
+      <FILE id="ElVbWp" name="MidiRecorder.h" compile="0" resource="0" file="../modules/juce-utils/MidiRecorder.h"/>
+      <FILE id="CmyVZL" name="README.md" compile="0" resource="0" file="../modules/juce-utils/README.md"/>
+      <FILE id="CoclEH" name="Settings.cpp" compile="1" resource="0" file="../modules/juce-utils/Settings.cpp"/>
+      <FILE id="PozmSM" name="Settings.h" compile="0" resource="0" file="../modules/juce-utils/Settings.h"/>
+      <FILE id="Crmreh" name="StreamLogger.cpp" compile="1" resource="0"
+            file="../modules/juce-utils/StreamLogger.cpp"/>
+      <FILE id="tkZ2Kp" name="StreamLogger.h" compile="0" resource="0" file="../modules/juce-utils/StreamLogger.h"/>
+    </GROUP>
+  </MAINGROUP>
+  <EXPORTFORMATS>
+    <XCODE_MAC targetFolder="Builds/MacOSX" microphonePermissionNeeded="1">
+      <CONFIGURATIONS>
+        <CONFIGURATION isDebug="1" name="Debug" headerPath="../modules/juce-utils"/>
+        <CONFIGURATION isDebug="0" name="Release"/>
+      </CONFIGURATIONS>
+      <MODULEPATHS>
+        <MODULEPATH id="juce_audio_basics" path="C:/Users/Christof/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_devices" path="C:/Users/Christof/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_formats" path="C:/Users/Christof/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_processors" path="C:/Users/Christof/JUCE/modules"/>
+        <MODULEPATH id="juce_core" path="C:/Users/Christof/JUCE/modules"/>
+        <MODULEPATH id="juce_cryptography" path="C:/Users/Christof/JUCE/modules"/>
+        <MODULEPATH id="juce_data_structures" path="C:/Users/Christof/JUCE/modules"/>
+        <MODULEPATH id="juce_events" path="C:/Users/Christof/JUCE/modules"/>
+        <MODULEPATH id="juce_graphics" path="C:/Users/Christof/JUCE/modules"/>
+        <MODULEPATH id="juce_gui_basics" path="C:/Users/Christof/JUCE/modules"/>
+        <MODULEPATH id="juce_gui_extra" path="C:/Users/Christof/JUCE/modules"/>
+        <MODULEPATH id="juce_opengl" path="C:/Users/Christof/JUCE/modules"/>
+        <MODULEPATH id="ff_meters" path="../third_party"/>
+      </MODULEPATHS>
+    </XCODE_MAC>
+    <VS2017 targetFolder="Builds/VisualStudio2017" extraDefs="-DJUCE_ASIO">
+      <CONFIGURATIONS>
+        <CONFIGURATION isDebug="1" name="Debug" headerPath="../../../common&#10;../../../modules/juce-utils&#10;../../../third_party&#10;../../../third_party/infra/include&#10;../../../third_party/Q/q_lib/include&#10;../../../third_party/flatbuffers/include&#10;../../../Builds/Windows/common&#10;../../../Builds/Windows/_deps/inteltbb-src/tbb2019_20191006oss/include&#10;&#10;"
+                       prebuildCommand="..\..\..\third_party\flatbuffers\builds\Debug\flatc.exe -c ../../../common/JammerNetzPackages.fbs"
+                       libraryPath="../../../Builds/Windows/_deps/inteltbb-src/tbb2019_20191006oss/lib/intel64/vc14"
+                       postbuildCommand="copy ..\..\..\Builds\Windows\_deps\inteltbb-src\tbb2019_20191006oss\bin\intel64\vc14\tbb_debug.dll x64\Debug\App"/>
+        <CONFIGURATION isDebug="0" name="Release" headerPath="../../../common&#10;../../../modules/juce-utils&#10;../../../third_party&#10;../../../third_party/infra/include&#10;../../../third_party/Q/q_lib/include&#10;../../../third_party/flatbuffers/include&#10;../../../Builds/Windows/common&#10;../../../Builds/Windows/_deps/inteltbb-src/tbb2019_20191006oss/include&#10;&#10;"
+                       libraryPath="../../../Builds/Windows/_deps/inteltbb-src/tbb2019_20191006oss/lib/intel64/vc14"
+                       prebuildCommand="..\..\..\third_party\flatbuffers\builds\Debug\flatc.exe -c ../../../common/JammerNetzPackages.fbs"
+                       postbuildCommand="copy ..\..\..\Builds\Windows\_deps\inteltbb-src\tbb2019_20191006oss\bin\intel64\vc14\tbb.dll x64\Release\App"/>
+      </CONFIGURATIONS>
+      <MODULEPATHS>
+        <MODULEPATH id="juce_audio_basics" path="C:/Users/Christof/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_devices" path="C:/Users/Christof/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_formats" path="C:/Users/Christof/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_processors" path="C:/Users/Christof/JUCE/modules"/>
+        <MODULEPATH id="juce_core" path="C:/Users/Christof/JUCE/modules"/>
+        <MODULEPATH id="juce_cryptography" path="C:/Users/Christof/JUCE/modules"/>
+        <MODULEPATH id="juce_data_structures" path="C:/Users/Christof/JUCE/modules"/>
+        <MODULEPATH id="juce_events" path="C:/Users/Christof/JUCE/modules"/>
+        <MODULEPATH id="juce_graphics" path="C:/Users/Christof/JUCE/modules"/>
+        <MODULEPATH id="juce_gui_basics" path="C:/Users/Christof/JUCE/modules"/>
+        <MODULEPATH id="juce_gui_extra" path="C:/Users/Christof/JUCE/modules"/>
+        <MODULEPATH id="juce_opengl" path="C:/Users/Christof/JUCE/modules"/>
+        <MODULEPATH id="ff_meters" path="../third_party"/>
+      </MODULEPATHS>
+    </VS2017>
+  </EXPORTFORMATS>
+  <MODULES>
+    <MODULE id="ff_meters" showAllCode="1" useLocalCopy="0" useGlobalPath="0"/>
+    <MODULE id="juce_audio_basics" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_audio_devices" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_audio_formats" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_audio_processors" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_core" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_cryptography" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_data_structures" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_events" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_graphics" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_gui_basics" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_gui_extra" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_opengl" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+  </MODULES>
+  <LIVE_SETTINGS>
+    <WINDOWS/>
+  </LIVE_SETTINGS>
+  <JUCEOPTIONS JUCE_STRICT_REFCOUNTEDPOINTER="1"/>
+</JUCERPROJECT>

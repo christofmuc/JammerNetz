@@ -40,6 +40,9 @@ if (WIN32)
 			COMMAND ${CMAKE_COMMAND} -E copy
 					${INTEL_TBB_DIRECTORY}/bin/intel64/vc14/$<IF:$<CONFIG:Release>,tbb,tbb_debug>.dll
 					${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>)
+elseif(APPLE)
+	target_link_directories(JammerNetzServer PRIVATE "${INTEL_TBB_DIRECTORY}/lib/")
+	target_link_libraries(JammerNetzServer  ${JUCE_LIBRARIES} JammerCommon tbb)
 else()
 	target_link_libraries(JammerNetzServer  ${JUCE_LIBRARIES} JammerCommon tbb ${CMAKE_DL_LIBS} pthread asound curl)
 endif()
