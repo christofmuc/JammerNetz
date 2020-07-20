@@ -85,6 +85,19 @@ IF (MSVC)
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP")
 endif()
 
+enable_testing()
+include(GoogleTest)    
+set(gtest_force_shared_crt ON) # needed to build on Windows
+add_subdirectory(third_party/googletest)
+
+# See https://cmake.org/cmake/help/v3.10/module/GoogleTest.html
+# Keep cache clean
+mark_as_advanced(
+    BUILD_GMOCK BUILD_GTEST BUILD_SHARED_LIBS
+    gmock_build_tests gtest_build_samples gtest_build_tests
+    gtest_disable_pthreads gtest_force_shared_crt gtest_hide_internal_symbols
+)
+
 # Nothing to be done here on top level, just go one level down 
 add_subdirectory("third_party")
 add_subdirectory("modules/juce-utils")

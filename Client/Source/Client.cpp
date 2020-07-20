@@ -11,6 +11,8 @@
 #include "StreamLogger.h"
 #include "BinaryResources.h"
 
+#include "BuffersConfig.h"
+
 Client::Client(std::function<void(std::shared_ptr<JammerNetzAudioData>)> newDataHandler) : messageCounter_(10) /* TODO - because of the pre-fill on server side, can't be 0 */
 	, currentBlockSize_(0), fecBuffer_(16), blowFish_(RandomNumbers_bin, RandomNumbers_bin_size)
 {
@@ -58,7 +60,7 @@ bool Client::sendData(JammerNetzChannelSetup const &channelSetup, std::shared_pt
 	}
 
 	// Create a message
-	JammerNetzAudioData audioMessage(messageCounter_, Time::getMillisecondCounterHiRes(), channelSetup, audioBuffer, fecBlock);
+	JammerNetzAudioData audioMessage(messageCounter_, Time::getMillisecondCounterHiRes(), channelSetup, SAMPLE_RATE, audioBuffer, fecBlock);
 	
 	messageCounter_++;
 	size_t totalBytes;

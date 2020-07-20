@@ -109,12 +109,13 @@ JammerNetzAudioData::JammerNetzAudioData(uint8 *data, size_t bytes) {
 	}
 }
 
-JammerNetzAudioData::JammerNetzAudioData(uint64 messageCounter, double timestamp, JammerNetzChannelSetup const &channelSetup, std::shared_ptr<AudioBuffer<float>> audioBuffer, std::shared_ptr<AudioBlock> fecBlock) :
+JammerNetzAudioData::JammerNetzAudioData(uint64 messageCounter, double timestamp, JammerNetzChannelSetup const &channelSetup, int sampleRate, std::shared_ptr<AudioBuffer<float>> audioBuffer, std::shared_ptr<AudioBlock> fecBlock) :
 	fecBlock_(fecBlock)
 {
 	audioBlock_ = std::make_shared<AudioBlock>();
 	audioBlock_->messageCounter = messageCounter;
 	audioBlock_->timestamp = timestamp;
+	audioBlock_->sampleRate = (uint16) sampleRate; // What about 96kHz?
 	audioBlock_->channelSetup = channelSetup;
 	audioBlock_->audioBuffer = audioBuffer;
 	activeBlock_ = audioBlock_;
@@ -129,11 +130,11 @@ JammerNetzAudioData::JammerNetzAudioData(AudioBlock const &audioBlock, std::shar
 std::shared_ptr<JammerNetzAudioData> JammerNetzAudioData::createFillInPackage(uint64 messageNumber) const
 {
 	if (fecBlock_) {
-		return std::make_shared<JammerNetzAudioData>(messageNumber, fecBlock_->timestamp, fecBlock_->channelSetup, fecBlock_->audioBuffer, nullptr);
+		return std::make_shared<JammerNetzAudioData>(messageNumber, fecBlock_->timestamp, fecBlock_->channelSetup, SAMPLE_RATE, fecBlock_->audioBuffer, nullptr);
 	}
 	// No FEC data available, fall back to "repeat last package"
 	//TODO - fake timestamp?
-	return std::make_shared<JammerNetzAudioData>(messageNumber, audioBlock_->timestamp, audioBlock_->channelSetup, audioBlock_->audioBuffer, nullptr);
+	return std::make_shared<JammerNetzAudioData>(messageNumber, audioBlock_->timestamp, audioBlock_->channelSetup, SAMPLE_RATE, audioBlock_->audioBuffer, nullptr);
 }
 
 std::shared_ptr<JammerNetzAudioData> JammerNetzAudioData::createPrePaddingPackage() const
@@ -142,7 +143,7 @@ std::shared_ptr<JammerNetzAudioData> JammerNetzAudioData::createPrePaddingPackag
 	auto silence = std::make_shared<AudioBuffer<float>>();
 	*silence = *audioBlock_->audioBuffer; // Deep copy
 	silence->clear();
-	return std::make_shared<JammerNetzAudioData>(audioBlock_->messageCounter - 1, audioBlock_->timestamp, audioBlock_->channelSetup, silence, nullptr);
+	return std::make_shared<JammerNetzAudioData>(audioBlock_->messageCounter - 1, audioBlock_->timestamp, audioBlock_->channelSetup, SAMPLE_RATE, silence, nullptr);
 }
 
 JammerNetzMessage::MessageType JammerNetzAudioData::getType() const
@@ -275,7 +276,7 @@ void JammerNetzAudioData::readAudioBytes(flatbuffers::Vector<flatbuffers::Offset
 				AudioData::LittleEndian,
 				AudioData::NonInterleaved,
 				AudioData::NonConst> dst_pointer(destBuffer->getWritePointer(c));
-			dst_pointer.convertSamples(src_pointer, channel->audioSamples()->Length());
+			dst_pointer.convertSamples(src_pointer, channel->audioSamples()->size());
 		}
 		else {
 			float tempBuffer[MAXFRAMESIZE];
@@ -287,10 +288,10 @@ void JammerNetzAudioData::readAudioBytes(flatbuffers::Vector<flatbuffers::Offset
 				AudioData::LittleEndian,
 				AudioData::NonInterleaved,
 				AudioData::NonConst> dst_pointer(tempBuffer);
-			dst_pointer.convertSamples(src_pointer, channel->audioSamples()->Length());
+			dst_pointer.convertSamples(src_pointer, channel->audioSamples()->size());
 
 			auto write = destBuffer->getWritePointer(c);
-			for (size_t i = 0; i < channel->audioSamples()->Length(); i++) {
+			for (size_t i = 0; i < channel->audioSamples()->size(); i++) {
 				for (int j = 0; j < upsampleRate; j++) {
 					write[i * upsampleRate + j] = tempBuffer[i];
 				}
