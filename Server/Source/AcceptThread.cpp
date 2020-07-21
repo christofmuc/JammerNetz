@@ -66,6 +66,10 @@ void AcceptThread::run()
 				std::cerr << "Error reading data from socket, abort!" << std::endl;
 				exit(-1);
 			}
+			if (dataRead == 0) {
+				std::cerr << "Got empty packet from client, ignoring" << std::endl;
+				continue;
+			}
 			int messageLength = blowFish_.decrypt(readbuffer, dataRead);
 			if (messageLength == -1) {
 				std::cerr << "Got package I couldn't decipher from " << senderIPAdress << ":" << senderPortNumber << " - somebody trying to break in?" << std::endl;
