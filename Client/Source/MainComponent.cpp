@@ -216,11 +216,11 @@ void MainComponent::resized()
 	}
 
 	// Upper middle, play-along display (prominently)
-	auto playalongArea = area.removeFromLeft(100);
-	playalongDisplay_->setBounds(playalongArea);
+//	auto playalongArea = area.removeFromLeft(100);
+//	playalongDisplay_->setBounds(playalongArea);
 
 	// To the right, the output selector
-	auto outputArea = area.removeFromRight(masterMixerWidth + inputSelectorWidth + playalongArea.getWidth());
+	auto outputArea = area.removeFromRight(masterMixerWidth + inputSelectorWidth/* + playalongArea.getWidth()*/);
 	outputGroup_.setBounds(outputArea);
 	outputArea.reduce(kNormalInset, kNormalInset);
 	outputSelector_.setBounds(outputArea.removeFromRight(inputSelectorWidth));
