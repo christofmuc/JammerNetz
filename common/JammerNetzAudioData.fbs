@@ -20,6 +20,7 @@ table JammerNetzPNPAudioSamples {
 table JammerNetzPNPAudioBlock {
 	timestamp :double;
 	messageCounter :uint64;
+	serverTime :uint64;
 	numChannels :uint8;
 	numberOfSamples :uint16;
 	sampleRate :uint16;

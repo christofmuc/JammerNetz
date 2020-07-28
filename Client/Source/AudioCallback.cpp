@@ -269,6 +269,25 @@ void AudioCallback::audioDeviceIOCallbackWithContext(const float* const* inputCh
 				jassert(false);
 				break;
 			}
+
+			// Play a MIDI clock at 120 bpm
+			uint64 bpm = 120;
+			uint64 pulsesPerQuarterNote = 24; // This is fairly standard
+			double pulsesPerSecond = bpm * pulsesPerQuarterNote / 60.0;
+			double samplesPerSecond = SAMPLE_RATE;
+			double samplesPerPulse = samplesPerSecond / pulsesPerSecond;
+			jassert(samplesPerPulse > SAMPLE_BUFFER_SIZE); // Else it gets jitery
+
+			// Determine the server time for the first sample of this package
+			uint64 serverTime = toPlay->serverTime();
+			uint64 serverStartBeat = (uint64) floor(serverTime / samplesPerPulse);
+			uint64 serverEndBeat = (uint64)floor((serverTime + SAMPLE_BUFFER_SIZE - 1) / samplesPerPulse);
+			if (serverStartBeat != serverEndBeat) {
+				// A Pulse must be sent!
+				uint64 subPrecision = (uint64)(serverEndBeat * samplesPerPulse) - serverTime;
+				jassert(subPrecision < SAMPLE_BUFFER_SIZE);
+
+			}
 		}
 		else {
 			// Buffer underrun
