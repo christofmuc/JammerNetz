@@ -9,3 +9,4 @@ aws/.idea/
 aws/venv/
 projucer/JuceLibraryCode/
 LinuxBuilds/
+buildsClient/
