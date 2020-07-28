@@ -76,9 +76,11 @@ struct JammerNetzAudioHeader {
 struct AudioBlock {
 	AudioBlock() = default;
 	AudioBlock(AudioBlock const &other) = default;
-	AudioBlock(double timestamp, uint64 messageCounter, uint16 sampleRate, JammerNetzChannelSetup const &channelSetup, std::shared_ptr<AudioBuffer<float>> audioBuffer);
+	AudioBlock(double timestamp, uint64 messageCounter, uint64 serverTime, uint16 sampleRate, JammerNetzChannelSetup const &channelSetup, std::shared_ptr<AudioBuffer<float>> audioBuffer);
 	double timestamp; // Using JUCE's high resolution timer
 	juce::uint64 messageCounter;
+	juce::uint64 serverTime;
+	juce::uint64 serverTimeSampleBased;
 	uint16 sampleRate;
 	JammerNetzChannelSetup channelSetup;
 	std::shared_ptr<AudioBuffer<float>> audioBuffer;
@@ -117,6 +119,7 @@ public:
 	std::shared_ptr<AudioBuffer<float>> audioBuffer() const;
 	uint64 messageCounter() const;
 	double timestamp() const;
+	uint64 serverTime() const;
 	JammerNetzChannelSetup channelSetup() const;
 
 private:

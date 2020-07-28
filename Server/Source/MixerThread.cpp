@@ -9,7 +9,7 @@
 #include "BuffersConfig.h"
 
 MixerThread::MixerThread(TPacketStreamBundle &incoming, JammerNetzChannelSetup mixdownSetup, TOutgoingQueue &outgoing, TMessageQueue &wakeUpQueue, Recorder &recorder)
-	: Thread("MixerThread"), incoming_(incoming), mixdownSetup_(mixdownSetup), outgoing_(outgoing), wakeUpQueue_(wakeUpQueue), recorder_(recorder)
+	: Thread("MixerThread"), incoming_(incoming), mixdownSetup_(mixdownSetup), outgoing_(outgoing), wakeUpQueue_(wakeUpQueue), recorder_(recorder), serverTime_(0)
 {
 }
 
@@ -82,6 +82,7 @@ void MixerThread::run() {
 		if (incomingData.size() > 0) {
 			//TODO - current assumption: all clients provide buffers of the same size. Therefore, take the length of the first client as the output size
 			int bufferLength = (*incomingData.begin()).second->audioBuffer()->getNumSamples();
+			serverTime_ += bufferLength; // Server time counts time of mixing thread in samples mixed since launch
 
 			// For each client that has delivered data, produce a mix down package and send it back
 			for (auto &receiver : incomingData) {
@@ -98,6 +99,7 @@ void MixerThread::run() {
 				OutgoingPackage package(receiver.first, AudioBlock(
 					receiver.second->timestamp(),
 					receiver.second->messageCounter(), 
+					serverTime_,
 					48000,
 					mixdownSetup_,
 					outBuffer
