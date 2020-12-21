@@ -100,7 +100,9 @@ mark_as_advanced(
 
 # Nothing to be done here on top level, just go one level down 
 add_subdirectory("third_party")
+add_subdirectory("third_party/fmt")
 add_subdirectory("modules/juce-utils")
+add_subdirectory("modules/MidiKraft-base")
 add_subdirectory("common")
 add_subdirectory("Server")
 add_subdirectory("Client")

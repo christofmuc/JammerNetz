@@ -49,6 +49,7 @@ set(SOURCES
 	Source/MainComponent.cpp
 	Source/MainComponent.h
 	Source/MidiPlayAlong.cpp Source/MidiPlayAlong.h
+	Source/MidiSendThread.cpp Source/MidiSendThread.h
 	Source/PlayAlongDisplay.cpp Source/PlayAlongDisplay.h
 	Source/Resources.h
 )
@@ -103,10 +104,10 @@ add_executable(JammerNetzClient WIN32 ${SOURCES} ${UICOMPONENT_FILES} ${AUDIO_PR
 
 IF(WIN32)
 	target_link_directories(JammerNetzClient PRIVATE "${INTEL_TBB_DIRECTORY}/lib/intel64/vc14")
-	target_link_libraries(JammerNetzClient ${JUCE_LIBRARIES} JammerCommon juce-utils ff_meters)
+	target_link_libraries(JammerNetzClient ${JUCE_LIBRARIES} JammerCommon juce-utils ff_meters midikraft-base fmt)
 elseif(APPLE)
 	target_link_directories(JammerNetzClient PRIVATE "${INTEL_TBB_DIRECTORY}/lib/")
-	target_link_libraries(JammerNetzClient ${JUCE_LIBRARIES} JammerCommon juce-utils ff_meters tbb)
+	target_link_libraries(JammerNetzClient ${JUCE_LIBRARIES} JammerCommon juce-utils ff_meters midikraft-base tbb fmt)
 ELSE()
 	target_link_libraries(JammerNetzClient 
 		${JUCE_LIBRARIES} 
@@ -121,7 +122,7 @@ ELSE()
 		curl 
 		asound 
 		tbb
-		JammerCommon juce-utils ff_meters)
+		JammerCommon juce-utils midikraft-base ff_meters fmt)
 ENDIF()
 
 # Pedantic about warnings

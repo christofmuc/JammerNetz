@@ -23,3 +23,9 @@
 	path = third_party/googletest
 	url = https://github.com/google/googletest.git
 	branch = master
+[submodule "modules/MidiKraft-base"]
+	path = modules/MidiKraft-base
+	url = https://github.com/christofmuc/MidiKraft-base.git
+[submodule "third_party/fmt"]
+	path = third_party/fmt
+	url = https://github.com/fmtlib/fmt.git

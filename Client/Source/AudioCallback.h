@@ -15,6 +15,7 @@
 #include "Recorder.h"
 #include "Tuner.h"
 #include "MidiRecorder.h"
+#include "MidiSendThread.h"
 #include "MidiPlayAlong.h"
 
 #include <chrono>
@@ -81,5 +82,7 @@ private:
 
 	std::chrono::time_point<std::chrono::steady_clock> startTime_;
 	std::chrono::time_point<std::chrono::steady_clock> lastTime_;
+
+	MidiSendThread midiSendThread_;
 };
 

@@ -29,6 +29,9 @@ AudioCallback::AudioCallback(AudioDeviceManager &deviceManager) : client_([this]
 	// We might want to share a score sheet or similar
 	midiPlayalong_ = std::make_unique<MidiPlayAlong>("D:\\Development\\JammerNetz-OS\\Led Zeppelin - Stairway to heaven (1).kar");
 
+	// Where to send the Midi Clock signals
+	midiSendThread_.setMidiOutput("2- MXPXT: Sync In - Out All");
+
 	// We want to be able to tune our instruments
 	tuner_ = std::make_unique<Tuner>();
 }
@@ -151,11 +154,11 @@ void AudioCallback::audioDeviceIOCallback(const float** inputChannelData, int nu
 			uint64 serverTime = toPlay->serverTime();
 			uint64 serverStartBeat = (uint64) floor(serverTime / samplesPerPulse);
 			uint64 serverEndBeat = (uint64)floor((serverTime + SAMPLE_BUFFER_SIZE - 1) / samplesPerPulse);
-			if (serverStartBeat != serverEndBeat) {
+			if (true && serverStartBeat != serverEndBeat) {
 				// A Pulse must be sent!
 				uint64 subPrecision = (uint64)(serverEndBeat * samplesPerPulse) - serverTime;
 				jassert(subPrecision < SAMPLE_BUFFER_SIZE);
-				
+				midiSendThread_.enqueue(std::chrono::nanoseconds(1000000000 * subPrecision / SAMPLE_RATE), MidiMessage::midiClock());
 			}
 		}
 		else {

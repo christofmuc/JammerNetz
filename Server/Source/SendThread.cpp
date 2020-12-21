@@ -61,7 +61,9 @@ void SendThread::sendClientInfoPackage(std::string const &targetAddress)
 			clientInfoPackage.addClientInfo(IPAddress(ipAddress), port, incoming.second->qualityInfoPackage());
 		}
 	}
-	jassert(clientInfoPackage.getNumClients() > 0);
+	if (clientInfoPackage.getNumClients() == 0) {
+		return;
+	}
 
 	size_t bytesWritten = 0;
 	clientInfoPackage.serialize(writebuffer_, bytesWritten);
