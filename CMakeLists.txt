@@ -29,6 +29,7 @@ if (WIN32)
 	  URL https://www.steinberg.net/asiosdk
 	)
 	FetchContent_MakeAvailable(asiosdk)
+	set(ASIO_SDK_DIRECTORY "${asiosdk_SOURCE_DIR}/common")
 
 	FetchContent_Declare(
 		inteltbb
@@ -98,8 +99,79 @@ mark_as_advanced(
     gtest_disable_pthreads gtest_force_shared_crt gtest_hide_internal_symbols
 )
 
-# Nothing to be done here on top level, just go one level down 
-add_subdirectory("third_party")
+# Define the list of link libraries required on Linux linking with JUCE, this must be used by any executable / module to run standalone
+if(UNIX AND NOT APPLE)
+	set(LINUX_JUCE_LINK_LIBRARIES
+		PkgConfig::WEBKIT 
+		PkgConfig::GTK 
+		PkgConfig::GLEW 
+		Xext 
+		X11 
+		pthread 
+		${CMAKE_DL_LIBS} 
+		freetype 
+		curl 
+		asound)
+
+	# Also, as we will be building a shared module for Python, make sure GCC generates relocatable code suited for inclusion in a shared library
+	add_definitions(-fPIC)
+ENDIF()
+
+# Adding JUCE 6.0
+add_subdirectory("third_party/JUCE")
+
+# Build a static library from juce 
+add_library(juce-static STATIC)
+target_link_libraries(juce-static
+	PRIVATE
+	    juce::juce_audio_basics juce::juce_audio_devices juce::juce_audio_formats
+	    juce::juce_audio_processors juce::juce_audio_utils juce::juce_core
+	    juce::juce_cryptography juce::juce_data_structures juce::juce_dsp
+	    juce::juce_events juce::juce_graphics juce::juce_gui_basics
+	    juce::juce_gui_extra juce::juce_opengl juce::juce_video
+		${LINUX_JUCE_LINK_LIBRARIES}
+	PUBLIC
+		juce::juce_recommended_config_flags
+		juce::juce_recommended_lto_flags
+		juce::juce_recommended_warning_flags)
+
+target_compile_definitions(juce-static
+	PUBLIC
+		JUCE_PLUGINHOST_VST=0
+		JUCE_PLUGINHOST_AU=0
+		DONT_SET_USING_JUCE_NAMESPACE=1
+		JUCE_DISPLAY_SPLASH_SCREEN=0
+		JUCE_REPORT_APP_USAGE=0
+		JUCE_CHECK_MEMORY_LEAKS=0
+		JUCE_QUICKTIME=0
+		JUCE_USE_DIRECTWRITE=1
+		JUCE_ASIO=1
+		#JUCE_DIRECT2D=1  # That doesn't work, and the JUCE forum is full of confusing threads about Direct2D and font rendering
+		JUCE_CATCH_UNHANDLED_EXCEPTIONS=0
+		JUCE_COREGRAPHICS_DRAW_ASYNC=1
+		JUCE_WIN_PER_MONITOR_DPI_AWARE=1
+		JUCE_USE_FLAC=1
+		# JUCE_USE_WINRT_MIDI=1 # So much doesn't work when activating this that this is really scary
+	INTERFACE
+		$<TARGET_PROPERTY:juce-static,COMPILE_DEFINITIONS>)
+
+target_include_directories(juce-static
+	INTERFACE
+		$<TARGET_PROPERTY:juce-static,INCLUDE_DIRECTORIES>
+if (WIN32)
+	PRIVATE
+		"${ASIO_SDK_DIRECTORY}"
+endif()
+		)
+
+set_target_properties(juce-static PROPERTIES
+	POSITION_INDEPENDENT_CODE TRUE
+	VISIBILITY_INLINES_HIDDEN TRUE
+	C_VISIBILITY_PRESET hidden
+	CXX_VISIBILITY_PRESET hidden)
+
+
+add_subdirectory("third_party/JUCE-user-modules")
 add_subdirectory("modules/juce-utils")
 add_subdirectory("common")
 add_subdirectory("Server")

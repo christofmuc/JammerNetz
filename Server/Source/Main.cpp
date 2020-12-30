@@ -14,6 +14,8 @@
 
 #include "Recorder.h"
 
+#include "version.cpp"
+
 #ifdef WIN32
 #include <conio.h> // _kbhit()
 #endif
@@ -45,7 +47,7 @@ public:
 		sendThread_->startThread();
 		mixerThread_->startThread();
 #ifdef WIN32
-		std::cout << "Starting JammerNetz server, press any key to stop" << std::endl;
+		std::cout << "Starting JammerNetz server version " << getServerVersion() << ", press any key to stop" << std::endl;
 		while (!_kbhit()) {
 #else
 		std::cout << "Starting JammerNetz server, using CTRL-C to stop" << std::endl;

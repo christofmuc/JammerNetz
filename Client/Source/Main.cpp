@@ -9,13 +9,15 @@
 #include "MainComponent.h"
 #include "StreamLogger.h"
 
+#include "version.cpp"
+
 class ClientApplication  : public JUCEApplication
 {
 public:
     ClientApplication() {}
 
-    const String getApplicationName() override       { return ProjectInfo::projectName; }
-    const String getApplicationVersion() override    { return ProjectInfo::versionString; }
+    const String getApplicationName() override       { return "JammerNetzClient"; }
+	const String getApplicationVersion() override { return getClientVersion(); }
     bool moreThanOneInstanceAllowed() override       { return true; }
 
     void initialise (const String& commandLine) override

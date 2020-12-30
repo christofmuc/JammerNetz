@@ -4,21 +4,6 @@
 #  Dual licensed: Distributed under Affero GPL license by default, an MIT license is available for purchase
 #
 
-# Find JUCE, and add the components we need
-IF(NOT DEFINED JUCE_LIBRARIES)
-	SET(JUCE_DIR_HINT "${CMAKE_CURRENT_LIST_DIR}/../thirdparty")
-	find_package(JUCE REQUIRED 
-		COMPONENTS 
-			juce_core		
-			juce_events
-			juce_audio_basics
-			juce_audio_devices
-			juce_audio_formats
-			juce_data_structures
-			juce_cryptography
-	)
-ENDIF()
-
 # Add flatbuffers
 find_package(Flatbuffers REQUIRED PATHS "${CMAKE_CURRENT_LIST_DIR}/../third_party/flatbuffers")
 include(HomegrownFlatC)
@@ -74,7 +59,7 @@ endif()
 # Define tests
 set(TESTNAME CommonTest)
 add_executable(${TESTNAME} JammerCommonTests.cpp)
-target_link_libraries(${TESTNAME} gtest gmock gtest_main JammerCommon ${JUCE_LIBRARIES})
+target_link_libraries(${TESTNAME} gtest gmock gtest_main juce-utils JammerCommon ${JUCE_LIBRARIES})
 gtest_discover_tests(${TESTNAME}
     WORKING_DIRECTORY ${TEST_WORKING_DIRECTORY}
     PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY "${TEST_WORKING_DIRECTORY}"

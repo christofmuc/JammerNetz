@@ -6,18 +6,7 @@
 
 project("ff_meters")
 
-IF(NOT DEFINED JUCE_LIBRARIES)
-	find_package(JUCE REQUIRED 
-		COMPONENTS 
-			juce_core		
-			juce_events
-			juce_audio_basics
-			juce_audio_devices
-			juce_audio_formats
-	)
-ENDIF()
-
-file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/JuceLibraryCode/JuceHeader.h "#include <ff_meters/ff_meters.h>")
+#file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/JuceLibraryCode/JuceHeader.h "#include <ff_meters/ff_meters.h>")
 
 include_directories(${CMAKE_CURRENT_LIST_DIR})
 
@@ -32,11 +21,12 @@ set(ff_meters_sources
 	ff_meters/ff_meters_SoundFieldLookAndFeelMethods.h
 	ff_meters/ff_meters_StereoFieldBuffer.h
 	ff_meters/ff_meters_StereoFieldComponent.h
+	JuceLibraryCode/JuceHeader.h
 )
 
 add_library(ff_meters ${ff_meters_sources})
 target_include_directories(ff_meters INTERFACE ${CMAKE_CURRENT_LIST_DIR} PRIVATE ${JUCE_INCLUDES})
-
+target_link_libraries(ff_meters PRIVATE juce-static)
 IF (WIN32)
 	# Suppress warnings while compiling ff_meters because I nearly get a heart attack when that many warnings pop up on my screen
 	target_compile_options(ff_meters PRIVATE /wd4244)

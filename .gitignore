@@ -10,3 +10,6 @@ aws/venv/
 projucer/JuceLibraryCode/
 LinuxBuilds/
 buildsClient/
+buildsServer/
+third_party/mathgl-2.4.4/
+.idea/
