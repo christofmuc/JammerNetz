@@ -50,7 +50,12 @@ public:
 			windowTitle += ": " + clientID;
 		}
         mainWindow = std::make_unique<MainWindow>(windowTitle, clientID);
+		mainWindow->setName(getWindowTitle());
     }
+
+	String getWindowTitle() {
+		return getApplicationName() + " " + getClientVersion();
+	}
 
     void shutdown() override
     {
