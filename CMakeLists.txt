@@ -89,6 +89,7 @@ endif()
 enable_testing()
 include(GoogleTest)    
 set(gtest_force_shared_crt ON) # needed to build on Windows
+set(CMAKE_POLICY_DEFAULT_CMP0077 NEW) # otherwise the flag set above is ignored?
 add_subdirectory(third_party/googletest)
 
 # See https://cmake.org/cmake/help/v3.10/module/GoogleTest.html
