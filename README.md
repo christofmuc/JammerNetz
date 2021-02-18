@@ -148,7 +148,7 @@ With those installs and the recursive git clone from above, cd into the cloned d
 
     cmake -S . -B builds -G "Unix Makefiles"
     cd third_party/flatbuffers
-    cmake -S . -B LinuxBuilds -G "Unix Makefiles"
+    cmake -S . -B LinuxBuilds -G "Unix Makefiles" -D FLATBUFFERS_CXX_FLAGS="-Wno-error"
     cmake --build LinuxBuilds/
     cd ../..
     cmake --build builds
