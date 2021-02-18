@@ -100,3 +100,7 @@ bool DataReceiveThread::isReceivingData() const
 {
 	return isReceiving_;
 }
+
+void DataReceiveThread::setCryptoKey(const void* keyData, int keyBytes) {
+	blowFish_ = std::make_unique<BlowFish>(keyData, keyBytes);
+}

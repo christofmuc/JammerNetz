@@ -12,6 +12,8 @@
 #include "BuffersConfig.h"
 #include "Settings.h"
 
+#include "Encryption.h"
+
 AudioCallback::AudioCallback(AudioDeviceManager &deviceManager) : client_([this](std::shared_ptr < JammerNetzAudioData> buffer) { playBuffer_.push(buffer); }),
 	toPlayLatency_(0.0), currentPlayQueueLength_(0), discardedPackageCounter_(0), playBuffer_("server")
 {
@@ -42,6 +44,16 @@ void AudioCallback::clearOutput(float** outputChannelData, int numOutputChannels
 
 void AudioCallback::newServer()
 {
+	// Reload crypto key
+	std::shared_ptr<MemoryBlock> cryptoKey;
+	if (UDPEncryption::loadKeyfile(ServerInfo::cryptoKeyfilePath.c_str(), &cryptoKey)) {
+		setCryptoKey(cryptoKey->getData(), (int)cryptoKey->getSize());
+	}
+	else {
+		StreamLogger::instance() << "Fatal - could not load crypto key file '" << ServerInfo::cryptoKeyfilePath << "'" << std::endl;
+	}
+
+	// Reset counters etc
 	minPlayoutBufferLength_ = CLIENT_PLAYOUT_JITTER_BUFFER;
 	currentPlayQueueLength_ = 0;
 	discardedPackageCounter_ = 0;

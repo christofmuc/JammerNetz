@@ -16,8 +16,6 @@
 
 #include "LayoutConstants.h"
 
-#include "Encryption.h"
-
 MainComponent::MainComponent(String clientID) : audioDevice_(nullptr),
 inputSelector_("Inputs", false, "InputSetup", deviceManager_, true, [this](std::shared_ptr<ChannelSetup> setup) { setupChanged(setup); }),
 outputSelector_("Outputs", false, "OutputSetup", deviceManager_, false, [this](std::shared_ptr<ChannelSetup> setup) { outputSetupChanged(setup);  }),
@@ -76,11 +74,6 @@ callback_(deviceManager_)
 	// Make sure you set the size of the component after
 	// you add any child components.
 	setSize(1024, 800);
-
-	// Load Crypto key!
-	std::shared_ptr<MemoryBlock> cryptoKey;
-	UDPEncryption::loadKeyfile("D:\\Development\\github\\JammerNetz-OS\\buildsServer\\RandomNumbers.bin", &cryptoKey);
-	callback_.setCryptoKey(cryptoKey->getData(), (int)cryptoKey->getSize());
 }
 
 MainComponent::~MainComponent()

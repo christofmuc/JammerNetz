@@ -19,8 +19,10 @@ public:
 	virtual void run() override;
 
 	bool isReceivingData() const;
-	double currentRTT() const; 
+	double currentRTT() const;
 	std::shared_ptr<JammerNetzClientInfoMessage> getClientInfo() const;
+
+	void setCryptoKey(const void* keyData, int keyBytes);
 
 private:
 	DatagramSocket &socket_;

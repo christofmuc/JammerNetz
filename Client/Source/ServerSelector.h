@@ -28,9 +28,13 @@ private:
 	ToggleButton useLocalhost_;
 	Label serverLabel_;
 	TextEditor ipAddress_;
+	Label keyLabel_;
+	TextEditor keyPath_;
+	TextButton browseToKey_;
 
 	bool localhostSelected_;
 	String lastServer_;
+	String cryptoKeyPath_;
 
 	std::function<void()> notify_;
 };
