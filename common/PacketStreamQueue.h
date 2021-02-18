@@ -9,6 +9,7 @@
 #include "JuceHeader.h"
 
 #include "JammerNetzPackage.h"
+#include "JammerNetzClientInfoMessage.h"
 
 #include "tbb/concurrent_hash_map.h"
 #include "tbb/concurrent_priority_queue.h"

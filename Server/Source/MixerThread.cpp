@@ -8,8 +8,8 @@
 
 #include "BuffersConfig.h"
 
-MixerThread::MixerThread(TPacketStreamBundle &incoming, JammerNetzChannelSetup mixdownSetup, TOutgoingQueue &outgoing, TMessageQueue &wakeUpQueue)
-	: Thread("MixerThread"), incoming_(incoming), mixdownSetup_(mixdownSetup), outgoing_(outgoing), wakeUpQueue_(wakeUpQueue)
+MixerThread::MixerThread(TPacketStreamBundle &incoming, JammerNetzChannelSetup mixdownSetup, TOutgoingQueue &outgoing, TMessageQueue &wakeUpQueue, Recorder &recorder)
+	: Thread("MixerThread"), incoming_(incoming), mixdownSetup_(mixdownSetup), outgoing_(outgoing), wakeUpQueue_(wakeUpQueue), recorder_(recorder)
 {
 }
 
@@ -90,6 +90,7 @@ void MixerThread::run() {
 
 				// We now produce one mix for each client, specific, because you might not want to hear your own voice microphone
 				for (auto &client : incomingData) {
+					//recorder_.saveBlock(client.second->audioBuffer()->getArrayOfReadPointers(), outBuffer->getNumSamples());
 					bufferMixdown(outBuffer, client.second, client.first == receiver.first);
 				}
 
@@ -154,5 +155,5 @@ void MixerThread::bufferMixdown(std::shared_ptr<AudioBuffer<float>> &outBuffer, 
 		}
 	}
 	// We have a mix down now, hand this off to the recorder
-	//mixdownRecorder_.saveBlock(outBuffer->getArrayOfReadPointers(), outBuffer->getNumSamples());
+	recorder_.saveBlock(outBuffer->getArrayOfReadPointers(), outBuffer->getNumSamples());
 }

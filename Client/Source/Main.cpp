@@ -9,13 +9,15 @@
 #include "MainComponent.h"
 #include "StreamLogger.h"
 
+#include "version.cpp"
+
 class ClientApplication  : public JUCEApplication
 {
 public:
     ClientApplication() {}
 
-    const String getApplicationName() override       { return ProjectInfo::projectName; }
-    const String getApplicationVersion() override    { return ProjectInfo::versionString; }
+    const String getApplicationName() override       { return "JammerNetzClient"; }
+	const String getApplicationVersion() override { return getClientVersion(); }
     bool moreThanOneInstanceAllowed() override       { return true; }
 
     void initialise (const String& commandLine) override
@@ -48,7 +50,12 @@ public:
 			windowTitle += ": " + clientID;
 		}
         mainWindow = std::make_unique<MainWindow>(windowTitle, clientID);
+		mainWindow->setName(getWindowTitle());
     }
+
+	String getWindowTitle() {
+		return getApplicationName() + " " + getClientVersion();
+	}
 
     void shutdown() override
     {

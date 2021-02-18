@@ -4,22 +4,11 @@
 #  Dual licensed: Distributed under Affero GPL license by default, an MIT license is available for purchase
 #
 
-project("JammerNetzServer")
-
-# Find JUCE, and add the components we need
-find_package(JUCE REQUIRED 
-	COMPONENTS 
-		juce_core		
-		juce_events
-		juce_audio_basics
-		juce_audio_devices
-		juce_audio_formats
-		juce_data_structures
-		juce_cryptography
-)
+project("JammerNetzServer" VERSION 2.0.0)
 
 include_directories("${INTEL_TBB_DIRECTORY}/include/")
 
+configure_file("Source/version.cpp.in" "Source/version.cpp")
 
 set(SOURCES
 	Source/Main.cpp
@@ -27,12 +16,14 @@ set(SOURCES
 	Source/MixerThread.cpp Source/MixerThread.h
 	Source/SendThread.cpp Source/SendThread.h
 	Source/SharedServerTypes.h
+	Source/version.cpp.in
 )
 
 add_executable(JammerNetzServer ${SOURCES})
+target_include_directories(JammerNetzServer PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/Source")
 if (WIN32)
 	target_link_directories(JammerNetzServer PRIVATE "${INTEL_TBB_DIRECTORY}/lib/intel64/vc14")
-	target_link_libraries(JammerNetzServer  ${JUCE_LIBRARIES} JammerCommon)
+	target_link_libraries(JammerNetzServer  ${JUCE_LIBRARIES} juce-utils JammerCommon)
 
 	# Post build commands - copy the DLLs
 	add_custom_command(
@@ -42,9 +33,9 @@ if (WIN32)
 					${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>)
 elseif(APPLE)
 	target_link_directories(JammerNetzServer PRIVATE "${INTEL_TBB_DIRECTORY}/lib/")
-	target_link_libraries(JammerNetzServer  ${JUCE_LIBRARIES} JammerCommon tbb)
+	target_link_libraries(JammerNetzServer  ${JUCE_LIBRARIES} juce-utils JammerCommon tbb)
 else()
-	target_link_libraries(JammerNetzServer  ${JUCE_LIBRARIES} JammerCommon tbb ${CMAKE_DL_LIBS} pthread asound curl)
+	target_link_libraries(JammerNetzServer  ${JUCE_LIBRARIES} juce-utils JammerCommon tbb ${CMAKE_DL_LIBS} pthread asound curl)
 endif()
 source_group(Source FILES ${SOURCES})
 

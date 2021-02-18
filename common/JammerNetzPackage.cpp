@@ -8,8 +8,7 @@
 
 #include "BuffersConfig.h"
 
-#include "flatbuffers/flatbuffers.h"
-#include "JammerNetzPackages_generated.h"
+#include "JammerNetzClientInfoMessage.h"
 
 JammerNetzSingleChannelSetup::JammerNetzSingleChannelSetup() :
 	target(JammerNetzChannelTarget::Unused), volume(1.0f), balanceLeftRight(0.0f)
@@ -33,18 +32,13 @@ JammerNetzChannelSetup::JammerNetzChannelSetup()
 
 JammerNetzChannelSetup::JammerNetzChannelSetup(std::vector<JammerNetzSingleChannelSetup> const &channelInfo)
 {
-	jassert(channelInfo.size() < MAXCHANNELSPERCLIENT);
-	int i = 0;
-	for (auto info : channelInfo) {
-		if (i < MAXCHANNELSPERCLIENT) {
-			channels[i++] = info;
-		}
-	}
+	channels = channelInfo;
 }
 
 bool JammerNetzChannelSetup::operator==(const JammerNetzChannelSetup &other) const
 {
-	for (int i = 0; i < MAXCHANNELSPERCLIENT; i++) {
+	if (channels.size() != other.channels.size()) return false;
+	for (int i = 0; i < channels.size(); i++) {
 		if (!(channels[i] == other.channels[i])) return false;
 	}
 	return true;
@@ -67,8 +61,6 @@ std::shared_ptr<JammerNetzMessage> JammerNetzMessage::deserialize(uint8 *data, s
 				return std::make_shared<JammerNetzAudioData>(data, bytes);
 			case CLIENTINFO:
 				return std::make_shared<JammerNetzClientInfoMessage>(data, bytes);
-			case FLARE:
-				return std::make_shared<JammerNetzFlare>();
 			default:
 				std::cerr << "Unknown message type received, ignoring it" << std::endl;
 			}
@@ -94,45 +86,55 @@ JammerNetzAudioData::JammerNetzAudioData(uint8 *data, size_t bytes) {
 		return;
 	}
 
-	// Read the first audio block
-	size_t bytesread = sizeof(JammerNetzHeader);
-	audioBlock_ = readAudioHeaderAndBytes(data, bytesread);
-	activeBlock_ = audioBlock_;
-	
-	// Check if there is more data - if yes, it is the FEC info
-	while (bytesread < bytes) {
-		//TODO - what to do with more than one FEC block?
-		fecBlock_ = readAudioHeaderAndBytes(data, bytesread);
-#ifdef JAMMER_IS_CLIENT2
-		activeBlock_ = fecBlock_;
-#endif
+	flatbuffers::Verifier verifier(data + sizeof(JammerNetzHeader), bytes - sizeof(JammerNetzHeader));
+	if (VerifyJammerNetzPNPAudioDataBuffer(verifier)) {
+		auto root = GetJammerNetzPNPAudioData(data + sizeof(JammerNetzHeader));
+		int blockNo = 0;
+		for (auto block = root->audioBlocks()->cbegin(); block != root->audioBlocks()->cend(); block++) {
+			if (blockNo == 0) {
+				audioBlock_ = readAudioHeaderAndBytes(*block);
+				activeBlock_ = audioBlock_;
+			}
+			else if (blockNo == 1) {
+				fecBlock_ = readAudioHeaderAndBytes(*block);
+			}
+			else {
+				jassert(false);
+			}
+			blockNo++;
+		}
+	}
+	else {
+		jassert(false);
 	}
 }
 
-JammerNetzAudioData::JammerNetzAudioData(uint64 messageCounter, double timestamp, JammerNetzChannelSetup const &channelSetup, std::shared_ptr<AudioBuffer<float>> audioBuffer) 
+JammerNetzAudioData::JammerNetzAudioData(uint64 messageCounter, double timestamp, JammerNetzChannelSetup const &channelSetup, int sampleRate, std::shared_ptr<AudioBuffer<float>> audioBuffer, std::shared_ptr<AudioBlock> fecBlock) :
+	fecBlock_(fecBlock)
 {
 	audioBlock_ = std::make_shared<AudioBlock>();
 	audioBlock_->messageCounter = messageCounter;
 	audioBlock_->timestamp = timestamp;
+	audioBlock_->sampleRate = (uint16) sampleRate; // What about 96kHz?
 	audioBlock_->channelSetup = channelSetup;
 	audioBlock_->audioBuffer = audioBuffer;
 	activeBlock_ = audioBlock_;
 }
 
-JammerNetzAudioData::JammerNetzAudioData(AudioBlock const &audioBlock)
+JammerNetzAudioData::JammerNetzAudioData(AudioBlock const &audioBlock, std::shared_ptr<AudioBlock> fecBlock) : fecBlock_(fecBlock)
 {
 	audioBlock_ = std::make_shared<AudioBlock>(audioBlock);
 	activeBlock_ = audioBlock_;
 }
 
 std::shared_ptr<JammerNetzAudioData> JammerNetzAudioData::createFillInPackage(uint64 messageNumber) const
-{	
+{
 	if (fecBlock_) {
-		return std::make_shared<JammerNetzAudioData>(messageNumber, fecBlock_->timestamp, fecBlock_->channelSetup, fecBlock_->audioBuffer);
+		return std::make_shared<JammerNetzAudioData>(messageNumber, fecBlock_->timestamp, fecBlock_->channelSetup, SAMPLE_RATE, fecBlock_->audioBuffer, nullptr);
 	}
 	// No FEC data available, fall back to "repeat last package"
 	//TODO - fake timestamp?
-	return std::make_shared<JammerNetzAudioData>(messageNumber, audioBlock_->timestamp, audioBlock_->channelSetup, audioBlock_->audioBuffer);
+	return std::make_shared<JammerNetzAudioData>(messageNumber, audioBlock_->timestamp, audioBlock_->channelSetup, SAMPLE_RATE, audioBlock_->audioBuffer, nullptr);
 }
 
 std::shared_ptr<JammerNetzAudioData> JammerNetzAudioData::createPrePaddingPackage() const
@@ -141,7 +143,7 @@ std::shared_ptr<JammerNetzAudioData> JammerNetzAudioData::createPrePaddingPackag
 	auto silence = std::make_shared<AudioBuffer<float>>();
 	*silence = *audioBlock_->audioBuffer; // Deep copy
 	silence->clear();
-	return std::make_shared<JammerNetzAudioData>(audioBlock_->messageCounter  - 1, audioBlock_->timestamp, audioBlock_->channelSetup, silence);
+	return std::make_shared<JammerNetzAudioData>(audioBlock_->messageCounter - 1, audioBlock_->timestamp, audioBlock_->channelSetup, SAMPLE_RATE, silence, nullptr);
 }
 
 JammerNetzMessage::MessageType JammerNetzAudioData::getType() const
@@ -152,34 +154,56 @@ JammerNetzMessage::MessageType JammerNetzAudioData::getType() const
 void JammerNetzAudioData::serialize(uint8 *output, size_t &byteswritten) const {
 	jassert(audioBlock_);
 	byteswritten = writeHeader(output, AUDIODATA);
-	serialize(output, byteswritten, audioBlock_, 48000, 1);
+
+	flatbuffers::FlatBufferBuilder fbb;
+	std::vector<flatbuffers::Offset<JammerNetzPNPAudioBlock>> audioBlocks;
+
+	audioBlocks.push_back(serializeAudioBlock(fbb, audioBlock_, 48000, 1));
 	if (fecBlock_) {
-		serialize(output, byteswritten, fecBlock_, 48000, 2);
+		audioBlocks.push_back(serializeAudioBlock(fbb, fecBlock_, 48000, FEC_SAMPLERATE_REDUCTION));
 	}
+
+	auto blockVec = fbb.CreateVector(audioBlocks);
+	JammerNetzPNPAudioDataBuilder audioData(fbb);
+	audioData.add_audioBlocks(blockVec);
+
+	fbb.Finish(audioData.Finish());
+	memcpy(output + byteswritten, fbb.GetBufferPointer(), fbb.GetSize());
+	byteswritten += fbb.GetSize();
 }
 
-void JammerNetzAudioData::serialize(uint8 *output, size_t &byteswritten, std::shared_ptr<AudioBlock> src, uint16 sampleRate, uint16 reductionFactor) const
+flatbuffers::Offset<JammerNetzPNPAudioBlock> JammerNetzAudioData::serializeAudioBlock(flatbuffers::FlatBufferBuilder &fbb, std::shared_ptr<AudioBlock> src, uint16 sampleRate, uint16 reductionFactor) const
 {
-	JammerNetzAudioBlock *block = reinterpret_cast<JammerNetzAudioBlock *>(&output[byteswritten]);
-	block->timestamp = src->timestamp;
-	block->messageCounter = src->messageCounter;
-	block->channelSetup = src->channelSetup;
-	block->numberOfSamples = (uint16) src->audioBuffer->getNumSamples() / reductionFactor;
-	block->numchannels = (uint8) src->audioBuffer->getNumChannels();
-	block->sampleRate = sampleRate / reductionFactor;
-	byteswritten += sizeof(JammerNetzAudioHeader);
-	appendAudioBuffer(*src->audioBuffer, output, byteswritten, reductionFactor);
+	std::vector<flatbuffers::Offset<JammerNetzPNPChannelSetup>> channelSetup;
+	for (auto channel : src->channelSetup.channels) {
+		channelSetup.push_back(CreateJammerNetzPNPChannelSetup(fbb, channel.target, channel.volume));
+	}
+	auto channelSetupVector = fbb.CreateVector(channelSetup);
+	auto audioSamples = appendAudioBuffer(fbb, *src->audioBuffer, reductionFactor);
+
+	JammerNetzPNPAudioBlockBuilder audioBlock(fbb);
+	audioBlock.add_timestamp(src->timestamp);
+	audioBlock.add_messageCounter(src->messageCounter);
+	audioBlock.add_numberOfSamples((uint16)src->audioBuffer->getNumSamples() / reductionFactor);
+	audioBlock.add_numChannels((uint8)src->audioBuffer->getNumChannels());
+	audioBlock.add_sampleRate(sampleRate / reductionFactor);
+	audioBlock.add_channelSetup(channelSetupVector);
+	audioBlock.add_channels(audioSamples);
+
+	return audioBlock.Finish();
 }
 
-void JammerNetzAudioData::appendAudioBuffer(AudioBuffer<float> &buffer, uint8 *output, size_t &writeIndex, uint16 reductionFactor) const {
+flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<JammerNetzPNPAudioSamples>>> JammerNetzAudioData::appendAudioBuffer(flatbuffers::FlatBufferBuilder &fbb, AudioBuffer<float> &buffer, uint16 reductionFactor) const {
+	std::vector<flatbuffers::Offset<JammerNetzPNPAudioSamples>> channels;
 	for (int inputChannel = 0; inputChannel < buffer.getNumChannels(); inputChannel++) {
 		if (reductionFactor == 1) {
-		AudioData::Pointer<AudioData::Float32, AudioData::LittleEndian, AudioData::NonInterleaved, AudioData::Const> inputData(buffer.getReadPointer(inputChannel));
-		int datasize = buffer.getNumSamples() * sizeof(uint16);
-		AudioData::Pointer<AudioData::Int16, AudioData::LittleEndian, AudioData::NonInterleaved, AudioData::NonConst> dataToSend(&output[writeIndex]);
-		dataToSend.convertSamples(inputData, buffer.getNumSamples());
-		writeIndex += datasize;
-	}
+			AudioData::Pointer<AudioData::Float32, AudioData::LittleEndian, AudioData::NonInterleaved, AudioData::Const> inputData(buffer.getReadPointer(inputChannel));
+			uint16 *outputBuffer;
+			auto singleChannelVector = fbb.CreateUninitializedVector((size_t) buffer.getNumSamples(), &outputBuffer);
+			AudioData::Pointer<AudioData::Int16, AudioData::LittleEndian, AudioData::NonInterleaved, AudioData::NonConst> dataToSend(outputBuffer);
+			dataToSend.convertSamples(inputData, buffer.getNumSamples());
+			channels.push_back(CreateJammerNetzPNPAudioSamples(fbb, singleChannelVector));
+		}
 		else {
 			float tempBuffer[MAXFRAMESIZE];
 			const float* read = buffer.getReadPointer(inputChannel);
@@ -190,12 +214,14 @@ void JammerNetzAudioData::appendAudioBuffer(AudioBuffer<float> &buffer, uint8 *o
 			}
 
 			AudioData::Pointer<AudioData::Float32, AudioData::LittleEndian, AudioData::NonInterleaved, AudioData::Const> inputData(tempBuffer);
-			int datasize = buffer.getNumSamples() / reductionFactor * sizeof(uint16);
-			AudioData::Pointer<AudioData::Int16, AudioData::LittleEndian, AudioData::NonInterleaved, AudioData::NonConst> dataToSend(&output[writeIndex]);
+			uint16 *outputBuffer;
+			auto singleChannelVector = fbb.CreateUninitializedVector((size_t)buffer.getNumSamples()/reductionFactor, &outputBuffer);
+			AudioData::Pointer<AudioData::Int16, AudioData::LittleEndian, AudioData::NonInterleaved, AudioData::NonConst> dataToSend(outputBuffer);
 			dataToSend.convertSamples(inputData, outputSamples);
-			writeIndex += datasize;
+			channels.push_back(CreateJammerNetzPNPAudioSamples(fbb, singleChannelVector));
 		}
 	}
+	return fbb.CreateVector(channels);
 }
 
 std::shared_ptr<juce::AudioBuffer<float>> JammerNetzAudioData::audioBuffer() const
@@ -218,189 +244,60 @@ JammerNetzChannelSetup JammerNetzAudioData::channelSetup() const
 	return activeBlock_->channelSetup;
 }
 
-std::shared_ptr<AudioBlock> JammerNetzAudioData::readAudioHeaderAndBytes(uint8 *data, size_t &bytesread) {
+std::shared_ptr<AudioBlock> JammerNetzAudioData::readAudioHeaderAndBytes(JammerNetzPNPAudioBlock const *block) {
 	auto result = std::make_shared<AudioBlock>();
-	JammerNetzAudioBlock *block = reinterpret_cast<JammerNetzAudioBlock *>(&data[bytesread]);
-	result->messageCounter = block->messageCounter;
-	result->timestamp = block->timestamp;
-	result->channelSetup = block->channelSetup;
+
+	result->messageCounter = block->messageCounter();
+	result->timestamp = block->timestamp();
+	for (auto channel = block->channelSetup()->cbegin(); channel != block->channelSetup()->cend(); channel++) {
+		JammerNetzSingleChannelSetup setup(channel->target());
+		setup.volume = channel->volume();
+		result->channelSetup.channels.push_back(setup);
+	};
 	result->sampleRate = 48000;
-	int upsampleRate = 48000 / block->sampleRate;
-	jassert(block->numberOfSamples * upsampleRate == SAMPLE_BUFFER_SIZE);
-	result->audioBuffer = std::make_shared<AudioBuffer<float>>(block->numchannels, block->numberOfSamples * upsampleRate);
-	bytesread += sizeof(JammerNetzAudioHeader);
-	readAudioBytes(data, block->numchannels, block->numberOfSamples, result->audioBuffer, bytesread, upsampleRate);
+	int upsampleRate = 48000 / block->sampleRate();
+	jassert(block->numberOfSamples() * upsampleRate == SAMPLE_BUFFER_SIZE);
+	result->audioBuffer = std::make_shared<AudioBuffer<float>>(block->numChannels(), block->numberOfSamples() * upsampleRate);
+	readAudioBytes(block->channels(), result->audioBuffer, upsampleRate);
 	return result;
 }
 
-void JammerNetzAudioData::readAudioBytes(uint8 *data, int numchannels, int numsamples, std::shared_ptr<AudioBuffer<float>> destBuffer, size_t &bytesRead, int upsampleRate) {
-	for (int channel = 0; channel < numchannels; channel++) {
+void JammerNetzAudioData::readAudioBytes(flatbuffers::Vector<flatbuffers::Offset<JammerNetzPNPAudioSamples>> const *samples, std::shared_ptr<AudioBuffer<float>> destBuffer, int upsampleRate) {
+	int c = 0;
+	for (auto channel = samples->cbegin(); channel != samples->cend(); channel++) {
 		//TODO we might not have enough bytes in the package for this operation
 		if (upsampleRate == 1) {
-		AudioData::Pointer <AudioData::Int16,
-			AudioData::LittleEndian,
-			AudioData::NonInterleaved,
-			AudioData::Const> src_pointer(&data[bytesRead + channel * numsamples * sizeof(uint16)]);
-		AudioData::Pointer<AudioData::Float32,
-			AudioData::LittleEndian,
-			AudioData::NonInterleaved,
-			AudioData::NonConst> dst_pointer(destBuffer->getWritePointer(channel));
-		dst_pointer.convertSamples(src_pointer, numsamples);
-	}
+			
+			AudioData::Pointer <AudioData::Int16,
+				AudioData::LittleEndian,
+				AudioData::NonInterleaved,
+				AudioData::Const> src_pointer(channel->audioSamples()->data());
+			AudioData::Pointer<AudioData::Float32,
+				AudioData::LittleEndian,
+				AudioData::NonInterleaved,
+				AudioData::NonConst> dst_pointer(destBuffer->getWritePointer(c));
+			dst_pointer.convertSamples(src_pointer, channel->audioSamples()->size());
+		}
 		else {
 			float tempBuffer[MAXFRAMESIZE];
 			AudioData::Pointer <AudioData::Int16,
 				AudioData::LittleEndian,
 				AudioData::NonInterleaved,
-				AudioData::Const> src_pointer(&data[bytesRead + channel * numsamples * sizeof(uint16)]);
+				AudioData::Const> src_pointer(channel->audioSamples()->data());
 			AudioData::Pointer<AudioData::Float32,
 				AudioData::LittleEndian,
 				AudioData::NonInterleaved,
 				AudioData::NonConst> dst_pointer(tempBuffer);
-			dst_pointer.convertSamples(src_pointer, numsamples);
+			dst_pointer.convertSamples(src_pointer, channel->audioSamples()->size());
 
-			auto write = destBuffer->getWritePointer(channel);
-			for (int i = 0; i < numsamples; i++) {
+			auto write = destBuffer->getWritePointer(c);
+			for (size_t i = 0; i < channel->audioSamples()->size(); i++) {
 				for (int j = 0; j < upsampleRate; j++) {
 					write[i * upsampleRate + j] = tempBuffer[i];
 				}
 			}
 		}
-	}
-	bytesRead += numchannels * numsamples * sizeof(uint16);
-}
-
-JammerNetzFlare::JammerNetzFlare()
-{
-}
-
-JammerNetzMessage::MessageType JammerNetzFlare::getType() const
-{
-	return FLARE;
-}
-
-void JammerNetzFlare::serialize(uint8 *output, size_t &byteswritten) const
-{
-	writeHeader(output, FLARE);
-	byteswritten += sizeof(JammerNetzHeader);
-}
-
-// Deserializing constructor
-JammerNetzClientInfoMessage::JammerNetzClientInfoMessage(uint8 *data, size_t bytes) 
-{
-	flatbuffers::Verifier verifier(data + sizeof(JammerNetzHeader), bytes);
-	if (VerifyJammerNetzPNPClientInfoPackageBuffer(verifier)) {
-		auto root = GetJammerNetzPNPClientInfoPackage(data + sizeof(JammerNetzHeader));
-		auto infos = root->clientInfos();
-		for (auto info = infos->cbegin(); info != infos->cend(); info++) {
-			auto ipData = info->ipAddress();
-			jassert(ipData->size() == 16);
-			if (ipData->size() == 16) {
-				IPAddress ipAddress(ipData->data(), info->isIPV6());
-				JammerNetzStreamQualityInfo qualityInfo;
-				auto qi = info->qualityInfo();
-
-				qualityInfo.tooLateOrDuplicate = qi->tooLateOrDuplicate();
-				qualityInfo.droppedPacketCounter = qi->droppedPacketCounter();
-				qualityInfo.outOfOrderPacketCounter = qi->outOfOrderPacketCounter();
-				qualityInfo.duplicatePacketCounter = qi->duplicatePacketCounter();
-				qualityInfo.dropsHealed = qi->dropsHealed();
-				qualityInfo.packagesPushed = qi->packagesPushed();
-				qualityInfo.packagesPopped = qi->packagesPopped();
-				qualityInfo.maxLengthOfGap = qi->maxLengthOfGap();
-				qualityInfo.maxWrongOrderSpan = qi->maxWrongOrderSpan();
-
-				clientInfos_.emplace_back(ipAddress, info->portNumber(), qualityInfo);
-			}
-		}
-	}
-	else {
-		jassert(false);
+		c++;
 	}
 }
 
-JammerNetzClientInfoMessage::JammerNetzClientInfoMessage()
-{
-}
-
-void JammerNetzClientInfoMessage::addClientInfo(IPAddress ipAddress, int port, JammerNetzStreamQualityInfo infoData)
-{
-	clientInfos_.emplace_back(ipAddress, port, infoData);
-}
-
-JammerNetzMessage::MessageType JammerNetzClientInfoMessage::getType() const
-{
-	return CLIENTINFO;
-}
-
-void JammerNetzClientInfoMessage::serialize(uint8 *output, size_t &byteswritten) const
-{
-	byteswritten += writeHeader(output, CLIENTINFO);
-
- 	flatbuffers::FlatBufferBuilder fbb;
-	std::vector<flatbuffers::Offset<JammerNetzPNPClientInfo>> infos;
-	for (auto clientInfo : clientInfos_) {
-		// Setting the various fields of the quality info, separately
-		JammerNetzPNPStreamQualityInfoBuilder quality(fbb);
-		quality.add_tooLateOrDuplicate(clientInfo.qualityInfo.tooLateOrDuplicate);
-		quality.add_droppedPacketCounter(clientInfo.qualityInfo.droppedPacketCounter);
-
-		// Healed problems
-		quality.add_outOfOrderPacketCounter(clientInfo.qualityInfo.outOfOrderPacketCounter);
-		quality.add_duplicatePacketCounter(clientInfo.qualityInfo.duplicatePacketCounter);
-		quality.add_dropsHealed(clientInfo.qualityInfo.dropsHealed);
-
-		// Pure statistics
-		quality.add_packagesPushed(clientInfo.qualityInfo.packagesPushed);
-		quality.add_packagesPopped(clientInfo.qualityInfo.packagesPopped);
-		quality.add_maxLengthOfGap(clientInfo.qualityInfo.maxLengthOfGap);
-		quality.add_maxWrongOrderSpan(clientInfo.qualityInfo.maxWrongOrderSpan);
-		auto qualityEnd = quality.Finish();
-
-		auto ipVector = fbb.CreateVector(clientInfo.ipAddress, 16);
-		JammerNetzPNPClientInfoBuilder info(fbb);
-		info.add_ipAddress(ipVector);
-		info.add_isIPV6(clientInfo.isIPV6);
-		info.add_portNumber(clientInfo.portNumber);
-		info.add_qualityInfo(qualityEnd);
-
-		// Put into vector
-		infos.push_back(info.Finish());
-	}
-	auto infoVec = fbb.CreateVector(infos);
-	JammerNetzPNPClientInfoPackageBuilder infoPackage(fbb);
-	infoPackage.add_clientInfos(infoVec);
-	fbb.Finish(infoPackage.Finish());
-	memcpy(output + byteswritten, fbb.GetBufferPointer(), fbb.GetSize());
-	byteswritten += fbb.GetSize();
-}
-
-uint8 JammerNetzClientInfoMessage::getNumClients() const
-{
-	return (uint8) clientInfos_.size();
-}
-
-String JammerNetzClientInfoMessage::getIPAddress(uint8 clientNo) const
-{
-	if (clientNo < getNumClients()) {
-		IPAddress address(clientInfos_[clientNo].ipAddress, clientInfos_[clientNo].isIPV6);
-		return address.toString() + ":" + String(clientInfos_[clientNo].portNumber);
-	}
-	return "0.0.0.0";
-}
-
-JammerNetzStreamQualityInfo JammerNetzClientInfoMessage::getStreamQuality(uint8 clientNo) const
-{
-	JammerNetzStreamQualityInfo result{ 0 };
-	if (clientNo < getNumClients()) {
-		return clientInfos_[clientNo].qualityInfo;
-	}
-	return result;
-}
-
-JammerNetzClientInfo::JammerNetzClientInfo(IPAddress ip, int port, JammerNetzStreamQualityInfo qual) :
-	portNumber(port), qualityInfo(qual)
-{
-	std::copy(ip.address, ip.address + 16, ipAddress);
-	isIPV6 = ip.isIPv6;
-}

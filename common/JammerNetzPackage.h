@@ -8,11 +8,14 @@
 
 #include "JuceHeader.h"
 
+#include "flatbuffers/flatbuffers.h"
+#include "JammerNetzAudioData_generated.h"
+
+
 const size_t MAXFRAMESIZE = 65536;
-const size_t MAXCHANNELSPERCLIENT = 4;
 
 /*
- For lazi-ness and stateless-ness Jammernetz for now works with only a single message type for now. This is the format:
+ For lazi-ness and stateless-ness Jammernetz works with only a single message type for now. This is the format:
 
   | AUDIODATA type message - this is sent by the client to the server, and also the server sends its mixing result with this type of message
   | JammerNetzAudioHeader
@@ -20,10 +23,6 @@ const size_t MAXCHANNELSPERCLIENT = 4;
   | JammerNetzHeader                 | JammerNetzAudioBlock                                                                     | AudioData for Block                       |
   | magic0 magic1 magic2 messageType | timestamp messageCounter channelSetup            numChannels numberOfSamples sampleRate  | numChannels * numberOfSamples audio bytes | 
   | uint8  uint8  uint8  uint8       | double    uint64         JammerNetzChannelSetup  uint8       uint16          uint16      | uint16                                    |
-
-  | CLIENTINFO type message - these are sent only the the server to the clients
-  | JammerNetzClientInfoPackage
-  | JammerNetzHeader | JammerNetzClientInfoHeader | JammerNetzClientInfo |
 
 */
 
@@ -55,7 +54,7 @@ struct JammerNetzSingleChannelSetup {
 struct JammerNetzChannelSetup {
 	JammerNetzChannelSetup();
 	JammerNetzChannelSetup(std::vector<JammerNetzSingleChannelSetup> const &channelInfo);
-	JammerNetzSingleChannelSetup channels[MAXCHANNELSPERCLIENT];
+	std::vector<JammerNetzSingleChannelSetup> channels;
 
 	bool operator ==(const JammerNetzChannelSetup &other) const;
 };
@@ -85,38 +84,11 @@ struct AudioBlock {
 	std::shared_ptr<AudioBuffer<float>> audioBuffer;
 };
 
-struct JammerNetzStreamQualityInfo {
-	// Unhealed problems
-	uint64_t tooLateOrDuplicate;
-	int64_t droppedPacketCounter;
-
-	// Healed problems
-	int64_t outOfOrderPacketCounter;
-	int64_t duplicatePacketCounter;
-	uint64_t dropsHealed;
-
-	// Pure statistics
-	uint64_t packagesPushed;
-	uint64_t packagesPopped;
-	uint64_t maxLengthOfGap;
-	uint64_t maxWrongOrderSpan;
-};
-
-struct JammerNetzClientInfo {
-	JammerNetzClientInfo(IPAddress ipAddress, int portNumber, JammerNetzStreamQualityInfo qualityInfo);
-
-	uint8 ipAddress[16]; // The whole V6 IP address data. IP V4 would only use the first 4 bytes
-	bool isIPV6; // Not sure if I need this
-	int portNumber;
-	JammerNetzStreamQualityInfo qualityInfo;
-};
-
 class JammerNetzMessage {
 public:
 	enum MessageType {
 		AUDIODATA = 1,
 		CLIENTINFO = 8,
-		FLARE = 255
 	};
 
 	virtual MessageType getType() const = 0;
@@ -131,8 +103,8 @@ protected:
 class JammerNetzAudioData : public JammerNetzMessage {
 public:
 	JammerNetzAudioData(uint8 *data, size_t bytes);
-	JammerNetzAudioData(uint64 messageCounter, double timestamp, JammerNetzChannelSetup const &channelSetup, std::shared_ptr<AudioBuffer<float>> audioBuffer);
-	JammerNetzAudioData(AudioBlock const &audioBlock);
+	JammerNetzAudioData(uint64 messageCounter, double timestamp, JammerNetzChannelSetup const &channelSetup, int sampleRate, std::shared_ptr<AudioBuffer<float>> audioBuffer, std::shared_ptr<AudioBlock> fecBlock);
+	JammerNetzAudioData(AudioBlock const &audioBlock, std::shared_ptr<AudioBlock> fecBlock);
 
 	std::shared_ptr<JammerNetzAudioData> createFillInPackage(uint64 messageNumber) const;
 	std::shared_ptr<JammerNetzAudioData> createPrePaddingPackage() const;
@@ -140,7 +112,6 @@ public:
 	virtual MessageType getType() const override;
 
 	virtual void serialize(uint8 *output, size_t &byteswritten) const override;
-	void serialize(uint8 *output, size_t &byteswritten, std::shared_ptr<AudioBlock> src, uint16 sampleRate, uint16 reductionFactor) const;
 
 	// Read access, those use the "active block"
 	std::shared_ptr<AudioBuffer<float>> audioBuffer() const;
@@ -149,9 +120,10 @@ public:
 	JammerNetzChannelSetup channelSetup() const;
 
 private:
-	void appendAudioBuffer(AudioBuffer<float> &buffer, uint8 *output, size_t &writeIndex, uint16 reductionFactor) const;
-	std::shared_ptr<AudioBlock> readAudioHeaderAndBytes(uint8 *data, size_t &bytesread);
-	void readAudioBytes(uint8 *data, int numchannels, int numsamples, std::shared_ptr<AudioBuffer<float>> destBuffer, size_t &bytesRead, int upsampleRate);
+	flatbuffers::Offset<JammerNetzPNPAudioBlock> serializeAudioBlock(flatbuffers::FlatBufferBuilder &fbb, std::shared_ptr<AudioBlock> src, uint16 sampleRate, uint16 reductionFactor) const;
+	flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<JammerNetzPNPAudioSamples>>> appendAudioBuffer(flatbuffers::FlatBufferBuilder &fbb, AudioBuffer<float> &buffer, uint16 reductionFactor) const;
+	std::shared_ptr<AudioBlock> readAudioHeaderAndBytes(JammerNetzPNPAudioBlock const *block);
+	void readAudioBytes(flatbuffers::Vector<flatbuffers::Offset<JammerNetzPNPAudioSamples >> const *samples, std::shared_ptr<AudioBuffer<float>> destBuffer, int upsampleRate);
 
 	std::shared_ptr<AudioBlock> audioBlock_;
 	std::shared_ptr<AudioBlock> fecBlock_;
@@ -163,33 +135,4 @@ public:
 	bool operator() (std::shared_ptr<JammerNetzAudioData> const &data1, std::shared_ptr<JammerNetzAudioData> const &data2) {
 		return data1->messageCounter() > data2->messageCounter();
 	}
-};
-
-class JammerNetzClientInfoMessage : public JammerNetzMessage {
-public:
-	JammerNetzClientInfoMessage();
-	JammerNetzClientInfoMessage(JammerNetzClientInfoMessage const &other) = default;
-	void addClientInfo(IPAddress ipAddress, int port, JammerNetzStreamQualityInfo infoData);
-
-	virtual MessageType getType() const override;
-
-	uint8 getNumClients() const;
-	String getIPAddress(uint8 clientNo) const;
-	JammerNetzStreamQualityInfo getStreamQuality(uint8 clientNo) const;
-
-	// Deserializing constructor, used by JammerNetzMessage::deserialize()
-	JammerNetzClientInfoMessage(uint8 *data, size_t bytes);
-
-	// Implementing the serialization interface
-	virtual void serialize(uint8 *output, size_t &byteswritten) const override;
-
-private:
-	std::vector<JammerNetzClientInfo> clientInfos_;
-};
-
-class JammerNetzFlare : public JammerNetzMessage {
-public:
-	JammerNetzFlare();
-	virtual MessageType getType() const override;
-	virtual void serialize(uint8 *output, size_t &byteswritten) const override;
 };

@@ -14,7 +14,7 @@ class PrintQualityTimer;
 
 class AcceptThread : public Thread {
 public:
-	AcceptThread(DatagramSocket &socket, TPacketStreamBundle &incomingData, TMessageQueue &wakeUpQueue);
+	AcceptThread(DatagramSocket &socket, TPacketStreamBundle &incomingData, TMessageQueue &wakeUpQueue, void *keydata, int keysize);
 	~AcceptThread();
 
 	virtual void run() override;

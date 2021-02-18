@@ -4,26 +4,9 @@
 #  Dual licensed: Distributed under Affero GPL license by default, an MIT license is available for purchase
 #
 
-project("JammerNetzClient")
+project("JammerNetzClient" VERSION 2.0.0)
 
-# Find JUCE, and add the components we need
-find_package(JUCE REQUIRED 
-	COMPONENTS 
-		juce_core		
-		juce_events
-		juce_audio_basics
-		juce_audio_devices
-		juce_audio_formats
-		juce_audio_processors
-		juce_audio_utils
-		juce_data_structures
-		juce_cryptography
-		juce_dsp
-		juce_gui_basics
-		juce_gui_extra
-		juce_graphics
-		juce_opengl
-)
+configure_file("Source/version.cpp.in" "Source/version.cpp")
 
 # Load the macro to process binary resources
 include(BinaryResources)
@@ -48,7 +31,10 @@ set(SOURCES
 	Source/Main.cpp
 	Source/MainComponent.cpp
 	Source/MainComponent.h
+	Source/MidiPlayAlong.cpp Source/MidiPlayAlong.h
+	Source/PlayAlongDisplay.cpp Source/PlayAlongDisplay.h
 	Source/Resources.h
+	Source/version.cpp.in
 )
 source_group(Source FILES ${SOURCES})
 
@@ -98,7 +84,7 @@ source_group(Source\\UIComponents FILES ${UICOMPONENT_FILES})
 
 
 add_executable(JammerNetzClient WIN32 ${SOURCES} ${UICOMPONENT_FILES} ${AUDIO_PROCESSING_FILES} ${MIDI_FILES} ${RESOURCE_FILES} ${INSTALLER_FILES})
-
+target_include_directories(JammerNetzClient PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/Source")
 IF(WIN32)
 	target_link_directories(JammerNetzClient PRIVATE "${INTEL_TBB_DIRECTORY}/lib/intel64/vc14")
 	target_link_libraries(JammerNetzClient ${JUCE_LIBRARIES} JammerCommon juce-utils ff_meters)

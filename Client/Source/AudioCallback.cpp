@@ -12,6 +12,8 @@
 #include "BuffersConfig.h"
 #include "Settings.h"
 
+#include "Encryption.h"
+
 AudioCallback::AudioCallback(AudioDeviceManager &deviceManager) : client_([this](std::shared_ptr < JammerNetzAudioData> buffer) { playBuffer_.push(buffer); }),
 	toPlayLatency_(0.0), currentPlayQueueLength_(0), discardedPackageCounter_(0), playBuffer_("server")
 {
@@ -26,6 +28,9 @@ AudioCallback::AudioCallback(AudioDeviceManager &deviceManager) : client_([this]
 	masterRecorder_->updateChannelInfo(SAMPLE_RATE, JammerNetzChannelSetup({ JammerNetzChannelTarget::Left, JammerNetzChannelTarget::Right }));
 	midiRecorder_ = std::make_unique<MidiRecorder>(deviceManager);
 
+	// We might want to share a score sheet or similar
+	midiPlayalong_ = std::make_unique<MidiPlayAlong>("D:\\Development\\JammerNetz-OS\\Led Zeppelin - Stairway to heaven (1).kar");
+
 	// We want to be able to tune our instruments
 	tuner_ = std::make_unique<Tuner>();
 }
@@ -39,6 +44,16 @@ void AudioCallback::clearOutput(float** outputChannelData, int numOutputChannels
 
 void AudioCallback::newServer()
 {
+	// Reload crypto key
+	std::shared_ptr<MemoryBlock> cryptoKey;
+	if (UDPEncryption::loadKeyfile(ServerInfo::cryptoKeyfilePath.c_str(), &cryptoKey)) {
+		setCryptoKey(cryptoKey->getData(), (int)cryptoKey->getSize());
+	}
+	else {
+		StreamLogger::instance() << "Fatal - could not load crypto key file '" << ServerInfo::cryptoKeyfilePath << "'" << std::endl;
+	}
+
+	// Reset counters etc
 	minPlayoutBufferLength_ = CLIENT_PLAYOUT_JITTER_BUFFER;
 	currentPlayQueueLength_ = 0;
 	discardedPackageCounter_ = 0;
@@ -70,6 +85,17 @@ void AudioCallback::audioDeviceIOCallback(const float** inputChannelData, int nu
 	// Measure the peak values for each channel
 	meterSource_.measureBlock(*audioBuffer);
 	samplesPerTime(numSamples);
+
+	// Get play-along data. The MIDI Buffer should be ready to be played out now, but we will only look at the text events for now
+	std::vector<MidiMessage> buffer;
+	midiPlayalong_->fillNextMidiBuffer(buffer, numSamples);
+	if (!buffer.empty()) {
+		// The whole buffer is just a few milliseconds - take only the last text event
+		MidiMessage &message = buffer.back();
+		if (message.isTextMetaEvent()) {
+			currentText_ = message.getTextFromTextMetaEvent().toStdString();
+		}
+	}
 
 	// Send it to pitch detection
 	tuner_->detectPitch(audioBuffer);
@@ -164,11 +190,15 @@ void AudioCallback::setChannelSetup(JammerNetzChannelSetup const &channelSetup)
 	}
 }
 
-void AudioCallback::changeClientConfig(int clientBuffers, int maxBuffers, int flares)
+void AudioCallback::changeClientConfig(int clientBuffers, int maxBuffers)
 {
-	client_.setFlareNumber(flares);
 	minPlayoutBufferLength_ = clientBuffers;
 	maxPlayoutBufferLength_ = maxBuffers;
+}
+
+void AudioCallback::setCryptoKey(const void* keyData, int keyBytes)
+{
+	client_.setCryptoKey(keyData, keyBytes);
 }
 
 FFAU::LevelMeterSource* AudioCallback::getMeterSource()
@@ -184,6 +214,11 @@ FFAU::LevelMeterSource* AudioCallback::getOutputMeterSource()
 std::weak_ptr<MidiClocker> AudioCallback::getClocker()
 {
 	return midiRecorder_->getClocker();
+}
+
+MidiPlayAlong *AudioCallback::getPlayalong()
+{
+	return midiPlayalong_.get();
 }
 
 int64 AudioCallback::numberOfUnderruns() const

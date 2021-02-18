@@ -47,6 +47,9 @@
         <FILE id="Rcb4UW" name="MidiClocker.h" compile="0" resource="0" file="Source/MidiClocker.h"/>
         <FILE id="fBg8Iw" name="MidiNote.cpp" compile="1" resource="0" file="Source/MidiNote.cpp"/>
         <FILE id="co5FcD" name="MidiNote.h" compile="0" resource="0" file="Source/MidiNote.h"/>
+        <FILE id="SnuqCd" name="MidiPlayAlong.cpp" compile="1" resource="0"
+              file="Source/MidiPlayAlong.cpp"/>
+        <FILE id="HWqRRw" name="MidiPlayAlong.h" compile="0" resource="0" file="Source/MidiPlayAlong.h"/>
         <FILE id="HCuAXx" name="MidiRecorder.cpp" compile="1" resource="0"
               file="Source/MidiRecorder.cpp"/>
         <FILE id="PxofAi" name="MidiRecorder.h" compile="0" resource="0" file="Source/MidiRecorder.h"/>
@@ -67,6 +70,10 @@
         <FILE id="DVr3AR" name="Client.h" compile="0" resource="0" file="Source/Client.h"/>
       </GROUP>
       <GROUP id="{6C4AF25C-C1B2-440D-BC39-5DA258CFDFB7}" name="UIComponents">
+        <FILE id="VFoHIV" name="PlayalongDisplay.cpp" compile="1" resource="0"
+              file="Source/PlayalongDisplay.cpp"/>
+        <FILE id="HF6EMU" name="PlayalongDisplay.h" compile="0" resource="0"
+              file="Source/PlayalongDisplay.h"/>
         <FILE id="SbaJMQ" name="RecordingInfo.cpp" compile="1" resource="0"
               file="Source/RecordingInfo.cpp"/>
         <FILE id="GHWZnp" name="RecordingInfo.h" compile="0" resource="0" file="Source/RecordingInfo.h"/>

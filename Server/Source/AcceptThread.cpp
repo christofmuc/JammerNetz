@@ -8,8 +8,6 @@
 
 #include "BuffersConfig.h"
 
-#include "BinaryResources.h"
-
 #include <stack>
 
 class PrintQualityTimer : public HighResolutionTimer {
@@ -30,8 +28,8 @@ private:
 	TPacketStreamBundle &data_;
 };
 
-AcceptThread::AcceptThread(DatagramSocket &socket, TPacketStreamBundle &incomingData, TMessageQueue &wakeUpQueue) 
-	: Thread("ReceiverThread"), receiveSocket_(socket), incomingData_(incomingData), wakeUpQueue_(wakeUpQueue), blowFish_(RandomNumbers_bin, RandomNumbers_bin_size)
+AcceptThread::AcceptThread(DatagramSocket &socket, TPacketStreamBundle &incomingData, TMessageQueue &wakeUpQueue, void *keydata, int keysize)
+	: Thread("ReceiverThread"), receiveSocket_(socket), incomingData_(incomingData), wakeUpQueue_(wakeUpQueue), blowFish_(keydata, keysize)
 {
 	if (!receiveSocket_.bindToPort(7777)) {
 		std::cerr << "Failed to bind port to 7777" << std::endl;
@@ -65,6 +63,10 @@ void AcceptThread::run()
 			if (dataRead == -1) {
 				std::cerr << "Error reading data from socket, abort!" << std::endl;
 				exit(-1);
+			}
+			if (dataRead == 0) {
+				std::cerr << "Got empty packet from client, ignoring" << std::endl;
+				continue;
 			}
 			int messageLength = blowFish_.decrypt(readbuffer, dataRead);
 			if (messageLength == -1) {

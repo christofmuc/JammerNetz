@@ -11,8 +11,11 @@
 #include "MixerThread.h"
 #include "AcceptThread.h"
 #include "SendThread.h"
+#include "Encryption.h"
 
 #include "Recorder.h"
+
+#include "version.cpp"
 
 #ifdef WIN32
 #include <conio.h> // _kbhit()
@@ -20,14 +23,14 @@
 
 class Server {
 public:
-	Server() : mixdownRecorder_(File(), "mixdown", RecordingType::FLAC), clientRecorder_(File(), "input", RecordingType::AIFF),
+	Server(std::shared_ptr<MemoryBlock> cryptoKey) : mixdownRecorder_(File::getCurrentWorkingDirectory(), "mixdown", RecordingType::FLAC), clientRecorder_(File(), "input", RecordingType::AIFF),
 		mixdownSetup_({ JammerNetzChannelTarget::Left, JammerNetzChannelTarget::Right }) // Setup standard mix down setup - two channels only in stereo
 	{
 		// Start the recorder of the mix down
-		//mixdownRecorder_.updateChannelInfo(48000, mixdownSetup_);
-		acceptThread_ = std::make_unique<AcceptThread>(socket_, incomingStreams_, wakeUpQueue_);
-		sendThread_ = std::make_unique <SendThread>(socket_, sendQueue_, incomingStreams_);
-		mixerThread_ = std::make_unique<MixerThread>(incomingStreams_, mixdownSetup_, sendQueue_, wakeUpQueue_);
+		mixdownRecorder_.updateChannelInfo(48000, mixdownSetup_);
+		acceptThread_ = std::make_unique<AcceptThread>(socket_, incomingStreams_, wakeUpQueue_, cryptoKey->getData(), (int) cryptoKey->getSize());
+		sendThread_ = std::make_unique <SendThread>(socket_, sendQueue_, incomingStreams_, cryptoKey->getData(), (int) cryptoKey->getSize());
+		mixerThread_ = std::make_unique<MixerThread>(incomingStreams_, mixdownSetup_, sendQueue_, wakeUpQueue_, mixdownRecorder_);
 
 		sendQueue_.set_capacity(128); // This is an arbitrary number only to prevent memory overflow should the sender thread somehow die (i.e. no network or something)
 	}
@@ -45,7 +48,7 @@ public:
 		sendThread_->startThread();
 		mixerThread_->startThread();
 #ifdef WIN32
-		std::cout << "Starting JammerNetz server, press any key to stop" << std::endl;
+		std::cout << "Starting JammerNetz server version " << getServerVersion() << ", press any key to stop" << std::endl;
 		while (!_kbhit()) {
 #else
 		std::cout << "Starting JammerNetz server, using CTRL-C to stop" << std::endl;
@@ -70,10 +73,23 @@ private:
 	JammerNetzChannelSetup mixdownSetup_; // This is the same for everybody
 };
 
-int main(int, char*[])
+int main(int argc, char *argv[])
 {
+	// Check if filename for Crypto Key is given
+	if (argc < 2) {
+		std::cout << "Please specify the name of the crypto key file as command line argument. This should be a file containing 72 random bytes for the symmetric Blowfish encryption." << std::endl;
+		return -1;
+	}
+
+	// Try to load Crypto file
+	std::shared_ptr<MemoryBlock> cryptoKey;
+	if (!UDPEncryption::loadKeyfile(argv[1], &cryptoKey)) {
+		std::cout << "Failed to load crypto key from file " << argv[1] << ". Check the file exists." << std::endl;
+		return -1;
+	}
+
 	// Create Server
-	Server server;
+	Server server(cryptoKey);
 	server.launchServer();
 	return 0;
 }

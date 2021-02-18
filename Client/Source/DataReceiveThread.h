@@ -9,6 +9,7 @@
 #include "JuceHeader.h"
 
 #include "JammerNetzPackage.h"
+#include "JammerNetzClientInfoMessage.h"
 
 class DataReceiveThread : public Thread {
 public:
@@ -18,14 +19,16 @@ public:
 	virtual void run() override;
 
 	bool isReceivingData() const;
-	double currentRTT() const; 
+	double currentRTT() const;
 	std::shared_ptr<JammerNetzClientInfoMessage> getClientInfo() const;
+
+	void setCryptoKey(const void* keyData, int keyBytes);
 
 private:
 	DatagramSocket &socket_;
 	uint8 readbuffer_[MAXFRAMESIZE];
 	std::function<void(std::shared_ptr<JammerNetzAudioData>)> newDataHandler_;
-	BlowFish blowFish_;
+	std::unique_ptr<BlowFish> blowFish_;
 
 	// Thread safe storage of info for the UI thread
 	std::atomic<double> currentRTT_;	

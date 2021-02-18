@@ -15,6 +15,7 @@
 #include "Recorder.h"
 #include "Tuner.h"
 #include "MidiRecorder.h"
+#include "MidiPlayAlong.h"
 
 #include <chrono>
 
@@ -28,11 +29,14 @@ public:
 
 	void newServer();
 	void setChannelSetup(JammerNetzChannelSetup const &channelSetup);
-	void changeClientConfig(int clientBuffers, int maxBuffers, int flares);
+	void changeClientConfig(int clientBuffers, int maxBuffers);
+
+	void setCryptoKey(const void* keyData, int keyBytes);
 
 	FFAU::LevelMeterSource* getMeterSource();
 	FFAU::LevelMeterSource* getOutputMeterSource();
 	std::weak_ptr<MidiClocker> getClocker();
+	MidiPlayAlong *getPlayalong();
 
 	// Statistics
 	int64 numberOfUnderruns() const;
@@ -61,6 +65,7 @@ private:
 	std::atomic_uint64_t minPlayoutBufferLength_;
 	std::atomic_uint64_t maxPlayoutBufferLength_;
 	std::atomic_int64_t currentPlayQueueLength_;
+	std::string currentText_;
 	std::atomic_int64_t numSamplesSinceStart_;
 	int discardedPackageCounter_;
 	double toPlayLatency_;
@@ -72,6 +77,7 @@ private:
 	std::shared_ptr<Recorder> uploadRecorder_;
 	std::shared_ptr<Recorder> masterRecorder_;
 	std::unique_ptr<MidiRecorder> midiRecorder_;
+	std::unique_ptr<MidiPlayAlong> midiPlayalong_;
 
 	std::unique_ptr<Tuner> tuner_;
 
