@@ -31,6 +31,8 @@ public:
 	void setChannelSetup(JammerNetzChannelSetup const &channelSetup);
 	void changeClientConfig(int clientBuffers, int maxBuffers);
 
+	void setCryptoKey(const void* keyData, int keyBytes);
+
 	FFAU::LevelMeterSource* getMeterSource();
 	FFAU::LevelMeterSource* getOutputMeterSource();
 	std::weak_ptr<MidiClocker> getClocker();

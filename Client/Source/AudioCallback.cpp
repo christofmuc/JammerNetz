@@ -184,6 +184,11 @@ void AudioCallback::changeClientConfig(int clientBuffers, int maxBuffers)
 	maxPlayoutBufferLength_ = maxBuffers;
 }
 
+void AudioCallback::setCryptoKey(const void* keyData, int keyBytes)
+{
+	client_.setCryptoKey(keyData, keyBytes);
+}
+
 FFAU::LevelMeterSource* AudioCallback::getMeterSource()
 {
 	return &meterSource_;

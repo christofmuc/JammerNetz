@@ -17,6 +17,8 @@ public:
 	Client(std::function<void(std::shared_ptr<JammerNetzAudioData>)> newDataHandler);
 	~Client();
 
+	void setCryptoKey(const void* keyData, int keyBytes);
+
 	bool isReceivingData() const;
 	bool sendData(JammerNetzChannelSetup const &channelSetup, std::shared_ptr<AudioBuffer<float>> audioBuffer);
 	int getCurrentBlockSize() const;
@@ -33,5 +35,5 @@ private:
 
 	std::unique_ptr<DataReceiveThread> receiver_;
 	RingOfAudioBuffers<AudioBlock> fecBuffer_; // Forward error correction buffer, keep the last n sent packages
-	BlowFish blowFish_;
+	std::unique_ptr<BlowFish> blowFish_;
 };

@@ -71,14 +71,14 @@ else()
 	pkg_check_modules(GLEW REQUIRED IMPORTED_TARGET glew)
 endif()
 
-#
+
 # We need a cryptographic key that server and client will share so they can communicate. In its simplest form, we will just take some random numbers from the internet
-set(CRYPTO_FILE "${CMAKE_CURRENT_LIST_DIR}/common/resources/RandomNumbers.bin")
+set(CRYPTO_FILE "${CMAKE_CURRENT_LIST_DIR}/RandomNumbers.bin")
 if(NOT EXISTS ${CRYPTO_FILE})
 	message(STATUS "Creating 72 random byte crypto seed with the help of random.org")
 	file(DOWNLOAD "https://www.random.org/cgi-bin/randbyte?nbytes=72&format=f" ${CRYPTO_FILE}
 		   TIMEOUT 60  # seconds
-		  )
+	  )
 endif()
 
 # Use all cores

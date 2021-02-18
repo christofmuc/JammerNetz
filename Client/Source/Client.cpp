@@ -9,12 +9,11 @@
 #include "JammerNetzPackage.h"
 #include "ServerInfo.h"
 #include "StreamLogger.h"
-#include "BinaryResources.h"
 
 #include "BuffersConfig.h"
 
 Client::Client(std::function<void(std::shared_ptr<JammerNetzAudioData>)> newDataHandler) : messageCounter_(10) /* TODO - because of the pre-fill on server side, can't be 0 */
-	, currentBlockSize_(0), fecBuffer_(16), blowFish_(RandomNumbers_bin, RandomNumbers_bin_size)
+	, currentBlockSize_(0), fecBuffer_(16)
 {
 	// We will send data to the server via this port
 	int randomPort = 8888 + (Random().nextInt() % 64);
@@ -33,6 +32,11 @@ Client::~Client()
 	// Give the network thread a second to exit
 	receiver_->stopThread(1000);
 	socket_.shutdown();
+}
+
+void Client::setCryptoKey(const void* keyData, int keyBytes)
+{
+	blowFish_ = std::make_unique<BlowFish>(keyData, keyBytes);
 }
 
 bool Client::isReceivingData() const
@@ -76,13 +80,19 @@ bool Client::sendData(JammerNetzChannelSetup const &channelSetup, std::shared_pt
 	fecBuffer_.push(redundencyData);
 
 	// Send off to server
-	int encryptedLength = blowFish_.encrypt(sendBuffer_, totalBytes, MAXFRAMESIZE);
-	if (encryptedLength == -1) {
-		StreamLogger::instance() << "Fatal: Couldn't encrypt package, not sending to server!" << std::endl;
-		return false;
+	if (blowFish_) {
+		int encryptedLength = blowFish_->encrypt(sendBuffer_, totalBytes, MAXFRAMESIZE);
+		if (encryptedLength == -1) {
+			std::cerr << "Fatal: Couldn't encrypt package, not sending to server!" << std::endl;
+			return false;
+		}
+		// Check decryption
+		sendData(ServerInfo::serverName, ServerInfo::serverPort, sendBuffer_, encryptedLength);
+		currentBlockSize_ = encryptedLength;
 	}
-	sendData(ServerInfo::serverName, ServerInfo::serverPort, sendBuffer_, encryptedLength);
-	currentBlockSize_ = encryptedLength;
+	else {
+		std::cerr << "Fatal: No crypto key loaded, can't send to server!" << std::endl;
+	}
 
 	return true;
 }

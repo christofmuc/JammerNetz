@@ -8,10 +8,9 @@
 
 #include "StreamLogger.h"
 #include "ServerInfo.h"
-#include "BinaryResources.h"
 
 DataReceiveThread::DataReceiveThread(DatagramSocket &socket, std::function<void(std::shared_ptr<JammerNetzAudioData>)> newDataHandler)
-	: Thread("ReceiveDataFromServer"), socket_(socket), newDataHandler_(newDataHandler), currentRTT_(0.0), blowFish_(RandomNumbers_bin, RandomNumbers_bin_size), isReceiving_(false)
+	: Thread("ReceiveDataFromServer"), socket_(socket), newDataHandler_(newDataHandler), currentRTT_(0.0), isReceiving_(false)
 {
 }
 
@@ -40,38 +39,40 @@ void DataReceiveThread::run()
 				StreamLogger::instance() << "Ignoring zero byte message received from " << senderIPAdress << ":" << senderPortNumber << std::endl;
 				continue;
 			}
-			int messageLength = blowFish_.decrypt(readbuffer_, dataRead);
-			if (messageLength == -1) {
-				StreamLogger::instance() << "Couldn't decrypt package received from server, probably fatal" << std::endl;
-				continue;
-			}
+			if (blowFish_) {
+				int messageLength = blowFish_->decrypt(readbuffer_, dataRead);
+				if (messageLength == -1) {
+					StreamLogger::instance() << "Couldn't decrypt package received from server, probably fatal" << std::endl;
+					continue;
+				}
 
-			// Check that the package at least seems to come from the currently active server
-			if (senderIPAdress.toStdString() == ServerInfo::serverName) {
-				auto message = JammerNetzMessage::deserialize(readbuffer_, messageLength);
-				if (message) {
-					isReceiving_ = true;
-					switch (message->getType()) {
-					case JammerNetzMessage::AUDIODATA: {
-						auto audioData = std::dynamic_pointer_cast<JammerNetzAudioData>(message);
-						if (audioData) {
-							// Hand off to player 
-							currentRTT_ = Time::getMillisecondCounterHiRes() - audioData->timestamp();
-							newDataHandler_(audioData);
+				// Check that the package at least seems to come from the currently active server
+				if (senderIPAdress.toStdString() == ServerInfo::serverName) {
+					auto message = JammerNetzMessage::deserialize(readbuffer_, messageLength);
+					if (message) {
+						isReceiving_ = true;
+						switch (message->getType()) {
+						case JammerNetzMessage::AUDIODATA: {
+							auto audioData = std::dynamic_pointer_cast<JammerNetzAudioData>(message);
+							if (audioData) {
+								// Hand off to player 
+								currentRTT_ = Time::getMillisecondCounterHiRes() - audioData->timestamp();
+								newDataHandler_(audioData);
+							}
+							break;
 						}
-						break;
-					}
-					case JammerNetzMessage::CLIENTINFO: {
-						auto clientInfo = std::dynamic_pointer_cast<JammerNetzClientInfoMessage>(message);
-						if (clientInfo) {
-							// Yes, got it. Copy it! This is thread safe if and only if the read function to the shared_ptr is atomic!
-							lastClientInfoMessage_ = std::make_shared<JammerNetzClientInfoMessage>(*clientInfo);
+						case JammerNetzMessage::CLIENTINFO: {
+							auto clientInfo = std::dynamic_pointer_cast<JammerNetzClientInfoMessage>(message);
+							if (clientInfo) {
+								// Yes, got it. Copy it! This is thread safe if and only if the read function to the shared_ptr is atomic!
+								lastClientInfoMessage_ = std::make_shared<JammerNetzClientInfoMessage>(*clientInfo);
+							}
+							break;
 						}
-						break;
-					}
-					default:
-						// What's this?
-						jassert(false);
+						default:
+							// What's this?
+							jassert(false);
+						}
 					}
 				}
 			}

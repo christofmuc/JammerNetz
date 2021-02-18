@@ -8,12 +8,6 @@
 find_package(Flatbuffers REQUIRED PATHS "${CMAKE_CURRENT_LIST_DIR}/../third_party/flatbuffers")
 include(HomegrownFlatC)
 
-# Load the macro to process binary resources
-include(BinaryResources)
-
-# Create our binary resources
-create_resources(resources BinaryResources.h)
-
 # Compile Flatbuffers. The output will be found because we added CMAKE_CURRENT_BINARY_DIR to the list of includes above
 IF (WIN32)	
 	set(FLATBUFFERS_FLATC_EXECUTABLE "${CMAKE_CURRENT_LIST_DIR}/../third_party/flatbuffers/builds/Debug/flatc.exe")
@@ -26,13 +20,13 @@ FLATBUFFERS_GENERATE_C_HEADERS(FlatJammer JammerNetzPackages.fbs JammerNetzAudio
 set(Sources
 	BuffersConfig.h
 	CMakeLists.txt
+	Encryption.cpp Encryption.h
 	JammerNetzClientInfoMessage.cpp JammerNetzClientInfoMessage.h
 	JammerNetzPackage.cpp JammerNetzPackage.h	
 	JammerNetzPackages.fbs
 	JammerNetzAudioData.fbs
 	${FlatJammer_OUTPUTS}
 	PacketStreamQueue.cpp PacketStreamQueue.h
-	BinaryResources.h
 	Recorder.cpp Recorder.h
 	RingOfAudioBuffers.h
 	ServerInfo.cpp ServerInfo.h

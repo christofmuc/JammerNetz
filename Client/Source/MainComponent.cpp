@@ -16,6 +16,8 @@
 
 #include "LayoutConstants.h"
 
+#include "Encryption.h"
+
 MainComponent::MainComponent(String clientID) : audioDevice_(nullptr),
 inputSelector_("Inputs", false, "InputSetup", deviceManager_, true, [this](std::shared_ptr<ChannelSetup> setup) { setupChanged(setup); }),
 outputSelector_("Outputs", false, "OutputSetup", deviceManager_, false, [this](std::shared_ptr<ChannelSetup> setup) { outputSetupChanged(setup);  }),
@@ -74,6 +76,11 @@ callback_(deviceManager_)
 	// Make sure you set the size of the component after
 	// you add any child components.
 	setSize(1024, 800);
+
+	// Load Crypto key!
+	std::shared_ptr<MemoryBlock> cryptoKey;
+	UDPEncryption::loadKeyfile("D:\\Development\\github\\JammerNetz-OS\\buildsServer\\RandomNumbers.bin", &cryptoKey);
+	callback_.setCryptoKey(cryptoKey->getData(), (int)cryptoKey->getSize());
 }
 
 MainComponent::~MainComponent()
@@ -98,8 +105,8 @@ void MainComponent::refreshChannelSetup(std::shared_ptr<ChannelSetup> setup) {
 			JammerNetzSingleChannelSetup channel((uint8)channelControllers_[i]->getCurrentTarget());
 			channel.volume = channelControllers_[i]->getCurrentVolume();
 			channelSetup.channels.push_back(channel);
-			}
 		}
+	}
 	callback_.setChannelSetup(channelSetup);
 }
 
@@ -120,11 +127,11 @@ void MainComponent::restartAudio(std::shared_ptr<ChannelSetup> inputSetup, std::
 	if (selectedType) {
 		if (selectedType->hasSeparateInputsAndOutputs()) {
 			// This is for other Audio types like DirectSound
-			audioDevice_.reset(selectedType->createDevice(outputSetup ? outputSetup->device : "", inputSetup ? inputSetup->device :  ""));
-	}
+			audioDevice_.reset(selectedType->createDevice(outputSetup ? outputSetup->device : "", inputSetup ? inputSetup->device : ""));
+		}
 		else {
 			// Try to create the device purely from the input name, this would be the path for ASIO)
-		if (inputSetup) {
+			if (inputSetup) {
 				audioDevice_.reset(selectedType->createDevice("", inputSetup->device));
 			}
 		}
@@ -132,24 +139,24 @@ void MainComponent::restartAudio(std::shared_ptr<ChannelSetup> inputSetup, std::
 		if (audioDevice_) {
 			BigInteger inputChannelMask = inputSetup ? makeChannelMask(inputSetup->activeChannelIndices) : 0;
 			BigInteger outputChannelMask = outputSetup ? makeChannelMask(outputSetup->activeChannelIndices) : 0;
-		String error = audioDevice_->open(inputChannelMask, outputChannelMask, ServerInfo::sampleRate, ServerInfo::bufferSize);
-		if (error.isNotEmpty()) {
-			jassert(false);
-			StreamLogger::instance() << "Error opening Audio Device: " << error << std::endl;
-			refreshChannelSetup(std::shared_ptr < ChannelSetup>());
-		}
-		else {
-			inputLatencyInMS_ = audioDevice_->getInputLatencyInSamples() / (float)ServerInfo::sampleRate * 1000.0f;
-			StreamLogger::instance() << "Input latency is at " << inputLatencyInMS_ << "ms" << std::endl;
-			outputLatencyInMS_ = audioDevice_->getOutputLatencyInSamples() / (float)ServerInfo::sampleRate* 1000.0f;
-			StreamLogger::instance() << "Output latency is at " << outputLatencyInMS_ << "ms" << std::endl;
+			String error = audioDevice_->open(inputChannelMask, outputChannelMask, ServerInfo::sampleRate, ServerInfo::bufferSize);
+			if (error.isNotEmpty()) {
+				jassert(false);
+				StreamLogger::instance() << "Error opening Audio Device: " << error << std::endl;
+				refreshChannelSetup(std::shared_ptr < ChannelSetup>());
+			}
+			else {
+				inputLatencyInMS_ = audioDevice_->getInputLatencyInSamples() / (float)ServerInfo::sampleRate * 1000.0f;
+				StreamLogger::instance() << "Input latency is at " << inputLatencyInMS_ << "ms" << std::endl;
+				outputLatencyInMS_ = audioDevice_->getOutputLatencyInSamples() / (float)ServerInfo::sampleRate* 1000.0f;
+				StreamLogger::instance() << "Output latency is at " << outputLatencyInMS_ << "ms" << std::endl;
 
-			refreshChannelSetup(inputSetup);
+				refreshChannelSetup(inputSetup);
 				// We can actually start recording and playing
-			audioDevice_->start(&callback_);
+				audioDevice_->start(&callback_);
+			}
 		}
 	}
-}
 }
 
 void MainComponent::stopAudioIfRunning()
@@ -180,7 +187,7 @@ void MainComponent::resized()
 	// Setup lower left - the server and client config
 	auto clientConfigArea = settingsArea.removeFromLeft(settingsSectionWidth);
 	serverGroup_.setBounds(clientConfigArea);
-	clientConfigArea.reduce(kNormalInset, kNormalInset);		
+	clientConfigArea.reduce(kNormalInset, kNormalInset);
 	clientConfigurator_.setBounds(clientConfigArea.removeFromBottom(kLineSpacing * 3 + 2 * kNormalInset));
 	connectionInfo_.setBounds(clientConfigArea.removeFromBottom(kLineSpacing));
 	serverStatus_.setBounds(clientConfigArea);
@@ -189,7 +196,7 @@ void MainComponent::resized()
 	auto qualityArea = settingsArea.removeFromLeft(settingsSectionWidth);
 	qualityGroup_.setBounds(qualityArea);
 	qualityArea.reduce(kNormalInset, kNormalInset);
-	statusInfo_.setBounds(qualityArea.removeFromTop(qualityArea.getHeight()/2));
+	statusInfo_.setBounds(qualityArea.removeFromTop(qualityArea.getHeight() / 2));
 	for (auto clientInfo : clientInfo_) {
 		clientInfo->setBounds(qualityArea.removeFromTop(kLineHeight * 2));
 	}
@@ -274,14 +281,14 @@ void MainComponent::timerCallback()
 	status << "Buffers: " << callback_.currentBufferSize() << std::endl;
 	status << "Input latency: " << inputLatencyInMS_ << "ms" << std::endl;
 	status << "Output latency: " << outputLatencyInMS_ << "ms" << std::endl;
-	status << "Roundtrip: " << callback_.currentRTT()  << "ms" << std::endl;
+	status << "Roundtrip: " << callback_.currentRTT() << "ms" << std::endl;
 	status << "PlayQ: " << callback_.currentPlayQueueSize() << std::endl;
 	status << "Discarded: " << callback_.currentDiscardedPackageCounter() << std::endl;
 	status << "Total: " << callback_.currentToPlayLatency() + inputLatencyInMS_ + outputLatencyInMS_ << " ms" << std::endl;
 	statusInfo_.setText(status.str(), dontSendNotification);
 	downstreamInfo_.setText(callback_.currentReceptionQuality(), dontSendNotification);
 	std::stringstream connectionInfo;
-	connectionInfo << std::fixed << std::setprecision(2) 
+	connectionInfo << std::fixed << std::setprecision(2)
 		<< "Network MTU: " << callback_.currentPacketSize() << " bytes. Bandwidth: "
 		<< callback_.currentPacketSize() * 8 * (ServerInfo::sampleRate / (float)ServerInfo::bufferSize) / (1024 * 1024.0f) << "MBit/s. ";
 	connectionInfo_.setText(connectionInfo.str(), dontSendNotification);
@@ -332,7 +339,7 @@ void MainComponent::outputSetupChanged(std::shared_ptr<ChannelSetup> setup)
 {
 	currentOutputSetup_ = setup;
 	restartAudio(currentInputSetup_, currentOutputSetup_);
-}	
+}
 
 void MainComponent::newServerSelected()
 {

@@ -14,7 +14,7 @@
 
 class SendThread : public Thread {
 public:
-	SendThread(DatagramSocket& socket, TOutgoingQueue &sendQueue, TPacketStreamBundle &incomingData);
+	SendThread(DatagramSocket& socket, TOutgoingQueue &sendQueue, TPacketStreamBundle &incomingData, void *keydata, int keysize);
 
 	virtual void run() override;
 

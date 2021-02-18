@@ -26,7 +26,7 @@ private:
 	DatagramSocket &socket_;
 	uint8 readbuffer_[MAXFRAMESIZE];
 	std::function<void(std::shared_ptr<JammerNetzAudioData>)> newDataHandler_;
-	BlowFish blowFish_;
+	std::unique_ptr<BlowFish> blowFish_;
 
 	// Thread safe storage of info for the UI thread
 	std::atomic<double> currentRTT_;	
