@@ -32,7 +32,7 @@ set(SOURCES
 	Source/MainComponent.cpp
 	Source/MainComponent.h
 	Source/MidiPlayAlong.cpp Source/MidiPlayAlong.h
-	Source/PlayAlongDisplay.cpp Source/PlayAlongDisplay.h
+	Source/PlayalongDisplay.cpp Source/PlayalongDisplay.h
 	Source/Resources.h
 	Source/version.cpp.in
 )
