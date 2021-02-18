@@ -21,6 +21,12 @@ JammerNetz is quite feature rich, the following are the main items:
   * Features a built-in instrument tuner display showing you the detected note and cents for each channel, so it is easy and quick to get everybody on the same A.
   * BlowFish encryption based on a shared secret that is compiled into the software, so you are not sending data unsecured through the internet. We don't claim this is state of the art and probably not enough bits of encryption, but better than sending unencrypted audio data. This certainly is a point for improvement.
 
+## Screenshot
+
+Here is a screenshot 
+
+[![](client-screenshot.PNG)](https://raw.githubusercontent.com/christofmuc/JammerNetz/master/client-screenshot.PNG)
+
 ### Limitations
 
 It should be noted that due to the design of the system, we have a few limitations or restrictions that other systems might not have. We believe that we have made sensible trade-offs, but your milage may vary:
@@ -154,6 +160,8 @@ To launch the server, just type
     ./builds/Server/JammerNetzServer
 
 and it shall listen on port 7777.
+
+The gcc version seems to matter, I am testing with a vanilla Ubuntu 18.04 LTS installation which comes with gcc 7.5.0 out of the box. Newer gcc versions might require some tinkering with the Flatbuffers build.
 
 ## Changing the shared secret for encryption
 
