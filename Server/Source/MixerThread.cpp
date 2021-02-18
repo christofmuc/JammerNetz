@@ -155,5 +155,5 @@ void MixerThread::bufferMixdown(std::shared_ptr<AudioBuffer<float>> &outBuffer, 
 		}
 	}
 	// We have a mix down now, hand this off to the recorder
-	recorder_.saveBlock(outBuffer->getArrayOfReadPointers(), outBuffer->getNumSamples());
+	//recorder_.saveBlock(outBuffer->getArrayOfReadPointers(), outBuffer->getNumSamples());
 }

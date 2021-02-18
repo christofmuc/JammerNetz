@@ -8,7 +8,7 @@
 
 #include "LayoutConstants.h"
 
-PlayalongDisplay::PlayalongDisplay(MidiPlayAlong &playalong) : playalong_(playalong)
+PlayalongDisplay::PlayalongDisplay(MidiPlayAlong *playalong) : playalong_(playalong)
 {
 	textToDisplay_.setText("None", dontSendNotification);
 	addAndMakeVisible(textToDisplay_);
@@ -34,21 +34,23 @@ void PlayalongDisplay::resized()
 
 void PlayalongDisplay::timerCallback()
 {
-	auto newText = playalong_.karaoke();
-	if (newText != textToDisplay_.getText()) {
-		textToDisplay_.setText(newText, dontSendNotification);
+	if (playalong_) {
+		auto newText = playalong_->karaoke();
+		if (newText != textToDisplay_.getText()) {
+			textToDisplay_.setText(newText, dontSendNotification);
+		}
 	}
 }
 
 void PlayalongDisplay::buttonClicked(Button *button)
 {
-	if (button == &startStop_) {
-		if (playalong_.isPlaying()) {
-			playalong_.stop();
+	if (button == &startStop_ && playalong_) {
+		if (playalong_->isPlaying()) {
+			playalong_->stop();
 			startStop_.setButtonText("Start");
 		}
 		else {
-			playalong_.start();
+			playalong_->start();
 			startStop_.setButtonText("Stop");
 		}
 	}

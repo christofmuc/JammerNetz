@@ -12,7 +12,7 @@
 
 class PlayalongDisplay : public Component, private Button::Listener, private Timer {
 public:
-	PlayalongDisplay(MidiPlayAlong &playalong);
+	PlayalongDisplay(MidiPlayAlong *playalong);
 	virtual ~PlayalongDisplay();
 
 	virtual void resized() override;
@@ -24,5 +24,5 @@ private:
 	Label textToDisplay_;
 	TextButton startStop_;
 
-	MidiPlayAlong &playalong_;
+	MidiPlayAlong *playalong_;
 };

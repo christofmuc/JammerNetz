@@ -26,7 +26,7 @@ callback_(deviceManager_)
 {
 	bpmDisplay_ = std::make_unique<BPMDisplay>(callback_.getClocker());
 	recordingInfo_ = std::make_unique<RecordingInfo>(callback_.getMasterRecorder());
-	playalongDisplay_ = std::make_unique<PlayalongDisplay>(*callback_.getPlayalong());
+	playalongDisplay_ = std::make_unique<PlayalongDisplay>(callback_.getPlayalong());
 	localRecordingInfo_ = std::make_unique<RecordingInfo>(callback_.getLocalRecorder());
 
 	outputController_.setMeterSource(callback_.getOutputMeterSource(), -1);

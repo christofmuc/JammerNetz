@@ -29,7 +29,7 @@ AudioCallback::AudioCallback(AudioDeviceManager &deviceManager) : client_([this]
 	midiRecorder_ = std::make_unique<MidiRecorder>(deviceManager);
 
 	// We might want to share a score sheet or similar
-	midiPlayalong_ = std::make_unique<MidiPlayAlong>("D:\\Development\\JammerNetz-OS\\Led Zeppelin - Stairway to heaven (1).kar");
+	//midiPlayalong_ = std::make_unique<MidiPlayAlong>("D:\\Development\\JammerNetz-OS\\Led Zeppelin - Stairway to heaven (1).kar");
 
 	// We want to be able to tune our instruments
 	tuner_ = std::make_unique<Tuner>();
@@ -87,13 +87,15 @@ void AudioCallback::audioDeviceIOCallback(const float** inputChannelData, int nu
 	samplesPerTime(numSamples);
 
 	// Get play-along data. The MIDI Buffer should be ready to be played out now, but we will only look at the text events for now
-	std::vector<MidiMessage> buffer;
-	midiPlayalong_->fillNextMidiBuffer(buffer, numSamples);
-	if (!buffer.empty()) {
-		// The whole buffer is just a few milliseconds - take only the last text event
-		MidiMessage &message = buffer.back();
-		if (message.isTextMetaEvent()) {
-			currentText_ = message.getTextFromTextMetaEvent().toStdString();
+	if (false) {
+		std::vector<MidiMessage> buffer;
+		midiPlayalong_->fillNextMidiBuffer(buffer, numSamples);
+		if (!buffer.empty()) {
+			// The whole buffer is just a few milliseconds - take only the last text event
+			MidiMessage &message = buffer.back();
+			if (message.isTextMetaEvent()) {
+				currentText_ = message.getTextFromTextMetaEvent().toStdString();
+			}
 		}
 	}
 

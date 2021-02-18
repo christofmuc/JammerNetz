@@ -27,7 +27,7 @@ public:
 		mixdownSetup_({ JammerNetzChannelTarget::Left, JammerNetzChannelTarget::Right }) // Setup standard mix down setup - two channels only in stereo
 	{
 		// Start the recorder of the mix down
-		mixdownRecorder_.updateChannelInfo(48000, mixdownSetup_);
+		//mixdownRecorder_.updateChannelInfo(48000, mixdownSetup_);
 		acceptThread_ = std::make_unique<AcceptThread>(socket_, incomingStreams_, wakeUpQueue_, cryptoKey->getData(), (int) cryptoKey->getSize());
 		sendThread_ = std::make_unique <SendThread>(socket_, sendQueue_, incomingStreams_, cryptoKey->getData(), (int) cryptoKey->getSize());
 		mixerThread_ = std::make_unique<MixerThread>(incomingStreams_, mixdownSetup_, sendQueue_, wakeUpQueue_, mixdownRecorder_);
