@@ -36,7 +36,10 @@ Client::~Client()
 
 void Client::setCryptoKey(const void* keyData, int keyBytes)
 {
-	blowFish_ = std::make_unique<BlowFish>(keyData, keyBytes);
+	{
+		ScopedLock blowfishLock(blowFishLock_);
+		blowFish_ = std::make_unique<BlowFish>(keyData, keyBytes);
+	}
 	receiver_->setCryptoKey(keyData, keyBytes);
 }
 
@@ -82,6 +85,7 @@ bool Client::sendData(JammerNetzChannelSetup const &channelSetup, std::shared_pt
 
 	// Send off to server
 	if (blowFish_) {
+		ScopedLock blowfishLock(blowFishLock_);
 		int encryptedLength = blowFish_->encrypt(sendBuffer_, totalBytes, MAXFRAMESIZE);
 		if (encryptedLength == -1) {
 			std::cerr << "Fatal: Couldn't encrypt package, not sending to server!" << std::endl;

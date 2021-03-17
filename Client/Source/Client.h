@@ -36,4 +36,5 @@ private:
 	std::unique_ptr<DataReceiveThread> receiver_;
 	RingOfAudioBuffers<AudioBlock> fecBuffer_; // Forward error correction buffer, keep the last n sent packages
 	std::unique_ptr<BlowFish> blowFish_;
+	juce::CriticalSection blowFishLock_;
 };

@@ -40,6 +40,7 @@ void DataReceiveThread::run()
 				continue;
 			}
 			if (blowFish_) {
+				ScopedLock lock(blowFishLock_);
 				int messageLength = blowFish_->decrypt(readbuffer_, dataRead);
 				if (messageLength == -1) {
 					StreamLogger::instance() << "Couldn't decrypt package received from server, probably fatal" << std::endl;
@@ -102,5 +103,6 @@ bool DataReceiveThread::isReceivingData() const
 }
 
 void DataReceiveThread::setCryptoKey(const void* keyData, int keyBytes) {
+	ScopedLock lock(blowFishLock_);
 	blowFish_ = std::make_unique<BlowFish>(keyData, keyBytes);
 }
