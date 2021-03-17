@@ -18,6 +18,8 @@ ServerSelector::ServerSelector(std::function<void()> notify) : localhostSelected
 	serverLabel_.setText("Server:", dontSendNotification);	
 	ipAddress_.setText(lastServer_, dontSendNotification);
 	ipAddress_.addListener(this);
+	connectButton_.setButtonText("Connect");
+	connectButton_.onClick = [this]() { textEditorReturnKeyPressed(ipAddress_); };
 
 	keyLabel_.setText("Crypto file", dontSendNotification);
 	browseToKey_.setButtonText("Browse...");
@@ -34,6 +36,7 @@ ServerSelector::ServerSelector(std::function<void()> notify) : localhostSelected
 	addAndMakeVisible(useLocalhost_);
 	addAndMakeVisible(serverLabel_);
 	addAndMakeVisible(ipAddress_);
+	addAndMakeVisible(connectButton_);
 	addAndMakeVisible(keyLabel_);
 	addAndMakeVisible(keyPath_);
 	addAndMakeVisible(browseToKey_);
@@ -45,10 +48,13 @@ void ServerSelector::resized()
 	auto topRow = area.removeFromTop(kLineHeight);
 	serverLabel_.setBounds(topRow.removeFromLeft(kLabelWidth));
 	auto entryArea = topRow.removeFromLeft(kEntryBoxWidth);
-	entryArea.setHeight(kLineHeight);
 	ipAddress_.setBounds(entryArea);
-	useLocalhost_.setBounds(topRow);
-	auto lowerRow = area;
+	connectButton_.setBounds(topRow.removeFromLeft(kLabelWidth).withTrimmedLeft(kNormalInset));
+
+	auto middleRow = area.removeFromTop(kLineSpacing);
+	useLocalhost_.setBounds(middleRow.withTrimmedTop(kNormalInset));
+
+	auto lowerRow = area.removeFromTop(kLineSpacing).withTrimmedTop(kNormalInset);
 	keyLabel_.setBounds(lowerRow.removeFromLeft(kLabelWidth));
 	browseToKey_.setBounds(lowerRow.removeFromRight(kLabelWidth).withTrimmedLeft(kNormalInset));
 	keyPath_.setBounds(lowerRow);
@@ -90,7 +96,7 @@ void ServerSelector::textEditorReturnKeyPressed(TextEditor& editor)
 
 void ServerSelector::textEditorFocusLost(TextEditor&)
 {
-	ipAddress_.setText(lastServer_, dontSendNotification);
+	 // Nothing to do, the user might click on Connect
 }
 
 void ServerSelector::buttonClicked(Button *button)

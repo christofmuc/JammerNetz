@@ -28,6 +28,7 @@ private:
 	ToggleButton useLocalhost_;
 	Label serverLabel_;
 	TextEditor ipAddress_;
+	TextButton connectButton_;
 	Label keyLabel_;
 	TextEditor keyPath_;
 	TextButton browseToKey_;

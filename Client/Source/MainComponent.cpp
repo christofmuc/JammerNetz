@@ -181,7 +181,7 @@ void MainComponent::resized()
 	auto clientConfigArea = settingsArea.removeFromLeft(settingsSectionWidth);
 	serverGroup_.setBounds(clientConfigArea);
 	clientConfigArea.reduce(kNormalInset, kNormalInset);
-	clientConfigurator_.setBounds(clientConfigArea.removeFromBottom(kLineSpacing * 3 + 2 * kNormalInset));
+	clientConfigurator_.setBounds(clientConfigArea.removeFromBottom(kLineSpacing * 2));
 	connectionInfo_.setBounds(clientConfigArea.removeFromBottom(kLineSpacing));
 	serverStatus_.setBounds(clientConfigArea);
 

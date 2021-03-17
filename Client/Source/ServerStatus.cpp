@@ -24,7 +24,7 @@ ServerStatus::ServerStatus(std::function<void()> notify) : serverSelector_(notif
 void ServerStatus::resized()
 {
 	auto area = getLocalBounds().reduced(kNormalInset);
-	serverSelector_.setBounds(area.removeFromTop(kLineHeight*2));
+	serverSelector_.setBounds(area.removeFromTop((kLineHeight + kNormalInset) *3));
 	cloudImage_.setBounds(area.withSizeKeepingCentre(128, 128).withTrimmedTop(kNormalInset));
 }
 

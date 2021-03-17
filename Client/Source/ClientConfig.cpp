@@ -32,14 +32,13 @@ ClientConfigurator::ClientConfigurator(std::function<void(int, int)> updateHandl
 
 void ClientConfigurator::resized()
 {
-	auto area = getLocalBounds().reduced(kNormalInset);
-	auto row1 = area.removeFromTop(kLineSpacing);
+	auto area = getLocalBounds();
+	auto row1 = area.removeFromTop(kLineSpacing).withTrimmedTop(kNormalInset);
 	bufferLabel_.setBounds(row1.removeFromLeft(kLabelWidth));
 	bufferLength_.setBounds(row1.removeFromLeft(kSliderWithBoxWidth));
-	auto row2 = area.removeFromTop(kLineSpacing);
+	auto row2 = area.removeFromTop(kLineSpacing).withTrimmedTop(kNormalInset);
 	maxLabel_.setBounds(row2.removeFromLeft(kLabelWidth));
 	maxLength_.setBounds(row2.removeFromLeft(kSliderWithBoxWidth));
-	auto row3 = area.removeFromTop(kLineSpacing);
 }
 
 void ClientConfigurator::sliderValueChanged(Slider*)
