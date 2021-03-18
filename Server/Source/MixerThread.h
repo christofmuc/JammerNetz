@@ -10,12 +10,13 @@
 
 #include "SharedServerTypes.h"
 #include "JammerNetzPackage.h"
+#include "BuffersConfig.h"
 
 #include "Recorder.h"
 
 class MixerThread : public Thread {
 public:
-	MixerThread(TPacketStreamBundle &incoming, JammerNetzChannelSetup mixdownSetup, TOutgoingQueue &outgoing, TMessageQueue &wakeUpQueue, Recorder &recorder);
+	MixerThread(TPacketStreamBundle &incoming, JammerNetzChannelSetup mixdownSetup, TOutgoingQueue &outgoing, TMessageQueue &wakeUpQueue, Recorder &recorder, ServerBufferConfig bufferConfig);
 
 	virtual void run() override;
 
@@ -27,4 +28,5 @@ private:
 	TMessageQueue &wakeUpQueue_;
 	JammerNetzChannelSetup mixdownSetup_;
 	Recorder &recorder_;
+	ServerBufferConfig bufferConfig_;
 };

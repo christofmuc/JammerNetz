@@ -8,8 +8,8 @@
 
 #include "BuffersConfig.h"
 
-MixerThread::MixerThread(TPacketStreamBundle &incoming, JammerNetzChannelSetup mixdownSetup, TOutgoingQueue &outgoing, TMessageQueue &wakeUpQueue, Recorder &recorder)
-	: Thread("MixerThread"), incoming_(incoming), mixdownSetup_(mixdownSetup), outgoing_(outgoing), wakeUpQueue_(wakeUpQueue), recorder_(recorder)
+MixerThread::MixerThread(TPacketStreamBundle &incoming, JammerNetzChannelSetup mixdownSetup, TOutgoingQueue &outgoing, TMessageQueue &wakeUpQueue, Recorder &recorder, ServerBufferConfig bufferConfig)
+	: Thread("MixerThread"), incoming_(incoming), mixdownSetup_(mixdownSetup), outgoing_(outgoing), wakeUpQueue_(wakeUpQueue), recorder_(recorder), bufferConfig_(bufferConfig)
 {
 }
 
@@ -30,8 +30,8 @@ void MixerThread::run() {
 		for (auto &inqueue : incoming_) {
 			if (inqueue.second) {
 				clientCount++;
-				if (inqueue.second->size() > SERVER_INCOMING_JITTER_BUFFER) available++;
-				if (inqueue.second->size() > SERVER_INCOMING_MAXIMUM_BUFFER) queueOverrun = true; // This is one client much faster than the others
+				if (inqueue.second->size() > bufferConfig_.serverIncomingJitterBuffer) available++;
+				if (inqueue.second->size() > bufferConfig_.serverIncomingMaximumBuffer) queueOverrun = true; // This is one client much faster than the others
 			}
 		}
 		if (clientCount == available) allHaveDelivered = true;

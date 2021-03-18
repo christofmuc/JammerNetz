@@ -28,8 +28,8 @@ private:
 	TPacketStreamBundle &data_;
 };
 
-AcceptThread::AcceptThread(DatagramSocket &socket, TPacketStreamBundle &incomingData, TMessageQueue &wakeUpQueue, void *keydata, int keysize)
-	: Thread("ReceiverThread"), receiveSocket_(socket), incomingData_(incomingData), wakeUpQueue_(wakeUpQueue), blowFish_(keydata, keysize)
+AcceptThread::AcceptThread(DatagramSocket &socket, TPacketStreamBundle &incomingData, TMessageQueue &wakeUpQueue, ServerBufferConfig bufferConfig, void *keydata, int keysize)
+	: Thread("ReceiverThread"), receiveSocket_(socket), incomingData_(incomingData), wakeUpQueue_(wakeUpQueue), bufferConfig_(bufferConfig), blowFish_(keydata, keysize)
 {
 	if (!receiveSocket_.bindToPort(7777)) {
 		std::cerr << "Failed to bind port to 7777" << std::endl;
@@ -95,7 +95,7 @@ void AcceptThread::run()
 					if (prefill) {
 						auto lastInserted = audioData;
 						std::stack<std::shared_ptr<JammerNetzAudioData>> reverse;
-						for (int i = 0; i < BUFFER_PREFILL_ON_CONNECT; i++) {
+						for (int i = 0; i < bufferConfig_.serverBufferPrefillOnConnect; i++) {
 							lastInserted = lastInserted->createPrePaddingPackage();
 							reverse.push(lastInserted);
 						}

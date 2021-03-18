@@ -36,3 +36,9 @@ const int FEC_RINGBUFFER_SIZE = 16;
 // By how much should we reduce the sample count for the FEC data?
 const int FEC_SAMPLERATE_REDUCTION = 2;
 
+// To transport this information easily
+struct ServerBufferConfig {
+	int serverIncomingJitterBuffer;
+	int serverIncomingMaximumBuffer;
+	int serverBufferPrefillOnConnect;
+};

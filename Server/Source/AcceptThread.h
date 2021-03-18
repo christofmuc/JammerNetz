@@ -9,12 +9,13 @@
 #include "JuceHeader.h"
 
 #include "SharedServerTypes.h"
+#include "BuffersConfig.h"
 
 class PrintQualityTimer;
 
 class AcceptThread : public Thread {
 public:
-	AcceptThread(DatagramSocket &socket, TPacketStreamBundle &incomingData, TMessageQueue &wakeUpQueue, void *keydata, int keysize);
+	AcceptThread(DatagramSocket &socket, TPacketStreamBundle &incomingData, TMessageQueue &wakeUpQueue, ServerBufferConfig bufferConfig, void *keydata, int keysize);
 	~AcceptThread();
 
 	virtual void run() override;
@@ -25,5 +26,6 @@ private:
 	TMessageQueue &wakeUpQueue_;
 	uint8 readbuffer[MAXFRAMESIZE];
 	std::unique_ptr<PrintQualityTimer> qualityTimer_;
+	ServerBufferConfig bufferConfig_;
 	BlowFish blowFish_;
 };
