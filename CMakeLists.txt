@@ -32,13 +32,6 @@ if (WIN32)
 	set(ASIO_SDK_DIRECTORY "${asiosdk_SOURCE_DIR}/common")
 
 	FetchContent_Declare(
-		inteltbb
-		URL https://github.com/oneapi-src/oneTBB/releases/download/v2020.2/tbb-2020.2-win.zip
-	)
-	FetchContent_MakeAvailable(inteltbb)
-	set(INTEL_TBB_DIRECTORY "${inteltbb_SOURCE_DIR}/tbb/") 
-
-	FetchContent_Declare(
 		vcredist
 		URL https://aka.ms/vs/16/release/vc_redist.x64.exe
 		DOWNLOAD_NO_EXTRACT true
@@ -46,13 +39,6 @@ if (WIN32)
 	FetchContent_MakeAvailable(vcredist)
 	set(VCREDIST_PATH "${CMAKE_CURRENT_BINARY_DIR}/_deps/vcredist-subbuild/vcredist-populate-prefix/src")
 elseif(APPLE)
-	FetchContent_Declare(
-		inteltbb
-		URL https://github.com/oneapi-src/oneTBB/releases/download/v2020.2/tbb-2020.2-mac.tgz
-	)
-	FetchContent_MakeAvailable(inteltbb)
-	set(INTEL_TBB_DIRECTORY "${inteltbb_SOURCE_DIR}/tbb/") 
-	
 	# Supress a warning from juce_TargetPlatform by letting it know the build type
 	# NOTE that NDEBUG is set automatically in Release
 	if (NOT CMAKE_BUILD_TYPE MATCHES Release)
@@ -172,8 +158,12 @@ set_target_properties(juce-static PROPERTIES
 	CXX_VISIBILITY_PRESET hidden)
 
 
+# Configure TBB
+set(TBB_TEST OFF)
+
 add_subdirectory("third_party/JUCE-user-modules")
 add_subdirectory("modules/juce-utils")
+add_subdirectory("third_party/oneTBB")
 add_subdirectory("common")
 add_subdirectory("Server")
 add_subdirectory("Client")

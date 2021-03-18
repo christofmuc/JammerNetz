@@ -20,3 +20,6 @@
 	path = third_party/googletest
 	url = https://github.com/google/googletest.git
 	branch = master
+[submodule "third_party/oneTBB"]
+	path = third_party/oneTBB
+	url = https://github.com/oneapi-src/oneTBB.git

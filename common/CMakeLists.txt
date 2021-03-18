@@ -39,7 +39,7 @@ target_include_directories(JammerCommon
 	INTERFACE ${CMAKE_CURRENT_LIST_DIR}
 	PRIVATE ${JUCE_INCLUDES}
 )
-target_link_libraries(JammerCommon PRIVATE juce-utils)
+target_link_libraries(JammerCommon PUBLIC TBB::tbb PRIVATE juce-utils)
 
 # Pedantic about warnings
 if (MSVC)

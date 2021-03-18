@@ -86,10 +86,8 @@ source_group(Source\\UIComponents FILES ${UICOMPONENT_FILES})
 add_executable(JammerNetzClient WIN32 ${SOURCES} ${UICOMPONENT_FILES} ${AUDIO_PROCESSING_FILES} ${MIDI_FILES} ${RESOURCE_FILES} ${INSTALLER_FILES})
 target_include_directories(JammerNetzClient PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/Source")
 IF(WIN32)
-	target_link_directories(JammerNetzClient PRIVATE "${INTEL_TBB_DIRECTORY}/lib/intel64/vc14")
 	target_link_libraries(JammerNetzClient ${JUCE_LIBRARIES} JammerCommon juce-utils ff_meters)
 elseif(APPLE)
-	target_link_directories(JammerNetzClient PRIVATE "${INTEL_TBB_DIRECTORY}/lib/")
 	target_link_libraries(JammerNetzClient ${JUCE_LIBRARIES} JammerCommon juce-utils ff_meters tbb)
 ELSE()
 	target_link_libraries(JammerNetzClient 
@@ -122,7 +120,7 @@ IF(WIN32)
 	add_custom_command(
 			TARGET JammerNetzClient POST_BUILD
 			COMMAND ${CMAKE_COMMAND} -E copy
-					${INTEL_TBB_DIRECTORY}/bin/intel64/vc14/$<IF:$<CONFIG:Release>,tbb,tbb_debug>.dll
+					${CMAKE_BINARY_DIR}/$<IF:$<CONFIG:Release>,msvc_19.16_cxx17_64_md_release/tbb12.dll,msvc_19.16_cxx17_64_md_debug/tbb12_debug.dll>
 					${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>)
 ENDIF()
 

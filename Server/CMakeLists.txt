@@ -22,14 +22,13 @@ set(SOURCES
 add_executable(JammerNetzServer ${SOURCES})
 target_include_directories(JammerNetzServer PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/Source")
 if (WIN32)
-	target_link_directories(JammerNetzServer PRIVATE "${INTEL_TBB_DIRECTORY}/lib/intel64/vc14")
 	target_link_libraries(JammerNetzServer  ${JUCE_LIBRARIES} juce-utils JammerCommon)
 
 	# Post build commands - copy the DLLs
 	add_custom_command(
 			TARGET JammerNetzServer POST_BUILD
 			COMMAND ${CMAKE_COMMAND} -E copy
-					${INTEL_TBB_DIRECTORY}/bin/intel64/vc14/$<IF:$<CONFIG:Release>,tbb,tbb_debug>.dll
+					${CMAKE_BINARY_DIR}/$<IF:$<CONFIG:Release>,msvc_19.16_cxx17_64_md_release/tbb12.dll,msvc_19.16_cxx17_64_md_debug/tbb12_debug.dll>
 					${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>)
 elseif(APPLE)
 	target_link_directories(JammerNetzServer PRIVATE "${INTEL_TBB_DIRECTORY}/lib/")
