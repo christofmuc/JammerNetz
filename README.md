@@ -5,9 +5,9 @@
 
 JammerNetz is an Open Source system for "networked music performance" (NMP), also known as "jamming over the internet". It consists of a lightweight server software, and a little UI client software that can use your audio devices and stream multiple uncompressed high-quality audio channels to other participants as a common mixdown.
 
-The design choice is that if you have a modern DSL or fibre connection, there is no need to degrade your music experience using CODECs mostly designed for speech transmission as used in some other internet jam solutions. We are happily using JammerNetz since months for our weekly sessions with synths, voice, and electric guitar.
+The design choice is that if you have a modern DSL or fibre connection there is no need to degrade your music experience using CODECs mostly designed for speech transmission as used in some other internet jam solutions. We are happily using JammerNetz since over a year for our weekly sessions with synths, voice, and electric guitar.
 
-Of course be aware that the main influence on the quality has your internet provider and your choice where you are running the server. If you have high quality fibre and a good and fast ASIO-capable audio interface, you can expect 50ms total latency, which we think is awesome. Of course, if some participants are bound for cable internet and are trying to play together across all of Germany, even running the server in a suitable AWS instance in Frankfurt close to the internet's main hub will not get you much better than 70-80 ms total audio latency (including AD and DA conversion in your interface, not round trip time), which we feel is still worth the effort!
+Of course be aware that the main influence on the quality has your internet provider and your choice where you are running the server. If you have high quality fibre and a good and fast ASIO-capable audio interface, you can expect 50ms total latency, which we think is awesome. Of course, if some participants are bound for cable internet and are trying to play together across all of Germany, even running the server in a suitable AWS instance in Frankfurt close to the internet's main hub will not get you much better than 70-80 ms total audio latency (including AD and DA conversion in your interface), which we feel is still worth the effort!
 
 ## Features
 
@@ -19,7 +19,7 @@ JammerNetz is quite feature rich, the following are the main items:
   * Does automatic hard-disk recording of your session to local disk on each client in a lossless compressed FLAC file. After the session, everybody has a record to revisit.
   * Does automatic MIDI recording in case it detects any incoming MIDI notes, thereby logging all keys played into a MIDI file for later revisit ("what did I play? Sounds great!")
   * Features a built-in instrument tuner display showing you the detected note and cents for each channel, so it is easy and quick to get everybody on the same A.
-  * BlowFish encryption based on a shared secret that is compiled into the software, so you are not sending data unsecured through the internet. We don't claim this is state of the art and probably not enough bits of encryption, but better than sending unencrypted audio data. This certainly is a point for improvement.
+  * BlowFish encryption based on a shared secret, so you are not sending data unsecured through the internet. We don't claim this is state of the art and probably not enough bits of encryption, but better than sending unencrypted audio data. This certainly is a point for improvement.
 
 ## Screenshot
 
@@ -31,13 +31,13 @@ Here is a screenshot
 
 It should be noted that due to the design of the system, we have a few limitations or restrictions that other systems might not have. We believe that we have made sensible trade-offs, but your milage may vary:
 
-  1. All clients need to run on the same sample rate (48000 is set in the source, but you might want to switch to 44100), else mixing the signals together isn't straightforward.
+  1. All clients need to run on the same sample rate (48000 is set in the source, but you might want to switch to 44100 in file BuffersConfig.h).
   2. Even the buffer size used by the device must be identical. The file BuffersConfig.h has the constants and is currently set at 128 samples.
-  3. As we are aiming for lowest-possible latency, you should really use an audio device with ASIO drivers on Windows, even if Windows Audio and DirectSound are offered. Stay away from DirectSound. Mac CoreAudio works as well.
+  3. As we are aiming for lowest-possible latency, you should really use an audio device with ASIO drivers on Windows, even if Windows Audio and DirectSound are offered. Stay away from DirectSound. Mac CoreAudio works as well very nicely.
 
 ## Usage
 
-As of today, the system is still in a build-and-run-yourself state. You will need some experience in compiling a C++ application and starting an AWS instance and deploying the Linux build of the server there to run it. Depending on the interest in this system, we might be able to provide more help. 
+As of today, the system is still in a build-and-run-yourself state. You will need some experience in compiling a C++ application and starting an AWS (or Azure or self-hosted or...) instance and deploying the Linux build of the server there to run it. Depending on the interest in this system, we might be able to provide more help. 
 
 # Building the software
 
@@ -58,9 +58,8 @@ The recursive clone with  submodules is required to retrieve the following addit
 3. [Q](https://github.com/cycfi/Q), a highly interesting modern C++ DSP library we use for the instrument tuning/pitch detection. Go check it out, it's really cool!
 4. [Infra](https://github.com/cycfi/infra), a little helper library required by Q.
 5. [Flatbuffers](https://google.github.io/flatbuffers/), a C++ serialization library we use for parts of the network protocol.
-6. [juce-cmake](https://github.com/remymuller/juce-cmake) to allow us to use JUCE and CMake together.
 
-As we don't want to send any unecrpyted audio data through the internet, we use a simple BlowFish encryption scheme to make sure that only authorized people join the jam session. For now, we have simply compiled a shared secret into server and client, more elaborate schemes might follow.
+As we don't want to send any unecrpyted audio data through the internet, we use a simple BlowFish encryption scheme to make sure that only authorized people join the jam session. More on that below.
 
 ## Building on Windows
 
@@ -71,7 +70,13 @@ Using CMake and building JammerNetz client and server is a multi-step build, whi
 
     buildWindows.bat
 
-Have a look inside that file in case you're interested in the required build commands. The build will take a few minutes, and produce both Debug and Release versions of Client and Server software, as well as a client installer in case you have InnoSetup installeed before kicking off. The installer executable is created as `<JammerNetzDir>\Builds\Client\jammernetz_setup.exe`
+Have a look inside that file in case you're interested in the required build commands. The build will take a few minutes, and produce both Debug and Release versions of Client and Server software, as well as a client installer in case you have InnoSetup installed before kicking off. The installer executable is created as `<JammerNetzDir>\Builds\Client\jammernetz_setup.exe`
+
+To test it, you can launch the server on your local machine with
+
+    <JammerNetzDir>\Builds\Server\Release\JammerNetzServer.exe [nameOfSecretsFile]
+
+Simply use the "connect to local server" checkbox of the client.
 
 ## Building on macOS
 
@@ -128,7 +133,7 @@ The build above produced a Linux executable. If you have an Ubuntu server runnin
 Then dial into your server, using ssh or putty, and make sure to have all runtime prequisites installed. With that done, you can just launch the server:
 
     apt-get install -y libtbb-dev libasound2-dev libjack-dev 
-    ./JammerNetzServer
+    ./JammerNetzServer [nameOfSecretsFile]
 
 (I haven't tested the number of installs, refer to the native Linux builds section below should you encounter problems).
 The server should start up and announce its presensence with a happy
@@ -142,7 +147,7 @@ All clients *from the same build* should be able to connect to the server via it
 
 If you are working on Linux, make sure to have all development prerequisites installed! On a fresh Debian 9 machine, that would e.g. require the following installs:
 
-    sudo apt-get -y install g++ libtbb-dev libasound2-dev libcurl4-openssl-dev libfreetype6-dev libjack-dev libx11-dev libglew-dev mesa-common-dev webkit2gtk-4.0
+    sudo apt-get -y install g++ libasound2-dev libcurl4-openssl-dev libfreetype6-dev libjack-dev libx11-dev libglew-dev mesa-common-dev webkit2gtk-4.0
 
 With those installs and the recursive git clone from above, cd into the cloned directory and run cmake with the following commands:
 
@@ -157,21 +162,23 @@ This should have created a server binary as `builds/Server/JammerNetzServer` and
 
 To launch the server, just type
 
-    ./builds/Server/JammerNetzServer
+    ./builds/Server/JammerNetzServer [nameOfSecretsFile]
 
 and it shall listen on port 7777.
 
-The gcc version seems to matter, I am testing with a vanilla Ubuntu 18.04 LTS installation which comes with gcc 7.5.0 out of the box. Newer gcc versions might require some tinkering with the Flatbuffers build.
+The gcc version seems to matter, I am testing with a vanilla Ubuntu 18.04 LTS installation which comes with gcc 7.5.0 out of the box. 
 
-## Changing the shared secret for encryption
+## The encryption secrets
 
-To regenerate the shared secret, create a file named RandomNumbers.bin in the &lt;JammerNetzDir&gt;\common subdirectory. For example, you can use an external source like (https://www.random.org/bytes/) to generate 72 random bytes, or use a more trustworthy key source as you choose.
+Earlier versions had the 72 random bytes required for the Blowfish encryption compiled into the executable. But now the secrets are read from the command line by the server, and the client has a browse to... feature to select a file with the secret key. The encryption is symmetric, so both the server and all clients need to have the same secrets file, and the secure distribution of the key is left to the user. 
+
+To generate the shared secret, create a file e.g. named RandomNumbers.bin and specify this in the command line when launching the server, and distribute to the clients for selecting in the UI.
+
+For example, you can use an external source like https://www.random.org/bytes/ to generate 72 random bytes, or use a more trustworthy key source as you like.
 
 ## Similar systems
 
 We had used the great [Jamulus](http://llcon.sourceforge.net/) system before developing our own system, and JammerNetz certainly has been inspired by this great piece of software. We also made some substantial design and architecture changes over Jamulus, justifying a new development instead of contributing to the Jamulus codebase. Most importantly, while Jamulus is using Qt as a cross-platform library, JammerNetz uses JUCE, massively reducing the lines of code required. 
-
-Note that as of today Jamulus is in a much more plug'n'play state than JammerNetz, so if you want to quickly try out the concept of a live internet jam session, we strongly recommend you go over and check out Jamulus - they even host a few test servers so you can get up and running in minutes!
 
 ## Licensing
 
