@@ -167,3 +167,6 @@ add_subdirectory("third_party/oneTBB")
 add_subdirectory("common")
 add_subdirectory("Server")
 add_subdirectory("Client")
+
+# The client installer now contains the server as well for local testing - make sure to always build the server
+add_dependencies(JammerNetzClient JammerNetzServer)
