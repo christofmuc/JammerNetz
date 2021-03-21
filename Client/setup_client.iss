@@ -38,7 +38,7 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 
 [Files]
 Source: "${CMAKE_CURRENT_BINARY_DIR}\Release\JammerNetzClient.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "${CMAKE_CURRENT_BINARY_DIR}\Release\tbb.dll"; DestDir: "{app}"; Flags: ignoreversion
+Source: "${CMAKE_CURRENT_BINARY_DIR}\Release\tbb12.dll"; DestDir: "{app}"; Flags: ignoreversion
 Source: "${VCREDIST_PATH}\{#VCRedistFileName}"; DestDir: {tmp}; Flags: dontcopy
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 ; VC++ redistributable runtime. Extracted by VC2017RedistNeedsInstall(), if needed.
