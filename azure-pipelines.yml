@@ -64,16 +64,19 @@ jobs:
     - task: CMake@1
       displayName: Configuring CMake for Windows
       inputs:        
+        workingDirectory: $(Build.SourcesDirectory)
         cmakeArgs: '-S . -B Builds\Windows -G "Visual Studio 15 2017 Win64"'
       condition: variables.isWindows2017
     - task: CMake@1
       displayName: Configuring CMake for Windows
       inputs:        
+        workingDirectory: $(Build.SourcesDirectory)
         cmakeArgs: '-S . -B Builds\Windows -G "Visual Studio 16 2019" -A x64'
       condition: variables.isWindows2019
     - task: CMake@1
       displayName: Running CMake build for Windows
       inputs:
+        workingDirectory: $(Build.SourcesDirectory)
         cmakeArgs: '--build Builds\Windows --config RelWithDebInfo'
       condition: variables.isWindows
 
