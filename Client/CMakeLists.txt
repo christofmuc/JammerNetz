@@ -153,3 +153,31 @@ IF(APPLE)
 	)
 ENDIF()
 
+IF(APPLE)
+    # This is supposed to build a relocatable macOS DMG installer when you specify the
+    # --target package
+    SET(MY_RELEASE_DIR ${CMAKE_BINARY_DIR}/macInstaller)
+    SET(APPS "\${CMAKE_INSTALL_PREFIX}/JammerNetzClient.app")
+    SET(DIRS ${CMAKE_BINARY_DIR})
+    INSTALL(TARGETS JammerNetzClient
+        BUNDLE DESTINATION . COMPONENT Runtime
+        RUNTIME DESTINATION bin COMPONENT Runtime
+        )
+    
+    INSTALL(CODE "include(BundleUtilities)
+	set(BU_CHMOD_BUNDLE_ITEMS TRUE)
+    fixup_bundle(\"${APPS}\"  \"\"  \"${DIRS}\" IGNORE_ITEM \"Python\")
+    " COMPONENT Runtime)
+    
+    # Setup CPack variables
+    #set(CPACK_PACKAGE_ICON ${CMAKE_CURRENT_SOURCE_DIR}/resources/icon_orm.png)
+    set(CPACK_PACKAGE_VERSION ${JammerNetzClient_VERSION})
+    set(CPACK_PACKAGE_VENDOR "Christof Ruch Beratungs UG (haftungsbeschraenkt)")
+    set(CPACK_RESOURCE_FILE_LICENSE ${CMAKE_CURRENT_SOURCE_DIR}/Redist/agpl-3.0.txt)
+    
+    # Select only the dmg generator for now
+    SET(CPACK_BINARY_DRAGNDROP ON)
+    SET(CPACK_BINARY_TGZ OFF)
+    SET(CPACK_BINARY_STGZ OFF)
+    INCLUDE(CPack)
+ENDIF()
