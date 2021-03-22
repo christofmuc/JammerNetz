@@ -4,7 +4,7 @@
 #  Dual licensed: Distributed under Affero GPL license by default, an MIT license is available for purchase
 #
 
-project("JammerNetzServer" VERSION 2.0.0)
+project("JammerNetzServer" VERSION 2.1.0)
 
 include_directories("${INTEL_TBB_DIRECTORY}/include/")
 

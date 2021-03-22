@@ -91,7 +91,8 @@ int main(int argc, char *argv[])
 
 	// Specify commands
 	ConsoleApplication app;
-	app.addHelpCommand("--help|-h", "This is the JammerNetzServer\n\n" + shortExeName + " --key=<key file> [--buffer=<buffer count>] [--wait=<buffer count>] [--prefill=<buffer count>]\n\n" , true);
+	app.addHelpCommand("--help|-h", "This is the JammerNetzServer " + String(getServerVersion()) + "\n\n  " + shortExeName + " --key=<key file> [--buffer=<buffer count>] [--wait=<buffer count>] [--prefill=<buffer count>]\n\n" +
+		"or\n\n  " + shortExeName + " -k <key file> [-b <buffer count>] [-w <buffer count>] [-p <buffer count>]\n\n", true);
 	app.addVersionCommand("--version|-v", "JammerNetzServer " + String(getServerVersion()));
 	app.addDefaultCommand({ "launch", "-k <key file>", "Launch the JammerNetzServer", "Use this to launch the server in the foreground", [&](const auto &args) {
 		args.failIfOptionIsMissing("--key|-k");
