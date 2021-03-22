@@ -44,17 +44,18 @@ elseif(APPLE)
 	if (NOT CMAKE_BUILD_TYPE MATCHES Release)
 		add_compile_definitions(DEBUG)
 	endif()
-else()
+elseif(UNIX)
     # This else branch is Linux, then.
 	ADD_DEFINITIONS(-DJUCE_JACK)
 
 	# Include useful scripts for CMake
 	find_package(PkgConfig REQUIRED) 
+	find_package(OpenGL)
 
 	# These calls create special `PkgConfig::<MODULE>` variables
 	pkg_check_modules(GTK REQUIRED IMPORTED_TARGET gtk+-3.0)
-	pkg_check_modules(WEBKIT REQUIRED IMPORTED_TARGET webkit2gtk-4.0)  # TODO Test that this is really no longer required
 	pkg_check_modules(GLEW REQUIRED IMPORTED_TARGET glew)
+	pkg_check_modules(WEBKIT REQUIRED IMPORTED_TARGET webkit2gtk-4.0)  # TODO Test that this is really no longer required
 endif()
 
 

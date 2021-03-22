@@ -46,6 +46,7 @@ jobs:
     - task: CmdLine@2
       inputs:
         script: call buildWindows.bat
+      displayName: Build with CMake
       condition: variables.isWindows
 
     - publish: $(System.DefaultWorkingDirectory)/build/Client/jammernetz_setup.exe
