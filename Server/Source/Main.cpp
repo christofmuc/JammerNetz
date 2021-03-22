@@ -52,7 +52,7 @@ public:
 		std::cout << "Starting JammerNetz server version " << getServerVersion() << ", press any key to stop" << std::endl;
 		while (!_kbhit()) {
 #else
-		std::cout << "Starting JammerNetz server, using CTRL-C to stop" << std::endl;
+		std::cout << "Starting JammerNetz server version " << getServerVersion() << ", using CTRL-C to stop" << std::endl;
 		while (true) {
 #endif
 			Thread::sleep(1000);
