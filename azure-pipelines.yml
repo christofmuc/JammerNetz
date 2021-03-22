@@ -101,12 +101,12 @@ jobs:
     - bash: |
         brew install cmake gtk+3 glew
         cd third_party/flatbuffers
-        cmake -S . -B LinuxBuilds -G "Unix Makefiles"
+        cmake -S . -B LinuxBuilds -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release
         cmake --build LinuxBuilds -- -j8
         cd ../..
         cmake -S . -B Builds/macOS -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release
         cmake --build Builds/macOS -- -j8
-        VERBOSE=1 cmake --build Builds/macOS --target package -j8        
+        VERBOSE=1 cmake --build Builds/macOS --target package -j8  -DCMAKE_BUILD_TYPE=Release
       displayName: Build with CMake for Mac
       condition: variables.isMac
       

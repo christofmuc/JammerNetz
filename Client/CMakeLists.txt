@@ -159,7 +159,7 @@ IF(APPLE)
     # --target package
     SET(MY_RELEASE_DIR ${CMAKE_BINARY_DIR}/macInstaller)
     SET(APPS "\${CMAKE_INSTALL_PREFIX}/JammerNetzClient.app")
-    SET(DIRS ${CMAKE_BINARY_DIR})
+    SET(DIRS "${CMAKE_BINARY_DIR}")
     INSTALL(TARGETS JammerNetzClient
         BUNDLE DESTINATION . COMPONENT Runtime
         RUNTIME DESTINATION bin COMPONENT Runtime
