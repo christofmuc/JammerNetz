@@ -59,7 +59,7 @@ jobs:
       displayName: Running CMake build for Flatbuffers
       inputs:
         workingDirectory: 'third_party/flatbuffers'
-        cmakeArgs: '--build Builds --config RelWithDebInfo'
+        cmakeArgs: '--build Builds --config Release'
       condition: variables.isWindows
     - task: CMake@1
       displayName: Configuring CMake for Windows
@@ -77,7 +77,7 @@ jobs:
       displayName: Running CMake build for Windows
       inputs:
         workingDirectory: $(Build.SourcesDirectory)
-        cmakeArgs: '--build Builds\Windows --config RelWithDebInfo'
+        cmakeArgs: '--build Builds\Windows --config Release'
       condition: variables.isWindows
 
     - publish: $(System.DefaultWorkingDirectory)/build/Client/jammernetz_setup.exe
