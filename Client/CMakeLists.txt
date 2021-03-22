@@ -83,7 +83,7 @@ set(UICOMPONENT_FILES
 source_group(Source\\UIComponents FILES ${UICOMPONENT_FILES})
 
 
-add_executable(JammerNetzClient WIN32 ${SOURCES} ${UICOMPONENT_FILES} ${AUDIO_PROCESSING_FILES} ${MIDI_FILES} ${RESOURCE_FILES} ${INSTALLER_FILES})
+add_executable(JammerNetzClient MACOSX_BUNDLE WIN32 ${SOURCES} ${UICOMPONENT_FILES} ${AUDIO_PROCESSING_FILES} ${MIDI_FILES} ${RESOURCE_FILES} ${INSTALLER_FILES})
 target_include_directories(JammerNetzClient PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/Source")
 IF(WIN32)
 	target_link_libraries(JammerNetzClient ${JUCE_LIBRARIES} JammerCommon juce-utils ff_meters)
@@ -147,10 +147,11 @@ ENDIF()
 
 IF(APPLE)
 	# For apple, set the properties file to be included in the link. This is important to allow Microphone access on macOS (you will get a dialog asking for permission)
-	set_target_properties(JammerNetzClient PROPERTIES
-	  MACOSX_BUNDLE TRUE
-	  MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/Info.plist
-	)
+	SET_TARGET_PROPERTIES(JammerNetzClient PROPERTIES MACOSX_BUNDLE_BUNDLE_NAME "JammerNetz ${JammerNetzClient_VERSION}"
+		#MACOSX_BUNDLE_ICON_FILE icon_orm.icns
+		MACOSX_BUNDLE_BUNDLE_VERSION ${JammerNetzClient_VERSION}
+		MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/Info.plist
+		)
 ENDIF()
 
 IF(APPLE)
