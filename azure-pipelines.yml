@@ -43,8 +43,8 @@ jobs:
         restoreSolution: $(System.DefaultWorkingDirectory)/packages.config
         restoreDirectory: third_party
       condition: variables.isWindows
-    - cmd: >-
-        buildWindows.bat
+    - task: CmdLine@2
+        script: call buildWindows.bat
       condition: variables.isWindows
 
     - publish: $(System.DefaultWorkingDirectory)/build/Client/jammernetz_setup.exe
