@@ -10,7 +10,7 @@ include(HomegrownFlatC)
 
 # Compile Flatbuffers. The output will be found because we added CMAKE_CURRENT_BINARY_DIR to the list of includes above
 IF (WIN32)	
-	set(FLATBUFFERS_FLATC_EXECUTABLE "${CMAKE_CURRENT_LIST_DIR}/../third_party/flatbuffers/builds/Debug/flatc.exe")
+	set(FLATBUFFERS_FLATC_EXECUTABLE "${CMAKE_CURRENT_LIST_DIR}/../third_party/flatbuffers/builds/${CMAKE_BUILD_TYPE}/flatc.exe")
 ELSE()	
     set(FLATBUFFERS_FLATC_EXECUTABLE "${CMAKE_CURRENT_LIST_DIR}/../third_party/flatbuffers/LinuxBuilds/flatc")
 ENDIF()
