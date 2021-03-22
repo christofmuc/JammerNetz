@@ -9,6 +9,7 @@
 #include "BuffersConfig.h"
 
 #include <stack>
+#include "ServerLogger.h"
 
 class PrintQualityTimer : public HighResolutionTimer {
 public:
@@ -65,12 +66,13 @@ void AcceptThread::run()
 				exit(-1);
 			}
 			if (dataRead == 0) {
-				std::cerr << "Got empty packet from client, ignoring" << std::endl;
+				// Don't repeat this message
+				ServerLogger::errorln("Got empty packet from client, ignoring");
 				continue;
 			}
 			int messageLength = blowFish_.decrypt(readbuffer, dataRead);
 			if (messageLength == -1) {
-				std::cerr << "Got package I couldn't decipher from " << senderIPAdress << ":" << senderPortNumber << " - somebody trying to break in?" << std::endl;
+				ServerLogger::errorln("Got package I couldn't decipher from " + senderIPAdress + ":" + String(senderPortNumber) + " - somebody trying to break in?");
 				continue;
 			}
 			std::string clientName = senderIPAdress.toStdString() + ":" + String(senderPortNumber).toStdString();

@@ -16,6 +16,7 @@ set(SOURCES
 	Source/MixerThread.cpp Source/MixerThread.h
 	Source/SendThread.cpp Source/SendThread.h
 	Source/SharedServerTypes.h
+	Source/ServerLogger.cpp Source/ServerLogger.h
 	Source/version.cpp.in
 )
 
