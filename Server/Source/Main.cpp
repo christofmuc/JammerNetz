@@ -80,46 +80,46 @@ int main(int argc, char *argv[])
 	bufferConfig.serverIncomingJitterBuffer = SERVER_INCOMING_JITTER_BUFFER;
 	bufferConfig.serverIncomingMaximumBuffer = SERVER_INCOMING_MAXIMUM_BUFFER;
 	bufferConfig.serverBufferPrefillOnConnect = BUFFER_PREFILL_ON_CONNECT;
-
-	// Check if filename for Crypto Key is given
-	if (argc < 2) {
-		std::cout << "Please specify the name of the crypto key file as command line argument. This should be a file containing 72 random bytes for the symmetric Blowfish encryption." << std::endl;
-		return -1;
-	}
-
-	// Try to load Crypto file
 	std::shared_ptr<MemoryBlock> cryptoKey;
-	if (!UDPEncryption::loadKeyfile(argv[1], &cryptoKey)) {
-		std::cout << "Failed to load crypto key from file " << argv[1] << ". Check the file exists." << std::endl;
-		return -1;
-	}
 
-	// An additional parameter could specify the number of buffers to use
-	//TODO use getopts or something
-	if (argc > 2) {
-		bufferConfig.serverIncomingJitterBuffer = atoi(argv[2]);
-		if (bufferConfig.serverIncomingJitterBuffer == 0) {
-			std::cout << "Second parameter is the number of server jitter buffers to use, please specify a number";
-			return -1;
-		}
-	}
-	if (argc > 3) {
-		bufferConfig.serverIncomingMaximumBuffer= atoi(argv[3]);
-		if (bufferConfig.serverIncomingMaximumBuffer == 0) {
-			std::cout << "Third parameter is the maximum number of jitter buffers to fill before the one with an empty queue is kicked out";
-			return -1;
-		}
-	}
-	if (argc > 4) {
-		bufferConfig.serverBufferPrefillOnConnect = atoi(argv[4]);
-		if (bufferConfig.serverBufferPrefillOnConnect == 0) {
-			std::cout << "Fourth parameter is the number of packets required before being allowed into the mix";
-			return -1;
-		}
-	}
+	// Parse command line arguments
+	ArgumentList args(argc, argv);
 
-	// Create Server
-	Server server(cryptoKey, bufferConfig);
-	server.launchServer();
-	return 0;
+	// Sweet executable name
+	File myself(args.executableName);
+	String shortExeName = myself.getFileName();
+
+	// Specify commands
+	ConsoleApplication app;
+	app.addHelpCommand("--help|-h", "This is the JammerNetzServer\n\n" + shortExeName + " --key=<key file> [--buffer=<buffer count>] [--wait=<buffer count>] [--prefill=<buffer count>]\n\n" , true);
+	app.addVersionCommand("--version|-v", "JammerNetzServer " + String(getServerVersion()));
+	app.addDefaultCommand({ "launch", "-k <key file>", "Launch the JammerNetzServer", "Use this to launch the server in the foreground", [&](const auto &args) {
+		args.failIfOptionIsMissing("--key|-k");
+		if (args.containsOption("--key|-k")) { //, "crypto key", "Crypto key file name", "Specify the file name of the file containing the crypto key to use", [&](const ArgumentList &args) {
+			File file(args.getFileForOption("--key|-k"));
+			if (file.existsAsFile()) {
+				// Try to load Crypto file
+				if (!UDPEncryption::loadKeyfile(file.getFullPathName().toStdString().c_str(), &cryptoKey)) {
+					app.fail("Failed to load crypto file from file " + file.getFullPathName(), -1);
+				}
+			}
+		}
+		if (args.containsOption("--buffer|-b")) { //, "block count", "Length of buffer in blocks", "Specify the length of the incoming jitter buffer in blocks", [&](const ArgumentList &args) {
+			bufferConfig.serverIncomingJitterBuffer = args.getValueForOption("--buffer|-b").getIntValue();
+		}
+		if (args.containsOption("--wait|-w")) { //, "block count", "Maximum length of wait buffer", "Specify the maximum length of the incoming buffer in blocks before continuing mixing", [&](const ArgumentList &args) {
+			bufferConfig.serverIncomingMaximumBuffer = args.getValueForOption("--wait|-w").getIntValue();
+		}
+		if (args.containsOption("--prefill|-p")) { //, "block count", "Length of prefill buffer in blocks", "Specify the number of packets a client needs to send before becoming part of the mix (minimum queue length)", [&](const ArgumentList &args) {
+			bufferConfig.serverBufferPrefillOnConnect = args.getValueForOption("--prefill|-p").getIntValue();
+		}
+
+		// Create Server
+		Server server(cryptoKey, bufferConfig);
+		server.launchServer();
+		return 0;
+		} });
+
+	app.findAndRunCommand(args);
+
 }
