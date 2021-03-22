@@ -255,7 +255,7 @@ std::shared_ptr<AudioBlock> JammerNetzAudioData::readAudioHeaderAndBytes(JammerN
 		result->channelSetup.channels.push_back(setup);
 	};
 	result->sampleRate = 48000;
-	int upsampleRate = 48000 / block->sampleRate();
+	int upsampleRate = block->sampleRate() != 0 ? 48000 / block->sampleRate() : 48000;
 	jassert(block->numberOfSamples() * upsampleRate == SAMPLE_BUFFER_SIZE);
 	result->audioBuffer = std::make_shared<AudioBuffer<float>>(block->numChannels(), block->numberOfSamples() * upsampleRate);
 	readAudioBytes(block->channels(), result->audioBuffer, upsampleRate);
