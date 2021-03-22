@@ -44,6 +44,7 @@ jobs:
         restoreDirectory: third_party
       condition: variables.isWindows
     - task: CmdLine@2
+      inputs:
         script: call buildWindows.bat
       condition: variables.isWindows
 
