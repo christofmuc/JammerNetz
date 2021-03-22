@@ -84,6 +84,7 @@ void MixerThread::run() {
 			int bufferLength = (*incomingData.begin()).second->audioBuffer()->getNumSamples();
 
 			// For each client that has delivered data, produce a mix down package and send it back
+			//TODO - also the clients that have not provided data should get a package with a note that they are not contained within - they could do a local fill in.
 			for (auto &receiver : incomingData) {
 				std::shared_ptr<AudioBuffer<float>> outBuffer = std::make_shared<AudioBuffer<float>>(2, bufferLength);
 				outBuffer->clear();
