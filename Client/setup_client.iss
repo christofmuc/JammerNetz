@@ -2,7 +2,7 @@
 ; SEE THE DOCUMENTATION FOR DETAILS ON CREATING INNO SETUP SCRIPT FILES!
 
 #define MyAppName "JammerNetz 2"
-#define MyAppVersion "2.0.0"
+#define MyAppVersion "${JammerNetzClient_VERSION}"
 #define MyAppPublisher "Christof Ruch Beratungs UG (haftungsbeschränkt)"
 #define MyAppURL "https://github.com/christofmuc/JammerNetz"
 #define MyAppExeName "JammerNetzClient.exe"
@@ -25,7 +25,7 @@ LicenseFile=${CMAKE_CURRENT_SOURCE_DIR}/redist/agpl-3.0.txt
 ; Remove the following line to run in administrative install mode (install for all users.)
 PrivilegesRequired=lowest
 OutputDir=${CMAKE_CURRENT_BINARY_DIR}
-OutputBaseFilename=jammernetz_setup
+OutputBaseFilename=jammernetz_setup_${JammerNetzClient_VERSION}
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
