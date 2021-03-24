@@ -22,14 +22,14 @@ ServerSelector::ServerSelector(std::function<void()> notify) : localhostSelected
 	connectButton_.onClick = [this]() { textEditorReturnKeyPressed(ipAddress_); };
 
 	keyLabel_.setText("Crypto file", dontSendNotification);
+	keyPath_.onFocusLost = [this]() { cryptoKeyPath_ = keyPath_.getText(); keyUpdated(); };
+	keyPath_.onReturnKey = [this]() { cryptoKeyPath_ = keyPath_.getText(); keyUpdated(); };
 	browseToKey_.setButtonText("Browse...");
 	browseToKey_.onClick = [this]() {
 		FileChooser fileChooser("Select crypto file to use", File(cryptoKeyPath_).getParentDirectory());
 		if (fileChooser.browseForFileToOpen()) {
 			cryptoKeyPath_ = fileChooser.getResult().getFullPathName();
-			ServerInfo::cryptoKeyfilePath = cryptoKeyPath_.toStdString();
-			keyPath_.setText(cryptoKeyPath_, dontSendNotification);
-			notify_();
+			keyUpdated();
 		}
 	};
 
@@ -109,5 +109,12 @@ void ServerSelector::buttonClicked(Button *button)
 	else {
 		ServerInfo::serverName = lastServer_.toStdString();
 	}
+	notify_();
+}
+
+void ServerSelector::keyUpdated() {
+	// Read from crpytoKeyPath_ and update UI and server connection
+	ServerInfo::cryptoKeyfilePath = cryptoKeyPath_.toStdString();
+	keyPath_.setText(cryptoKeyPath_, dontSendNotification);
 	notify_();
 }

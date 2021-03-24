@@ -97,12 +97,10 @@ int main(int argc, char *argv[])
 	app.addDefaultCommand({ "launch", "-k <key file>", "Launch the JammerNetzServer", "Use this to launch the server in the foreground", [&](const auto &args) {
 		args.failIfOptionIsMissing("--key|-k");
 		if (args.containsOption("--key|-k")) { //, "crypto key", "Crypto key file name", "Specify the file name of the file containing the crypto key to use", [&](const ArgumentList &args) {
-			File file(args.getFileForOption("--key|-k"));
-			if (file.existsAsFile()) {
-				// Try to load Crypto file
-				if (!UDPEncryption::loadKeyfile(file.getFullPathName().toStdString().c_str(), &cryptoKey)) {
-					app.fail("Failed to load crypto file from file " + file.getFullPathName(), -1);
-				}
+			String key = args.getValueForOption("--key|-k");
+			// Try to load key - either from uuencoded key or from filename
+			if (!UDPEncryption::loadKey(key, &cryptoKey)) {
+				app.fail("Failed to load crypto key. Neither base64 string nor valid file: " + key, -1);
 			}
 		}
 		if (args.containsOption("--buffer|-b")) { //, "block count", "Length of buffer in blocks", "Specify the length of the incoming jitter buffer in blocks", [&](const ArgumentList &args) {

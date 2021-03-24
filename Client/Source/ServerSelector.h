@@ -25,6 +25,8 @@ private:
 	virtual void textEditorReturnKeyPressed(TextEditor&) override;
 	virtual void textEditorFocusLost(TextEditor&) override;
 
+	void keyUpdated();
+
 	ToggleButton useLocalhost_;
 	Label serverLabel_;
 	TextEditor ipAddress_;

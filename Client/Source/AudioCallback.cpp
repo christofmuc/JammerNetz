@@ -46,11 +46,11 @@ void AudioCallback::newServer()
 {
 	// Reload crypto key
 	std::shared_ptr<MemoryBlock> cryptoKey;
-	if (UDPEncryption::loadKeyfile(ServerInfo::cryptoKeyfilePath.c_str(), &cryptoKey)) {
+	if (UDPEncryption::loadKey(ServerInfo::cryptoKeyfilePath.c_str(), &cryptoKey)) {
 		setCryptoKey(cryptoKey->getData(), (int)cryptoKey->getSize());
 	}
 	else {
-		StreamLogger::instance() << "Fatal - could not load crypto key file '" << ServerInfo::cryptoKeyfilePath << "'" << std::endl;
+		StreamLogger::instance() << "Fatal - could not load crypto key. Neither base64 key string nor valid file: '" << ServerInfo::cryptoKeyfilePath << "'" << std::endl;
 	}
 
 	// Reset counters etc

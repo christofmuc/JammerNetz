@@ -10,6 +10,8 @@
 
 class UDPEncryption {
 public:
+	static bool loadKey(String input, std::shared_ptr<MemoryBlock> *outBlock);
+	static bool loadKeyFromBase64(String &key, std::shared_ptr<MemoryBlock> *outBlock);
 	static bool loadKeyfile(const char *filename, std::shared_ptr<MemoryBlock> *outBlock);
 };
 
