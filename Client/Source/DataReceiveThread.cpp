@@ -36,7 +36,9 @@ void DataReceiveThread::run()
 				return;
 			}
 			if (dataRead == 0) {
-				StreamLogger::instance() << "Ignoring zero byte message received from " << senderIPAdress << ":" << senderPortNumber << std::endl;
+				// Weird, this seems to happen recently instead of a socket timeout even when no packets are received. So this is not a 0 byte package, but actually
+				// no package at all (e.g. if you kill the server, you'll end up here instead of the socket waitUntilReady == 0)
+				isReceiving_ = false;
 				continue;
 			}
 			if (blowFish_) {
