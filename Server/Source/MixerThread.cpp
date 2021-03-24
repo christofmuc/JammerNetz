@@ -7,6 +7,7 @@
 #include "MixerThread.h"
 
 #include "BuffersConfig.h"
+#include "ServerLogger.h"
 
 MixerThread::MixerThread(TPacketStreamBundle &incoming, JammerNetzChannelSetup mixdownSetup, TOutgoingQueue &outgoing, TMessageQueue &wakeUpQueue, Recorder &recorder, ServerBufferConfig bufferConfig)
 	: Thread("MixerThread"), incoming_(incoming), mixdownSetup_(mixdownSetup), outgoing_(outgoing), wakeUpQueue_(wakeUpQueue), recorder_(recorder), bufferConfig_(bufferConfig)
@@ -122,10 +123,10 @@ void MixerThread::run() {
 
 void MixerThread::bufferMixdown(std::shared_ptr<AudioBuffer<float>> &outBuffer, std::shared_ptr<JammerNetzAudioData> const &audioData, bool isForSender) {
 	if (audioData->audioBuffer()->getNumChannels() == 0) { 
-		std::cout << "Got audio block with no channels, somebody needs to setup his interface" << std::endl;
+		ServerLogger::errorln("Got audio block with no channels, somebody needs to setup his interface");
 	}
 	if (audioData->audioBuffer()->getNumSamples() != outBuffer->getNumSamples()) {
-		std::cerr << "Error: A client uses wrong buffer size of " << audioData->audioBuffer()->getNumSamples() << " instead of " << outBuffer->getNumSamples() << std::endl;
+		ServerLogger::errorln("Error: A client uses wrong buffer size of " + String(audioData->audioBuffer()->getNumSamples()) + " instead of " + String(outBuffer->getNumSamples()));
 		return;
 	}
 	// Loop over the input channels, and add them to either the left or right or both channels!
