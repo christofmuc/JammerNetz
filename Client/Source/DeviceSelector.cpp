@@ -53,6 +53,9 @@ void DeviceSelector::resized()
 	}
 	typeDropdown_.setBounds(area.removeFromTop(kLineHeight)); 
 	deviceDropdown_.setBounds(area.removeFromTop(kLineHeight));
+	if (controlPanelButton_) {
+		controlPanelButton_->setBounds(area.removeFromTop(kLineSpacing).withTrimmedTop(kNormalInset).withSizeKeepingCentre(80, kLineHeight));
+	}
 	scrollList_.setBounds(area.withTrimmedTop(kNormalInset));
 	
 	scrollArea_.setSize(area.getWidth(), channelSelectors_.size() * kLineHeight);
@@ -155,6 +158,7 @@ void DeviceSelector::comboBoxChanged(ComboBox* comboBoxThatHasChanged)
 	else if (comboBoxThatHasChanged == &deviceDropdown_) {
 		channelSelectors_.clear(true);
 		channelNames_.clear(true);
+		controlPanelButton_.reset();
 		if (selectedType) {
 			String name = deviceDropdown_.getItemText(deviceDropdown_.getSelectedItemIndex());
 			std::shared_ptr<AudioIODevice> selectedDevice;
@@ -165,6 +169,15 @@ void DeviceSelector::comboBoxChanged(ComboBox* comboBoxThatHasChanged)
 				selectedDevice.reset(selectedType->createDevice(name, ""));
 			}
 			if (selectedDevice) {
+				// Does it have a control panel?
+				if (selectedDevice->hasControlPanel()) {
+					controlPanelButton_ = std::make_unique<TextButton>("Configure");
+					controlPanelButton_->onClick = [this, selectedDevice]() {
+						selectedDevice->showControlPanel();
+					};
+					addAndMakeVisible(*controlPanelButton_);
+				}
+
 				auto channels = inputDevices_ ? selectedDevice->getInputChannelNames() : selectedDevice->getOutputChannelNames();
 				for (auto channel : channels) {
 					ToggleButton *channelButton = new ToggleButton();
@@ -178,9 +191,10 @@ void DeviceSelector::comboBoxChanged(ComboBox* comboBoxThatHasChanged)
 					channelNames_.add(channelName);*/
 					//channelName->addListener(this);
 				}
-				resized();
+				
 			}
 		}
+		resized();
 	}
 }
 

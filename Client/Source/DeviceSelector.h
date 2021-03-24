@@ -47,6 +47,7 @@ private:
 	Viewport scrollList_;
 	Component scrollArea_;
 	OwnedArray<AudioIODeviceType> deviceTypes_;
+	std::unique_ptr<TextButton> controlPanelButton_;
 	OwnedArray<ToggleButton> channelSelectors_;
 	OwnedArray<Label> channelNames_;
 
