@@ -23,8 +23,12 @@ DeviceSelector::DeviceSelector(String const &title, bool showTitle, String const
 	for (auto deviceType : deviceTypes_) {
 		typeDropdown_.addItem(deviceType->getTypeName(), index++);
 	}
+	typeDropdown_.setTextWhenNoChoicesAvailable("No supported device types on this machine");
+	typeDropdown_.setTextWhenNothingSelected("Please select audio device type to open...");
 	typeDropdown_.addListener(this);
 	deviceDropdown_.addListener(this);
+	deviceDropdown_.setTextWhenNoChoicesAvailable("No compatible devices of this type");
+	deviceDropdown_.setTextWhenNothingSelected("Please select audio device to open...");
 	if (showTitle_) {
 		addAndMakeVisible(titleLabel_);
 	}
