@@ -69,11 +69,29 @@ juce::AudioIODeviceType * DeviceSelector::deviceType() const
 	return deviceTypes_[typeDropdown_.getSelectedItemIndex()];
 }
 
+bool comboHasText(ComboBox *combo, String text) {
+	for (int i = 0; i < combo->getNumItems(); i++) {
+		if (combo->getItemText(i) == text)
+			return true;
+	}
+	return false;
+}
+
 void DeviceSelector::fromData()
 {
+	// Better default device type implementation
+	String defaultType;
+#ifdef _WIN32
+	defaultType = comboHasText(&typeDropdown_, "ASIO") ? "ASIO" : "";
+#elif __APPLE__
+	defaultType = comboHasText(&typeDropdown_, "CoreAudio") ? "CoreAudio" : "";
+#else
+	defaultType = comboHasText(&typeDropdown_, "JACK") ? "JACK" : "";
+#endif
+
 	ValueTree &data = Data::instance().get();
 	ValueTree deviceSelector = data.getOrCreateChildWithName(Identifier(titleLabel_.getText(false)), nullptr);
-	auto typeName = deviceSelector.getProperty("Type", "");
+	auto typeName = deviceSelector.getProperty("Type", defaultType);
 	typeDropdown_.setText(typeName, sendNotificationSync);
 	auto deviceName = deviceSelector.getProperty("Device", "");
 	deviceDropdown_.setText(deviceName, sendNotificationSync);
