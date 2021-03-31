@@ -70,11 +70,11 @@ Using CMake and building JammerNetz client and server is a multi-step build, whi
 
     buildWindows.bat
 
-Have a look inside that file in case you're interested in the required build commands. The build will take a few minutes, and produce both Debug and Release versions of Client and Server software, as well as a client installer in case you have InnoSetup installed before kicking off. The installer executable is created as `<JammerNetzDir>\Builds\Client\jammernetz_setup.exe`
+Have a look inside that file in case you're interested in the required build commands. The build will take a few minutes, and produce both Debug and Release versions of Client and Server software, as well as a client installer in case you have InnoSetup installed before kicking off. The installer executable is created as `<JammerNetzDir>\Builds\Client\jammernetz_setup_x.x.x.exe`
 
 To test it, you can launch the server on your local machine with
 
-    <JammerNetzDir>\Builds\Server\Release\JammerNetzServer.exe [nameOfSecretsFile]
+    <JammerNetzDir>\Builds\Server\Release\JammerNetzServer.exe -k [nameOfSecretsFile]
 
 Simply use the "connect to local server" checkbox of the client.
 
@@ -133,7 +133,7 @@ The build above produced a Linux executable. If you have an Ubuntu server runnin
 Then dial into your server, using ssh or putty, and make sure to have all runtime prequisites installed. With that done, you can just launch the server:
 
     apt-get install -y libtbb-dev libasound2-dev libjack-dev 
-    ./JammerNetzServer [nameOfSecretsFile]
+    ./JammerNetzServer -k [nameOfSecretsFile]
 
 (I haven't tested the number of installs, refer to the native Linux builds section below should you encounter problems).
 The server should start up and announce its presensence with a happy
@@ -162,7 +162,7 @@ This should have created a server binary as `builds/Server/JammerNetzServer` and
 
 To launch the server, just type
 
-    ./builds/Server/JammerNetzServer [nameOfSecretsFile]
+    ./builds/Server/JammerNetzServer -k [nameOfSecretsFile]
 
 and it shall listen on port 7777.
 
