@@ -12,6 +12,8 @@
 
 class ServerLogger {
 public:
+	static void init();
+	static void deinit();
 	static void errorln(String const &message);
 	static void printColumnHeader(int row);
 	static void printStatistics(int row, std::string const &clientID, JammerNetzStreamQualityInfo quality);

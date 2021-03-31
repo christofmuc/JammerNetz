@@ -119,15 +119,15 @@ int main(int argc, char *argv[])
 			bufferConfig.serverBufferPrefillOnConnect = args.getValueForOption("--prefill|-p").getIntValue();
 		}
 
-		// We're good to good, init screen
-		initscr();
+		// Try to open screen
+		ServerLogger::init();
 
 		// Create Server
 		Server server(cryptoKey, bufferConfig);
 		server.launchServer();
 
 		// Close screen
-		endwin();
+		ServerLogger::deinit();
 
 		return 0;
 		} });
