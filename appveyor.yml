@@ -15,7 +15,7 @@ environment:
   matrix:
   - {}
 build_script:
-- cmd: >-
+- cmd: 
     mkdir Builds
     cd Builds
     conan install ..
