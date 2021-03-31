@@ -4,6 +4,11 @@ image:
 - Ubuntu1804
 install:
 - cmd: cinst innosetup
+- cmd: echo "Downloading conan..."
+- cmd: set PATH=%PATH%;%PYTHON%/Scripts/
+- cmd: pip.exe install conan
+- cmd: conan user # Create the conan data directory
+- cmd: conan --version
 - sh: sudo apt-get -y update && sudo apt-get install -y libcurl4-openssl-dev pkg-config libtbb-dev libasound2-dev libgtk-3-dev libwebkit2gtk-4.0-dev libglew-dev libjack-dev
 - git submodule update --init --recursive
 environment:
@@ -11,6 +16,10 @@ environment:
   - {}
 build_script:
 - cmd: >-
+    mkdir Builds
+    cd Builds
+    conan install ..
+    cd ..
     buildWindows.bat
 - sh: >-
     cd third_party/flatbuffers &&
