@@ -16,11 +16,15 @@
 #include "BuffersConfig.h"
 #include "Recorder.h"
 
+#include "ServerLogger.h"
+
 #include "version.cpp"
 
 #ifdef WIN32
 #include <conio.h> // _kbhit()
 #endif
+
+#include <curses.h>
 
 class Server {
 public:
@@ -49,10 +53,12 @@ public:
 		sendThread_->startThread();
 		mixerThread_->startThread();
 #ifdef WIN32
-		std::cout << "Starting JammerNetz server version " << getServerVersion() << ", press any key to stop" << std::endl;
+		printw(String("Starting JammerNetz server version " + getServerVersion() + ", press any key to stop").toRawUTF8());
+		refresh();
+		ServerLogger::printColumnHeader(2);
 		while (!_kbhit()) {
 #else
-		std::cout << "Starting JammerNetz server version " << getServerVersion() << ", using CTRL-C to stop" << std::endl;
+		printw(String("Starting JammerNetz server version " + getServerVersion() + ", using CTRL-C to stop").toRawUTF8());
 		while (true) {
 #endif
 			Thread::sleep(1000);
@@ -98,11 +104,9 @@ int main(int argc, char *argv[])
 		args.failIfOptionIsMissing("--key|-k");
 		if (args.containsOption("--key|-k")) { //, "crypto key", "Crypto key file name", "Specify the file name of the file containing the crypto key to use", [&](const ArgumentList &args) {
 			File file(args.getFileForOption("--key|-k"));
-			if (file.existsAsFile()) {
-				// Try to load Crypto file
-				if (!UDPEncryption::loadKeyfile(file.getFullPathName().toStdString().c_str(), &cryptoKey)) {
-					app.fail("Failed to load crypto file from file " + file.getFullPathName(), -1);
-				}
+			// Try to load Crypto file
+			if (!file.existsAsFile() || !UDPEncryption::loadKeyfile(file.getFullPathName().toStdString().c_str(), &cryptoKey)) {
+				app.fail("Failed to load crypto file from file " + file.getFullPathName(), -1);
 			}
 		}
 		if (args.containsOption("--buffer|-b")) { //, "block count", "Length of buffer in blocks", "Specify the length of the incoming jitter buffer in blocks", [&](const ArgumentList &args) {
@@ -115,9 +119,16 @@ int main(int argc, char *argv[])
 			bufferConfig.serverBufferPrefillOnConnect = args.getValueForOption("--prefill|-p").getIntValue();
 		}
 
+		// We're good to good, init screen
+		initscr();
+
 		// Create Server
 		Server server(cryptoKey, bufferConfig);
 		server.launchServer();
+
+		// Close screen
+		endwin();
+
 		return 0;
 		} });
 

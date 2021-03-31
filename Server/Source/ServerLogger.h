@@ -8,9 +8,13 @@
 
 #include "JuceHeader.h"
 
+#include "JammerNetzClientInfoMessage.h"
+
 class ServerLogger {
 public:
 	static void errorln(String const &message);
+	static void printColumnHeader(int row);
+	static void printStatistics(int row, std::string const &clientID, JammerNetzStreamQualityInfo quality);
 
 private:
 	static String lastMessage;

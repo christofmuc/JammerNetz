@@ -10,6 +10,15 @@ include_directories("${INTEL_TBB_DIRECTORY}/include/")
 
 configure_file("Source/version.cpp.in" "Source/version.cpp")
 
+if(WIN32)
+	# Need PDCurses for nicer statistics output
+	set(CMAKE_MODULE_PATH "${CMAKE_BINARY_DIR}")
+	message(STATUS "CMAKE module path is ${CMAKE_MODULE_PATH}")
+	find_package(pdcurses REQUIRED)
+else()
+	find_packages(curses REQUIRED)
+endif()
+
 set(SOURCES
 	Source/Main.cpp
 	Source/AcceptThread.cpp Source/AcceptThread.h
@@ -23,7 +32,7 @@ set(SOURCES
 add_executable(JammerNetzServer ${SOURCES})
 target_include_directories(JammerNetzServer PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/Source")
 if (WIN32)
-	target_link_libraries(JammerNetzServer  ${JUCE_LIBRARIES} juce-utils JammerCommon)
+	target_link_libraries(JammerNetzServer  ${JUCE_LIBRARIES} juce-utils JammerCommon pdcurses::pdcurses)
 
 	# Post build commands - copy the DLLs
 	add_custom_command(
@@ -33,9 +42,9 @@ if (WIN32)
 					${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>)
 elseif(APPLE)
 	target_link_directories(JammerNetzServer PRIVATE "${INTEL_TBB_DIRECTORY}/lib/")
-	target_link_libraries(JammerNetzServer  ${JUCE_LIBRARIES} juce-utils JammerCommon tbb)
+	target_link_libraries(JammerNetzServer  ${JUCE_LIBRARIES} juce-utils JammerCommon tbb curses)
 else()
-	target_link_libraries(JammerNetzServer  ${JUCE_LIBRARIES} juce-utils JammerCommon tbb ${CMAKE_DL_LIBS} pthread asound curl)
+	target_link_libraries(JammerNetzServer  ${JUCE_LIBRARIES} juce-utils JammerCommon tbb ${CMAKE_DL_LIBS} pthread asound curl curses)
 endif()
 source_group(Source FILES ${SOURCES})
 

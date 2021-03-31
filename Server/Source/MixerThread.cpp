@@ -67,7 +67,7 @@ void MixerThread::run() {
 					toBeRemoved.push_back(inClient->first);
 					for (auto &streamData : incoming_) {
 						if (streamData.second) {
-							std::cout << streamData.second->qualityStatement() << std::endl;
+							ServerLogger::printStatistics(4, streamData.first, streamData.second->qualityInfoPackage());
 						}
 					}
 				}

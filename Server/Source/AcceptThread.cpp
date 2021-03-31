@@ -20,7 +20,7 @@ public:
 	{
 		for (auto &streamData : data_) {
 			if (streamData.second) {
-				std::cout << streamData.second->qualityStatement() << std::endl;
+				ServerLogger::printStatistics(4, streamData.first, streamData.second->qualityInfoPackage());
 			}
 		}
 	}

@@ -6,6 +6,7 @@
 
 #include "ServerLogger.h"
 
+#include <curses.h>
 
 void ServerLogger::errorln(String const &message)
 {
@@ -13,6 +14,48 @@ void ServerLogger::errorln(String const &message)
 		std::cerr << message << std::endl;
 		lastMessage = message;
 	}
+}
+
+std::vector<std::pair<int, std::string>> kColumnHeaders = { {0, "Client"}, {20, "Len" }, { 26, "ooO" }, { 32, "span" } , { 38, "dup" } , { 44, "heal" } , { 50, "late" } , { 56, "drop" } , { 62, "gap" } };
+
+std::map<std::string, int> sClientRows;
+int kRowsInTable = 0;
+
+void ServerLogger::printColumnHeader(int row) {
+	int y = row;
+	for (const auto& col : kColumnHeaders) {
+		char buffer[200];
+		sprintf_s(buffer, 200, "%6s", col.second.c_str());
+		mvprintw(y, col.first, buffer);
+	}
+	refresh();
+}
+
+void ServerLogger::printStatistics(int row, std::string const &clientID, JammerNetzStreamQualityInfo quality) {
+	// Find y 
+	int y = row;
+	if (sClientRows.find(clientID) == sClientRows.end()) {
+		sClientRows[clientID] = kRowsInTable++;
+	} 
+	y += sClientRows[clientID];
+
+	move(y, kColumnHeaders[0].first);
+	printw(clientID.c_str());
+
+	// Print columns into table
+	char buffer[200];
+	//sprintf_s(buffer, 200, "%6d", (int)quality.packagesPushed);	mvprintw(y, 20, buffer);
+	//sprintf_s(buffer, 200, "%6d", (int)quality.packagesPopped);	mvprintw(y, 28, buffer);
+	sprintf_s(buffer, 200, "%6d", (int)(quality.packagesPushed - quality.packagesPopped));	mvprintw(y, kColumnHeaders[1].first, buffer);
+	sprintf_s(buffer, 200, "%6Id", quality.outOfOrderPacketCounter);	mvprintw(y, kColumnHeaders[2].first, buffer);
+	sprintf_s(buffer, 200, "%6Id", quality.maxWrongOrderSpan);	mvprintw(y, kColumnHeaders[3].first, buffer);
+	sprintf_s(buffer, 200, "%6Id", quality.duplicatePacketCounter);	mvprintw(y, kColumnHeaders[4].first, buffer);
+	sprintf_s(buffer, 200, "%6Id", quality.dropsHealed);	mvprintw(y, kColumnHeaders[5].first, buffer);
+	sprintf_s(buffer, 200, "%6Id", quality.tooLateOrDuplicate);	mvprintw(y, kColumnHeaders[6].first, buffer);
+	sprintf_s(buffer, 200, "%6Id", quality.droppedPacketCounter);	mvprintw(y, kColumnHeaders[7].first, buffer);
+	sprintf_s(buffer, 200, "%6Id", quality.maxLengthOfGap);	mvprintw(y, kColumnHeaders[8].first, buffer);
+
+	refresh();
 }
 
 juce::String ServerLogger::lastMessage;
