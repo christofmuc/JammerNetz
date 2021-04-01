@@ -17,8 +17,9 @@ environment:
 build_script:
 - cmd: |
     mkdir Builds
-    cd Builds
-    conan install ..
+    mkdir Builds\Windows
+    cd Builds\Windows
+    conan install ..\..
     cd ..
     buildWindows.bat
 - sh: >-
