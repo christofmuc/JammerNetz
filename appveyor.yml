@@ -20,7 +20,7 @@ build_script:
     mkdir Builds\Windows
     cd Builds\Windows
     conan install ..\..
-    cd ..
+    cd ..\..
     buildWindows.bat
 - sh: >-
     cd third_party/flatbuffers &&
