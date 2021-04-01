@@ -50,7 +50,7 @@ AcceptThread::~AcceptThread()
 void AcceptThread::run()
 {
 	// Start the timer that will frequently output quality data for each of the clients' connections
-	qualityTimer_->startTimer(2000);
+	qualityTimer_->startTimer(500);
 	while (!currentThreadShouldExit()) {
 		switch (receiveSocket_.waitUntilReady(true, 250)) {
 		case 0:
