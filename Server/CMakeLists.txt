@@ -16,7 +16,7 @@ if(WIN32)
 	message(STATUS "CMAKE module path is ${CMAKE_MODULE_PATH}")
 	find_package(pdcurses REQUIRED)
 else()
-	find_packages(curses REQUIRED)
+	find_package(curses REQUIRED)
 endif()
 
 set(SOURCES
