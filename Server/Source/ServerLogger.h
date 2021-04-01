@@ -17,6 +17,8 @@ public:
 	static void errorln(String const &message);
 	static void printColumnHeader(int row);
 	static void printStatistics(int row, std::string const &clientID, JammerNetzStreamQualityInfo quality);
+	static void printServerStatus(std::string const &text);
+	static void printClientStatus(int row, std::string const &clientID, std::string const &text);
 
 private:
 	static String lastMessage;

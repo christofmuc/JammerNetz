@@ -38,6 +38,13 @@ std::vector<std::pair<int, std::string>> kColumnHeaders = { {0, "Client"}, {20, 
 std::map<std::string, int> sClientRows;
 int kRowsInTable = 0;
 
+int yForClient(std::string const &clientID) {
+	if (sClientRows.find(clientID) == sClientRows.end()) {
+		sClientRows[clientID] = kRowsInTable++;
+	}
+	return sClientRows[clientID];
+}
+
 void ServerLogger::printColumnHeader(int row) {
 	if (terminal) {
 		int y = row;
@@ -53,11 +60,7 @@ void ServerLogger::printColumnHeader(int row) {
 void ServerLogger::printStatistics(int row, std::string const &clientID, JammerNetzStreamQualityInfo quality) {
 	if (terminal) {
 		// Find y 
-		int y = row;
-		if (sClientRows.find(clientID) == sClientRows.end()) {
-			sClientRows[clientID] = kRowsInTable++;
-		}
-		y += sClientRows[clientID];
+		int y = row + yForClient(clientID);
 
 		move(y, kColumnHeaders[0].first);
 		printw(clientID.c_str());
@@ -76,6 +79,29 @@ void ServerLogger::printStatistics(int row, std::string const &clientID, JammerN
 		sprintf_s(buffer, 200, "%6Id", quality.maxLengthOfGap);	mvprintw(y, kColumnHeaders[8].first, buffer);
 
 		refresh();
+	}
+}
+
+void ServerLogger::printServerStatus(std::string const &text)
+{
+	if (terminal) {
+		move(1, 0);
+		printw(text.c_str());
+	}
+	else {
+		std::cout << text;
+	}
+}
+
+void ServerLogger::printClientStatus(int row, std::string const &clientID, std::string const &text)
+{
+	if (terminal) {
+		int y = row + yForClient(clientID);
+		move(y, kColumnHeaders[0].first);
+		printw(clientID.c_str());
+	}
+	else {
+		std::cout << "Client " << clientID << text << std::endl;
 	}
 }
 

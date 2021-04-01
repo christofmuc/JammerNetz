@@ -56,7 +56,7 @@ public:
 		sendThread_->startThread();
 		mixerThread_->startThread();
 #ifdef WIN32
-		printw(String("Starting JammerNetz server version " + getServerVersion() + ", press any key to stop").toRawUTF8());
+		mvprintw(0, 0, String("Starting JammerNetz server version " + getServerVersion() + ", press any key to stop").toRawUTF8());
 		refresh();
 		ServerLogger::printColumnHeader(2);
 		while (!_kbhit()) {

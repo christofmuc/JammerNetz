@@ -63,7 +63,7 @@ void MixerThread::run() {
 		for (auto inClient = incoming_.cbegin(); inClient != incoming_.cend(); inClient++) {
 			if (inClient->second) {
 				if (incomingData.find(inClient->first) == incomingData.end()) {
-					std::cout << "Client " << inClient->first << " hasn't delivered any packets for a while, removing from client list!" << std::endl;
+					ServerLogger::printClientStatus(4, inClient->first, "Jitter queue underrun, removing from client list in mix!");
 					toBeRemoved.push_back(inClient->first);
 					for (auto &streamData : incoming_) {
 						if (streamData.second) {

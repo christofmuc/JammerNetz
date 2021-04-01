@@ -33,10 +33,11 @@ AcceptThread::AcceptThread(DatagramSocket &socket, TPacketStreamBundle &incoming
 	: Thread("ReceiverThread"), receiveSocket_(socket), incomingData_(incomingData), wakeUpQueue_(wakeUpQueue), bufferConfig_(bufferConfig), blowFish_(keydata, keysize)
 {
 	if (!receiveSocket_.bindToPort(7777)) {
+		ServerLogger::deinit();
 		std::cerr << "Failed to bind port to 7777" << std::endl;
 		exit(-1);
 	}
-	std::cout << "Server listening on port 7777" << std::endl;
+	ServerLogger::printServerStatus("Server listening on port 7777");
 	
 	qualityTimer_ = std::make_unique<PrintQualityTimer>(incomingData);
 }
@@ -62,20 +63,21 @@ void AcceptThread::run()
 			int senderPortNumber;
 			int dataRead = receiveSocket_.read(readbuffer, MAXFRAMESIZE, false, senderIPAdress, senderPortNumber);
 			if (dataRead == -1) {
+				ServerLogger::deinit();
 				std::cerr << "Error reading data from socket, abort!" << std::endl;
 				exit(-1);
 			}
+
+			std::string clientName = senderIPAdress.toStdString() + ":" + String(senderPortNumber).toStdString();
 			if (dataRead == 0) {
-				// Don't repeat this message
-				ServerLogger::errorln("Got empty packet from client, ignoring");
+				ServerLogger::printClientStatus(4, clientName, "Got empty packet from client, ignoring");
 				continue;
 			}
 			int messageLength = blowFish_.decrypt(readbuffer, dataRead);
 			if (messageLength == -1) {
-				ServerLogger::errorln("Got package I couldn't decipher from " + senderIPAdress + ":" + String(senderPortNumber) + " - somebody trying to break in?");
+				ServerLogger::printClientStatus(4, clientName, "Using wrong encryption key, can't connect");
 				continue;
 			}
-			std::string clientName = senderIPAdress.toStdString() + ":" + String(senderPortNumber).toStdString();
 
 			auto message = JammerNetzMessage::deserialize(readbuffer, messageLength);
 			if (message) {
@@ -85,12 +87,12 @@ void AcceptThread::run()
 					bool prefill = false;
 					if (incomingData_.find(clientName) == incomingData_.end()) {
 						// This is from a new client!
-						std::cout << "New client connected and sent first package: " << clientName << std::endl;
+						ServerLogger::printClientStatus(4, clientName, "New client connected, first package received");
 						incomingData_[clientName] = std::make_unique<PacketStreamQueue>(clientName);
 						prefill = true;
 					}
 					else if (!incomingData_[clientName]) {
-						std::cout << "Client reconnected successfully and starts sending again: " << clientName << std::endl;
+						ServerLogger::printClientStatus(4, clientName, "Reconnected successfully and starts sending again");
 						incomingData_[clientName] = std::make_unique<PacketStreamQueue>(clientName);
 						prefill = false;
 					}
@@ -105,7 +107,6 @@ void AcceptThread::run()
 							incomingData_[clientName]->push(reverse.top());
 							reverse.pop();
 						}
-
 					}
 
 					if (incomingData_[clientName]->push(audioData)) {
@@ -125,6 +126,7 @@ void AcceptThread::run()
 			break;
 		}
 		case -1:
+			ServerLogger::deinit();
 			std::cerr << "Error in waitUntilReady on socket" << std::endl;
 			exit(-1);
 		}
