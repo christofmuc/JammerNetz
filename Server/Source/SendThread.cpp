@@ -89,6 +89,10 @@ void SendThread::run()
 		// Blocking read from concurrent queue
 		sendQueue_.pop(nextBlock);
 
+		// This might be a package just to make us stop
+		if (currentThreadShouldExit())
+			return;
+
 		// Now serialize the buffer and create the datagram to send back to the client
 		sendAudioBlock(nextBlock.targetAddress, nextBlock.audioBlock);
 

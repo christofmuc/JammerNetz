@@ -119,6 +119,9 @@ void MixerThread::run() {
 			}
 		}
 	}
+
+	// Give the send thread one package to realize it should stop too
+	outgoing_.try_push(OutgoingPackage());
 }
 
 void MixerThread::bufferMixdown(std::shared_ptr<AudioBuffer<float>> &outBuffer, std::shared_ptr<JammerNetzAudioData> const &audioData, bool isForSender) {

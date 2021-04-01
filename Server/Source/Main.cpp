@@ -41,9 +41,12 @@ public:
 	}
 
 	~Server() {
+		sendThread_->signalThreadShouldExit();
+		mixerThread_->signalThreadShouldExit();
+		acceptThread_->signalThreadShouldExit();
 		acceptThread_->stopThread(1000);
-		sendThread_->stopThread(1000);
 		mixerThread_->stopThread(1000);
+		sendThread_->stopThread(1000);
 
 		socket_.shutdown();
 	}
