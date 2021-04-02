@@ -28,7 +28,7 @@ jobs:
       displayName: "Disable git automatic line ending conversion"
     - bash: |
         sudo apt-get update
-        sudo apt-get install -y libcurl4-openssl-dev pkg-config libasound2-dev libgtk-3-dev libwebkit2gtk-4.0-dev libglew-dev libjack-dev
+        sudo apt-get install -y libcurl4-openssl-dev pkg-config libasound2-dev libgtk-3-dev libwebkit2gtk-4.0-dev libglew-dev libjack-dev libncurses5-dev
         apt list --installed
       displayName: Prepare Linux Host
       condition: variables.isLinux
@@ -42,6 +42,10 @@ jobs:
         command: restore
         restoreSolution: $(System.DefaultWorkingDirectory)/packages.config
         restoreDirectory: third_party
+      condition: variables.isWindows
+    - script: |
+        pip install conan --upgrade
+        conan install -if Builds\Windows .        
       condition: variables.isWindows
     - task: CMake@1
       displayName: Configuring CMake for Flatbuffers
