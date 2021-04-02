@@ -14,8 +14,12 @@ void ServerLogger::init()
 {
 	// We're good to good, init screen if possible
 	char *buffer;
+#if WIN32
 	size_t len;
 	_dupenv_s(&buffer, &len, "TERM");
+#else
+	buffer = getenv("TERM");
+#endif
 	terminal = newterm(buffer, stdout, stdin);
 }
 
@@ -50,7 +54,7 @@ void ServerLogger::printColumnHeader(int row) {
 		int y = row;
 		for (const auto& col : kColumnHeaders) {
 			char buffer[200];
-			sprintf_s(buffer, 200, "%6s", col.second.c_str());
+			snprintf(buffer, 200, "%6s", col.second.c_str());
 			mvprintw(y, col.first, buffer);
 		}
 		refresh();
@@ -67,16 +71,16 @@ void ServerLogger::printStatistics(int row, std::string const &clientID, JammerN
 
 		// Print columns into table
 		char buffer[200];
-		//sprintf_s(buffer, 200, "%6d", (int)quality.packagesPushed);	mvprintw(y, 20, buffer);
-		//sprintf_s(buffer, 200, "%6d", (int)quality.packagesPopped);	mvprintw(y, 28, buffer);
-		sprintf_s(buffer, 200, "%6d", (int)(quality.packagesPushed - quality.packagesPopped));	mvprintw(y, kColumnHeaders[1].first, buffer);
-		sprintf_s(buffer, 200, "%6Id", quality.outOfOrderPacketCounter);	mvprintw(y, kColumnHeaders[2].first, buffer);
-		sprintf_s(buffer, 200, "%6Id", quality.maxWrongOrderSpan);	mvprintw(y, kColumnHeaders[3].first, buffer);
-		sprintf_s(buffer, 200, "%6Id", quality.duplicatePacketCounter);	mvprintw(y, kColumnHeaders[4].first, buffer);
-		sprintf_s(buffer, 200, "%6Id", quality.dropsHealed);	mvprintw(y, kColumnHeaders[5].first, buffer);
-		sprintf_s(buffer, 200, "%6Id", quality.tooLateOrDuplicate);	mvprintw(y, kColumnHeaders[6].first, buffer);
-		sprintf_s(buffer, 200, "%6Id", quality.droppedPacketCounter);	mvprintw(y, kColumnHeaders[7].first, buffer);
-		sprintf_s(buffer, 200, "%6Id", quality.maxLengthOfGap);	mvprintw(y, kColumnHeaders[8].first, buffer);
+		//snprintf(buffer, 200, "%6d", (int)quality.packagesPushed);	mvprintw(y, 20, buffer);
+		//snprintf(buffer, 200, "%6d", (int)quality.packagesPopped);	mvprintw(y, 28, buffer);
+		snprintf(buffer, 200, "%6d", (int)(quality.packagesPushed - quality.packagesPopped));	mvprintw(y, kColumnHeaders[1].first, buffer);
+		snprintf(buffer, 200, "%6Id", quality.outOfOrderPacketCounter);	mvprintw(y, kColumnHeaders[2].first, buffer);
+		snprintf(buffer, 200, "%6Id", quality.maxWrongOrderSpan);	mvprintw(y, kColumnHeaders[3].first, buffer);
+		snprintf(buffer, 200, "%6Id", quality.duplicatePacketCounter);	mvprintw(y, kColumnHeaders[4].first, buffer);
+		snprintf(buffer, 200, "%6Id", quality.dropsHealed);	mvprintw(y, kColumnHeaders[5].first, buffer);
+		snprintf(buffer, 200, "%6Id", quality.tooLateOrDuplicate);	mvprintw(y, kColumnHeaders[6].first, buffer);
+		snprintf(buffer, 200, "%6Id", quality.droppedPacketCounter);	mvprintw(y, kColumnHeaders[7].first, buffer);
+		snprintf(buffer, 200, "%6Id", quality.maxLengthOfGap);	mvprintw(y, kColumnHeaders[8].first, buffer);
 
 		refresh();
 	}
