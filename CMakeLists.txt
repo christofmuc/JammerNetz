@@ -16,7 +16,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 option(JUCE_CONFIG_JUCE_WEB_BROWSER OFF) 
 
 # We need a little bit support for the JUCE library, and also want to put our own CMake helpers on the module path
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/third_party/juce-cmake/cmake" "${CMAKE_CURRENT_LIST_DIR}/cmake")
+SET(CMAKE_MODULE_PATH "${CMAKE_MODULE_PATH}" "${CMAKE_CURRENT_BINARY_DIR}" "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
 # Include useful scripts for CMake
 include(FetchContent)
