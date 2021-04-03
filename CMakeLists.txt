@@ -161,7 +161,15 @@ set_target_properties(juce-static PROPERTIES
 
 # Configure TBB
 set(TBB_TEST OFF)
+if(WIN32)
+	string(REPLACE "." ";" VERSION_LIST ${CMAKE_CXX_COMPILER_VERSION})
+	list(GET VERSION_LIST 0 MSVC_VERSION_MAJOR)
+	list(GET VERSION_LIST 1 MSVC_VERSION_MINOR)
+	SET(MY_TBB_BINARY_DIR_BASE msvc_${MSVC_VERSION_MAJOR}.${MSVC_VERSION_MINOR}_cxx17_64_md)
+	message("Determined TBB binary directory base as ${MY_TBB_BINARY_DIR_BASE}")
+endif()
 
+# Add subdirectories
 add_subdirectory("third_party/JUCE-user-modules")
 add_subdirectory("modules/juce-utils")
 add_subdirectory("third_party/oneTBB")

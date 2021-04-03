@@ -116,11 +116,11 @@ else()
 endif()
 
 IF(WIN32)
-	# Post build commands - copy the DLLs (Windows only I guess)
+	# Post build commands - copy the DLLs (Windows only I guess). Due to the directory format of the oneTBB output directory, we need to parse the MSVC compiler version and use it appropriately
 	add_custom_command(
 			TARGET JammerNetzClient POST_BUILD
 			COMMAND ${CMAKE_COMMAND} -E copy
-					${CMAKE_BINARY_DIR}/$<IF:$<CONFIG:Release>,msvc_19.16_cxx17_64_md_release/tbb12.dll,msvc_19.16_cxx17_64_md_debug/tbb12_debug.dll>
+					${CMAKE_BINARY_DIR}/$<IF:$<CONFIG:Release>,${MY_TBB_BINARY_DIR_BASE}_release/tbb12.dll,${MY_TBB_BINARY_DIR_BASE}_debug/tbb12_debug.dll>
 					${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>)
 ENDIF()
 

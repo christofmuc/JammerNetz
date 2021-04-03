@@ -36,7 +36,7 @@ if (WIN32)
 	add_custom_command(
 			TARGET JammerNetzServer POST_BUILD
 			COMMAND ${CMAKE_COMMAND} -E copy
-					${CMAKE_BINARY_DIR}/$<IF:$<CONFIG:Release>,msvc_19.16_cxx17_64_md_release/tbb12.dll,msvc_19.16_cxx17_64_md_debug/tbb12_debug.dll>
+					${CMAKE_BINARY_DIR}/$<IF:$<CONFIG:Release>,${MY_TBB_BINARY_DIR_BASE}_release/tbb12.dll,${MY_TBB_BINARY_DIR_BASE}_debug/tbb12_debug.dll>
 					${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>)
 elseif(APPLE)
 	target_link_directories(JammerNetzServer PRIVATE "${INTEL_TBB_DIRECTORY}/lib/")
