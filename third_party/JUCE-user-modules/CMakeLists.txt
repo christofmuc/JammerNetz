@@ -10,17 +10,20 @@ project("ff_meters")
 
 include_directories(${CMAKE_CURRENT_LIST_DIR})
 
+add_definitions(-DFF_AUDIO_ALLOW_ALLOCATIONS_IN_MEASURE_BLOCK=1)
+
 set(ff_meters_sources
 	ff_meters/ff_meters.h
-	ff_meters/ff_meters_LevelMeter.cpp
-	ff_meters/ff_meters_LevelMeter.h
-	ff_meters/ff_meters_LevelMeterSource.h
-	ff_meters/ff_meters_LookAndFeel.h
-	ff_meters/ff_meters_LookAndFeelMethods.h
-	ff_meters/ff_meters_OutlineBuffer.h
-	ff_meters/ff_meters_SoundFieldLookAndFeelMethods.h
-	ff_meters/ff_meters_StereoFieldBuffer.h
-	ff_meters/ff_meters_StereoFieldComponent.h
+	ff_meters/ff_meters.cpp
+	#ff_meters/LevelMeter/LevelMeter.cpp
+	ff_meters/LevelMeter/LevelMeter.h
+	ff_meters/LevelMeter/LevelMeterSource.h
+	ff_meters/LookAndFeel/LevelMeterLookAndFeel.h
+	ff_meters/LookAndFeel/LevelMeterLookAndFeelMethods.h
+	ff_meters/Visualisers/OutlineBuffer.h
+	ff_meters/LookAndFeel/SoundFieldLookAndFeelMethods.h
+	ff_meters/Visualisers/StereoFieldBuffer.h
+	ff_meters/Visualisers/StereoFieldComponent.h
 	JuceLibraryCode/JuceHeader.h
 )
 
