@@ -84,7 +84,7 @@ jobs:
         cmakeArgs: '--build Builds\Windows --config Release'
       condition: variables.isWindows
 
-    - publish: $(System.DefaultWorkingDirectory)/build/Client/jammernetz_setup_2.1.0.exe
+    - publish: $(System.DefaultWorkingDirectory)/Builds/Windows/Client/jammernetz_setup_2.1.0.exe
       displayName: Publish Windows Installer
       artifact: WindowsInstaller
       condition: variables.isWindows2019
