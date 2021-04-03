@@ -8,6 +8,8 @@
 
 #include "BuffersConfig.h"
 
+#include "ServerLogger.h"
+
 SendThread::SendThread(DatagramSocket& socket, TOutgoingQueue &sendQueue, TPacketStreamBundle &incomingData, void *keydata, int keysize)
 	: Thread("SenderThread"), sendSocket_(socket), sendQueue_(sendQueue), incomingData_(incomingData), blowFish_(keydata, keysize)
 {
@@ -74,6 +76,7 @@ void SendThread::sendWriteBuffer(String ipAddress, int port, size_t size) {
 	// Encrypt in place
 	int cipherLength = blowFish_.encrypt(writebuffer_, size, MAXFRAMESIZE);
 	if (cipherLength == -1) {
+		ServerLogger::deinit();
 		std::cerr << "Fatal: Failed to encrypt data package, abort!" << std::endl;
 		exit(-1);
 	}
