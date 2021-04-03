@@ -27,6 +27,7 @@ set(Sources
 	JammerNetzAudioData.fbs
 	${FlatJammer_OUTPUTS}
 	PacketStreamQueue.cpp PacketStreamQueue.h
+	Pool.h
 	Recorder.cpp Recorder.h
 	RingOfAudioBuffers.h
 	ServerInfo.cpp ServerInfo.h

@@ -15,7 +15,7 @@
 #include "Encryption.h"
 
 AudioCallback::AudioCallback(AudioDeviceManager &deviceManager) : client_([this](std::shared_ptr < JammerNetzAudioData> buffer) { playBuffer_.push(buffer); }),
-	toPlayLatency_(0.0), currentPlayQueueLength_(0), discardedPackageCounter_(0), playBuffer_("server")
+	toPlayLatency_(0.0), currentPlayQueueLength_(0), discardedPackageCounter_(0), playBuffer_("server"), bufferPool_(10)
 {
 	isPlaying_ = false;
 	playUnderruns_ = 0;
@@ -80,7 +80,11 @@ void AudioCallback::samplesPerTime(int numSamples) {
 void AudioCallback::audioDeviceIOCallback(const float** inputChannelData, int numInputChannels, float** outputChannelData, int numOutputChannels, int numSamples)
 {
 	float *const *constnessCorrection = const_cast<float *const*>(inputChannelData);
-	auto audioBuffer = std::make_shared<AudioBuffer<float>>(constnessCorrection, numInputChannels, numSamples);
+	auto audioBufferNotOwned = std::make_shared<AudioBuffer<float>>(constnessCorrection, numInputChannels, numSamples);
+
+	// Allocate an audio buffer from the reusable pool and do a force copy of the samples, as we will need to send them down to the recorder and the network thread
+	auto audioBuffer = bufferPool_.alloc();
+	*audioBuffer = *audioBufferNotOwned; // Forces deep copy of data
 
 	// Measure the peak values for each channel
 	meterSource_.measureBlock(*audioBuffer);

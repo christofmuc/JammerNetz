@@ -10,6 +10,8 @@
 
 #include "IncludeFFMeters.h"
 
+#include "Pool.h"
+
 #include "Client.h"
 #include "PacketStreamQueue.h"
 #include "Recorder.h"
@@ -84,5 +86,8 @@ private:
 
 	std::chrono::time_point<std::chrono::steady_clock> startTime_;
 	std::chrono::time_point<std::chrono::steady_clock> lastTime_;
+
+	Pool<AudioBuffer<float>> bufferPool_;
 };
+
 
