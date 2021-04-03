@@ -294,3 +294,8 @@ std::shared_ptr<JammerNetzClientInfoMessage> AudioCallback::getClientInfo() cons
 	return client_.getClientInfo();
 }
 
+JammerNetzChannelSetup AudioCallback::getSessionSetup() const
+{
+	return client_.getCurrentSessionSetup();
+}
+

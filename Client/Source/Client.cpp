@@ -116,4 +116,8 @@ std::shared_ptr<JammerNetzClientInfoMessage> Client::getClientInfo() const
 	return receiver_->getClientInfo();
 }
 
+JammerNetzChannelSetup Client::getCurrentSessionSetup() const
+{
+	return receiver_->sessionSetup();
+}
 

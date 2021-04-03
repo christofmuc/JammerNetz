@@ -46,6 +46,8 @@ private:
 	GroupComponent inputGroup_;
 	DeviceSelector outputSelector_;
 	ChannelControllerGroup ownChannels_;
+	ChannelControllerGroup allChannels_;
+	GroupComponent sessionGroup_;
 	ChannelController outputController_;
 	GroupComponent outputGroup_;
 	ClientConfigurator clientConfigurator_;
@@ -63,6 +65,7 @@ private:
 	std::unique_ptr<PlayalongDisplay> playalongDisplay_;
 
 	std::shared_ptr<ChannelSetup> currentInputSetup_;
+	std::shared_ptr<JammerNetzChannelSetup> currentSessionSetup_;
 	std::shared_ptr<ChannelSetup> currentOutputSetup_;
 
 	float inputLatencyInMS_;

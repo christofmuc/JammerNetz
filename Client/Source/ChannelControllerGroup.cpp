@@ -28,6 +28,21 @@ void ChannelControllerGroup::setup(std::shared_ptr<ChannelSetup> setup, FFAU::Le
 	resized();
 }
 
+void ChannelControllerGroup::setup(std::shared_ptr<JammerNetzChannelSetup> sessionChannels)
+{
+	channelControllers_.clear(true);
+	for (const auto& channel : sessionChannels->channels) {
+		auto controller = new ChannelController(channel.name, Uuid::Uuid().toString(), [](double newVolume, JammerNetzChannelTarget newTarget) {
+			ignoreUnused(newVolume, newTarget);
+		}, true, true, true);
+		addAndMakeVisible(controller);
+		channelControllers_.add(controller);
+		controller->setVolume(channel.volume * 100.0f);
+		controller->setTarget(channel.target);
+	}
+	resized();
+}
+
 JammerNetzChannelTarget ChannelControllerGroup::getCurrentTarget(int channel) const
 {
 	if (channel < channelControllers_.size())

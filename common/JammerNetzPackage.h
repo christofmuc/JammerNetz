@@ -46,7 +46,8 @@ struct JammerNetzSingleChannelSetup {
 	JammerNetzSingleChannelSetup(uint8 target);
 	uint8 target;
 	float volume;
-	float balanceLeftRight;
+	float rms;
+	std::string name;
 
 	bool operator ==(const JammerNetzSingleChannelSetup &other) const;
 };
@@ -76,12 +77,13 @@ struct JammerNetzAudioHeader {
 struct AudioBlock {
 	AudioBlock() = default;
 	AudioBlock(AudioBlock const &other) = default;
-	AudioBlock(double timestamp, uint64 messageCounter, uint16 sampleRate, JammerNetzChannelSetup const &channelSetup, std::shared_ptr<AudioBuffer<float>> audioBuffer);
+	AudioBlock(double timestamp, uint64 messageCounter, uint16 sampleRate, JammerNetzChannelSetup const &channelSetup, std::shared_ptr<AudioBuffer<float>> audioBuffer, JammerNetzChannelSetup const &sessionSetup);
 	double timestamp; // Using JUCE's high resolution timer
 	juce::uint64 messageCounter;
 	uint16 sampleRate;
 	JammerNetzChannelSetup channelSetup;
 	std::shared_ptr<AudioBuffer<float>> audioBuffer;
+	JammerNetzChannelSetup sessionSetup;
 };
 
 class JammerNetzMessage {
@@ -118,6 +120,7 @@ public:
 	uint64 messageCounter() const;
 	double timestamp() const;
 	JammerNetzChannelSetup channelSetup() const;
+	JammerNetzChannelSetup sessionSetup() const;
 
 private:
 	flatbuffers::Offset<JammerNetzPNPAudioBlock> serializeAudioBlock(flatbuffers::FlatBufferBuilder &fbb, std::shared_ptr<AudioBlock> src, uint16 sampleRate, uint16 reductionFactor) const;

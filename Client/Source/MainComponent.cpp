@@ -32,6 +32,7 @@ callback_(deviceManager_)
 	outputController_.setMeterSource(callback_.getOutputMeterSource(), -1);
 
 	inputGroup_.setText("Input");
+	sessionGroup_.setText("Session participants");
 	outputGroup_.setText("Output");
 	serverGroup_.setText("Settings");
 	qualityGroup_.setText("Quality Info");
@@ -41,6 +42,8 @@ callback_(deviceManager_)
 	addAndMakeVisible(inputGroup_);
 	addAndMakeVisible(inputSelector_);
 	addAndMakeVisible(ownChannels_);
+	addAndMakeVisible(sessionGroup_);
+	addAndMakeVisible(allChannels_);
 	addAndMakeVisible(statusInfo_);
 	addAndMakeVisible(downstreamInfo_);
 	addAndMakeVisible(outputGroup_);
@@ -168,9 +171,10 @@ void MainComponent::resized()
 	auto area = getLocalBounds().reduced(kSmallInset);
 
 	int settingsHeight = 400;
-	int inputSelectorWidth = std::min(area.getWidth() / 4, 250);
-	int masterMixerWidth = 100;
-	int inputMixerWidth = area.getWidth() - masterMixerWidth - 2 * inputSelectorWidth;
+	int deviceSelectorWidth = std::min(area.getWidth() / 4, 250);
+	int masterMixerWidth = 100; // Stereo mixer
+
+	int inputMixerWidth = masterMixerWidth * (int)currentInputSetup_->activeChannelNames.size() + deviceSelectorWidth;
 
 	// To the bottom, the server info and status area
 	auto settingsArea = area.removeFromBottom(settingsHeight);
@@ -204,21 +208,27 @@ void MainComponent::resized()
 	localRecordingInfo_->setBounds(recordingArea);
 
 	// To the left, the input selector
-	auto inputArea = area.removeFromLeft(inputMixerWidth + inputSelectorWidth);
+	auto inputArea = area.removeFromLeft(inputMixerWidth);
 	inputGroup_.setBounds(inputArea);
 	inputArea.reduce(kNormalInset, kNormalInset);
-	inputSelector_.setBounds(inputArea.removeFromLeft(inputSelectorWidth));
+	inputSelector_.setBounds(inputArea.removeFromLeft(deviceSelectorWidth));
 	ownChannels_.setBounds(inputArea);
+
+	// To the right, the output selector
+	auto outputArea = area.removeFromRight(masterMixerWidth + deviceSelectorWidth /* + playalongArea.getWidth()*/);
+
+	// Upper middle, other session participants
+	auto sessionArea = area;
+	sessionGroup_.setBounds(area);
+	allChannels_.setBounds(area.reduced(kNormalInset, kNormalInset));
 
 	// Upper middle, play-along display (prominently)
 //	auto playalongArea = area.removeFromLeft(100);
 //	playalongDisplay_->setBounds(playalongArea);
 
-	// To the right, the output selector
-	auto outputArea = area.removeFromRight(masterMixerWidth + inputSelectorWidth/* + playalongArea.getWidth()*/);
 	outputGroup_.setBounds(outputArea);
 	outputArea.reduce(kNormalInset, kNormalInset);
-	outputSelector_.setBounds(outputArea.removeFromRight(inputSelectorWidth));
+	outputSelector_.setBounds(outputArea.removeFromRight(deviceSelectorWidth));
 	outputController_.setBounds(outputArea);
 }
 
@@ -294,6 +304,13 @@ void MainComponent::timerCallback()
 	// Refresh tuning info for my own channels
 	for (int i = 0; i < currentInputSetup_->activeChannelNames.size(); i++) {
 		ownChannels_.setPitchDisplayed(i, MidiNote(callback_.channelPitch(i)));
+	}
+
+	// Refresh session participants in case this changed!
+	if (!currentSessionSetup_ || !(*currentSessionSetup_ == callback_.getSessionSetup())) {
+		currentSessionSetup_ = std::make_shared<JammerNetzChannelSetup>(callback_.getSessionSetup());
+		// Setup changed, need to reinit UI
+		allChannels_.setup(currentSessionSetup_);
 	}
 }
 

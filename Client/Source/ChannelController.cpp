@@ -83,6 +83,16 @@ void ChannelController::setMeterSource(FFAU::LevelMeterSource *meterSource, int 
 	}
 }
 
+void ChannelController::setVolume(float volume)
+{
+	volumeSlider_.setValue(volume, dontSendNotification);
+}
+
+void ChannelController::setTarget(uint8 target)
+{
+	channelType_.setSelectedId((int)target + 1, dontSendNotification);
+}
+
 void ChannelController::setPitchDisplayed(MidiNote note)
 {
 	if (note.noteNumber() != 0 && geCurrentRMSinDecible() > -40.0) {

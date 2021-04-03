@@ -20,6 +20,7 @@ public:
 
 	bool isReceivingData() const;
 	double currentRTT() const;
+	JammerNetzChannelSetup sessionSetup() const;
 	std::shared_ptr<JammerNetzClientInfoMessage> getClientInfo() const;
 
 	void setCryptoKey(const void* keyData, int keyBytes);
@@ -34,5 +35,6 @@ private:
 	// Thread safe storage of info for the UI thread
 	std::atomic<double> currentRTT_;	
 	std::atomic<bool> isReceiving_;
+	JammerNetzChannelSetup currentSession_;
 	std::shared_ptr<JammerNetzClientInfoMessage> lastClientInfoMessage_;
 };

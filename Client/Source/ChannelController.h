@@ -23,6 +23,8 @@ public:
 	virtual void resized() override;
 
 	void setMeterSource(FFAU::LevelMeterSource *meterSource, int channelNo);
+	void setVolume(float volume);
+	void setTarget(uint8 target);
 	void setPitchDisplayed(MidiNote note);
 
 	JammerNetzChannelTarget getCurrentTarget() const;

@@ -60,6 +60,7 @@ void DataReceiveThread::run()
 							if (audioData) {
 								// Hand off to player 
 								currentRTT_ = Time::getMillisecondCounterHiRes() - audioData->timestamp();
+								currentSession_ = audioData->sessionSetup(); //TODO - this is not thread safe, I trust
 								newDataHandler_(audioData);
 							}
 							break;
@@ -91,6 +92,11 @@ void DataReceiveThread::run()
 double DataReceiveThread::currentRTT() const
 {
 	return currentRTT_;
+}
+
+JammerNetzChannelSetup DataReceiveThread::sessionSetup() const
+{
+	return currentSession_;
 }
 
 std::shared_ptr<JammerNetzClientInfoMessage> DataReceiveThread::getClientInfo() const

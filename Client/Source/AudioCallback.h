@@ -55,6 +55,7 @@ public:
 	std::shared_ptr<Recorder> getMasterRecorder() const;
 	std::shared_ptr<Recorder> getLocalRecorder() const;
 	std::shared_ptr<JammerNetzClientInfoMessage> getClientInfo() const;
+	JammerNetzChannelSetup getSessionSetup() const;
 private:
 	void clearOutput(float** outputChannelData, int numOutputChannels, int numSamples);
 	void samplesPerTime(int numSamples);

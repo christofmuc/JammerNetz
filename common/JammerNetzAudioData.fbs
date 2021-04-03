@@ -7,6 +7,7 @@
 table JammerNetzPNPChannelSetup {
 	target :uint8;
 	volume :float;
+	rms: float;
 }
 
 table JammerNetzPNPAudioSamples {
@@ -21,6 +22,7 @@ table JammerNetzPNPAudioBlock {
 	sampleRate :uint16;
 	channelSetup :[JammerNetzPNPChannelSetup];
 	channels :[JammerNetzPNPAudioSamples];
+	allChannels :[JammerNetzPNPChannelSetup];
 }
 
 table JammerNetzPNPAudioData {

@@ -11,19 +11,19 @@
 #include "JammerNetzClientInfoMessage.h"
 
 JammerNetzSingleChannelSetup::JammerNetzSingleChannelSetup() :
-	target(JammerNetzChannelTarget::Unused), volume(1.0f), balanceLeftRight(0.0f)
+	target(JammerNetzChannelTarget::Unused), volume(1.0f), rms(0.0f)
 {
 }
 
 JammerNetzSingleChannelSetup::JammerNetzSingleChannelSetup(uint8 target) :
-	target(target), volume(1.0f), balanceLeftRight(0.0f)
+	target(target), volume(1.0f), rms(0.0f)
 {
 }
 
 
 bool JammerNetzSingleChannelSetup::operator==(const JammerNetzSingleChannelSetup &other) const
 {
-	return target == other.target && volume == other.volume && balanceLeftRight == other.balanceLeftRight;
+	return target == other.target && volume == other.volume;
 }
 
 JammerNetzChannelSetup::JammerNetzChannelSetup()
@@ -44,8 +44,8 @@ bool JammerNetzChannelSetup::operator==(const JammerNetzChannelSetup &other) con
 	return true;
 }
 
-AudioBlock::AudioBlock(double timestamp, uint64 messageCounter, uint16 sampleRate, JammerNetzChannelSetup const &channelSetup, std::shared_ptr<AudioBuffer<float>> audioBuffer) :
-	timestamp(timestamp), messageCounter(messageCounter), sampleRate(sampleRate), channelSetup(channelSetup), audioBuffer(audioBuffer)
+AudioBlock::AudioBlock(double timestamp, uint64 messageCounter, uint16 sampleRate, JammerNetzChannelSetup const &channelSetup, std::shared_ptr<AudioBuffer<float>> audioBuffer, JammerNetzChannelSetup const &sessionSetup) :
+	timestamp(timestamp), messageCounter(messageCounter), sampleRate(sampleRate), channelSetup(channelSetup), audioBuffer(audioBuffer), sessionSetup(sessionSetup)
 {
 }
 
@@ -175,10 +175,15 @@ void JammerNetzAudioData::serialize(uint8 *output, size_t &byteswritten) const {
 flatbuffers::Offset<JammerNetzPNPAudioBlock> JammerNetzAudioData::serializeAudioBlock(flatbuffers::FlatBufferBuilder &fbb, std::shared_ptr<AudioBlock> src, uint16 sampleRate, uint16 reductionFactor) const
 {
 	std::vector<flatbuffers::Offset<JammerNetzPNPChannelSetup>> channelSetup;
-	for (auto channel : src->channelSetup.channels) {
-		channelSetup.push_back(CreateJammerNetzPNPChannelSetup(fbb, channel.target, channel.volume));
+	for (const auto& channel : src->channelSetup.channels) {
+		channelSetup.push_back(CreateJammerNetzPNPChannelSetup(fbb, channel.target, channel.volume, channel.rms));
+	}
+	std::vector<flatbuffers::Offset<JammerNetzPNPChannelSetup>> sessionChannels;
+	for (const auto& channel : src->sessionSetup.channels) {
+		sessionChannels.push_back(CreateJammerNetzPNPChannelSetup(fbb, channel.target, channel.volume, channel.rms));
 	}
 	auto channelSetupVector = fbb.CreateVector(channelSetup);
+	auto sessionSetupVector = fbb.CreateVector(sessionChannels);
 	auto audioSamples = appendAudioBuffer(fbb, *src->audioBuffer, reductionFactor);
 
 	JammerNetzPNPAudioBlockBuilder audioBlock(fbb);
@@ -189,6 +194,7 @@ flatbuffers::Offset<JammerNetzPNPAudioBlock> JammerNetzAudioData::serializeAudio
 	audioBlock.add_sampleRate(sampleRate / reductionFactor);
 	audioBlock.add_channelSetup(channelSetupVector);
 	audioBlock.add_channels(audioSamples);
+	audioBlock.add_allChannels(sessionSetupVector);
 
 	return audioBlock.Finish();
 }
@@ -244,6 +250,11 @@ JammerNetzChannelSetup JammerNetzAudioData::channelSetup() const
 	return activeBlock_->channelSetup;
 }
 
+JammerNetzChannelSetup JammerNetzAudioData::sessionSetup() const
+{
+	return activeBlock_->sessionSetup;
+}
+
 std::shared_ptr<AudioBlock> JammerNetzAudioData::readAudioHeaderAndBytes(JammerNetzPNPAudioBlock const *block) {
 	auto result = std::make_shared<AudioBlock>();
 
@@ -252,8 +263,17 @@ std::shared_ptr<AudioBlock> JammerNetzAudioData::readAudioHeaderAndBytes(JammerN
 	for (auto channel = block->channelSetup()->cbegin(); channel != block->channelSetup()->cend(); channel++) {
 		JammerNetzSingleChannelSetup setup(channel->target());
 		setup.volume = channel->volume();
+		setup.rms = channel->rms();
 		result->channelSetup.channels.push_back(setup);
 	};
+
+	for (auto channel = block->allChannels()->cbegin(); channel != block->allChannels()->cend(); channel++) {
+		JammerNetzSingleChannelSetup setup(channel->target());
+		setup.volume = channel->volume();
+		setup.rms = channel->rms();
+		result->sessionSetup.channels.push_back(setup);
+	};
+
 	result->sampleRate = 48000;
 	int upsampleRate = block->sampleRate() != 0 ? 48000 / block->sampleRate() : 48000;
 	jassert(block->numberOfSamples() * upsampleRate == SAMPLE_BUFFER_SIZE);

@@ -60,6 +60,7 @@ void MixerThread::run() {
 
 		// All clients who have not delivered by now are to be gone!
 		std::vector<std::string> toBeRemoved;
+		sessionSetup_.channels.clear();
 		for (auto inClient = incoming_.cbegin(); inClient != incoming_.cend(); inClient++) {
 			if (inClient->second) {
 				if (incomingData.find(inClient->first) == incomingData.end()) {
@@ -70,6 +71,12 @@ void MixerThread::run() {
 							ServerLogger::printStatistics(4, streamData.first, streamData.second->qualityInfoPackage());
 						}
 					}
+				}
+				else {
+					// TODO- do we need to do this every packet?
+					// Is part of mix, list in session info
+					auto client_channels = incomingData[inClient->first]->channelSetup().channels;
+					std::copy(client_channels.begin(), client_channels.end(), std::back_inserter(sessionSetup_.channels));
 				}
 			}
 		}
@@ -102,7 +109,8 @@ void MixerThread::run() {
 					receiver.second->messageCounter(), 
 					48000,
 					mixdownSetup_,
-					outBuffer
+					outBuffer,
+					sessionSetup_
 					));
 				if (!outgoing_.try_push(package)) {
 					// That's a bad sign - I would assume the sender thread died and that's possibly because the network is down. 

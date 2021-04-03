@@ -24,6 +24,7 @@ public:
 	int getCurrentBlockSize() const;
 	double currentRTT() const;
 	std::shared_ptr<JammerNetzClientInfoMessage> getClientInfo() const;
+	JammerNetzChannelSetup getCurrentSessionSetup() const;
 
 private:
 	bool sendData(String const &remoteHostname, int remotePort, void *data, int numbytes);

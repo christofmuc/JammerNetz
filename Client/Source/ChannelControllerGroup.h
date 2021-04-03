@@ -19,6 +19,7 @@ public:
 	ChannelControllerGroup();
 
 	void setup(std::shared_ptr<ChannelSetup> setup, FFAU::LevelMeterSource*meterSource, std::function<void(std::shared_ptr<ChannelSetup>)> callback);
+	void setup(std::shared_ptr<JammerNetzChannelSetup> sessionChannels);
 
 	JammerNetzChannelTarget getCurrentTarget(int channel) const;
 	float getCurrentVolume(int channel) const;

@@ -27,6 +27,7 @@ private:
 	TOutgoingQueue &outgoing_;
 	TMessageQueue &wakeUpQueue_;
 	JammerNetzChannelSetup mixdownSetup_;
+	JammerNetzChannelSetup sessionSetup_;
 	Recorder &recorder_;
 	ServerBufferConfig bufferConfig_;
 };
