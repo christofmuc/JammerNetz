@@ -40,6 +40,7 @@ callback_(deviceManager_)
 	addAndMakeVisible(outputController_);
 	addAndMakeVisible(inputGroup_);
 	addAndMakeVisible(inputSelector_);
+	addAndMakeVisible(ownChannels_);
 	addAndMakeVisible(statusInfo_);
 	addAndMakeVisible(downstreamInfo_);
 	addAndMakeVisible(outputGroup_);
@@ -84,9 +85,7 @@ MainComponent::~MainComponent()
 	inputSelector_.toData();
 	outputSelector_.toData();
 	outputController_.toData();
-	for (auto c : channelControllers_) {
-		c->toData();
-	}
+	ownChannels_.toData();
 	Data::instance().saveToSettings();
 	Settings::instance().saveAndClose();
 }
@@ -95,8 +94,8 @@ void MainComponent::refreshChannelSetup(std::shared_ptr<ChannelSetup> setup) {
 	JammerNetzChannelSetup channelSetup;
 	if (setup) {
 		for (int i = 0; i < setup->activeChannelIndices.size(); i++) {
-			JammerNetzSingleChannelSetup channel((uint8)channelControllers_[i]->getCurrentTarget());
-			channel.volume = channelControllers_[i]->getCurrentVolume();
+			JammerNetzSingleChannelSetup channel((uint8)ownChannels_.getCurrentTarget(i));
+			channel.volume = ownChannels_.getCurrentVolume(i);
 			channelSetup.channels.push_back(channel);
 		}
 	}
@@ -209,11 +208,7 @@ void MainComponent::resized()
 	inputGroup_.setBounds(inputArea);
 	inputArea.reduce(kNormalInset, kNormalInset);
 	inputSelector_.setBounds(inputArea.removeFromLeft(inputSelectorWidth));
-
-	int sizePerController = channelControllers_.isEmpty() ? 0 : std::min(inputArea.getWidth() / channelControllers_.size(), 100);
-	for (auto controller : channelControllers_) {
-		controller->setBounds(inputArea.removeFromLeft(sizePerController));
-	}
+	ownChannels_.setBounds(inputArea);
 
 	// Upper middle, play-along display (prominently)
 //	auto playalongArea = area.removeFromLeft(100);
@@ -296,9 +291,9 @@ void MainComponent::timerCallback()
 
 	serverStatus_.setConnected(callback_.isReceivingData());
 
-	// Refresh tuning info
-	for (int i = 0; i < channelControllers_.size(); i++) {
-		channelControllers_[i]->setPitchDisplayed(MidiNote(callback_.channelPitch(i)));
+	// Refresh tuning info for my own channels
+	for (int i = 0; i < currentInputSetup_->activeChannelNames.size(); i++) {
+		ownChannels_.setPitchDisplayed(i, MidiNote(callback_.channelPitch(i)));
 	}
 }
 
@@ -308,21 +303,10 @@ void MainComponent::setupChanged(std::shared_ptr<ChannelSetup> setup)
 
 	currentInputSetup_ = setup;
 
-	// Rebuild UI for the channel controllers
-	channelControllers_.clear(true);
-	int i = 0;
-	for (const auto& channelName : setup->activeChannelNames) {
-		auto controller = new ChannelController(channelName, "Input" + String(i), [this, setup](double newVolume, JammerNetzChannelTarget newTarget) {
-			ignoreUnused(newVolume, newTarget);
-			refreshChannelSetup(setup);
-		}, true, true, true);
-		addAndMakeVisible(controller);
-		channelControllers_.add(controller);
-		controller->fromData();
-		controller->setMeterSource(callback_.getMeterSource(), i);
-		i++;
-	}
-	resized();
+	// Rebuild UI for the channel controllers, and provide a callback to change the data in the Audio callback sent to the server
+	ownChannels_.setup(setup, callback_.getMeterSource(), [this](std::shared_ptr<ChannelSetup> setup) {
+		refreshChannelSetup(setup); 
+	});
 
 	// But now also start the Audio with this setup (hopefully it works...)
 	restartAudio(currentInputSetup_, currentOutputSetup_);

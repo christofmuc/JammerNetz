@@ -69,6 +69,8 @@ set(UICOMPONENT_FILES
 	Source/BPMDisplay.h
 	Source/ChannelController.cpp
 	Source/ChannelController.h
+	Source/ChannelControllerGroup.cpp
+	Source/ChannelControllerGroup.h
 	Source/ClientConfig.cpp
 	Source/ClientConfig.h
 	Source/DeviceSelector.cpp

@@ -11,7 +11,7 @@
 #include "AudioCallback.h"
 
 #include "DeviceSelector.h"
-#include "ChannelController.h"
+#include "ChannelControllerGroup.h"
 #include "ServerStatus.h"
 #include "ClientConfig.h"
 #include "BPMDisplay.h"
@@ -45,7 +45,7 @@ private:
 	DeviceSelector inputSelector_;
 	GroupComponent inputGroup_;
 	DeviceSelector outputSelector_;
-	OwnedArray<ChannelController> channelControllers_;
+	ChannelControllerGroup ownChannels_;
 	ChannelController outputController_;
 	GroupComponent outputGroup_;
 	ClientConfigurator clientConfigurator_;
