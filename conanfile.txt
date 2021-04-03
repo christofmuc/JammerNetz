@@ -1,7 +1,11 @@
 [requires]
 pdcurses/3.9
-flatbuffers/1.12.0
+tbb/2020.3
 
 [generators]
 cmake
 cmake_find_package
+
+[imports]
+bin, *.dll -> .
+

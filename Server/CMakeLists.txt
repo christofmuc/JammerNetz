@@ -6,9 +6,9 @@
 
 project("JammerNetzServer" VERSION 2.1.0)
 
-include_directories("${INTEL_TBB_DIRECTORY}/include/")
-
 configure_file("Source/version.cpp.in" "Source/version.cpp")
+
+find_package(TBB)
 
 if(WIN32)
 	# Need PDCurses for nicer statistics output
@@ -30,13 +30,14 @@ set(SOURCES
 add_executable(JammerNetzServer ${SOURCES})
 target_include_directories(JammerNetzServer PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/Source")
 if (WIN32)
-	target_link_libraries(JammerNetzServer  ${JUCE_LIBRARIES} juce-utils JammerCommon pdcurses::pdcurses)
+	target_link_libraries(JammerNetzServer  ${JUCE_LIBRARIES} juce-utils JammerCommon pdcurses::pdcurses tbb$<$<CONFIG:Debug>:_debug>)
 
 	# Post build commands - copy the DLLs
+	# The DLLs have been placed in their position in CMAKE_BINARY_DIR by a previous conan install -if ...... command, if all went well
 	add_custom_command(
 			TARGET JammerNetzServer POST_BUILD
 			COMMAND ${CMAKE_COMMAND} -E copy
-					${CMAKE_BINARY_DIR}/$<IF:$<CONFIG:Release>,msvc_19.16_cxx17_64_md_release/tbb12.dll,msvc_19.16_cxx17_64_md_debug/tbb12_debug.dll>
+					${CMAKE_BINARY_DIR}/tbb$<$<CONFIG:Debug>:_debug>.dll
 					${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>)
 elseif(APPLE)
 	target_link_directories(JammerNetzServer PRIVATE "${INTEL_TBB_DIRECTORY}/lib/")

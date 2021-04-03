@@ -16,6 +16,9 @@ ELSE()
 ENDIF()
 FLATBUFFERS_GENERATE_C_HEADERS(FlatJammer JammerNetzPackages.fbs JammerNetzAudioData.fbs)
 
+# Use the binary version of Intel TBB, because this is easier to digest
+find_package(TBB)
+
 # Define the sources for the static library
 set(Sources
 	BuffersConfig.h
@@ -35,7 +38,7 @@ set(Sources
 # Setup library
 add_library(JammerCommon ${Sources})
 target_include_directories(JammerCommon 
-	PUBLIC "${INTEL_TBB_DIRECTORY}/include/" "${CMAKE_CURRENT_LIST_DIR}/../third_party/flatbuffers/include" "${CMAKE_CURRENT_BINARY_DIR}"
+	PUBLIC "${CMAKE_CURRENT_LIST_DIR}/../third_party/flatbuffers/include" "${CMAKE_CURRENT_BINARY_DIR}"
 	INTERFACE ${CMAKE_CURRENT_LIST_DIR}
 	PRIVATE ${JUCE_INCLUDES}
 )

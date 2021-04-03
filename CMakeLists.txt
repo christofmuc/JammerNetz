@@ -159,12 +159,8 @@ set_target_properties(juce-static PROPERTIES
 	CXX_VISIBILITY_PRESET hidden)
 
 
-# Configure TBB
-set(TBB_TEST OFF)
-
 add_subdirectory("third_party/JUCE-user-modules")
 add_subdirectory("modules/juce-utils")
-add_subdirectory("third_party/oneTBB")
 add_subdirectory("common")
 add_subdirectory("Server")
 add_subdirectory("Client")

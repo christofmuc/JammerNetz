@@ -8,11 +8,13 @@ project("JammerNetzClient" VERSION 2.1.0)
 
 configure_file("Source/version.cpp.in" "Source/version.cpp")
 
+find_package(TBB)
+
 # Load the macro to process binary resources
 include(BinaryResources)
 
 # Setup some additional include directories for our header only libraries and those without CMake support
-include_directories("${INTEL_TBB_DIRECTORY}/include/"
+include_directories(
 	"${asiosdk_SOURCE_DIR}/common"
 	"${CMAKE_CURRENT_LIST_DIR}/../third_party/infra/include"
 	"${CMAKE_CURRENT_LIST_DIR}/../third_party/Q/q_lib/include"
@@ -86,7 +88,7 @@ source_group(Source\\UIComponents FILES ${UICOMPONENT_FILES})
 add_executable(JammerNetzClient MACOSX_BUNDLE WIN32 ${SOURCES} ${UICOMPONENT_FILES} ${AUDIO_PROCESSING_FILES} ${MIDI_FILES} ${RESOURCE_FILES} ${INSTALLER_FILES})
 target_include_directories(JammerNetzClient PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/Source")
 IF(WIN32)
-	target_link_libraries(JammerNetzClient ${JUCE_LIBRARIES} JammerCommon juce-utils ff_meters)
+	target_link_libraries(JammerNetzClient ${JUCE_LIBRARIES} JammerCommon juce-utils ff_meters tbb$<$<CONFIG:Debug>:_debug>)
 elseif(APPLE)
 	target_link_libraries(JammerNetzClient ${JUCE_LIBRARIES} JammerCommon juce-utils ff_meters tbb)
 ELSE()
@@ -117,10 +119,11 @@ endif()
 
 IF(WIN32)
 	# Post build commands - copy the DLLs (Windows only I guess)
+	# The DLLs have been placed in their position in CMAKE_BINARY_DIR by a previous conan install -if ...... command, if all went well
 	add_custom_command(
 			TARGET JammerNetzClient POST_BUILD
 			COMMAND ${CMAKE_COMMAND} -E copy
-					${CMAKE_BINARY_DIR}/$<IF:$<CONFIG:Release>,msvc_19.16_cxx17_64_md_release/tbb12.dll,msvc_19.16_cxx17_64_md_debug/tbb12_debug.dll>
+					${CMAKE_BINARY_DIR}/tbb$<$<CONFIG:Debug>:_debug>.dll
 					${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>)
 ENDIF()
 
