@@ -177,7 +177,7 @@ void AudioCallback::audioDeviceIOCallback(const float** inputChannelData, int nu
 				magnitudes.push_back(channel.mag);
 				rmss.push_back(channel.rms);
 			}
-			sessionMeterSource_.setBlockMeasurement(*toPlay->audioBuffer(), magnitudes, rmss);
+			sessionMeterSource_.setBlockMeasurement(session.channels.size(), magnitudes, rmss);
 		}
 		else {
 			// That would be considered a programming error, I shall not enqueue nullptr
