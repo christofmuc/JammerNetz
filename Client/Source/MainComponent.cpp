@@ -99,6 +99,7 @@ void MainComponent::refreshChannelSetup(std::shared_ptr<ChannelSetup> setup) {
 		for (int i = 0; i < setup->activeChannelIndices.size(); i++) {
 			JammerNetzSingleChannelSetup channel((uint8)ownChannels_.getCurrentTarget(i));
 			channel.volume = ownChannels_.getCurrentVolume(i);
+			channel.name = setup->activeChannelNames[i];
 			channelSetup.channels.push_back(channel);
 		}
 	}

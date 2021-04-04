@@ -176,11 +176,13 @@ flatbuffers::Offset<JammerNetzPNPAudioBlock> JammerNetzAudioData::serializeAudio
 {
 	std::vector<flatbuffers::Offset<JammerNetzPNPChannelSetup>> channelSetup;
 	for (const auto& channel : src->channelSetup.channels) {
-		channelSetup.push_back(CreateJammerNetzPNPChannelSetup(fbb, channel.target, channel.volume, channel.mag, channel.rms, channel.pitch));
+		auto fb_name = fbb.CreateString(channel.name);
+		channelSetup.push_back(CreateJammerNetzPNPChannelSetup(fbb, channel.target, channel.volume, channel.mag, channel.rms, channel.pitch, fb_name));
 	}
 	std::vector<flatbuffers::Offset<JammerNetzPNPChannelSetup>> sessionChannels;
 	for (const auto& channel : src->sessionSetup.channels) {
-		sessionChannels.push_back(CreateJammerNetzPNPChannelSetup(fbb, channel.target, channel.volume, channel.mag, channel.rms, channel.pitch));
+		auto fb_name = fbb.CreateString(channel.name);
+		sessionChannels.push_back(CreateJammerNetzPNPChannelSetup(fbb, channel.target, channel.volume, channel.mag, channel.rms, channel.pitch, fb_name));
 	}
 	auto channelSetupVector = fbb.CreateVector(channelSetup);
 	auto sessionSetupVector = fbb.CreateVector(sessionChannels);
@@ -266,6 +268,7 @@ std::shared_ptr<AudioBlock> JammerNetzAudioData::readAudioHeaderAndBytes(JammerN
 		setup.mag = channel->mag();
 		setup.rms = channel->rms();
 		setup.pitch = channel->pitch();
+		setup.name = channel->name()->str();
 		result->channelSetup.channels.push_back(setup);
 	};
 
@@ -275,6 +278,7 @@ std::shared_ptr<AudioBlock> JammerNetzAudioData::readAudioHeaderAndBytes(JammerN
 		setup.mag = channel->mag();
 		setup.rms = channel->rms();
 		setup.pitch = channel->pitch();
+		setup.name = channel->name()->str();
 		result->sessionSetup.channels.push_back(setup);
 	};
 
