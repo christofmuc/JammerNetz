@@ -77,7 +77,7 @@ callback_(deviceManager_)
 
 	// Make sure you set the size of the component after
 	// you add any child components.
-	setSize(1024, 800);
+	setSize(1536, 800);
 }
 
 MainComponent::~MainComponent()
