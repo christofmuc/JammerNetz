@@ -9,6 +9,7 @@ table JammerNetzPNPChannelSetup {
 	volume :float;
 	mag: float;
 	rms: float;
+	pitch: float;
 }
 
 table JammerNetzPNPAudioSamples {

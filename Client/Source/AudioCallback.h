@@ -54,6 +54,7 @@ public:
 	bool isReceivingData() const;
 	double currentRTT() const;
 	float channelPitch(int channel) const;
+	float sessionPitch(int channel) const;
 
 	std::shared_ptr<Recorder> getMasterRecorder() const;
 	std::shared_ptr<Recorder> getLocalRecorder() const;

@@ -305,6 +305,12 @@ void MainComponent::timerCallback()
 	for (int i = 0; i < currentInputSetup_->activeChannelNames.size(); i++) {
 		ownChannels_.setPitchDisplayed(i, MidiNote(callback_.channelPitch(i)));
 	}
+	// and for the session channels
+	if (currentSessionSetup_) {
+		for (int i = 0; i < currentSessionSetup_->channels.size(); i++) {
+			allChannels_.setPitchDisplayed(i, MidiNote(callback_.sessionPitch(i)));
+		}
+	}
 
 	// Refresh session participants in case this changed!
 	if (!currentSessionSetup_ || !(*currentSessionSetup_ == callback_.getSessionSetup())) {

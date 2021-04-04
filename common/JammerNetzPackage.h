@@ -48,6 +48,7 @@ struct JammerNetzSingleChannelSetup {
 	float volume;
 	float mag;
 	float rms;
+	float pitch;
 	std::string name;
 
 	bool operator ==(const JammerNetzSingleChannelSetup &other) const;

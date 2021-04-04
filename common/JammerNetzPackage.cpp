@@ -11,12 +11,12 @@
 #include "JammerNetzClientInfoMessage.h"
 
 JammerNetzSingleChannelSetup::JammerNetzSingleChannelSetup() :
-	target(JammerNetzChannelTarget::Unused), volume(1.0f), mag(0.0f), rms(0.0f)
+	target(JammerNetzChannelTarget::Unused), volume(1.0f), mag(0.0f), rms(0.0f), pitch(0.0f)
 {
 }
 
 JammerNetzSingleChannelSetup::JammerNetzSingleChannelSetup(uint8 target) :
-	target(target), volume(1.0f), mag(0.0f), rms(0.0f)
+	target(target), volume(1.0f), mag(0.0f), rms(0.0f), pitch(0.0f)
 {
 }
 
@@ -176,11 +176,11 @@ flatbuffers::Offset<JammerNetzPNPAudioBlock> JammerNetzAudioData::serializeAudio
 {
 	std::vector<flatbuffers::Offset<JammerNetzPNPChannelSetup>> channelSetup;
 	for (const auto& channel : src->channelSetup.channels) {
-		channelSetup.push_back(CreateJammerNetzPNPChannelSetup(fbb, channel.target, channel.volume, channel.mag, channel.rms));
+		channelSetup.push_back(CreateJammerNetzPNPChannelSetup(fbb, channel.target, channel.volume, channel.mag, channel.rms, channel.pitch));
 	}
 	std::vector<flatbuffers::Offset<JammerNetzPNPChannelSetup>> sessionChannels;
 	for (const auto& channel : src->sessionSetup.channels) {
-		sessionChannels.push_back(CreateJammerNetzPNPChannelSetup(fbb, channel.target, channel.volume, channel.mag, channel.rms));
+		sessionChannels.push_back(CreateJammerNetzPNPChannelSetup(fbb, channel.target, channel.volume, channel.mag, channel.rms, channel.pitch));
 	}
 	auto channelSetupVector = fbb.CreateVector(channelSetup);
 	auto sessionSetupVector = fbb.CreateVector(sessionChannels);
@@ -265,6 +265,7 @@ std::shared_ptr<AudioBlock> JammerNetzAudioData::readAudioHeaderAndBytes(JammerN
 		setup.volume = channel->volume();
 		setup.mag = channel->mag();
 		setup.rms = channel->rms();
+		setup.pitch = channel->pitch();
 		result->channelSetup.channels.push_back(setup);
 	};
 
@@ -273,6 +274,7 @@ std::shared_ptr<AudioBlock> JammerNetzAudioData::readAudioHeaderAndBytes(JammerN
 		setup.volume = channel->volume();
 		setup.mag = channel->mag();
 		setup.rms = channel->rms();
+		setup.pitch = channel->pitch();
 		result->sessionSetup.channels.push_back(setup);
 	};
 

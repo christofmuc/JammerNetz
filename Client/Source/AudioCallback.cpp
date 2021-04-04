@@ -86,13 +86,18 @@ void AudioCallback::audioDeviceIOCallback(const float** inputChannelData, int nu
 	auto audioBuffer = bufferPool_.alloc();
 	*audioBuffer = *audioBufferNotOwned; // Forces deep copy of data
 
+	// Send it to pitch detection
+	tuner_->detectPitch(audioBuffer);
+
 	// Measure the peak values for each channel
 	meterSource_.measureBlock(*audioBuffer);
-	// Send the RMS values to the server, which will forward it to the other clients so they can show my levels even if they have only the mixed audio
+
+	// Send the MAG, RMS values and the pitch to the server, which will forward it to the other clients so they can show my levels even if they have only the mixed audio
 	for (int c = 0; c < numInputChannels; c++) {
 		if (c < channelSetup_.channels.size()) {
 			channelSetup_.channels[c].mag = meterSource_.getMaxLevel(c);
 			channelSetup_.channels[c].rms = meterSource_.getRMSLevel(c);
+			channelSetup_.channels[c].pitch = tuner_->getPitch(c);
 		}
 		else {
 			jassertfalse;
@@ -114,9 +119,6 @@ void AudioCallback::audioDeviceIOCallback(const float** inputChannelData, int nu
 			}
 		}
 	}
-
-	// Send it to pitch detection
-	tuner_->detectPitch(audioBuffer);
 
 	client_.sendData(channelSetup_, audioBuffer); //TODO offload the real sending to a different thread
 	if (uploadRecorder_ && uploadRecorder_->isRecording()) {
@@ -308,6 +310,13 @@ double AudioCallback::currentRTT() const
 float AudioCallback::channelPitch(int channel) const
 {
 	return tuner_->getPitch(channel);
+}
+
+float AudioCallback::sessionPitch(int channel) const {
+	auto setup = getSessionSetup();
+	if (channel < setup.channels.size())
+		return setup.channels[channel].pitch;
+	return 0.0f;
 }
 
 std::shared_ptr<Recorder> AudioCallback::getMasterRecorder() const
