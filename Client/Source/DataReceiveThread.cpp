@@ -58,6 +58,7 @@ void DataReceiveThread::run()
 						case JammerNetzMessage::AUDIODATA: {
 							auto audioData = std::dynamic_pointer_cast<JammerNetzAudioData>(message);
 							if (audioData) {
+								ScopedLock sessionLock(sessionDataLock_);
 								// Hand off to player 
 								currentRTT_ = Time::getMillisecondCounterHiRes() - audioData->timestamp();
 								currentSession_ = audioData->sessionSetup(); //TODO - this is not thread safe, I trust
@@ -96,6 +97,7 @@ double DataReceiveThread::currentRTT() const
 
 JammerNetzChannelSetup DataReceiveThread::sessionSetup() const
 {
+	ScopedLock lock(sessionDataLock_);
 	return currentSession_;
 }
 

@@ -35,6 +35,9 @@ private:
 	// Thread safe storage of info for the UI thread
 	std::atomic<double> currentRTT_;	
 	std::atomic<bool> isReceiving_;
+
+	// For the session UI
 	JammerNetzChannelSetup currentSession_;
+	CriticalSection sessionDataLock_;
 	std::shared_ptr<JammerNetzClientInfoMessage> lastClientInfoMessage_;
 };
