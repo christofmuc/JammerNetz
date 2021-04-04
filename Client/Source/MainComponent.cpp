@@ -309,8 +309,8 @@ void MainComponent::timerCallback()
 	// Refresh session participants in case this changed!
 	if (!currentSessionSetup_ || !(*currentSessionSetup_ == callback_.getSessionSetup())) {
 		currentSessionSetup_ = std::make_shared<JammerNetzChannelSetup>(callback_.getSessionSetup());
-		// Setup changed, need to reinit UI
-		allChannels_.setup(currentSessionSetup_);
+		// Setup changed, need to re-init UI
+		allChannels_.setup(currentSessionSetup_, callback_.getSessionMeterSource());
 	}
 }
 

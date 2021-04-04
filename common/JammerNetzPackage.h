@@ -46,6 +46,7 @@ struct JammerNetzSingleChannelSetup {
 	JammerNetzSingleChannelSetup(uint8 target);
 	uint8 target;
 	float volume;
+	float mag;
 	float rms;
 	std::string name;
 

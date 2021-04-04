@@ -28,9 +28,10 @@ void ChannelControllerGroup::setup(std::shared_ptr<ChannelSetup> setup, FFAU::Le
 	resized();
 }
 
-void ChannelControllerGroup::setup(std::shared_ptr<JammerNetzChannelSetup> sessionChannels)
+void ChannelControllerGroup::setup(std::shared_ptr<JammerNetzChannelSetup> sessionChannels, FFAU::LevelMeterSource*meterSource)
 {
 	channelControllers_.clear(true);
+	int i = 0;
 	for (const auto& channel : sessionChannels->channels) {
 		auto controller = new ChannelController(channel.name, Uuid::Uuid().toString(), [](double newVolume, JammerNetzChannelTarget newTarget) {
 			ignoreUnused(newVolume, newTarget);
@@ -39,6 +40,7 @@ void ChannelControllerGroup::setup(std::shared_ptr<JammerNetzChannelSetup> sessi
 		channelControllers_.add(controller);
 		controller->setVolume(channel.volume * 100.0f);
 		controller->setTarget(channel.target);
+		controller->setMeterSource(meterSource, i++);
 	}
 	resized();
 }

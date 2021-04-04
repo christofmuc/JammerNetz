@@ -88,6 +88,18 @@ void AudioCallback::audioDeviceIOCallback(const float** inputChannelData, int nu
 
 	// Measure the peak values for each channel
 	meterSource_.measureBlock(*audioBuffer);
+	// Send the RMS values to the server, which will forward it to the other clients so they can show my levels even if they have only the mixed audio
+	for (int c = 0; c < numInputChannels; c++) {
+		if (c < channelSetup_.channels.size()) {
+			channelSetup_.channels[c].mag = meterSource_.getMaxLevel(c);
+			channelSetup_.channels[c].rms = meterSource_.getRMSLevel(c);
+		}
+		else {
+			jassertfalse;
+		}
+	}
+
+	// Measure time passed
 	samplesPerTime(numSamples);
 
 	// Get play-along data. The MIDI Buffer should be ready to be played out now, but we will only look at the text events for now
@@ -156,6 +168,16 @@ void AudioCallback::audioDeviceIOCallback(const float** inputChannelData, int nu
 			if (masterRecorder_ && masterRecorder_->isRecording()) {
 				masterRecorder_->saveBlock(toPlay->audioBuffer()->getArrayOfReadPointers(), toPlay->audioBuffer()->getNumSamples());
 			}
+
+			// Calculate the RMS and mag displays for the other session participants
+			auto session = client_.getCurrentSessionSetup();
+			std::vector<float> magnitudes;
+			std::vector<float> rmss;
+			for (const auto& channel : session.channels) {
+				magnitudes.push_back(channel.mag);
+				rmss.push_back(channel.rms);
+			}
+			sessionMeterSource_.setBlockMeasurement(*toPlay->audioBuffer(), magnitudes, rmss);
 		}
 		else {
 			// That would be considered a programming error, I shall not enqueue nullptr
@@ -210,6 +232,11 @@ void AudioCallback::setCryptoKey(const void* keyData, int keyBytes)
 FFAU::LevelMeterSource* AudioCallback::getMeterSource()
 {
 	return &meterSource_;
+}
+
+FFAU::LevelMeterSource* AudioCallback::getSessionMeterSource()
+{
+	return &sessionMeterSource_;
 }
 
 FFAU::LevelMeterSource* AudioCallback::getOutputMeterSource()

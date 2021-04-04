@@ -11,12 +11,12 @@
 #include "JammerNetzClientInfoMessage.h"
 
 JammerNetzSingleChannelSetup::JammerNetzSingleChannelSetup() :
-	target(JammerNetzChannelTarget::Unused), volume(1.0f), rms(0.0f)
+	target(JammerNetzChannelTarget::Unused), volume(1.0f), mag(0.0f), rms(0.0f)
 {
 }
 
 JammerNetzSingleChannelSetup::JammerNetzSingleChannelSetup(uint8 target) :
-	target(target), volume(1.0f), rms(0.0f)
+	target(target), volume(1.0f), mag(0.0f), rms(0.0f)
 {
 }
 
@@ -176,11 +176,11 @@ flatbuffers::Offset<JammerNetzPNPAudioBlock> JammerNetzAudioData::serializeAudio
 {
 	std::vector<flatbuffers::Offset<JammerNetzPNPChannelSetup>> channelSetup;
 	for (const auto& channel : src->channelSetup.channels) {
-		channelSetup.push_back(CreateJammerNetzPNPChannelSetup(fbb, channel.target, channel.volume, channel.rms));
+		channelSetup.push_back(CreateJammerNetzPNPChannelSetup(fbb, channel.target, channel.volume, channel.mag, channel.rms));
 	}
 	std::vector<flatbuffers::Offset<JammerNetzPNPChannelSetup>> sessionChannels;
 	for (const auto& channel : src->sessionSetup.channels) {
-		sessionChannels.push_back(CreateJammerNetzPNPChannelSetup(fbb, channel.target, channel.volume, channel.rms));
+		sessionChannels.push_back(CreateJammerNetzPNPChannelSetup(fbb, channel.target, channel.volume, channel.mag, channel.rms));
 	}
 	auto channelSetupVector = fbb.CreateVector(channelSetup);
 	auto sessionSetupVector = fbb.CreateVector(sessionChannels);
@@ -263,6 +263,7 @@ std::shared_ptr<AudioBlock> JammerNetzAudioData::readAudioHeaderAndBytes(JammerN
 	for (auto channel = block->channelSetup()->cbegin(); channel != block->channelSetup()->cend(); channel++) {
 		JammerNetzSingleChannelSetup setup(channel->target());
 		setup.volume = channel->volume();
+		setup.mag = channel->mag();
 		setup.rms = channel->rms();
 		result->channelSetup.channels.push_back(setup);
 	};
@@ -270,6 +271,7 @@ std::shared_ptr<AudioBlock> JammerNetzAudioData::readAudioHeaderAndBytes(JammerN
 	for (auto channel = block->allChannels()->cbegin(); channel != block->allChannels()->cend(); channel++) {
 		JammerNetzSingleChannelSetup setup(channel->target());
 		setup.volume = channel->volume();
+		setup.mag = channel->mag();
 		setup.rms = channel->rms();
 		result->sessionSetup.channels.push_back(setup);
 	};

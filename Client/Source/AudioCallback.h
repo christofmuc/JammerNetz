@@ -36,6 +36,7 @@ public:
 	void setCryptoKey(const void* keyData, int keyBytes);
 
 	FFAU::LevelMeterSource* getMeterSource();
+	FFAU::LevelMeterSource* getSessionMeterSource();
 	FFAU::LevelMeterSource* getOutputMeterSource();
 	std::weak_ptr<MidiClocker> getClocker();
 	MidiPlayAlong *getPlayalong();
@@ -75,7 +76,8 @@ private:
 	Client client_;
 	JammerNetzChannelSetup channelSetup_;
 	FFAU::LevelMeterSource meterSource_; // This is for peak metering
-	FFAU::LevelMeterSource outMeterSource_;
+	FFAU::LevelMeterSource sessionMeterSource_; // This is to display the complete session peak meters
+	FFAU::LevelMeterSource outMeterSource_; // This is for peak metering the output
 
 	std::shared_ptr<Recorder> uploadRecorder_;
 	std::shared_ptr<Recorder> masterRecorder_;
