@@ -24,6 +24,10 @@ struct JammerNetzStreamQualityInfo {
 	uint64_t packagesPopped;
 	uint64_t maxLengthOfGap;
 	uint64_t maxWrongOrderSpan;
+
+	double wallClockDelta;
+	double jitterMeanMillis;
+	double jitterSDMillis;
 };
 
 struct JammerNetzClientInfo {

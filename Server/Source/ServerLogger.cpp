@@ -37,7 +37,8 @@ void ServerLogger::errorln(String const &message)
 	}
 }
 
-std::vector<std::pair<int, std::string>> kColumnHeaders = { {0, "Client"}, {20, "Len" }, { 26, "ooO" }, { 32, "span" } , { 38, "dup" } , { 44, "heal" } , { 50, "late" } , { 56, "drop" } , { 62, "gap" } };
+std::vector<std::pair<int, std::string>> kColumnHeaders = { {0, "Client"}, {20, "Len" }, { 26, "ooO" }, { 32, "span" } , { 38, "dup" } , { 44, "heal" } , { 50, "late" } , { 56, "drop" } , { 62, "gap" },
+	{70, "Jitter ms"}, { 80, "Jitter SD" }, { 90, "Clock diff"} };
 
 std::map<std::string, int> sClientRows;
 int kRowsInTable = 0;
@@ -81,6 +82,9 @@ void ServerLogger::printStatistics(int row, std::string const &clientID, JammerN
 		snprintf(buffer, 200, "%6Id", quality.tooLateOrDuplicate);	mvprintw(y, kColumnHeaders[6].first, buffer);
 		snprintf(buffer, 200, "%6Id", quality.droppedPacketCounter);	mvprintw(y, kColumnHeaders[7].first, buffer);
 		snprintf(buffer, 200, "%6Id", quality.maxLengthOfGap);	mvprintw(y, kColumnHeaders[8].first, buffer);
+		snprintf(buffer, 200, "%2.1f", quality.jitterMeanMillis);	mvprintw(y, kColumnHeaders[9].first, buffer);
+		snprintf(buffer, 200, "%2.1f", quality.jitterSDMillis);	mvprintw(y, kColumnHeaders[10].first, buffer);
+		snprintf(buffer, 200, "%2.1f", quality.wallClockDelta);	mvprintw(y, kColumnHeaders[11].first, buffer);
 
 		refresh();
 	}

@@ -23,6 +23,26 @@ bool PacketStreamQueue::push(std::shared_ptr<JammerNetzAudioData> packet)
 			qualityData_.maxWrongOrderSpan = std::max((unsigned long long) qualityData_.maxWrongOrderSpan, lastPushedMessage_ - packet->messageCounter());
 		}
 		lastPushedMessage_ = packet->messageCounter();
+
+		// Calculate the jitter in this queue!
+		double now = Time::getMillisecondCounterHiRes();
+
+		// Jitter is the difference between the running mean of clock delta and this packages clock delta
+		double clockDelta = now - packet->timestamp();
+		double jitter = fabs(clockDelta - runningMeanClockDelta_.Mean());
+		runningMeanClockDelta_.Push(clockDelta);
+		runningMeanJitter_.Push(jitter);
+		qualityData_.jitterMeanMillis= runningMeanJitter_.Mean();
+		qualityData_.jitterSDMillis = runningMeanJitter_.StandardDeviation();
+		qualityData_.wallClockDelta = clockDelta;
+
+		// Every 5 seconds forget the rolling mean
+		if (runningMeanClockDelta_.NumDataValues() > 1875) {
+
+			runningMeanClockDelta_.Clear();
+			runningMeanJitter_.Clear();
+		}
+
 		return true;
 	}
 	return false;
@@ -62,8 +82,8 @@ bool PacketStreamQueue::try_pop(std::shared_ptr<JammerNetzAudioData> &element, b
 			bool hadFEC;
 			element = packet->createFillInPackage(lastPoppedMessage_ + 1, hadFEC);
 			if (hadFEC) {
-			qualityData_.dropsHealed++;
-		}
+				qualityData_.dropsHealed++;
+			}
 			else {
 				qualityData_.droppedPacketCounter++;
 			}
@@ -126,6 +146,9 @@ StreamQualityData::StreamQualityData()
 	packagesPopped = 0;
 	maxLengthOfGap = 0;
 	maxWrongOrderSpan = 0;
+	wallClockDelta = 0.0;
+	jitterMeanMillis = 0.0;
+	jitterSDMillis = 0.0;
 }
 
 std::string StreamQualityData::qualityStatement() const {
@@ -158,5 +181,8 @@ JammerNetzStreamQualityInfo StreamQualityData::qualityInfoPackage() const
 	result.packagesPopped = packagesPopped;
 	result.maxLengthOfGap = maxLengthOfGap;
 	result.maxWrongOrderSpan = maxWrongOrderSpan;
+	result.wallClockDelta = wallClockDelta;
+	result.jitterMeanMillis = jitterMeanMillis;
+	result.jitterSDMillis = jitterSDMillis;
 	return result;
 }

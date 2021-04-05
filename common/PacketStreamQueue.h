@@ -14,6 +14,8 @@
 #include "tbb/concurrent_hash_map.h"
 #include "tbb/concurrent_priority_queue.h"
 
+#include "RunningStats.h"
+
 
 struct StreamQualityData {
 	StreamQualityData();
@@ -33,10 +35,16 @@ struct StreamQualityData {
 	std::atomic_uint64_t maxLengthOfGap;
 	std::atomic_uint64_t maxWrongOrderSpan;
 
+	// Measure jitter in queue
+	std::atomic<double> wallClockDelta;
+	std::atomic<double> jitterMeanMillis;
+	std::atomic<double> jitterSDMillis;
+
 	std::string streamName;
 
 	std::string qualityStatement() const;
 	JammerNetzStreamQualityInfo qualityInfoPackage() const;
+	
 };
 
 class PacketStreamQueue {
@@ -61,6 +69,8 @@ private:
 #endif
 	std::atomic_uint64_t currentGap_;
 	std::shared_ptr<JammerNetzAudioData> lastPoppedMessageData_;
+	RunningStats runningMeanClockDelta_;
+	RunningStats runningMeanJitter_;
 	StreamQualityData qualityData_;
 	tbb::concurrent_hash_map<uint64, bool> currentlyInQueue_;
 };

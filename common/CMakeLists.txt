@@ -30,6 +30,7 @@ set(Sources
 	Pool.h
 	Recorder.cpp Recorder.h
 	RingOfAudioBuffers.h
+	RunningStats.cpp RunningStats.h
 	ServerInfo.cpp ServerInfo.h
 )
 
