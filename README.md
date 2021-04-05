@@ -1,3 +1,4 @@
+[![release](https://img.shields.io/github/v/release/christofmuc/jammernetz?style=plastic)](https://github.com/christofmuc/jammernetz/releases)
 [![Build status](https://ci.appveyor.com/api/projects/status/p1rtas99sg84f9ni?svg=true)](https://ci.appveyor.com/project/christofmuc/jammernetz)
 
 
