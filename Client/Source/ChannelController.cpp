@@ -135,6 +135,16 @@ double ChannelController::geCurrentRMSinDecible() const
 	return -100.0;
 }
 
+void ChannelController::enableVolumeSlider(bool enabled)
+{
+	volumeSlider_.setEnabled(enabled);
+}
+
+void ChannelController::enableTargetSelector(bool enabled)
+{
+	channelType_.setEnabled(enabled);
+}
+
 void ChannelController::fromData()
 {
 	ValueTree &data = Data::instance().get();

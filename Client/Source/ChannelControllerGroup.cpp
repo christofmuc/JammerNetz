@@ -42,7 +42,16 @@ void ChannelControllerGroup::setup(std::shared_ptr<JammerNetzChannelSetup> sessi
 		controller->setTarget(channel.target);
 		controller->setMeterSource(meterSource, i++);
 	}
+	enableClientSideControls(false);
 	resized();
+}
+
+void ChannelControllerGroup::enableClientSideControls(bool enabled)
+{
+	for (auto c : channelControllers_) {
+		c->enableVolumeSlider(enabled);
+		c->enableTargetSelector(enabled);
+	}
 }
 
 JammerNetzChannelTarget ChannelControllerGroup::getCurrentTarget(int channel) const

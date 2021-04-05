@@ -30,5 +30,7 @@ public:
 	void toData();
 
 private:
+	void enableClientSideControls(bool enabled);
+
 	OwnedArray<ChannelController> channelControllers_;
 };

@@ -31,6 +31,10 @@ public:
 	float getCurrentVolume() const;
 	double geCurrentRMSinDecible() const;
 
+	// Enable individual parts
+	void enableVolumeSlider(bool enabled);
+	void enableTargetSelector(bool enabled);
+
 	// Store to and load from settings
 	void fromData();
 	void toData() const;
