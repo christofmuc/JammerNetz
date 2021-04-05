@@ -34,6 +34,7 @@ private:
 	void setupChanged(std::shared_ptr<ChannelSetup> setup);
 	void outputSetupChanged(std::shared_ptr<ChannelSetup> setup);
 	void newServerSelected();
+	void updateUserName();
 	void numConnectedClientsChanged();
 	void fillConnectedClientsStatistics();
 
@@ -50,6 +51,9 @@ private:
 	GroupComponent sessionGroup_;
 	ChannelController outputController_;
 	GroupComponent outputGroup_;
+	Label nameLabel_;
+	TextEditor nameEntry_;
+	TextButton nameChange_;
 	ClientConfigurator clientConfigurator_;
 	ServerStatus serverStatus_;
 	GroupComponent serverGroup_;
@@ -64,6 +68,7 @@ private:
 	std::unique_ptr<RecordingInfo> localRecordingInfo_; // For the local data
 	std::unique_ptr<PlayalongDisplay> playalongDisplay_;
 
+	std::string userName_;
 	std::shared_ptr<ChannelSetup> currentInputSetup_;
 	std::shared_ptr<JammerNetzChannelSetup> currentSessionSetup_;
 	std::shared_ptr<ChannelSetup> currentOutputSetup_;

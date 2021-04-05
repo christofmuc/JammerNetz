@@ -21,10 +21,15 @@ JammerNetzSingleChannelSetup::JammerNetzSingleChannelSetup(uint8 target) :
 }
 
 
-bool JammerNetzSingleChannelSetup::operator==(const JammerNetzSingleChannelSetup &other) const
+bool JammerNetzSingleChannelSetup::isEqualEnough(const JammerNetzSingleChannelSetup &other) const
+{
+	return target == other.target && volume == other.volume && name == other.name;
+}
+
+/*bool JammerNetzSingleChannelSetup::operator==(const JammerNetzSingleChannelSetup &other) const
 {
 	return target == other.target && volume == other.volume;
-}
+}*/
 
 JammerNetzChannelSetup::JammerNetzChannelSetup()
 {
@@ -35,14 +40,23 @@ JammerNetzChannelSetup::JammerNetzChannelSetup(std::vector<JammerNetzSingleChann
 	channels = channelInfo;
 }
 
-bool JammerNetzChannelSetup::operator==(const JammerNetzChannelSetup &other) const
+bool JammerNetzChannelSetup::isEqualEnough(const JammerNetzChannelSetup &other) const
+{
+	if (channels.size() != other.channels.size()) return false;
+	for (int i = 0; i < channels.size(); i++) {
+		if (!(channels[i].isEqualEnough(other.channels[i]))) return false;
+	}
+	return true;
+}
+
+/*bool JammerNetzChannelSetup::operator==(const JammerNetzChannelSetup &other) const
 {
 	if (channels.size() != other.channels.size()) return false;
 	for (int i = 0; i < channels.size(); i++) {
 		if (!(channels[i] == other.channels[i])) return false;
 	}
 	return true;
-}
+}*/
 
 AudioBlock::AudioBlock(double timestamp, uint64 messageCounter, uint16 sampleRate, JammerNetzChannelSetup const &channelSetup, std::shared_ptr<AudioBuffer<float>> audioBuffer, JammerNetzChannelSetup const &sessionSetup) :
 	timestamp(timestamp), messageCounter(messageCounter), sampleRate(sampleRate), channelSetup(channelSetup), audioBuffer(audioBuffer), sessionSetup(sessionSetup)

@@ -31,6 +31,14 @@ callback_(deviceManager_)
 
 	outputController_.setMeterSource(callback_.getOutputMeterSource(), -1);
 
+	userName_ = Settings::instance().get("username", SystemStats::getFullUserName().toStdString());
+	nameLabel_.setText("My name", dontSendNotification);
+	nameEntry_.setText(userName_, dontSendNotification);
+	nameChange_.setButtonText("Change");
+	nameChange_.onClick = [this]() { updateUserName();  };
+	nameEntry_.onEscapeKey = [this]() { nameEntry_.setText(userName_, dontSendNotification);  };
+	nameEntry_.onReturnKey = [this]() { updateUserName(); };
+
 	inputGroup_.setText("Input");
 	sessionGroup_.setText("Session participants");
 	outputGroup_.setText("Output");
@@ -48,6 +56,9 @@ callback_(deviceManager_)
 	addAndMakeVisible(downstreamInfo_);
 	addAndMakeVisible(outputGroup_);
 	addAndMakeVisible(outputSelector_);
+	addAndMakeVisible(nameLabel_);
+	addAndMakeVisible(nameEntry_);
+	addAndMakeVisible(nameChange_);
 	addAndMakeVisible(clientConfigurator_);
 	addAndMakeVisible(serverStatus_);
 	addAndMakeVisible(serverGroup_);
@@ -99,7 +110,10 @@ void MainComponent::refreshChannelSetup(std::shared_ptr<ChannelSetup> setup) {
 		for (int i = 0; i < setup->activeChannelIndices.size(); i++) {
 			JammerNetzSingleChannelSetup channel((uint8)ownChannels_.getCurrentTarget(i));
 			channel.volume = ownChannels_.getCurrentVolume(i);
-			channel.name = setup->activeChannelNames[i];
+			channel.name = setup->activeChannelIndices.size() > 1 ? userName_ + " " + setup->activeChannelNames[i] : userName_;
+			// Not more than 20 characters please
+			if (channel.name.length() > 20)
+				channel.name.erase(20, std::string::npos); 
 			channelSetup.channels.push_back(channel);
 		}
 	}
@@ -184,6 +198,10 @@ void MainComponent::resized()
 	auto clientConfigArea = settingsArea.removeFromLeft(settingsSectionWidth);
 	serverGroup_.setBounds(clientConfigArea);
 	clientConfigArea.reduce(kNormalInset, kNormalInset);
+	auto nameRow = clientConfigArea.removeFromTop(kLineSpacing).withTrimmedTop(kNormalInset).withTrimmedLeft(kNormalInset).withTrimmedRight(kNormalInset);
+	nameLabel_.setBounds(nameRow.removeFromLeft(kLabelWidth));
+	nameEntry_.setBounds(nameRow.removeFromLeft(kEntryBoxWidth));
+	nameChange_.setBounds(nameRow.removeFromLeft(kLabelWidth).withTrimmedLeft(kNormalInset));
 	clientConfigurator_.setBounds(clientConfigArea.removeFromBottom(kLineSpacing * 2));
 	connectionInfo_.setBounds(clientConfigArea.removeFromBottom(kLineSpacing));
 	serverStatus_.setBounds(clientConfigArea);
@@ -313,7 +331,7 @@ void MainComponent::timerCallback()
 	}
 
 	// Refresh session participants in case this changed!
-	if (!currentSessionSetup_ || !(*currentSessionSetup_ == callback_.getSessionSetup())) {
+	if (!currentSessionSetup_ || !(currentSessionSetup_->isEqualEnough(callback_.getSessionSetup()))) {
 		currentSessionSetup_ = std::make_shared<JammerNetzChannelSetup>(callback_.getSessionSetup());
 		// Setup changed, need to re-init UI
 		allChannels_.setup(currentSessionSetup_, callback_.getSessionMeterSource());
@@ -344,4 +362,10 @@ void MainComponent::outputSetupChanged(std::shared_ptr<ChannelSetup> setup)
 void MainComponent::newServerSelected()
 {
 	callback_.newServer();
+}
+
+void MainComponent::updateUserName() {
+	userName_ = nameEntry_.getText().toStdString();
+	Settings::instance().set("username", userName_);
+	refreshChannelSetup(currentInputSetup_);
 }

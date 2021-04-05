@@ -214,7 +214,7 @@ void AudioCallback::audioDeviceStopped()
 
 void AudioCallback::setChannelSetup(JammerNetzChannelSetup const &channelSetup)
 {
-	if (!(channelSetup_ == channelSetup)) {
+	if (!(channelSetup_.isEqualEnough(channelSetup))) {
 		channelSetup_ = channelSetup;
 		if (uploadRecorder_) {
 			uploadRecorder_->setChannelInfo(SAMPLE_RATE, channelSetup_);

@@ -51,7 +51,8 @@ struct JammerNetzSingleChannelSetup {
 	float pitch;
 	std::string name;
 
-	bool operator ==(const JammerNetzSingleChannelSetup &other) const;
+	bool isEqualEnough(const JammerNetzSingleChannelSetup &other) const;
+	//bool operator ==(const JammerNetzSingleChannelSetup &other) const;
 };
 
 struct JammerNetzChannelSetup {
@@ -59,7 +60,8 @@ struct JammerNetzChannelSetup {
 	JammerNetzChannelSetup(std::vector<JammerNetzSingleChannelSetup> const &channelInfo);
 	std::vector<JammerNetzSingleChannelSetup> channels;
 
-	bool operator ==(const JammerNetzChannelSetup &other) const;
+	bool isEqualEnough(const JammerNetzChannelSetup &other) const; 
+	//bool operator ==(const JammerNetzChannelSetup &other) const;
 };
 
 struct JammerNetzAudioBlock {
