@@ -117,7 +117,7 @@ public:
 	JammerNetzAudioData(uint64 messageCounter, double timestamp, JammerNetzChannelSetup const &channelSetup, int sampleRate, std::shared_ptr<AudioBuffer<float>> audioBuffer, std::shared_ptr<AudioBlock> fecBlock);
 	JammerNetzAudioData(AudioBlock const &audioBlock, std::shared_ptr<AudioBlock> fecBlock);
 
-	std::shared_ptr<JammerNetzAudioData> createFillInPackage(uint64 messageNumber) const;
+	std::shared_ptr<JammerNetzAudioData> createFillInPackage(uint64 messageNumber, bool &outHadFEC) const;
 	std::shared_ptr<JammerNetzAudioData> createPrePaddingPackage() const;
 
 	virtual MessageType getType() const override;

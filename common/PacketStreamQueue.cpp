@@ -59,12 +59,19 @@ bool PacketStreamQueue::try_pop(std::shared_ptr<JammerNetzAudioData> &element, b
 		// Consider it MIA and use the one we popped to create a fill in package, maybe FEC can help. And it needs to go back into the priority queue
 		packetQueue.push(packet);
 		if (currentGap_ < 1) {
-			element = packet->createFillInPackage(lastPoppedMessage_ + 1);
+			bool hadFEC;
+			element = packet->createFillInPackage(lastPoppedMessage_ + 1, hadFEC);
+			if (hadFEC) {
 			qualityData_.dropsHealed++;
+		}
+			else {
+				qualityData_.droppedPacketCounter++;
+			}
 		}
 		else {
 			// Never repeat this again, take the next package even if there was a drop and restart consecutive counting
-			element = packet->createFillInPackage(packet->messageCounter() - 1);
+			bool hadFEC;
+			element = packet->createFillInPackage(packet->messageCounter() - 1, hadFEC);
 			element->audioBuffer()->clear();
 			qualityData_.droppedPacketCounter++;
 		}

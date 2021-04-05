@@ -55,18 +55,18 @@ std::shared_ptr<JammerNetzMessage> JammerNetzMessage::deserialize(uint8 *data, s
 		JammerNetzHeader *header = reinterpret_cast<JammerNetzHeader*>(data);
 
 		try {
-		// Check the magic 
-		if (header->magic0 == '1' && header->magic1 == '2' && header->magic2 == '3') {
-			switch (header->messageType) {
-			case AUDIODATA:
-				return std::make_shared<JammerNetzAudioData>(data, bytes);
-			case CLIENTINFO:
-				return std::make_shared<JammerNetzClientInfoMessage>(data, bytes);
-			default:
-				std::cerr << "Unknown message type received, ignoring it" << std::endl;
+			// Check the magic 
+			if (header->magic0 == '1' && header->magic1 == '2' && header->magic2 == '3') {
+				switch (header->messageType) {
+				case AUDIODATA:
+					return std::make_shared<JammerNetzAudioData>(data, bytes);
+				case CLIENTINFO:
+					return std::make_shared<JammerNetzClientInfoMessage>(data, bytes);
+				default:
+					std::cerr << "Unknown message type received, ignoring it" << std::endl;
+				}
 			}
 		}
-	}
 		catch (JammerNetzMessageParseException &) {
 			// Invalid, probably tampered with or old 1.0 package
 			return nullptr;
@@ -134,13 +134,15 @@ JammerNetzAudioData::JammerNetzAudioData(AudioBlock const &audioBlock, std::shar
 	activeBlock_ = audioBlock_;
 }
 
-std::shared_ptr<JammerNetzAudioData> JammerNetzAudioData::createFillInPackage(uint64 messageNumber) const
+std::shared_ptr<JammerNetzAudioData> JammerNetzAudioData::createFillInPackage(uint64 messageNumber, bool &outHadFEC) const
 {
 	if (fecBlock_) {
+		outHadFEC = true;
 		return std::make_shared<JammerNetzAudioData>(messageNumber, fecBlock_->timestamp, fecBlock_->channelSetup, SAMPLE_RATE, fecBlock_->audioBuffer, nullptr);
 	}
 	// No FEC data available, fall back to "repeat last package"
 	//TODO - fake timestamp?
+	outHadFEC = false;
 	return std::make_shared<JammerNetzAudioData>(messageNumber, audioBlock_->timestamp, audioBlock_->channelSetup, SAMPLE_RATE, audioBlock_->audioBuffer, nullptr);
 }
 
