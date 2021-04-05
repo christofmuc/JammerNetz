@@ -13,7 +13,7 @@
 #include "BuffersConfig.h"
 
 Client::Client(std::function<void(std::shared_ptr<JammerNetzAudioData>)> newDataHandler) : messageCounter_(10) /* TODO - because of the pre-fill on server side, can't be 0 */
-	, currentBlockSize_(0), fecBuffer_(16)
+	, currentBlockSize_(0), fecBuffer_(16), useFEC_(false)
 {
 	// We will send data to the server via this port
 	int randomPort = 8888 + (Random().nextInt() % 64);
@@ -43,6 +43,11 @@ void Client::setCryptoKey(const void* keyData, int keyBytes)
 	receiver_->setCryptoKey(keyData, keyBytes);
 }
 
+void Client::setSendFECData(bool fecEnabled)
+{
+	useFEC_ = fecEnabled;
+}
+
 bool Client::isReceivingData() const
 {
 	return receiver_->isReceivingData();
@@ -61,9 +66,9 @@ bool Client::sendData(String const &remoteHostname, int remotePort, void *data, 
 
 bool Client::sendData(JammerNetzChannelSetup const &channelSetup, std::shared_ptr<AudioBuffer<float>> audioBuffer)
 {
-	// If we have FEC data, append the last block sent
+	// If we have FEC data, and the user enabled it, append the last block sent
 	std::shared_ptr<AudioBlock> fecBlock;
-	if (!fecBuffer_.isEmpty()) {
+	if (useFEC_ && !fecBuffer_.isEmpty()) {
 		fecBlock = fecBuffer_.getLast();
 	}
 

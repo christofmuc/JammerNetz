@@ -11,7 +11,8 @@
 class ClientConfigurator : public Component,
 	private Slider::Listener {
 public:
-	ClientConfigurator(std::function<void(int, int)> updateHandler);
+	typedef std::function<void(int, int, bool)> TUpdateHandler;
+	ClientConfigurator(TUpdateHandler updateHandler);
 
 	virtual void resized() override;
 
@@ -22,9 +23,10 @@ public:
 private:
 	virtual void sliderValueChanged(Slider* slider) override;
 
-	std::function<void(int, int)> updateHandler_;
+	TUpdateHandler updateHandler_;
 	Label bufferLabel_;
 	Slider bufferLength_;
 	Label maxLabel_;
 	Slider maxLength_;
+	ToggleButton useFEC_;
 };

@@ -231,6 +231,11 @@ void AudioCallback::changeClientConfig(int clientBuffers, int maxBuffers)
 	maxPlayoutBufferLength_ = maxBuffers;
 }
 
+void AudioCallback::setFEC(bool fec)
+{
+	client_.setSendFECData(fec);
+}
+
 void AudioCallback::setCryptoKey(const void* keyData, int keyBytes)
 {
 	client_.setCryptoKey(keyData, keyBytes);

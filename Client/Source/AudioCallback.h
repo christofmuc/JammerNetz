@@ -32,6 +32,7 @@ public:
 	void newServer();
 	void setChannelSetup(JammerNetzChannelSetup const &channelSetup);
 	void changeClientConfig(int clientBuffers, int maxBuffers);
+	void setFEC(bool fec);
 
 	void setCryptoKey(const void* keyData, int keyBytes);
 
