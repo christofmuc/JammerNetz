@@ -68,6 +68,8 @@ void ServerLogger::printStatistics(int row, std::string const &clientID, JammerN
 		int y = row + yForClient(clientID);
 
 		move(y, kColumnHeaders[0].first);
+		clrtoeol();
+		move(y, kColumnHeaders[0].first);
 		printw(clientID.c_str());
 
 		// Print columns into table
