@@ -24,7 +24,7 @@ clientConfigurator_([this](int clientBuffer, int maxBuffer) { callback_.changeCl
 serverStatus_([this]() { newServerSelected();  }),
 callback_(deviceManager_)
 {
-	bpmDisplay_ = std::make_unique<BPMDisplay>(callback_.getClocker());
+	//bpmDisplay_ = std::make_unique<BPMDisplay>(callback_.getClocker());
 	recordingInfo_ = std::make_unique<RecordingInfo>(callback_.getMasterRecorder());
 	playalongDisplay_ = std::make_unique<PlayalongDisplay>(callback_.getPlayalong());
 	localRecordingInfo_ = std::make_unique<RecordingInfo>(callback_.getLocalRecorder());
@@ -52,7 +52,7 @@ callback_(deviceManager_)
 	addAndMakeVisible(serverStatus_);
 	addAndMakeVisible(serverGroup_);
 	addAndMakeVisible(connectionInfo_);
-	addAndMakeVisible(*bpmDisplay_);
+	//addAndMakeVisible(*bpmDisplay_);
 	addAndMakeVisible(qualityGroup_);
 	addAndMakeVisible(recordingGroup_);
 	addAndMakeVisible(*recordingInfo_);

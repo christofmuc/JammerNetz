@@ -26,7 +26,8 @@ AudioCallback::AudioCallback(AudioDeviceManager &deviceManager) : client_([this]
 	uploadRecorder_ = std::make_shared<Recorder>(Settings::instance().getSessionStorageDir(), "LocalRecording", RecordingType::WAV);
 	masterRecorder_ = std::make_shared<Recorder>(Settings::instance().getSessionStorageDir(), "MasterRecording", RecordingType::FLAC);
 	masterRecorder_->updateChannelInfo(SAMPLE_RATE, JammerNetzChannelSetup({ JammerNetzChannelTarget::Left, JammerNetzChannelTarget::Right }));
-	midiRecorder_ = std::make_unique<MidiRecorder>(deviceManager);
+	ignoreUnused(deviceManager);
+	//midiRecorder_ = std::make_unique<MidiRecorder>(deviceManager);
 
 	// We might want to share a score sheet or similar
 	//midiPlayalong_ = std::make_unique<MidiPlayAlong>("D:\\Development\\JammerNetz-OS\\Led Zeppelin - Stairway to heaven (1).kar");
