@@ -90,7 +90,10 @@ void ServerLogger::printServerStatus(std::string const &text)
 {
 	if (terminal) {
 		move(1, 0);
+		clrtoeol();
+		move(1, 0);
 		printw(text.c_str());
+		refresh();
 	}
 	else {
 		std::cout << text;
@@ -102,7 +105,10 @@ void ServerLogger::printClientStatus(int row, std::string const &clientID, std::
 	if (terminal) {
 		int y = row + yForClient(clientID);
 		move(y, kColumnHeaders[0].first);
+		clrtoeol();
+		move(y, kColumnHeaders[0].first);
 		printw(clientID.c_str());
+		refresh();
 	}
 	else {
 		std::cout << "Client " << clientID << text << std::endl;
