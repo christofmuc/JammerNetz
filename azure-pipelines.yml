@@ -84,7 +84,7 @@ jobs:
         cmakeArgs: '--build Builds\Windows --config RelWithDebInfo'
       condition: variables.isWindows
 
-    - publish: $(System.DefaultWorkingDirectory)/Builds/Windows/Client/jammernetz_setup_2.1.0.exe
+    - publish: $(System.DefaultWorkingDirectory)/Builds/Windows/Client/jammernetz_setup_2.1.1.exe
       displayName: Publish Windows Installer
       artifact: WindowsInstaller
       condition: variables.isWindows2019
@@ -114,7 +114,7 @@ jobs:
       displayName: Build with CMake for Mac
       condition: variables.isMac
       
-    - publish: $(System.DefaultWorkingDirectory)/builds/release/jammernetz_setup_2.1.0-Darwin.dmg
+    - publish: $(System.DefaultWorkingDirectory)/builds/release/jammernetz_setup_2.1.1-Darwin.dmg
       displayName: Publish Mac Installer
       artifact: MacInstaller
       condition: variables.isMac
