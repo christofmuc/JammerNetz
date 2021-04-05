@@ -104,6 +104,7 @@ void MainComponent::refreshChannelSetup(std::shared_ptr<ChannelSetup> setup) {
 		}
 	}
 	callback_.setChannelSetup(channelSetup);
+	resized();
 }
 
 BigInteger makeChannelMask(std::vector<int> const &indices) {
@@ -173,7 +174,7 @@ void MainComponent::resized()
 	int deviceSelectorWidth = std::min(area.getWidth() / 4, 250);
 	int masterMixerWidth = 100; // Stereo mixer
 
-	int inputMixerWidth = masterMixerWidth * (int)currentInputSetup_->activeChannelNames.size() + deviceSelectorWidth;
+	int inputMixerWidth = masterMixerWidth * (int)currentInputSetup_->activeChannelNames.size() + deviceSelectorWidth + 2 * kNormalInset;
 
 	// To the bottom, the server info and status area
 	auto settingsArea = area.removeFromBottom(settingsHeight);
