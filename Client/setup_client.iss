@@ -38,7 +38,9 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 
 [Files]
 Source: "${CMAKE_CURRENT_BINARY_DIR}\RelWithDebInfo\JammerNetzClient.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "${CMAKE_CURRENT_BINARY_DIR}\RelWithDebInfo\JammerNetzClient.pdb"; DestDir: "{app}"; Flags: ignoreversion
 Source: "${CMAKE_CURRENT_BINARY_DIR}\..\Server\RelWithDebInfo\JammerNetzServer.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "${CMAKE_CURRENT_BINARY_DIR}\..\Server\RelWithDebInfo\JammerNetzServer.pdb"; DestDir: "{app}"; Flags: ignoreversion
 Source: "${CMAKE_CURRENT_BINARY_DIR}\RelWithDebInfo\tbb12.dll"; DestDir: "{app}"; Flags: ignoreversion
 Source: "${VCREDIST_PATH}\{#VCRedistFileName}"; DestDir: {tmp}; Flags: dontcopy
 Source: "${CMAKE_CURRENT_BINARY_DIR}\RelWithDebInfo\sentry.dll"; DestDir: "{app}"; Flags: skipifsourcedoesntexist
