@@ -33,7 +33,7 @@ void ChannelControllerGroup::setup(std::shared_ptr<JammerNetzChannelSetup> sessi
 	channelControllers_.clear(true);
 	int i = 0;
 	for (const auto& channel : sessionChannels->channels) {
-		auto controller = new ChannelController(channel.name, Uuid::Uuid().toString(), [](double newVolume, JammerNetzChannelTarget newTarget) {
+		auto controller = new ChannelController(channel.name, "Session " + String(i), [](double newVolume, JammerNetzChannelTarget newTarget) {
 			ignoreUnused(newVolume, newTarget);
 		}, true, true, true);
 		addAndMakeVisible(controller);
