@@ -25,7 +25,7 @@ void ServerStatus::resized()
 {
 	auto area = getLocalBounds().reduced(kNormalInset);
 	serverSelector_.setBounds(area.removeFromTop((kLineHeight + kNormalInset) *3));
-	cloudImage_.setBounds(area.withSizeKeepingCentre(128, 128).withTrimmedTop(kNormalInset));
+	cloudImage_.setBounds(area.withSizeKeepingCentre(96, 96).withTrimmedTop(kNormalInset));
 }
 
 void ServerStatus::fromData()
