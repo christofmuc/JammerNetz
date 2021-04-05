@@ -27,11 +27,14 @@ ServerSelector::ServerSelector(std::function<void()> notify) : localhostSelected
 		FileChooser fileChooser("Select crypto file to use", File(cryptoKeyPath_).getParentDirectory());
 		if (fileChooser.browseForFileToOpen()) {
 			cryptoKeyPath_ = fileChooser.getResult().getFullPathName();
-			ServerInfo::cryptoKeyfilePath = cryptoKeyPath_.toStdString();
 			keyPath_.setText(cryptoKeyPath_, dontSendNotification);
-			notify_();
+			reloadCryptoKey();
 		}
 	};
+	keyPath_.onEscapeKey = [this]() { keyPath_.setText(cryptoKeyPath_, dontSendNotification);  };
+	keyPath_.onReturnKey = [this]() { cryptoKeyPath_ = keyPath_.getText(); reloadCryptoKey(); };
+	loadKeyButton_.setButtonText("Load");
+	loadKeyButton_.onClick = [this]() { cryptoKeyPath_ = keyPath_.getText(); reloadCryptoKey(); };
 
 	addAndMakeVisible(useLocalhost_);
 	addAndMakeVisible(serverLabel_);
@@ -40,6 +43,13 @@ ServerSelector::ServerSelector(std::function<void()> notify) : localhostSelected
 	addAndMakeVisible(keyLabel_);
 	addAndMakeVisible(keyPath_);
 	addAndMakeVisible(browseToKey_);
+	addAndMakeVisible(loadKeyButton_);
+}
+
+void ServerSelector::reloadCryptoKey() {
+	ServerInfo::cryptoKeyfilePath = cryptoKeyPath_.toStdString();
+	notify_();
+	AlertWindow::showMessageBox(AlertWindow::InfoIcon, "New key loaded", "The new crypto key was loaded from " + cryptoKeyPath_);
 }
 
 void ServerSelector::resized()
@@ -48,7 +58,7 @@ void ServerSelector::resized()
 	auto topRow = area.removeFromTop(kLineHeight);
 	serverLabel_.setBounds(topRow.removeFromLeft(kLabelWidth));
 	auto entryArea = topRow.removeFromLeft(kEntryBoxWidth);
-	ipAddress_.setBounds(entryArea);
+	ipAddress_.setBounds(entryArea);	
 	connectButton_.setBounds(topRow.removeFromLeft(kLabelWidth).withTrimmedLeft(kNormalInset));
 
 	auto middleRow = area.removeFromTop(kLineSpacing);
@@ -56,6 +66,7 @@ void ServerSelector::resized()
 
 	auto lowerRow = area.removeFromTop(kLineSpacing).withTrimmedTop(kNormalInset);
 	keyLabel_.setBounds(lowerRow.removeFromLeft(kLabelWidth));
+	loadKeyButton_.setBounds(lowerRow.removeFromRight(kLabelWidth).withTrimmedLeft(kNormalInset));
 	browseToKey_.setBounds(lowerRow.removeFromRight(kLabelWidth).withTrimmedLeft(kNormalInset));
 	keyPath_.setBounds(lowerRow);
 }

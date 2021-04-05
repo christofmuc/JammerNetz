@@ -21,6 +21,8 @@ public:
 	void toData() const;
 
 private:
+	void reloadCryptoKey();
+
 	virtual void buttonClicked(Button*) override;
 	virtual void textEditorReturnKeyPressed(TextEditor&) override;
 	virtual void textEditorFocusLost(TextEditor&) override;
@@ -29,6 +31,7 @@ private:
 	Label serverLabel_;
 	TextEditor ipAddress_;
 	TextButton connectButton_;
+	TextButton loadKeyButton_;
 	Label keyLabel_;
 	TextEditor keyPath_;
 	TextButton browseToKey_;
