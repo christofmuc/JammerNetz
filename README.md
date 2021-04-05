@@ -1,5 +1,6 @@
 [![release](https://img.shields.io/github/v/release/christofmuc/jammernetz?style=plastic)](https://github.com/christofmuc/jammernetz/releases)
 [![Build status](https://ci.appveyor.com/api/projects/status/p1rtas99sg84f9ni?svg=true)](https://ci.appveyor.com/project/christofmuc/jammernetz)
+[![Build Status](https://dev.azure.com/christof0759/JammerNetz/_apis/build/status/christofmuc.JammerNetz?branchName=master)](https://dev.azure.com/christof0759/JammerNetz/_build/latest?definitionId=1&branchName=master)
 
 
 # Introduction
