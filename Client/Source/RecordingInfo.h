@@ -12,7 +12,7 @@
 
 class RecordingInfo : public Component, private TextButton::Listener {
 public:
-	RecordingInfo(std::weak_ptr<Recorder> recorder);
+	RecordingInfo(std::weak_ptr<Recorder> recorder, String explanation);
 	~RecordingInfo();
 
 	virtual void resized() override;
@@ -26,6 +26,7 @@ private:
 	std::weak_ptr<Recorder> recorder_;
 	std::unique_ptr<UpdateTimer> timer_;
 
+	Label explanationText_;
 	Label recordingFileName_;
 	Label recordingPath_;
 	TextButton reveal_;

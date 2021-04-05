@@ -42,8 +42,11 @@ private:
 	RecordingInfo *info_;
 };
 
-RecordingInfo::RecordingInfo(std::weak_ptr<Recorder> recorder) : recorder_(recorder), diskSpace_(diskSpacePercentage_), diskSpacePercentage_(0.0)
+RecordingInfo::RecordingInfo(std::weak_ptr<Recorder> recorder, String explanation) : recorder_(recorder), diskSpace_(diskSpacePercentage_), diskSpacePercentage_(0.0)
 {
+	explanationText_.setText(explanation, dontSendNotification);
+	addAndMakeVisible(explanationText_);
+
 	browse_.setButtonText("Change");
 	browse_.addListener(this);
 	freeDiskSpace_.setText("Free disk space", dontSendNotification);
@@ -82,6 +85,7 @@ void RecordingInfo::resized()
 
 	auto row = area.removeFromTop(kLineSpacing + kNormalInset);
 	recording_.setBounds(row.withSizeKeepingCentre(kLabelWidth, kLineHeight + kNormalInset));
+	explanationText_.setBounds(row.removeFromLeft(recording_.getX()).withTrimmedRight(kSmallInset));
 	recordingTime_.setBounds(area.removeFromTop(kLineHeight));
 	row = area.removeFromTop(kLineSpacing);
 	reveal_.setBounds(row.removeFromRight(kLabelWidth).withHeight(kLineHeight));

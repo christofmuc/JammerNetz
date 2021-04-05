@@ -25,9 +25,9 @@ serverStatus_([this]() { newServerSelected();  }),
 callback_(deviceManager_)
 {
 	//bpmDisplay_ = std::make_unique<BPMDisplay>(callback_.getClocker());
-	recordingInfo_ = std::make_unique<RecordingInfo>(callback_.getMasterRecorder());
+	recordingInfo_ = std::make_unique<RecordingInfo>(callback_.getMasterRecorder(), "Press to record master mix");
 	playalongDisplay_ = std::make_unique<PlayalongDisplay>(callback_.getPlayalong());
-	localRecordingInfo_ = std::make_unique<RecordingInfo>(callback_.getLocalRecorder());
+	localRecordingInfo_ = std::make_unique<RecordingInfo>(callback_.getLocalRecorder(), "Press to record yourself only");
 
 	outputController_.setMeterSource(callback_.getOutputMeterSource(), -1);
 
