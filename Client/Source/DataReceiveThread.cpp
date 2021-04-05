@@ -32,8 +32,10 @@ void DataReceiveThread::run()
 			int senderPortNumber;
 			int dataRead = socket_.read(readbuffer_, MAXFRAMESIZE, false, senderIPAdress, senderPortNumber);
 			if (dataRead == -1) {
-				StreamLogger::instance() << "Error reading data from socket, aborting receive thread!" << std::endl;
-				return;
+				// This is bad, when could that happen?
+				jassertfalse;
+				std::cerr << "Error reading data from socket!" << std::endl;
+				continue;
 			}
 			if (dataRead == 0) {
 				// Weird, this seems to happen recently instead of a socket timeout even when no packets are received. So this is not a 0 byte package, but actually
@@ -45,7 +47,7 @@ void DataReceiveThread::run()
 				ScopedLock lock(blowFishLock_);
 				int messageLength = blowFish_->decrypt(readbuffer_, dataRead);
 				if (messageLength == -1) {
-					StreamLogger::instance() << "Couldn't decrypt package received from server, probably fatal" << std::endl;
+					std::cerr << "Couldn't decrypt package received from server, probably fatal" << std::endl;
 					continue;
 				}
 
@@ -84,7 +86,7 @@ void DataReceiveThread::run()
 			break;
 		}
 		case -1:
-			StreamLogger::instance() << "Error in waitUntilReady on socket" << std::endl;
+			std::cerr << "Error in waitUntilReady on socket" << std::endl;
 			return;
 		}
 	}

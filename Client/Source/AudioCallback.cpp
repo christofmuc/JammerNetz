@@ -51,7 +51,9 @@ void AudioCallback::newServer()
 		setCryptoKey(cryptoKey->getData(), (int)cryptoKey->getSize());
 	}
 	else {
-		StreamLogger::instance() << "Fatal - could not load crypto key file '" << ServerInfo::cryptoKeyfilePath << "'" << std::endl;
+		if (!ServerInfo::cryptoKeyfilePath.empty()) {
+			juce::AlertWindow::showMessageBox(AlertWindow::WarningIcon, "No crypto key loaded", "Could not load crypto key file " + ServerInfo::cryptoKeyfilePath);
+		}
 	}
 
 	// Reset counters etc
@@ -199,13 +201,15 @@ void AudioCallback::audioDeviceIOCallback(const float** inputChannelData, int nu
 
 void AudioCallback::audioDeviceAboutToStart(AudioIODevice* device)
 {
-	StreamLogger::instance() << "Audio device " << device->getName() << " starting" << std::endl;
+	// This will normally no be seen unless you start from a console
+	std::cout << "Audio device " << device->getName() << " starting" << std::endl;
 	numSamplesSinceStart_ = -1;
 }
 
 void AudioCallback::audioDeviceStopped()
 {
-	StreamLogger::instance() << "Audio device stopped" << std::endl;
+	// This will normally no be seen unless you start from a console
+	std::cout << "Audio device stopped" << std::endl;
 }
 
 void AudioCallback::setChannelSetup(JammerNetzChannelSetup const &channelSetup)

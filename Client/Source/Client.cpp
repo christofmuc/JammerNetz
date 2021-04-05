@@ -19,7 +19,7 @@ Client::Client(std::function<void(std::shared_ptr<JammerNetzAudioData>)> newData
 	int randomPort = 8888 + (Random().nextInt() % 64);
 	if (!socket_.bindToPort(randomPort, "0.0.0.0")) {
 		jassert(false);
-		StreamLogger::instance() << "FATAL: Couldn't bind to port " << randomPort << std::endl;
+		AlertWindow::showMessageBox(AlertWindow::WarningIcon, "Fatal error", "Couldn't bind to port " + String(randomPort));
 	}
 
 	// Fire up the network listener thread which will receive the answers from the server
@@ -52,9 +52,9 @@ bool Client::sendData(String const &remoteHostname, int remotePort, void *data, 
 	// Writing will block until the socket is ready to write
 	auto bytesWritten = socket_.write(remoteHostname, remotePort, data, numbytes);
 	if (bytesWritten == -1 || bytesWritten != numbytes) {
-		//int errorcode = ::WSAGetLastError();
-		//StreamLogger::instance() << "Error writing to socket! Error code is " << errorcode << std::endl;
-		StreamLogger::instance() << "Error writing to socket!" << std::endl;
+		// This is bad - when could this happen?
+		jassertfalse;
+		std::cerr << "Error writing to socket!" << std::endl;
 	}
 	return true;
 }

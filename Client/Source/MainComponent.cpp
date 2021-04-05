@@ -60,7 +60,7 @@ callback_(deviceManager_)
 	addAndMakeVisible(*localRecordingInfo_);
 	std::stringstream list;
 	AudioDeviceDiscovery::listAudioDevices(deviceManager_, list);
-	StreamLogger::instance() << list.str(); // For performance, send it to the output only once
+	std::cout << list.str(); // For performance, send it to the output only once
 
 	if (clientID.isNotEmpty()) {
 		Settings::setSettingsID(clientID);
@@ -138,14 +138,12 @@ void MainComponent::restartAudio(std::shared_ptr<ChannelSetup> inputSetup, std::
 			String error = audioDevice_->open(inputChannelMask, outputChannelMask, ServerInfo::sampleRate, ServerInfo::bufferSize);
 			if (error.isNotEmpty()) {
 				jassert(false);
-				StreamLogger::instance() << "Error opening Audio Device: " << error << std::endl;
+				AlertWindow::showMessageBox(AlertWindow::WarningIcon, "Error opening audio device", "Error text: " + error);
 				refreshChannelSetup(std::shared_ptr < ChannelSetup>());
 			}
 			else {
 				inputLatencyInMS_ = audioDevice_->getInputLatencyInSamples() / (float)ServerInfo::sampleRate * 1000.0f;
-				StreamLogger::instance() << "Input latency is at " << inputLatencyInMS_ << "ms" << std::endl;
 				outputLatencyInMS_ = audioDevice_->getOutputLatencyInSamples() / (float)ServerInfo::sampleRate* 1000.0f;
-				StreamLogger::instance() << "Output latency is at " << outputLatencyInMS_ << "ms" << std::endl;
 
 				refreshChannelSetup(inputSetup);
 				// We can actually start recording and playing

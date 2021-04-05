@@ -42,7 +42,7 @@ public:
 		Settings::setSettingsID(applicationDataDirName);
 
 		// Create a file logger. Respect the fact that we might launch multiple clients at the same time, and then we should do collision avoidance with the filenames
-		Time now = Time::getCurrentTime();
+		/*Time now = Time::getCurrentTime();
 		int collision = 0;
 		std::stringstream name;
 		name << "JammerNetzClient" << now.formatted("-%Y-%m-%d-%H-%M-%S") << ".log";
@@ -53,7 +53,7 @@ public:
 			wavFile = File::getCurrentWorkingDirectory().getChildFile(name.str());
 		}
 		logger_ = std::make_unique<FileLogger>(wavFile, "Starting "+ getApplicationName() + " V" + getApplicationVersion());
-		Logger::setCurrentLogger(logger_.get());
+		Logger::setCurrentLogger(logger_.get());*/
 
 		String windowTitle = getApplicationName();
 		if (clientID.isNotEmpty()) {
