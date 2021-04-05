@@ -45,7 +45,7 @@ jobs:
       condition: variables.isWindows
     - script: |
         pip install conan --upgrade
-        conan install -if Builds\Windows .        
+        conan install -if Builds\Windows -s build_type=RelWithDebInfo .        
       condition: variables.isWindows
     - task: CMake@1
       displayName: Configuring CMake for Flatbuffers
@@ -63,7 +63,7 @@ jobs:
       displayName: Running CMake build for Flatbuffers
       inputs:
         workingDirectory: 'third_party/flatbuffers'
-        cmakeArgs: '--build Builds --config Release'
+        cmakeArgs: '--build Builds --config RelWithDebInfo'
       condition: variables.isWindows
     - task: CMake@1
       displayName: Configuring CMake for Windows
@@ -81,7 +81,7 @@ jobs:
       displayName: Running CMake build for Windows
       inputs:
         workingDirectory: $(Build.SourcesDirectory)
-        cmakeArgs: '--build Builds\Windows --config Release'
+        cmakeArgs: '--build Builds\Windows --config RelWithDebInfo'
       condition: variables.isWindows
 
     - publish: $(System.DefaultWorkingDirectory)/Builds/Windows/Client/jammernetz_setup_2.1.0.exe
