@@ -5,9 +5,9 @@ jobs:
   - job: Build
     strategy:
       matrix:
-        mac:
-          imageName: 'macos-10.14'
-          isMac: True
+        #mac:
+        #  imageName: 'macos-10.14'
+        #  isMac: True
         win2017:
           imageName: 'vs2017-win2016'
           isWindows2017: True
