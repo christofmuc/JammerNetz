@@ -23,3 +23,6 @@
 [submodule "third_party/oneTBB"]
 	path = third_party/oneTBB
 	url = https://github.com/oneapi-src/oneTBB.git
+[submodule "third_party/sentry-native"]
+	path = third_party/sentry-native
+	url = https://github.com/getsentry/sentry-native.git

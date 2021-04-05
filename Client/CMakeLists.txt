@@ -8,6 +8,13 @@ project("JammerNetzClient" VERSION 2.1.0)
 
 configure_file("Source/version.cpp.in" "Source/version.cpp")
 
+IF(SENTRY_CRASH_REPORTING)
+	message("Internet-based crash reporting is turned on for the Client, using Sentry endpoint authorization from SENTRY_DSN CMake variable")
+	configure_file("${CMAKE_CURRENT_LIST_DIR}/Source/sentry-config.h.in" "${CMAKE_CURRENT_LIST_DIR}/Source/sentry-config.h")
+	SET(SENTRY_INSTALL_PATH "${CMAKE_CURRENT_LIST_DIR}/../third_party/sentry-native/install")
+	SET(SENTRY_DISTRIBUTION_FILES "${SENTRY_INSTALL_PATH}/bin/sentry.dll" "${SENTRY_INSTALL_PATH}/bin/crashpad_handler.exe")
+ENDIF()
+
 # Load the macro to process binary resources
 include(BinaryResources)
 
@@ -34,6 +41,7 @@ set(SOURCES
 	Source/MidiPlayAlong.cpp Source/MidiPlayAlong.h
 	Source/PlayalongDisplay.cpp Source/PlayalongDisplay.h
 	Source/Resources.h
+	Source/sentry-config.h.in
 	Source/version.cpp.in
 )
 source_group(Source FILES ${SOURCES})
@@ -84,13 +92,21 @@ set(UICOMPONENT_FILES
 )
 source_group(Source\\UIComponents FILES ${UICOMPONENT_FILES})
 
-
 add_executable(JammerNetzClient MACOSX_BUNDLE WIN32 ${SOURCES} ${UICOMPONENT_FILES} ${AUDIO_PROCESSING_FILES} ${MIDI_FILES} ${RESOURCE_FILES} ${INSTALLER_FILES})
-target_include_directories(JammerNetzClient PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/Source")
+
+message("Crash reporting: ${SENTRY_CRASH_REPORTING} at ${SENTRY_INSTALL_PATH}")
+if(SENTRY_CRASH_REPORTING)
+	target_compile_options(JammerNetzClient PRIVATE -DUSE_SENTRY)
+	set(SENTRY_LIB sentry)
+	target_link_directories(JammerNetzClient PRIVATE "${SENTRY_INSTALL_PATH}/lib")
+endif()
+
+target_include_directories(JammerNetzClient PRIVATE "${SENTRY_INSTALL_PATH}/include" "${CMAKE_CURRENT_BINARY_DIR}/Source")
 IF(WIN32)
-	target_link_libraries(JammerNetzClient ${JUCE_LIBRARIES} JammerCommon juce-utils ff_meters)
+	target_link_libraries(JammerNetzClient ${JUCE_LIBRARIES} JammerCommon juce-utils ff_meters ${SENTRY_LIB})
 elseif(APPLE)
-	target_link_libraries(JammerNetzClient ${JUCE_LIBRARIES} JammerCommon juce-utils ff_meters tbb)
+	target_link_libraries(JammerNetzClient ${JUCE_LIBRARIES} JammerCommon juce-utils ff_meters tbb) 
+	# ${SENTRY_LIB})
 ELSE()
 	target_link_libraries(JammerNetzClient 
 		${JUCE_LIBRARIES} 
@@ -105,6 +121,7 @@ ELSE()
 		curl 
 		asound 
 		tbb
+		${SENTRY_LIB}
 		JammerCommon juce-utils ff_meters)
 ENDIF()
 
@@ -121,8 +138,9 @@ IF(WIN32)
 	# Post build commands - copy the DLLs (Windows only I guess). Due to the directory format of the oneTBB output directory, we need to parse the MSVC compiler version and use it appropriately
 	add_custom_command(
 			TARGET JammerNetzClient POST_BUILD
-			COMMAND ${CMAKE_COMMAND} -E copy
-					${CMAKE_BINARY_DIR}/$<IF:$<CONFIG:Release>,${MY_TBB_BINARY_DIR_BASE}_release/tbb12.dll,${MY_TBB_BINARY_DIR_BASE}_debug/tbb12_debug.dll>
+			COMMAND ${CMAKE_COMMAND} -E copy					
+					${SENTRY_DISTRIBUTION_FILES} 
+					${CMAKE_BINARY_DIR}/$<IF:$<CONFIG:Release>,${MY_TBB_BINARY_DIR_BASE}_release/tbb12.dll,$<IF:$<CONFIG:Debug>,${MY_TBB_BINARY_DIR_BASE}_debug/tbb12_debug.dll,${MY_TBB_BINARY_DIR_BASE}_relwithdebinfo/tbb12.dll>>
 					${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>)
 ENDIF()
 
@@ -139,7 +157,7 @@ IF(WIN32)
 	 # Parse Inno Setup config file
 	configure_file("${CMAKE_CURRENT_LIST_DIR}/setup_client.iss"
 				   "${CMAKE_CURRENT_BINARY_DIR}/setup_client.iss")
-	set(no_copy $<NOT:$<CONFIG:Release>>)
+	set(no_copy $<NOT:$<CONFIG:RelWithDebInfo>>)
 	add_custom_command(
 		TARGET JammerNetzClient POST_BUILD
 		COMMAND  "${CMAKE_COMMAND}" -E $<${no_copy}:echo> $<${no_copy}:"Not building Installer with "> chdir . ${INNOSETUP} "${CMAKE_CURRENT_BINARY_DIR}/setup_client.iss"

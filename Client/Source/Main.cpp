@@ -8,8 +8,14 @@
 
 #include "MainComponent.h"
 #include "StreamLogger.h"
+#include "Settings.h"
 
 #include "version.cpp"
+
+#ifdef USE_SENTRY
+#include "sentry.h"
+#include "sentry-config.h"
+#endif
 
 class ClientApplication  : public JUCEApplication
 {
@@ -31,6 +37,10 @@ public:
 			}
 		}
 
+		// This method is where you should put your application's initialization code..
+		char *applicationDataDirName = "JammerNetz";
+		Settings::setSettingsID(applicationDataDirName);
+
 		// Create a file logger. Respect the fact that we might launch multiple clients at the same time, and then we should do collision avoidance with the filenames
 		Time now = Time::getCurrentTime();
 		int collision = 0;
@@ -51,7 +61,32 @@ public:
 		}
         mainWindow = std::make_unique<MainWindow>(windowTitle, clientID);
 		mainWindow->setName(getWindowTitle());
-    }
+
+#ifdef USE_SENTRY
+		// Initialize sentry for error crash reporting
+		sentry_options_t *options = sentry_options_new();
+		std::string dsn = getSentryDSN();
+		sentry_options_set_dsn(options, dsn.c_str());
+		auto sentryDir = File::getSpecialLocation(File::userApplicationDataDirectory).getChildFile(applicationDataDirName).getChildFile("sentry");
+		sentry_options_set_database_path(options, sentryDir.getFullPathName().toStdString().c_str());
+		String releaseName = getApplicationName() + " " + getApplicationVersion();
+		sentry_options_set_release(options, releaseName.toStdString().c_str());
+		//sentry_options_set_require_user_consent(options, 1);
+		sentry_init(options);
+
+		// Setup user name so I can distinguish my own crashes from the rest. As we never want to user real names, we just generate a random UUID.
+		// If you don't like it anymore, you can delete it from the Settings.xml and you'll be a new person!
+		std::string userid = Settings::instance().get("UniqueButRandomUserID", juce::Uuid().toDashedString().toStdString());
+		Settings::instance().set("UniqueButRandomUserID", userid);
+		sentry_value_t user = sentry_value_new_object();
+		sentry_value_set_by_key(user, "id", sentry_value_new_string(userid.c_str()));
+		sentry_set_user(user);
+
+		// Fire a test event to see if Sentry actually works
+		sentry_capture_event(sentry_value_new_message_event(SENTRY_LEVEL_INFO, "custom", "Launching JammerNetzClient"));
+#endif
+
+	}
 
 	String getWindowTitle() {
 		return getApplicationName() + " " + getClientVersion();

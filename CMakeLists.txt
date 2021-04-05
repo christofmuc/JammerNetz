@@ -15,6 +15,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # To avoid dependency on WebKit. This also came with MacOS, but as webkit is heavyweight, it is probably a good idea to turn it off for all
 option(JUCE_CONFIG_JUCE_WEB_BROWSER OFF) 
 
+# Allow to turn on crash reporting via Sentry. This is turned on by default for the builds I upload to github
+OPTION(SENTRY_CRASH_REPORTING "Turn on crash reporting via Internet/Sentry")
+set(SENTRY_DSN "Sentry DSN URL" CACHE STRING "https://YYYYYYYYYYYYYYYYYY@ZZZZZ.ingest.sentry.io/XXXX")
+
 # We need a little bit support for the JUCE library, and also want to put our own CMake helpers on the module path
 SET(CMAKE_MODULE_PATH "${CMAKE_MODULE_PATH}" "${CMAKE_CURRENT_BINARY_DIR}" "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
