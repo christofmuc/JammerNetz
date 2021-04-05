@@ -88,6 +88,13 @@ struct AudioBlock {
 	JammerNetzChannelSetup sessionSetup;
 };
 
+struct JammerNetzMessageParseException : public std::exception {
+	const char *what() const throw ()
+	{
+		return "JammerNetz Message Parse Error";
+	}
+};
+
 class JammerNetzMessage {
 public:
 	enum MessageType {

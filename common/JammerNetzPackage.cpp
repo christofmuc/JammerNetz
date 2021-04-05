@@ -54,6 +54,7 @@ std::shared_ptr<JammerNetzMessage> JammerNetzMessage::deserialize(uint8 *data, s
 	if (bytes >= sizeof(JammerNetzHeader)) {
 		JammerNetzHeader *header = reinterpret_cast<JammerNetzHeader*>(data);
 
+		try {
 		// Check the magic 
 		if (header->magic0 == '1' && header->magic1 == '2' && header->magic2 == '3') {
 			switch (header->messageType) {
@@ -66,7 +67,12 @@ std::shared_ptr<JammerNetzMessage> JammerNetzMessage::deserialize(uint8 *data, s
 			}
 		}
 	}
-	return std::shared_ptr<JammerNetzMessage>();
+		catch (JammerNetzMessageParseException &) {
+			// Invalid, probably tampered with or old 1.0 package
+			return nullptr;
+		}
+	}
+	return nullptr;;
 }
 
 int JammerNetzMessage::writeHeader(uint8 *output, uint8 messageType) const
@@ -82,7 +88,7 @@ int JammerNetzMessage::writeHeader(uint8 *output, uint8 messageType) const
 // Deserializing constructor
 JammerNetzAudioData::JammerNetzAudioData(uint8 *data, size_t bytes) {
 	if (bytes < sizeof(JammerNetzAudioHeader)) {
-		jassert(false);
+		throw JammerNetzMessageParseException();
 		return;
 	}
 
@@ -99,13 +105,14 @@ JammerNetzAudioData::JammerNetzAudioData(uint8 *data, size_t bytes) {
 				fecBlock_ = readAudioHeaderAndBytes(*block);
 			}
 			else {
-				jassert(false);
+				jassertfalse;
+				throw JammerNetzMessageParseException();
 			}
 			blockNo++;
 		}
 	}
 	else {
-		jassert(false);
+		throw JammerNetzMessageParseException();
 	}
 }
 
