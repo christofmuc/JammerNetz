@@ -28,13 +28,17 @@ public:
 	String getFilename() const;
 	File getFile() const;
 
-	void updateChannelInfo(int sampleRate, JammerNetzChannelSetup const &channelSetup);
+	void setChannelInfo(int sampleRate, JammerNetzChannelSetup const &channelSetup);
+	
 	void saveBlock(const float* const* data, int numSamples);
 
 	File getDirectory() const;
 	void setDirectory(File &directory);
 
 private:
+	void updateChannelInfo(int sampleRate, JammerNetzChannelSetup const &channelSetup);
+	void launchWriter();
+
 	Time startTime_;
 	uint64 samplesWritten_;
 	File activeFile_;

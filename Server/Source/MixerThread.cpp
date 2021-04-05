@@ -121,7 +121,8 @@ void MixerThread::run() {
 				/*		// Write this to the recorder
 						if (!clientRecorder_.isRecording()) {
 							//TODO - this needs to compare if it has changed / is different from the one currently being written
-							clientRecorder_.updateChannelInfo(48000, audioData->channelSetup());
+							clientRecorder_.setChannelInfo(48000, audioData->channelSetup());
+							clientRecorder_.setRecording(true);
 						}
 						clientRecorder_.saveBlock(audioData->audioBuffer_->getArrayOfReadPointers(), audioData->audioBuffer_->getNumSamples());*/
 			}

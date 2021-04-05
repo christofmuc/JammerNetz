@@ -26,6 +26,7 @@ void Recorder::setRecording(bool recordOn)
 {
 	if (recordOn && !isRecording()) {
 		updateChannelInfo(lastSampleRate_, lastChannelSetup_);
+		launchWriter();
 	} else if (!recordOn && isRecording()) {
 		writeThread_.reset();
 	}
@@ -49,6 +50,12 @@ juce::String Recorder::getFilename() const
 juce::File Recorder::getFile() const
 {
 	return activeFile_;
+}
+
+void Recorder::setChannelInfo(int sampleRate, JammerNetzChannelSetup const &channelSetup)
+{
+	lastSampleRate_ = sampleRate;
+	lastChannelSetup_ = channelSetup;
 }
 
 void Recorder::updateChannelInfo(int sampleRate, JammerNetzChannelSetup const &channelSetup) {
@@ -130,7 +137,9 @@ void Recorder::updateChannelInfo(int sampleRate, JammerNetzChannelSetup const &c
 		std::cerr << "Fatal: Could not create writer for Audio file, can't record to disk" << std::endl;
 		return;
 	}
+}
 
+void Recorder::launchWriter() {
 	// Finally, create the new writer associating it with the background thread
 	writeThread_ = std::make_unique<AudioFormatWriter::ThreadedWriter>(writer_, *thread_, 16384);
 	samplesWritten_ = 0;
