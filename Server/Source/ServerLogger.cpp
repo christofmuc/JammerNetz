@@ -76,18 +76,20 @@ void ServerLogger::printStatistics(int row, std::string const &clientID, JammerN
 		char buffer[200];
 		//snprintf(buffer, 200, "%6d", (int)quality.packagesPushed);	mvprintw(y, 20, buffer);
 		//snprintf(buffer, 200, "%6d", (int)quality.packagesPopped);	mvprintw(y, 28, buffer);
-		snprintf(buffer, 200, "%6d", (int)(quality.packagesPushed - quality.packagesPopped));	mvprintw(y, kColumnHeaders[1].first, buffer);
-		snprintf(buffer, 200, "%6Id", quality.outOfOrderPacketCounter);	mvprintw(y, kColumnHeaders[2].first, buffer);
-		snprintf(buffer, 200, "%6Id", quality.maxWrongOrderSpan);	mvprintw(y, kColumnHeaders[3].first, buffer);
-		snprintf(buffer, 200, "%6Id", quality.duplicatePacketCounter);	mvprintw(y, kColumnHeaders[4].first, buffer);
-		snprintf(buffer, 200, "%6Id", quality.dropsHealed);	mvprintw(y, kColumnHeaders[5].first, buffer);
-		snprintf(buffer, 200, "%6Id", quality.tooLateOrDuplicate);	mvprintw(y, kColumnHeaders[6].first, buffer);
-		snprintf(buffer, 200, "%6Id", quality.droppedPacketCounter);	mvprintw(y, kColumnHeaders[7].first, buffer);
-		snprintf(buffer, 200, "%6Id", quality.maxLengthOfGap);	mvprintw(y, kColumnHeaders[8].first, buffer);
-		snprintf(buffer, 200, "%2.1f", quality.jitterMeanMillis);	mvprintw(y, kColumnHeaders[9].first, buffer);
-		snprintf(buffer, 200, "%2.1f", quality.jitterSDMillis);	mvprintw(y, kColumnHeaders[10].first, buffer);
-		snprintf(buffer, 200, "%2.1f", quality.wallClockDelta);	mvprintw(y, kColumnHeaders[11].first, buffer);
-
+#pragma warning( push )
+#pragma warning( disable : 4996 )
+		sprintf(buffer, "%*d", 6, (int)(quality.packagesPushed - quality.packagesPopped));	mvprintw(y, kColumnHeaders[1].first, buffer);
+		sprintf(buffer, "%*d", 6, (int)quality.outOfOrderPacketCounter);	mvprintw(y, kColumnHeaders[2].first, buffer);
+		sprintf(buffer, "%*d", 6, (int)quality.maxWrongOrderSpan);	mvprintw(y, kColumnHeaders[3].first, buffer);
+		sprintf(buffer, "%*d", 6, (int)quality.duplicatePacketCounter);	mvprintw(y, kColumnHeaders[4].first, buffer);
+		sprintf(buffer, "%*d", 6, (int)quality.dropsHealed);	mvprintw(y, kColumnHeaders[5].first, buffer);
+		sprintf(buffer, "%*d", 6, (int)quality.tooLateOrDuplicate);	mvprintw(y, kColumnHeaders[6].first, buffer);
+		sprintf(buffer, "%*d", 6, (int)quality.droppedPacketCounter);	mvprintw(y, kColumnHeaders[7].first, buffer);
+		sprintf(buffer, "%*d", 6, (int)quality.maxLengthOfGap);	mvprintw(y, kColumnHeaders[8].first, buffer);
+		sprintf(buffer, "%2.1f", quality.jitterMeanMillis);	mvprintw(y, kColumnHeaders[9].first, buffer);
+		sprintf(buffer, "%2.1f", quality.jitterSDMillis);	mvprintw(y, kColumnHeaders[10].first, buffer);
+		sprintf(buffer, "%2.1f", quality.wallClockDelta);	mvprintw(y, kColumnHeaders[11].first, buffer);
+#pragma warning( pop )
 		refresh();
 	}
 }
