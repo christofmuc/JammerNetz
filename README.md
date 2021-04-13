@@ -148,7 +148,7 @@ All clients *from the same build* should be able to connect to the server via it
 
 If you are working on Linux, make sure to have all development prerequisites installed! On a fresh Debian 9 machine, that would e.g. require the following installs:
 
-    sudo apt-get -y install g++ libasound2-dev libcurl4-openssl-dev libfreetype6-dev libjack-dev libx11-dev libglew-dev mesa-common-dev webkit2gtk-4.0
+    sudo apt-get -y install g++ libasound2-dev libcurl4-openssl-dev libfreetype6-dev libncurses-dev libjack-dev libx11-dev libglew-dev mesa-common-dev webkit2gtk-4.0
 
 With those installs and the recursive git clone from above, cd into the cloned directory and run cmake with the following commands:
 
