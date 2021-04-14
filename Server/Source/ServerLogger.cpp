@@ -100,7 +100,7 @@ void ServerLogger::printStatistics(int row, std::string const &clientID, JammerN
 		sprintf(buffer, "%*d", 6, (int)quality.maxLengthOfGap);	mvprintw(y, kColumnHeaders[8].first, buffer);
 		sprintf(buffer, "%2.1f", quality.jitterMeanMillis);	mvprintw(y, kColumnHeaders[9].first, buffer);
 		sprintf(buffer, "%2.1f", quality.jitterSDMillis);	mvprintw(y, kColumnHeaders[10].first, buffer);
-		sprintf(buffer, "%2.1f", quality.wallClockDelta/1000.0); mvprintw(y, kColumnHeaders[11].first, buffer);
+		sprintf(buffer, "%2.1f", quality.wallClockDelta / 1000.0); mvprintw(y, kColumnHeaders[11].first, buffer);
 #pragma warning( pop )
 		refresh();
 	}
@@ -117,6 +117,19 @@ void ServerLogger::printServerStatus(std::string const &text)
 	}
 	else {
 		std::cout << text << std::endl;
+	}
+}
+
+void ServerLogger::printServerStatistics(int row, std::string const &text)
+{
+	if (terminal) {
+		if (((counter++) % 500) == 0) {
+			int y = row + (int) sClientRows.size() + 2;
+			move(y, 0);
+			clrtoeol();
+			printw(text.c_str());
+			refresh();
+		}
 	}
 }
 
@@ -138,4 +151,6 @@ void ServerLogger::printClientStatus(int row, std::string const &clientID, std::
 }
 
 juce::String ServerLogger::lastMessage;
+
+long long ServerLogger::counter = 0;
 

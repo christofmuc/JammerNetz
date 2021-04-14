@@ -83,6 +83,8 @@ void SendThread::sendWriteBuffer(String ipAddress, int port, size_t size) {
 
 	// Now, back to the client! This will block when not ready to send yet, but that's ok.
 	sendSocket_.write(ipAddress, port, writebuffer_, cipherLength);
+
+	ServerLogger::printServerStatistics(4, ("Packet length: " + String(cipherLength)).toStdString());
 }
 
 void SendThread::run()
