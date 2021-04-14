@@ -10,7 +10,7 @@
 
 std::string ServerInfo::serverName = "127.0.0.1";
 std::string ServerInfo::cryptoKeyfilePath;
-int ServerInfo::serverPort = 7777;
+std::string ServerInfo::serverPort = "7777";
 
 // For now, we keep our life simple by requesting the same sample rate (sane) from all clients
 // and also the same buffer size (that would be workable with appropriate ring buffers)

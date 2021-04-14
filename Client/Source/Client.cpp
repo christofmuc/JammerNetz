@@ -96,7 +96,9 @@ bool Client::sendData(JammerNetzChannelSetup const &channelSetup, std::shared_pt
 			std::cerr << "Fatal: Couldn't encrypt package, not sending to server!" << std::endl;
 			return false;
 		}
-		sendData(ServerInfo::serverName, ServerInfo::serverPort, sendBuffer_, encryptedLength);
+		int port = strtol(ServerInfo::serverPort.c_str(), nullptr, 10);
+		if (port == 0) port = 7777; // Default value
+		sendData(ServerInfo::serverName, port, sendBuffer_, encryptedLength);
 		currentBlockSize_ = encryptedLength;
 	}
 	else {

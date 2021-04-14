@@ -9,7 +9,7 @@
 #include "JuceHeader.h"
 
 class ServerSelector : public Component,
-	private Button::Listener, private TextEditor::Listener
+	private Button::Listener
 {
 public:
 	ServerSelector(std::function<void()> notify);
@@ -24,12 +24,13 @@ private:
 	void reloadCryptoKey();
 
 	virtual void buttonClicked(Button*) override;
-	virtual void textEditorReturnKeyPressed(TextEditor&) override;
-	virtual void textEditorFocusLost(TextEditor&) override;
+	virtual void updateServerInfo();
 
 	ToggleButton useLocalhost_;
 	Label serverLabel_;
+	Label portLabel_;
 	TextEditor ipAddress_;
+	TextEditor port_;
 	TextButton connectButton_;
 	TextButton loadKeyButton_;
 	Label keyLabel_;
@@ -38,6 +39,7 @@ private:
 
 	bool localhostSelected_;
 	String lastServer_;
+	String lastPort_;
 	String cryptoKeyPath_;
 
 	std::function<void()> notify_;

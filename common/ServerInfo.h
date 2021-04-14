@@ -10,8 +10,8 @@
 
 struct ServerInfo {
 	static std::string serverName; //TODO this is no longer read only, should somehow lock access to it!
+	static std::string serverPort;
 	static std::string cryptoKeyfilePath;
-	static int serverPort;
 	static int bufferSize; // Should be the same for all clients
 	static int sampleRate; // Should be the same for all clients
 };

@@ -15,11 +15,16 @@ ServerSelector::ServerSelector(std::function<void()> notify) : localhostSelected
 {
 	useLocalhost_.setButtonText("Use localhost as server");
 	useLocalhost_.addListener(this);
-	serverLabel_.setText("Server:", dontSendNotification);	
+	serverLabel_.setText("Server:", dontSendNotification);
 	ipAddress_.setText(lastServer_, dontSendNotification);
-	ipAddress_.addListener(this);
+	ipAddress_.onReturnKey = [this]() { updateServerInfo();  };
+	ipAddress_.onEscapeKey = [this]() { ipAddress_.setText(lastServer_, dontSendNotification);  };
+	portLabel_.setText("Port:", dontSendNotification);
+	port_.setText(lastPort_, dontSendNotification);
+	port_.onReturnKey = [this]() { updateServerInfo();  };
+	port_.onEscapeKey = [this]() { port_.setText(lastPort_, dontSendNotification);  };
 	connectButton_.setButtonText("Connect");
-	connectButton_.onClick = [this]() { textEditorReturnKeyPressed(ipAddress_); };
+	connectButton_.onClick = [this]() { updateServerInfo(); };
 
 	keyLabel_.setText("Crypto file", dontSendNotification);
 	browseToKey_.setButtonText("Browse...");
@@ -39,6 +44,8 @@ ServerSelector::ServerSelector(std::function<void()> notify) : localhostSelected
 	addAndMakeVisible(useLocalhost_);
 	addAndMakeVisible(serverLabel_);
 	addAndMakeVisible(ipAddress_);
+	addAndMakeVisible(portLabel_);
+	addAndMakeVisible(port_);
 	addAndMakeVisible(connectButton_);
 	addAndMakeVisible(keyLabel_);
 	addAndMakeVisible(keyPath_);
@@ -59,6 +66,8 @@ void ServerSelector::resized()
 	serverLabel_.setBounds(topRow.removeFromLeft(kLabelWidth));
 	auto entryArea = topRow.removeFromLeft(kEntryBoxWidth);
 	ipAddress_.setBounds(entryArea);	
+	portLabel_.setBounds(topRow.removeFromLeft(kLabelWidth/2));
+	port_.setBounds(topRow.removeFromLeft(kEntryBoxWidth/2));
 	connectButton_.setBounds(topRow.removeFromLeft(kLabelWidth).withTrimmedLeft(kNormalInset));
 
 	auto middleRow = area.removeFromTop(kLineSpacing);
@@ -78,6 +87,13 @@ void ServerSelector::fromData()
 		ipAddress_.setText(data.getProperty("ServerName"), true);
 		lastServer_ = ipAddress_.getText();
 	}
+	if (data.hasProperty("Port")) {
+		port_.setText(data.getProperty("Port"), true);
+	}
+	else {
+		port_.setText("7777", true);
+	}
+	lastPort_ = port_.getText();
 	if (data.hasProperty("UseLocalhost")) {
 		useLocalhost_.setToggleState(data.getProperty("UseLocalhost"), dontSendNotification);
 	}
@@ -93,21 +109,19 @@ void ServerSelector::toData() const
 {
 	ValueTree &data = Data::instance().get();
 	data.setProperty("ServerName", ipAddress_.getText(), nullptr);
+	data.setProperty("Port", port_.getText(), nullptr);
 	data.setProperty("UseLocalhost", useLocalhost_.getToggleState(), nullptr);
 	data.setProperty("CryptoFilePath", keyPath_.getText(), nullptr);
 }
 
-void ServerSelector::textEditorReturnKeyPressed(TextEditor& editor)
+void ServerSelector::updateServerInfo()
 {
-	lastServer_ = editor.getText();
+	lastServer_ = ipAddress_.getText();
+	lastPort_ = port_.getText();
 	useLocalhost_.unfocusAllComponents();
 	ServerInfo::serverName = lastServer_.toStdString();
+	ServerInfo::serverPort = lastPort_.toStdString();
 	notify_();
-}
-
-void ServerSelector::textEditorFocusLost(TextEditor&)
-{
-	 // Nothing to do, the user might click on Connect
 }
 
 void ServerSelector::buttonClicked(Button *button)
@@ -119,6 +133,7 @@ void ServerSelector::buttonClicked(Button *button)
 	}
 	else {
 		ServerInfo::serverName = lastServer_.toStdString();
+		ServerInfo::serverPort = lastPort_.toStdString();
 	}
 	notify_();
 }

@@ -29,15 +29,15 @@ private:
 	TPacketStreamBundle &data_;
 };
 
-AcceptThread::AcceptThread(DatagramSocket &socket, TPacketStreamBundle &incomingData, TMessageQueue &wakeUpQueue, ServerBufferConfig bufferConfig, void *keydata, int keysize)
+AcceptThread::AcceptThread(int serverPort, DatagramSocket &socket, TPacketStreamBundle &incomingData, TMessageQueue &wakeUpQueue, ServerBufferConfig bufferConfig, void *keydata, int keysize)
 	: Thread("ReceiverThread"), receiveSocket_(socket), incomingData_(incomingData), wakeUpQueue_(wakeUpQueue), bufferConfig_(bufferConfig), blowFish_(keydata, keysize)
 {
-	if (!receiveSocket_.bindToPort(7777)) {
+	if (!receiveSocket_.bindToPort(serverPort)) {
 		ServerLogger::deinit();
-		std::cerr << "Failed to bind port to 7777" << std::endl;
+		std::cerr << "Failed to bind port to " << serverPort << std::endl;
 		exit(-1);
 	}
-	ServerLogger::printServerStatus("Server listening on port 7777");
+	ServerLogger::printServerStatus(("Server listening on port " + String(serverPort)).toStdString());
 	
 	qualityTimer_ = std::make_unique<PrintQualityTimer>(incomingData);
 }
