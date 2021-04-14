@@ -29,20 +29,20 @@ bool PacketStreamQueue::push(std::shared_ptr<JammerNetzAudioData> packet)
 
 		// Jitter is the difference between the running mean of clock delta and this packages clock delta
 		double clockDelta = now - packet->timestamp();
-		double jitter = fabs(clockDelta - runningMeanClockDelta_.Mean());
+		if (runningMeanClockDelta_.NumDataValues() > 0) {
+			double jitter = fabs(clockDelta - runningMeanClockDelta_.Mean());
+			runningMeanJitter_.Push(jitter);
+			qualityData_.jitterMeanMillis = runningMeanJitter_.Mean();
+			qualityData_.jitterSDMillis = runningMeanJitter_.StandardDeviation();
+			qualityData_.wallClockDelta = clockDelta;
+		}
 		runningMeanClockDelta_.Push(clockDelta);
-		runningMeanJitter_.Push(jitter);
-		qualityData_.jitterMeanMillis= runningMeanJitter_.Mean();
-		qualityData_.jitterSDMillis = runningMeanJitter_.StandardDeviation();
-		qualityData_.wallClockDelta = clockDelta;
 
-		// Every 5 seconds forget the rolling mean
+		// Every 5 seconds forget the rolling mean. Well, at 48000 KHz and 128 buffer size
 		if (runningMeanClockDelta_.NumDataValues() > 1875) {
-
 			runningMeanClockDelta_.Clear();
 			runningMeanJitter_.Clear();
 		}
-
 		return true;
 	}
 	return false;
