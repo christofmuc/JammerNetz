@@ -15,6 +15,7 @@ public:
 	static void init();
 	static void deinit();
 	static void errorln(String const &message);
+	static void printAtPosition(int x, int y, std::string text);
 	static void printColumnHeader(int row);
 	static void printStatistics(int row, std::string const &clientID, JammerNetzStreamQualityInfo quality);
 	static void printServerStatus(std::string const &text);

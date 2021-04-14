@@ -37,6 +37,18 @@ void ServerLogger::errorln(String const &message)
 	}
 }
 
+void ServerLogger::printAtPosition(int x, int y, std::string text)
+{
+	if (terminal) {
+		move(x, y);
+		printw(text.c_str());
+		refresh();
+	}
+	else {
+		std::cout << text << std::endl;
+	}
+}
+
 std::vector<std::pair<int, std::string>> kColumnHeaders = { {0, "Client"}, {20, "Len" }, { 26, "ooO" }, { 32, "span" } , { 38, "dup" } , { 44, "heal" } , { 50, "late" } , { 56, "drop" } , { 62, "gap" },
 	{70, "Jitter ms"}, { 80, "Jitter SD" }, { 90, "Clock diff"} };
 
@@ -104,7 +116,7 @@ void ServerLogger::printServerStatus(std::string const &text)
 		refresh();
 	}
 	else {
-		std::cout << text;
+		std::cout << text << std::endl;
 	}
 }
 

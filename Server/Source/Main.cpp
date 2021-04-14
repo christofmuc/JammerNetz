@@ -56,12 +56,12 @@ public:
 		sendThread_->startThread();
 		mixerThread_->startThread();
 #ifdef WIN32
-		mvprintw(0, 0, String("Starting JammerNetz server version " + getServerVersion() + ", press any key to stop").toRawUTF8());
-		refresh();
+		ServerLogger::printAtPosition(0, 0, String("Starting JammerNetz server version " + getServerVersion() + ", press any key to stop").toRawUTF8());
 		ServerLogger::printColumnHeader(2);
 		while (!_kbhit()) {
 #else
-		printw(String("Starting JammerNetz server version " + getServerVersion() + ", using CTRL-C to stop").toRawUTF8());
+		ServerLogger::printAtPosition(0, 0, String("Starting JammerNetz server version " + getServerVersion() + ", use CTRL-C to stop").toRawUTF8());
+		ServerLogger::printColumnHeader(2);
 		while (true) {
 #endif
 			Thread::sleep(1000);
