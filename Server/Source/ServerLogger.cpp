@@ -146,7 +146,7 @@ void ServerLogger::printClientStatus(int row, std::string const &clientID, std::
 		refresh();
 	}
 	else {
-		std::cout << "Client " << clientID << text << std::endl;
+		std::cout << "Client " << clientID << ": " << text << std::endl;
 	}
 }
 
