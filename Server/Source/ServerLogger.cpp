@@ -50,7 +50,7 @@ void ServerLogger::printAtPosition(int x, int y, std::string text)
 }
 
 std::vector<std::pair<int, std::string>> kColumnHeaders = { {0, "Client"}, {20, "Len" }, { 26, "ooO" }, { 32, "span" } , { 38, "dup" } , { 44, "heal" } , { 50, "late" } , { 56, "drop" } , { 62, "gap" },
-	{70, "Jitter ms"}, { 80, "Jitter SD" }, { 90, "Clock diff"} };
+	{70, "Jitter ms"}, { 80, "Jitter SD" }, { 90, "Clock delta (s)"} };
 
 std::map<std::string, int> sClientRows;
 int kRowsInTable = 0;
@@ -100,7 +100,7 @@ void ServerLogger::printStatistics(int row, std::string const &clientID, JammerN
 		sprintf(buffer, "%*d", 6, (int)quality.maxLengthOfGap);	mvprintw(y, kColumnHeaders[8].first, buffer);
 		sprintf(buffer, "%2.1f", quality.jitterMeanMillis);	mvprintw(y, kColumnHeaders[9].first, buffer);
 		sprintf(buffer, "%2.1f", quality.jitterSDMillis);	mvprintw(y, kColumnHeaders[10].first, buffer);
-		sprintf(buffer, "%2.1f", quality.wallClockDelta);	mvprintw(y, kColumnHeaders[11].first, buffer);
+		sprintf(buffer, "%2.1f", quality.wallClockDelta/1000.0); mvprintw(y, kColumnHeaders[11].first, buffer);
 #pragma warning( pop )
 		refresh();
 	}
