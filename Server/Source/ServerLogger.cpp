@@ -128,6 +128,8 @@ void ServerLogger::printClientStatus(int row, std::string const &clientID, std::
 		clrtoeol();
 		move(y, kColumnHeaders[0].first);
 		printw(clientID.c_str());
+		printw(": ");
+		printw(text.c_str());
 		refresh();
 	}
 	else {
