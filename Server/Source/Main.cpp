@@ -28,13 +28,13 @@
 
 class Server {
 public:
-	Server(std::shared_ptr<MemoryBlock> cryptoKey, ServerBufferConfig bufferConfig, int serverPort) : mixdownRecorder_(File::getCurrentWorkingDirectory(), "mixdown", RecordingType::FLAC), clientRecorder_(File(), "input", RecordingType::AIFF),
+	Server(std::shared_ptr<MemoryBlock> cryptoKey, ServerBufferConfig bufferConfig, int serverPort, bool useFEC) : mixdownRecorder_(File::getCurrentWorkingDirectory(), "mixdown", RecordingType::FLAC), clientRecorder_(File(), "input", RecordingType::AIFF),
 		mixdownSetup_({ JammerNetzChannelTarget::Left, JammerNetzChannelTarget::Right }) // Setup standard mix down setup - two channels only in stereo
 	{
 		// Start the recorder of the mix down
 		//mixdownRecorder_.updateChannelInfo(48000, mixdownSetup_);
 		acceptThread_ = std::make_unique<AcceptThread>(serverPort, socket_, incomingStreams_, wakeUpQueue_, bufferConfig, cryptoKey->getData(), (int) cryptoKey->getSize());
-		sendThread_ = std::make_unique <SendThread>(socket_, sendQueue_, incomingStreams_, cryptoKey->getData(), (int) cryptoKey->getSize());
+		sendThread_ = std::make_unique <SendThread>(socket_, sendQueue_, incomingStreams_, cryptoKey->getData(), (int) cryptoKey->getSize(), useFEC);
 		mixerThread_ = std::make_unique<MixerThread>(incomingStreams_, mixdownSetup_, sendQueue_, wakeUpQueue_, mixdownRecorder_, bufferConfig);
 
 		sendQueue_.set_capacity(128); // This is an arbitrary number only to prevent memory overflow should the sender thread somehow die (i.e. no network or something)
@@ -86,6 +86,7 @@ private:
 int main(int argc, char *argv[])
 {
 	int serverPort = 7777;
+	bool useFEC = false;
 	ServerBufferConfig bufferConfig;
 	bufferConfig.serverIncomingJitterBuffer = SERVER_INCOMING_JITTER_BUFFER;
 	bufferConfig.serverIncomingMaximumBuffer = SERVER_INCOMING_MAXIMUM_BUFFER;
@@ -101,7 +102,7 @@ int main(int argc, char *argv[])
 
 	// Specify commands
 	ConsoleApplication app;
-	app.addHelpCommand("--help|-h", "This is the JammerNetzServer " + String(getServerVersion()) + "\n\n  " + shortExeName + " --key=<key file> [--port=<port>|-P <port>] [--buffer=<buffer count>] [--wait=<buffer count>] [--prefill=<buffer count>]\n\n" +
+	app.addHelpCommand("--help|-h", "This is the JammerNetzServer " + String(getServerVersion()) + "\n\n  " + shortExeName + " --key=<key file> [--port=<port>|-P <port>] [--fec|-F] [--buffer=<buffer count>] [--wait=<buffer count>] [--prefill=<buffer count>]\n\n" +
 		"or\n\n  " + shortExeName + " -k <key file> [-b <buffer count>] [-w <buffer count>] [-p <buffer count>]\n\n", true);
 	app.addVersionCommand("--version|-v", "JammerNetzServer " + String(getServerVersion()));
 	app.addDefaultCommand({ "launch", "-k <key file>", "Launch the JammerNetzServer", "Use this to launch the server in the foreground", [&](const auto &args) {
@@ -115,6 +116,9 @@ int main(int argc, char *argv[])
 		}
 		if (args.containsOption("--port|-P")) {
 			serverPort = args.getValueForOption("--port|-P").getIntValue();
+		}
+		if (args.containsOption("--fec|-F")) {
+			useFEC = true;
 		}
 		if (args.containsOption("--buffer|-b")) { //, "block count", "Length of buffer in blocks", "Specify the length of the incoming jitter buffer in blocks", [&](const ArgumentList &args) {
 			bufferConfig.serverIncomingJitterBuffer = args.getValueForOption("--buffer|-b").getIntValue();
@@ -130,7 +134,7 @@ int main(int argc, char *argv[])
 		ServerLogger::init();
 
 		// Create Server
-		Server server(cryptoKey, bufferConfig, serverPort);
+		Server server(cryptoKey, bufferConfig, serverPort, useFEC);
 		server.launchServer();
 
 		// Close screen

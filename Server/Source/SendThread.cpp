@@ -10,8 +10,8 @@
 
 #include "ServerLogger.h"
 
-SendThread::SendThread(DatagramSocket& socket, TOutgoingQueue &sendQueue, TPacketStreamBundle &incomingData, void *keydata, int keysize)
-	: Thread("SenderThread"), sendSocket_(socket), sendQueue_(sendQueue), incomingData_(incomingData), blowFish_(keydata, keysize)
+SendThread::SendThread(DatagramSocket& socket, TOutgoingQueue &sendQueue, TPacketStreamBundle &incomingData, void *keydata, int keysize, bool useFEC)
+	: Thread("SenderThread"), sendSocket_(socket), sendQueue_(sendQueue), incomingData_(incomingData), blowFish_(keydata, keysize), useFEC_(useFEC)
 {
 }
 
@@ -27,7 +27,7 @@ void SendThread::sendAudioBlock(std::string const &targetAddress, AudioBlock &au
 	}
 
 	std::shared_ptr<AudioBlock> fecBlock;
-	if (!fecData_.find(targetAddress)->second.isEmpty()) {
+	if (useFEC_ && !fecData_.find(targetAddress)->second.isEmpty()) {
 		// Send FEC data
 		fecBlock = fecData_.find(targetAddress)->second.getLast();
 		//dataForClient.serialize(writebuffer_, bytesWritten, fecData_.find(targetAddress)->second.getLast(), SAMPLE_RATE, FEC_SAMPLERATE_REDUCTION);

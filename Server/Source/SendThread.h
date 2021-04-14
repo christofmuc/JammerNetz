@@ -14,7 +14,7 @@
 
 class SendThread : public Thread {
 public:
-	SendThread(DatagramSocket& socket, TOutgoingQueue &sendQueue, TPacketStreamBundle &incomingData, void *keydata, int keysize);
+	SendThread(DatagramSocket& socket, TOutgoingQueue &sendQueue, TPacketStreamBundle &incomingData, void *keydata, int keysize, bool useFEC);
 
 	virtual void run() override;
 
@@ -27,6 +27,7 @@ private:
 	TOutgoingQueue& sendQueue_;
 	TPacketStreamBundle &incomingData_;
 	DatagramSocket& sendSocket_;
+	bool useFEC_;
 	uint8 writebuffer_[MAXFRAMESIZE];
 	std::map<std::string, RingOfAudioBuffers<AudioBlock>> fecData_;
 	std::map<std::string, uint64_t> packageCounters_;
