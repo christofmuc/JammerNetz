@@ -26,10 +26,15 @@ struct OutgoingPackage {
 	AudioBlock audioBlock;
 };
 
+#if WIN32
 #pragma warning( push )
 #pragma warning( disable : 4996 ) // Disable deprecated warning for now, as it is inside TBB
+#endif
 typedef tbb::concurrent_unordered_map<std::string, std::unique_ptr<PacketStreamQueue>> TPacketStreamBundle;
 typedef tbb::concurrent_bounded_queue < OutgoingPackage > TOutgoingQueue;
 typedef tbb::concurrent_bounded_queue<int> TMessageQueue;
+#if WIN32
 #pragma warning( pop )
+#endif
+
 
