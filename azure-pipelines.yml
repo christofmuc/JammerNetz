@@ -95,6 +95,10 @@ jobs:
         cmake -S . -B LinuxBuilds
         cmake --build LinuxBuilds
         cd ../.. 
+        cd third_party/sentry-native
+        cmake -S . -B builds -DSENTRY_BACKEND=crashpad
+        cmake --build builds --target install
+        cd ../..
         cmake -S . -B builds 
         cmake --build builds
       displayName: Build with CMake for Linux
