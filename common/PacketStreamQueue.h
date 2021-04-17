@@ -36,7 +36,6 @@ struct StreamQualityData {
 	std::atomic_uint64_t maxWrongOrderSpan;
 
 	// Measure jitter in queue
-	std::atomic<double> wallClockDelta;
 	std::atomic<double> jitterMeanMillis;
 	std::atomic<double> jitterSDMillis;
 

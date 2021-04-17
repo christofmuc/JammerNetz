@@ -34,7 +34,6 @@ bool PacketStreamQueue::push(std::shared_ptr<JammerNetzAudioData> packet)
 			runningMeanJitter_.Push(jitter);
 			qualityData_.jitterMeanMillis = runningMeanJitter_.Mean();
 			qualityData_.jitterSDMillis = runningMeanJitter_.StandardDeviation();
-			qualityData_.wallClockDelta = clockDelta;
 		}
 		runningMeanClockDelta_.Push(clockDelta);
 
@@ -146,7 +145,6 @@ StreamQualityData::StreamQualityData()
 	packagesPopped = 0;
 	maxLengthOfGap = 0;
 	maxWrongOrderSpan = 0;
-	wallClockDelta = 0.0;
 	jitterMeanMillis = 0.0;
 	jitterSDMillis = 0.0;
 }
@@ -181,7 +179,6 @@ JammerNetzStreamQualityInfo StreamQualityData::qualityInfoPackage() const
 	result.packagesPopped = packagesPopped;
 	result.maxLengthOfGap = maxLengthOfGap;
 	result.maxWrongOrderSpan = maxWrongOrderSpan;
-	result.wallClockDelta = wallClockDelta;
 	result.jitterMeanMillis = jitterMeanMillis;
 	result.jitterSDMillis = jitterSDMillis;
 	return result;
