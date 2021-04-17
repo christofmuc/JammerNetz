@@ -37,8 +37,8 @@ bool PacketStreamQueue::push(std::shared_ptr<JammerNetzAudioData> packet)
 		}
 		runningMeanClockDelta_.Push(clockDelta);
 
-		// Every 5 seconds forget the rolling mean. Well, at 48000 KHz and 128 buffer size
-		if (runningMeanClockDelta_.NumDataValues() > 1875) {
+		// Every 30 seconds forget the rolling mean. Well, at 48000 KHz and 128 buffer size
+		if (runningMeanClockDelta_.NumDataValues() > 1875 * 6) {
 			runningMeanClockDelta_.Clear();
 			runningMeanJitter_.Clear();
 		}
