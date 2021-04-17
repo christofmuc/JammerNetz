@@ -52,7 +52,11 @@ void DataReceiveThread::run()
 				}
 
 				// Check that the package at least seems to come from the currently active server
+#ifdef SECURITY_CHECK_PACKAGE_FROM_SERVER				
 				if (senderIPAdress.toStdString() == ServerInfo::serverName) {
+#else
+				{
+#endif
 					auto message = JammerNetzMessage::deserialize(readbuffer_, messageLength);
 					if (message) {
 						isReceiving_ = true;
