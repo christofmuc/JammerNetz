@@ -66,11 +66,6 @@ void MixerThread::run() {
 				if (incomingData.find(inClient->first) == incomingData.end()) {
 					ServerLogger::printClientStatus(4, inClient->first, "Jitter queue underrun, removing from client list in mix!");
 					toBeRemoved.push_back(inClient->first);
-					for (auto &streamData : incoming_) {
-						if (streamData.second) {
-							ServerLogger::printStatistics(4, streamData.first, streamData.second->qualityInfoPackage());
-						}
-					}
 				}
 				else {
 					// TODO- do we need to do this every packet?
