@@ -24,6 +24,12 @@
 #include <conio.h> // _kbhit()
 #endif
 
+#ifdef USE_SENTRY
+#include "sentry.h"
+#include "sentry-config.h"
+#endif
+
+#undef MOUSE_MOVED
 #include <curses.h>
 
 class Server {
@@ -142,6 +148,21 @@ int main(int argc, char *argv[])
 
 		return 0;
 		} });
+
+#ifdef USE_SENTRY
+	// Initialize sentry for error crash reporting
+	sentry_options_t *options = sentry_options_new();
+	std::string dsn = getSentryDSN();
+	sentry_options_set_dsn(options, dsn.c_str());
+	/*auto sentryDir = File::getSpecialLocation(File::userApplicationDataDirectory).getChildFile(applicationDataDirName).getChildFile("sentry");
+	sentry_options_set_database_path(options, sentryDir.getFullPathName().toStdString().c_str());*/
+	String releaseName = "JammerNetzServer " + getServerVersion();
+	sentry_options_set_release(options, releaseName.toStdString().c_str());
+	sentry_init(options);
+
+	// Fire a test event to see if Sentry actually works
+	sentry_capture_event(sentry_value_new_message_event(SENTRY_LEVEL_INFO, "custom", "Launching JammerNetzServer"));
+#endif
 
 	app.findAndRunCommand(args);
 

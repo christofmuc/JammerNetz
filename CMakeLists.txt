@@ -19,6 +19,14 @@ option(JUCE_CONFIG_JUCE_WEB_BROWSER OFF)
 OPTION(SENTRY_CRASH_REPORTING "Turn on crash reporting via Internet/Sentry")
 set(SENTRY_DSN "Sentry DSN URL" CACHE STRING "https://YYYYYYYYYYYYYYYYYY@ZZZZZ.ingest.sentry.io/XXXX")
 
+IF(SENTRY_CRASH_REPORTING)
+	message("Internet-based crash reporting is turned on, using Sentry endpoint authorization from SENTRY_DSN CMake variable")
+	SET(SENTRY_INSTALL_PATH "${CMAKE_CURRENT_LIST_DIR}/third_party/sentry-native/install")
+	SET(SENTRY_DISTRIBUTION_FILES "${SENTRY_INSTALL_PATH}/bin/sentry.dll" "${SENTRY_INSTALL_PATH}/bin/crashpad_handler.exe")
+	set(SENTRY_INCLUDE_DIR "${SENTRY_INSTALL_PATH}/include")
+	message(STATUS "Setting SENTRY_INSTALL_PATH to ${SENTRY_INSTALL_PATH}")
+ENDIF()
+
 # We need a little bit support for the JUCE library, and also want to put our own CMake helpers on the module path
 SET(CMAKE_MODULE_PATH "${CMAKE_MODULE_PATH}" "${CMAKE_CURRENT_BINARY_DIR}" "${CMAKE_CURRENT_LIST_DIR}/cmake")
 

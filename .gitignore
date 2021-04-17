@@ -15,3 +15,5 @@ third_party/mathgl-2.4.4/
 .idea/
 Client/Source/sentry-config.h
 upload_debug_info.bat
+common/sentry-config.h
+.sentry-native/

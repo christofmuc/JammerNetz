@@ -8,13 +8,6 @@ project("JammerNetzClient" VERSION 2.1.1)
 
 configure_file("Source/version.cpp.in" "Source/version.cpp")
 
-IF(SENTRY_CRASH_REPORTING)
-	message("Internet-based crash reporting is turned on for the Client, using Sentry endpoint authorization from SENTRY_DSN CMake variable")
-	configure_file("${CMAKE_CURRENT_LIST_DIR}/Source/sentry-config.h.in" "${CMAKE_CURRENT_LIST_DIR}/Source/sentry-config.h")
-	SET(SENTRY_INSTALL_PATH "${CMAKE_CURRENT_LIST_DIR}/../third_party/sentry-native/install")
-	SET(SENTRY_DISTRIBUTION_FILES "${SENTRY_INSTALL_PATH}/bin/sentry.dll" "${SENTRY_INSTALL_PATH}/bin/crashpad_handler.exe")
-ENDIF()
-
 # Load the macro to process binary resources
 include(BinaryResources)
 
@@ -41,7 +34,6 @@ set(SOURCES
 	Source/MidiPlayAlong.cpp Source/MidiPlayAlong.h
 	Source/PlayalongDisplay.cpp Source/PlayalongDisplay.h
 	Source/Resources.h
-	Source/sentry-config.h.in
 	Source/version.cpp.in
 )
 source_group(Source FILES ${SOURCES})
@@ -101,7 +93,7 @@ if(SENTRY_CRASH_REPORTING)
 	target_link_directories(JammerNetzClient PRIVATE "${SENTRY_INSTALL_PATH}/lib")
 endif()
 
-target_include_directories(JammerNetzClient PRIVATE "${SENTRY_INSTALL_PATH}/include" "${CMAKE_CURRENT_BINARY_DIR}/Source")
+target_include_directories(JammerNetzClient PRIVATE "${SENTRY_INCLUDE_DIR}"  "${CMAKE_CURRENT_BINARY_DIR}/Source")
 IF(WIN32)
 	target_link_libraries(JammerNetzClient ${JUCE_LIBRARIES} JammerCommon juce-utils ff_meters ${SENTRY_LIB})
 elseif(APPLE)
