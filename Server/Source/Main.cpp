@@ -166,4 +166,9 @@ int main(int argc, char *argv[])
 
 	app.findAndRunCommand(args);
 
+#ifdef USE_SENTRY
+	std::cout << "Shutting down Sentry" << std::endl;
+	sentry_shutdown();
+#endif
+	std::cout << "Server terminated" << std::endl;
 }
