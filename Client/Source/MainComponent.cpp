@@ -175,6 +175,9 @@ void MainComponent::stopAudioIfRunning()
 			if (audioDevice_->isPlaying()) {
 				audioDevice_->stop();
 				audioDevice_->close();
+				while (audioDevice_->isOpen()) {
+					Thread::sleep(10);
+				}
 			}
 		}
 	}
