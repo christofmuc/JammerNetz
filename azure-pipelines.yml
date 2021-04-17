@@ -97,7 +97,7 @@ jobs:
         cd ../.. 
         cd third_party/sentry-native
         cmake -S . -B builds -DSENTRY_BACKEND=crashpad
-        cmake --build builds --target install -DCMAKE_INSTALL_PREFIX=./install
+        cmake -DCMAKE_INSTALL_PREFIX=./install --build builds --target install 
         cd ../..
         cmake -S . -B builds 
         cmake --build builds
