@@ -18,6 +18,8 @@
 #include "RecordingInfo.h"
 #include "PlayalongDisplay.h"
 
+#include "DSLookAndFeel.h"
+
 class MainComponent   : public Component, private Timer
 {
 public:
@@ -63,6 +65,7 @@ private:
 	Label downstreamInfo_;
 	std::unique_ptr<BPMDisplay> bpmDisplay_;
 	GroupComponent qualityGroup_;
+	ImageButton logo_;
 	GroupComponent recordingGroup_;
 	std::unique_ptr<RecordingInfo> recordingInfo_; // For the master files
 	std::unique_ptr<RecordingInfo> localRecordingInfo_; // For the local data
@@ -75,6 +78,8 @@ private:
 
 	float inputLatencyInMS_;
 	float outputLatencyInMS_;
+
+	DSLookAndFeel dsLookAndFeel_;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MainComponent)
 };

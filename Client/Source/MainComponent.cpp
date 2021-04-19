@@ -24,6 +24,9 @@ clientConfigurator_([this](int clientBuffer, int maxBuffer, bool fec) { callback
 serverStatus_([this]() { newServerSelected();  }),
 callback_(deviceManager_)
 {
+	setLookAndFeel(&dsLookAndFeel_);
+	addAndMakeVisible(dsLookAndFeel_.backgroundGradient());
+
 	//bpmDisplay_ = std::make_unique<BPMDisplay>(callback_.getClocker());
 	recordingInfo_ = std::make_unique<RecordingInfo>(callback_.getMasterRecorder(), "Press to record master mix");
 	playalongDisplay_ = std::make_unique<PlayalongDisplay>(callback_.getPlayalong());
@@ -77,6 +80,12 @@ callback_(deviceManager_)
 		Settings::setSettingsID(clientID);
 	}
 
+	// Add logo
+	logo_.setClickingTogglesState(false);
+	logo_.setEnabled(false);
+	logo_.setImages(false, true, true, dsLookAndFeel_.logo(), 1.0f, Colours::white, dsLookAndFeel_.logo(), 1.0f, Colours::white, dsLookAndFeel_.logo(), 0.8f, Colours::white);
+	addAndMakeVisible(logo_);
+
 	Data::instance().initializeFromSettings();
 	inputSelector_.fromData();
 	outputSelector_.fromData();
@@ -102,6 +111,7 @@ MainComponent::~MainComponent()
 	ownChannels_.toData();
 	Data::instance().saveToSettings();
 	Settings::instance().saveAndClose();
+	setLookAndFeel(nullptr);
 }
 
 void MainComponent::refreshChannelSetup(std::shared_ptr<ChannelSetup> setup) {
@@ -185,7 +195,10 @@ void MainComponent::stopAudioIfRunning()
 
 void MainComponent::resized()
 {
-	auto area = getLocalBounds().reduced(kSmallInset);
+	auto area = getLocalBounds();
+	dsLookAndFeel_.backgroundGradient()->setBounds(area);
+	dsLookAndFeel_.backgroundGradient()->setTransformToFit(area.toFloat(), RectanglePlacement::stretchToFit);
+	area = area.reduced(kSmallInset);
 
 	int settingsHeight = 400;
 	int deviceSelectorWidth = std::min(area.getWidth() / 4, 250);
@@ -214,10 +227,12 @@ void MainComponent::resized()
 	qualityGroup_.setBounds(qualityArea);
 	qualityArea.reduce(kNormalInset, kNormalInset);
 	statusInfo_.setBounds(qualityArea.removeFromTop(qualityArea.getHeight() / 2));
-	for (auto clientInfo : clientInfo_) {
+	/*for (auto clientInfo : clientInfo_) {
 		clientInfo->setBounds(qualityArea.removeFromTop(kLineHeight * 2));
 	}
-	downstreamInfo_.setBounds(qualityArea);
+	downstreamInfo_.setBounds(qualityArea);*/
+	logo_.setBounds(qualityArea.reduced(kNormalInset).removeFromRight(151).removeFromBottom(81));
+
 
 	// Lower right - everything with recording!
 	auto recordingArea = settingsArea.removeFromLeft(settingsSectionWidth);

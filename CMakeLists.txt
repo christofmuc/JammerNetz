@@ -184,6 +184,7 @@ endif()
 # Add subdirectories
 add_subdirectory("third_party/JUCE-user-modules")
 add_subdirectory("modules/juce-utils")
+add_subdirectory("lookAndFeel")
 add_subdirectory("third_party/oneTBB")
 add_subdirectory("common")
 add_subdirectory("Server")

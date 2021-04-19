@@ -42,10 +42,8 @@ ChannelController::ChannelController(String const &name, String const &id, std::
 		addAndMakeVisible(pitchLabel_);
 	}
 
-	lnf_ = std::make_unique<FFAU::LevelMeterLookAndFeel>();
-	lnf_->setColour(FFAU::LevelMeter::lmOutlineColour, juce::Colours::lightblue);
-	lnf_->setColour(FFAU::LevelMeter::lmTicksColour, juce::Colours::lightblue);
-	levelMeter_.setLookAndFeel(lnf_.get());
+	/*lnf_ = std::make_unique<DSLevelMeterLAF>();
+	levelMeter_.setLookAndFeel(lnf_.get());*/
 
 	addAndMakeVisible(channelName_);
 	addAndMakeVisible(levelMeter_);
