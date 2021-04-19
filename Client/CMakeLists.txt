@@ -158,10 +158,17 @@ IF(WIN32)
 ENDIF()
 
 IF(APPLE)
-	# For apple, set the properties file to be included in the link. This is important to allow Microphone access on macOS (you will get a dialog asking for permission)
-	SET_TARGET_PROPERTIES(JammerNetzClient PROPERTIES MACOSX_BUNDLE_BUNDLE_NAME "JammerNetz ${JammerNetzClient_VERSION}"
+	# For apple, set the properties file to be included in the link. This is important to allow Microphone access on macOS (you will get a dialog asking for permission)	
+	SET_TARGET_PROPERTIES(JammerNetzClient PROPERTIES
+		MACOSX_BUNDLE TRUE
+		MACOSX_BUNDLE_BUNDLE_NAME "JammerNetz ${JammerNetzClient_VERSION}"
 		#MACOSX_BUNDLE_ICON_FILE icon_orm.icns
+		MACOSX_BUNDLE_BUNDLE_NAME JammerNetzClient
+		MACOSX_BUNDLE_BUNDLE_VERSION ${CMAKE_PROJECT_VERSION_MAJOR}.${CMAKE_PROJECT_VERSION_MINOR}.${CMAKE_PROJECT_VERSION_PATCH}
+		MACOSX_BUNDLE_GUI_IDENTIFIER tld.domain
+		CPACK_BUNDLE_STARTUP_COMMAND $<TARGET_FILE:JammerNetzClient>
 		MACOSX_BUNDLE_BUNDLE_VERSION ${JammerNetzClient_VERSION}
+		MACOSX_BUNDLE_COPYRIGHT "Copyright 2021 Christof Ruch"
 		MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/Info.plist
 		)
 ENDIF()
@@ -169,18 +176,27 @@ ENDIF()
 IF(APPLE)
     # This is supposed to build a relocatable macOS DMG installer when you specify the
     # --target package
-    SET(MY_RELEASE_DIR ${CMAKE_BINARY_DIR}/macInstaller)
-    SET(APPS "\${CMAKE_INSTALL_PREFIX}/JammerNetzClient.app")
+    SET(MY_RELEASE_DIR ${CMAKE_BINARY_DIR}/macInstaller)    
     SET(DIRS "${CMAKE_BINARY_DIR}")
     INSTALL(TARGETS JammerNetzClient
         BUNDLE DESTINATION . COMPONENT Runtime
         RUNTIME DESTINATION bin COMPONENT Runtime
         )
     
-    INSTALL(CODE "include(BundleUtilities)
-	set(BU_CHMOD_BUNDLE_ITEMS TRUE)
-    fixup_bundle(\"${APPS}\"  \"\"  \"${DIRS}\" IGNORE_ITEM \"Python\")
-    " COMPONENT Runtime)
+    IF(CPACK_BUNDLE_APPLE_CERT_APP)
+		INSTALL(CODE "include(BundleUtilities)
+		set(BU_CHMOD_BUNDLE_ITEMS TRUE)
+		message(STATUS \"Integrating dynlibs and signing app bundle $<TARGET_BUNDLE_DIR:JammerNetzClient>\")
+		fixup_bundle(\"$<TARGET_BUNDLE_DIR:JammerNetzClient>\"  \"\"  \"\" IGNORE_ITEM \"Python\")
+		execute_process(COMMAND codesign --force --deep --sign \"${CPACK_BUNDLE_APPLE_CERT_APP}\" \"$<TARGET_BUNDLE_DIR:JammerNetzClient>\" COMMENT \"Signing app bundle\")
+		" COMPONENT package)
+	ELSE()
+		INSTALL(CODE "include(BundleUtilities)
+		set(BU_CHMOD_BUNDLE_ITEMS TRUE)
+		message(STATUS \"Integrating dynlibs into app bundle $<TARGET_BUNDLE_DIR:JammerNetzClient>\")
+		fixup_bundle(\"$<TARGET_BUNDLE_DIR:JammerNetzClient>\"  \"\"  \"\" IGNORE_ITEM \"Python\")
+		" COMPONENT package)
+	ENDIF()
     
     # Setup CPack variables
     #set(CPACK_PACKAGE_ICON ${CMAKE_CURRENT_SOURCE_DIR}/resources/icon_orm.png)
