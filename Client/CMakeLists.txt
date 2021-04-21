@@ -39,7 +39,7 @@ set(SOURCES
 source_group(Source FILES ${SOURCES})
 
 set(INSTALLER_FILES
-	setup_client.iss
+	setup_client.iss.in
 	info.plist
 	Redist/agpl-3.0.txt
 )
@@ -85,6 +85,9 @@ set(UICOMPONENT_FILES
 source_group(Source\\UIComponents FILES ${UICOMPONENT_FILES})
 
 add_executable(JammerNetzClient MACOSX_BUNDLE WIN32 ${SOURCES} ${UICOMPONENT_FILES} ${AUDIO_PROCESSING_FILES} ${MIDI_FILES} ${RESOURCE_FILES} ${INSTALLER_FILES})
+if(DIGITAL_STAGE_BRANDING)
+set_target_properties(JammerNetzClient PROPERTIES OUTPUT_NAME "digitalStagePC")
+endif()
 
 message("Crash reporting: ${SENTRY_CRASH_REPORTING} at ${SENTRY_INSTALL_PATH}")
 if(SENTRY_CRASH_REPORTING)
@@ -147,7 +150,7 @@ ENDIF()
 
 IF(WIN32)
 	 # Parse Inno Setup config file
-	configure_file("${CMAKE_CURRENT_LIST_DIR}/setup_client.iss"
+	configure_file("${CMAKE_CURRENT_LIST_DIR}/setup_client.iss.in"
 				   "${CMAKE_CURRENT_BINARY_DIR}/setup_client.iss")
 	set(no_copy $<NOT:$<CONFIG:RelWithDebInfo>>)
 	add_custom_command(

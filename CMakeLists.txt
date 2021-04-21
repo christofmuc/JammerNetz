@@ -8,6 +8,9 @@ cmake_minimum_required(VERSION 3.14)
 
 project(JammerNetz)
 
+# For the digital stage branded build, provide an option
+OPTION(DIGITAL_STAGE_BRANDING OFF)
+
 # Since we also build MacOS, we need C++ 17. Which is not a bad thing.
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
