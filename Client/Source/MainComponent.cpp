@@ -69,9 +69,6 @@ callback_(deviceManager_)
 	addAndMakeVisible(*recordingInfo_);
 	addAndMakeVisible(*playalongDisplay_);
 	addAndMakeVisible(*localRecordingInfo_);
-	std::stringstream list;
-	AudioDeviceDiscovery::listAudioDevices(deviceManager_, list);
-	std::cout << list.str(); // For performance, send it to the output only once
 
 	if (clientID.isNotEmpty()) {
 		Settings::setSettingsID(clientID);
