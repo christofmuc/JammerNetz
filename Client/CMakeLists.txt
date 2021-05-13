@@ -46,6 +46,7 @@ set(INSTALLER_FILES
 source_group(Source\\Installer FILES ${INSTALLER_FILES})
 
 set(RESOURCE_FILES
+    Resources/JammerNetzIcon.icns
 	Resources/about.txt
 	Resources/cloud.png
 	Resources/live.png
@@ -97,21 +98,21 @@ target_include_directories(JammerNetzClient PRIVATE "${SENTRY_INCLUDE_DIR}"  "${
 IF(WIN32)
 	target_link_libraries(JammerNetzClient ${JUCE_LIBRARIES} JammerCommon juce-utils ff_meters ${SENTRY_LIB})
 elseif(APPLE)
-	target_link_libraries(JammerNetzClient ${JUCE_LIBRARIES} JammerCommon juce-utils ff_meters tbb) 
+	target_link_libraries(JammerNetzClient ${JUCE_LIBRARIES} JammerCommon juce-utils ff_meters tbb)
 	# ${SENTRY_LIB})
 ELSE()
-	target_link_libraries(JammerNetzClient 
-		${JUCE_LIBRARIES} 
-		PkgConfig::WEBKIT 
-		PkgConfig::GTK 		
-		PkgConfig::GLEW 		
-		Xext 
-		X11 
-		pthread 
-		${CMAKE_DL_LIBS} 
-		freetype 
-		curl 
-		asound 
+	target_link_libraries(JammerNetzClient
+		${JUCE_LIBRARIES}
+		PkgConfig::WEBKIT
+		PkgConfig::GTK
+		PkgConfig::GLEW
+		Xext
+		X11
+		pthread
+		${CMAKE_DL_LIBS}
+		freetype
+		curl
+		asound
 		tbb
 		${SENTRY_LIB}
 		JammerCommon juce-utils ff_meters)
@@ -130,8 +131,8 @@ IF(WIN32)
 	# Post build commands - copy the DLLs (Windows only I guess). Due to the directory format of the oneTBB output directory, we need to parse the MSVC compiler version and use it appropriately
 	add_custom_command(
 			TARGET JammerNetzClient POST_BUILD
-			COMMAND ${CMAKE_COMMAND} -E copy					
-					${SENTRY_DISTRIBUTION_FILES} 
+			COMMAND ${CMAKE_COMMAND} -E copy
+					${SENTRY_DISTRIBUTION_FILES}
 					${CMAKE_BINARY_DIR}/$<IF:$<CONFIG:Release>,${MY_TBB_BINARY_DIR_BASE}_release/tbb12.dll,$<IF:$<CONFIG:Debug>,${MY_TBB_BINARY_DIR_BASE}_debug/tbb12_debug.dll,${MY_TBB_BINARY_DIR_BASE}_relwithdebinfo/tbb12.dll>>
 					${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>)
 ENDIF()
@@ -153,60 +154,66 @@ IF(WIN32)
 	add_custom_command(
 		TARGET JammerNetzClient POST_BUILD
 		COMMAND  "${CMAKE_COMMAND}" -E $<${no_copy}:echo> $<${no_copy}:"Not building Installer with "> chdir . ${INNOSETUP} "${CMAKE_CURRENT_BINARY_DIR}/setup_client.iss"
-		DEPENDS setup_client.iss 
+		DEPENDS setup_client.iss
 	)
 ENDIF()
 
 IF(APPLE)
-	# For apple, set the properties file to be included in the link. This is important to allow Microphone access on macOS (you will get a dialog asking for permission)	
+	# For apple, set the properties file to be included in the link. This is important to allow Microphone access on macOS (you will get a dialog asking for permission)
 	SET_TARGET_PROPERTIES(JammerNetzClient PROPERTIES
 		MACOSX_BUNDLE TRUE
 		MACOSX_BUNDLE_BUNDLE_NAME "JammerNetz ${JammerNetzClient_VERSION}"
-		#MACOSX_BUNDLE_ICON_FILE icon_orm.icns
+		MACOSX_BUNDLE_ICON_FILE JammerNetzIcon
 		MACOSX_BUNDLE_BUNDLE_NAME JammerNetzClient
 		MACOSX_BUNDLE_BUNDLE_VERSION ${CMAKE_PROJECT_VERSION_MAJOR}.${CMAKE_PROJECT_VERSION_MINOR}.${CMAKE_PROJECT_VERSION_PATCH}
-		MACOSX_BUNDLE_GUI_IDENTIFIER tld.domain
+		MACOSX_BUNDLE_GUI_IDENTIFIER com.christofmuc.jammernetz
+		MACOSX_BUNDLE_SIGNATURE jmrn
 		CPACK_BUNDLE_STARTUP_COMMAND $<TARGET_FILE:JammerNetzClient>
 		MACOSX_BUNDLE_BUNDLE_VERSION ${JammerNetzClient_VERSION}
 		MACOSX_BUNDLE_COPYRIGHT "Copyright 2021 Christof Ruch"
 		MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/Info.plist
-		)
+	)
 ENDIF()
 
 IF(APPLE)
-    # This is supposed to build a relocatable macOS DMG installer when you specify the
-    # --target package
-    SET(MY_RELEASE_DIR ${CMAKE_BINARY_DIR}/macInstaller)    
-    SET(DIRS "${CMAKE_BINARY_DIR}")
-    INSTALL(TARGETS JammerNetzClient
-        BUNDLE DESTINATION . COMPONENT Runtime
-        RUNTIME DESTINATION bin COMPONENT Runtime
-        )
-    
-    IF(CPACK_BUNDLE_APPLE_CERT_APP)
+  # This is supposed to build a relocatable macOS DMG installer when you specify the
+  # --target package
+  SET(MY_RELEASE_DIR ${CMAKE_BINARY_DIR}/macInstaller)
+  SET(DIRS "${CMAKE_BINARY_DIR}")
+  INSTALL(TARGETS JammerNetzClient
+    BUNDLE DESTINATION . COMPONENT Runtime
+    RUNTIME DESTINATION bin COMPONENT Runtime
+  )
+
+  # Trying to move icon into application bundle here.
+  # See second answer from: https://stackoverflow.com/questions/22745728/cmake-set-icon-for-a-mac-os-x-app
+  SET(JAMMERNETZ_ICON ${CMAKE_CURRENT_SOURCE_DIR}/Resources/JammerNetzIcon.icns)
+  SET_SOURCE_FILES_PROPERTIES(${JAMMERNETZ_ICON} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
+
+  IF(CPACK_BUNDLE_APPLE_CERT_APP)
 		INSTALL(CODE "include(BundleUtilities)
-		set(BU_CHMOD_BUNDLE_ITEMS TRUE)
-		message(STATUS \"Integrating dynlibs and signing app bundle $<TARGET_BUNDLE_DIR:JammerNetzClient>\")
-		fixup_bundle(\"$<TARGET_BUNDLE_DIR:JammerNetzClient>\"  \"\"  \"\" IGNORE_ITEM \"Python\")
-		execute_process(COMMAND codesign --force --deep --sign \"${CPACK_BUNDLE_APPLE_CERT_APP}\" \"$<TARGET_BUNDLE_DIR:JammerNetzClient>\" COMMENT \"Signing app bundle\")
+			set(BU_CHMOD_BUNDLE_ITEMS TRUE)
+			message(STATUS \"Integrating dynlibs and signing app bundle $<TARGET_BUNDLE_DIR:JammerNetzClient>\")
+			fixup_bundle(\"$<TARGET_BUNDLE_DIR:JammerNetzClient>\"  \"\"  \"\" IGNORE_ITEM \"Python\")
+			execute_process(COMMAND codesign --force --deep --sign \"${CPACK_BUNDLE_APPLE_CERT_APP}\" \"$<TARGET_BUNDLE_DIR:JammerNetzClient>\" COMMENT \"Signing app bundle\")
 		" COMPONENT package)
 	ELSE()
 		INSTALL(CODE "include(BundleUtilities)
-		set(BU_CHMOD_BUNDLE_ITEMS TRUE)
-		message(STATUS \"Integrating dynlibs into app bundle $<TARGET_BUNDLE_DIR:JammerNetzClient>\")
-		fixup_bundle(\"$<TARGET_BUNDLE_DIR:JammerNetzClient>\"  \"\"  \"\" IGNORE_ITEM \"Python\")
+			set(BU_CHMOD_BUNDLE_ITEMS TRUE)
+			message(STATUS \"Integrating dynlibs into app bundle $<TARGET_BUNDLE_DIR:JammerNetzClient>\")
+			fixup_bundle(\"$<TARGET_BUNDLE_DIR:JammerNetzClient>\"  \"\"  \"\" IGNORE_ITEM \"Python\")
 		" COMPONENT package)
 	ENDIF()
-    
-    # Setup CPack variables
-    #set(CPACK_PACKAGE_ICON ${CMAKE_CURRENT_SOURCE_DIR}/resources/icon_orm.png)
-    set(CPACK_PACKAGE_VERSION ${JammerNetzClient_VERSION})
-    set(CPACK_PACKAGE_VENDOR "Christof Ruch Beratungs UG (haftungsbeschraenkt)")
-    set(CPACK_RESOURCE_FILE_LICENSE ${CMAKE_CURRENT_SOURCE_DIR}/Redist/agpl-3.0.txt)
-    
-    # Select only the dmg generator for now
-    SET(CPACK_BINARY_DRAGNDROP ON)
-    SET(CPACK_BINARY_TGZ OFF)
-    SET(CPACK_BINARY_STGZ OFF)
-    INCLUDE(CPack)
+
+  # Setup CPack variables
+  set(CPACK_PACKAGE_ICON ${CMAKE_CURRENT_SOURCE_DIR}/Resources/JammerNetzIcon.icns)
+  set(CPACK_PACKAGE_VERSION ${JammerNetzClient_VERSION})
+  set(CPACK_PACKAGE_VENDOR "Christof Ruch Beratungs UG (haftungsbeschraenkt)")
+  set(CPACK_RESOURCE_FILE_LICENSE ${CMAKE_CURRENT_SOURCE_DIR}/Redist/agpl-3.0.txt)
+
+  # Select only the dmg generator for now
+  SET(CPACK_BINARY_DRAGNDROP ON)
+  SET(CPACK_BINARY_TGZ OFF)
+  SET(CPACK_BINARY_STGZ OFF)
+  INCLUDE(CPack)
 ENDIF()
