@@ -1,31 +1,44 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist>
+<plist version="1.0">
   <dict>
     <key>NSMicrophoneUsageDescription</key>
     <string>This app requires audio input. If you do not have an audio interface connected it will use the built-in microphone.</string>
     <key>CFBundleExecutable</key>
-    <string>${EXECUTABLE_NAME}</string>
+    <string>${MACOSX_BUNDLE_EXECUTABLE_NAME}</string>
     <key>CFBundleIconFile</key>
-    <string></string>
+    <string>${MACOSX_BUNDLE_ICON_FILE}</string>
     <key>CFBundleIdentifier</key>
-    <string>com.jammernetz.projucer</string>
+    <string>${MACOSX_BUNDLE_GUI_IDENTIFIER}</string>
     <key>CFBundleName</key>
-    <string>projucer</string>
+    <string>${MACOSX_BUNDLE_BUNDLE_NAME}</string>
     <key>CFBundleDisplayName</key>
-    <string>projucer</string>
+    <string>${MACOSX_BUNDLE_BUNDLE_NAME}</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleSignature</key>
-    <string>????</string>
+    <string>${MACOSX_BUNDLE_SIGNATURE}</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.0.0</string>
+    <string>${MACOSX_BUNDLE_SHORT_VERSION_STRING}</string>
     <key>CFBundleVersion</key>
-    <string>1.0.0</string>
+    <string>${MACOSX_BUNDLE_BUNDLE_VERSION}</string>
     <key>NSHumanReadableCopyright</key>
-    <string>Copyright 2020 Christof Ruch</string>
+    <string>${MACOSX_BUNDLE_COPYRIGHT}</string>
     <key>NSHighResolutionCapable</key>
     <true/>
+
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundleLongVersionString</key>
+    <string>${MACOSX_BUNDLE_LONG_VERSION_STRING}</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>${CMAKE_OSX_DEPLOYMENT_TARGET}</string>
+    <key>CFBundleGetInfoString</key>
+    <string>${MACOSX_BUNDLE_INFO_STRING}</string>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>English</string>
+    <key>NSPrincipalClass</key>
+    <string>NSApplication</string>
   </dict>
 </plist>

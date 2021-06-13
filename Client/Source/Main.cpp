@@ -122,7 +122,6 @@ public:
                                                                           .findColour (ResizableWindow::backgroundColourId),
                                                     DocumentWindow::allButtons)
         {
-            setUsingNativeTitleBar (true);
             setContentOwned (new MainComponent(clientID), true);
 
            #if JUCE_IOS || JUCE_ANDROID
@@ -131,6 +130,7 @@ public:
             setResizable (true, true);
             centreWithSize (getWidth(), getHeight());
            #endif
+			setUsingNativeTitleBar(true);
 
             setVisible (true);
         }

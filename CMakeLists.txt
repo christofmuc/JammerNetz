@@ -15,6 +15,10 @@ OPTION(DIGITAL_STAGE_BRANDING OFF)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+IF(APPLE)
+add_compile_options(-Wno-unused-command-line-argument)
+ENDIF()
+
 # To avoid dependency on WebKit. This also came with MacOS, but as webkit is heavyweight, it is probably a good idea to turn it off for all
 option(JUCE_CONFIG_JUCE_WEB_BROWSER OFF) 
 
