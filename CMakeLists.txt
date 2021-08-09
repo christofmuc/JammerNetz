@@ -191,6 +191,8 @@ endif()
 # Add subdirectories
 add_subdirectory("third_party/JUCE-user-modules")
 add_subdirectory("modules/juce-utils")
+message(${CMAKE_MODULE_PATH})
+add_subdirectory("modules/libds")
 add_subdirectory("lookAndFeel")
 add_subdirectory("third_party/oneTBB")
 add_subdirectory("common")
