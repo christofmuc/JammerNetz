@@ -7,22 +7,19 @@ jobs:
       matrix:
         mac:
           imageName: 'macos-10.14'
-          isMac: True
-          isDigitalStage: OFF
+          isMac: True          
         win2019:
           imageName: 'windows-2019'
           isWindows2019: True
           isWindows: True
-          isDigitalStage: OFF
         linux:
           imageName: 'ubuntu-18.04'
           isLinux: True
-          isDigitalStage: OFF
         win2019_DS:
           imageName: 'windows-2019'
           isWindows2019: True
           isWindows: True
-          isDigitalStage: ON
+          isDigitalStage: True
         
     pool:
       vmImage: $(imageName)
@@ -71,7 +68,13 @@ jobs:
       inputs:        
         workingDirectory: $(Build.SourcesDirectory)
         cmakeArgs: '-S . -B Builds\Windows -G "Visual Studio 16 2019" -A x64 -DDIGITAL_STAGE_BRANDING=${{variables.isDigitalStage}}'
-      condition: variables.isWindows2019
+      condition: ${{ variables.isWindows2019 && !variables.isDigitalStage }}
+    - task: CMake@1
+      displayName: Configuring CMake for Windows (DigitalStage)
+      inputs:        
+        workingDirectory: $(Build.SourcesDirectory)
+        cmakeArgs: '-S . -B Builds\Windows -G "Visual Studio 16 2019" -A x64 -DDIGITAL_STAGE_BRANDING=${{variables.isDigitalStage}}'
+      condition: ${{ variables.isWindows2019 && variables.isDigitalStage }}
     - task: CMake@1
       displayName: Running CMake build for Windows
       inputs:
