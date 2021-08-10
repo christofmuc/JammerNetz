@@ -16,6 +16,10 @@
 
 #include "LayoutConstants.h"
 
+#ifdef DIGITAL_STAGE
+#include "Login.h"
+#endif
+
 MainComponent::MainComponent(String clientID) : audioDevice_(nullptr),
 inputSelector_("Inputs", false, "InputSetup", deviceManager_, true, [this](std::shared_ptr<ChannelSetup> setup) { setupChanged(setup); }),
 outputSelector_("Outputs", false, "OutputSetup", deviceManager_, false, [this](std::shared_ptr<ChannelSetup> setup) { outputSetupChanged(setup);  }),
@@ -95,10 +99,20 @@ callback_(deviceManager_)
 	// Make sure you set the size of the component after
 	// you add any child components.
 	setSize(1536, 800);
+
+#ifdef DIGITAL_STAGE
+	MessageManager::callAsync([this]() {
+		LoginDialog::showDialog([this](LoginData login) {
+		});
+	});
+#endif
 }
 
 MainComponent::~MainComponent()
 {
+#ifdef DIGITAL_STAGE
+	LoginDialog::release();
+#endif
 	stopAudioIfRunning();
 	clientConfigurator_.toData();
 	serverStatus_.toData();
