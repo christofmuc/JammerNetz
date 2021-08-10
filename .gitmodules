@@ -28,4 +28,4 @@
 	url = https://github.com/getsentry/sentry-native.git
 [submodule "modules/libds"]
 	path = modules/libds
-	url = https://github.com/digital-stage/libds.git
+	url = https://github.com/christofmuc/libds.git

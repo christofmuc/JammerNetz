@@ -18,3 +18,4 @@ upload_debug_info.bat
 common/sentry-config.h
 .sentry-native/
 lookAndFeel/Resources.h
+builds_ds/
