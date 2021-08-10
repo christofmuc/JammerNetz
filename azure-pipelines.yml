@@ -8,17 +8,22 @@ jobs:
         mac:
           imageName: 'macos-10.14'
           isMac: True
-        win2017:
-          imageName: 'vs2017-win2016'
-          isWindows2017: True
-          isWindows: True
+          isDigitalStage: OFF
         win2019:
           imageName: 'windows-2019'
           isWindows2019: True
           isWindows: True
+          isDigitalStage: OFF
         linux:
           imageName: 'ubuntu-18.04'
           isLinux: True
+          isDigitalStage: OFF
+        win2019_DS:
+          imageName: 'windows-2019'
+          isWindows2019: True
+          isWindows: True
+          isDigitalStage: ON
+        
     pool:
       vmImage: $(imageName)
     steps:
@@ -51,12 +56,6 @@ jobs:
       displayName: Configuring CMake for Flatbuffers
       inputs:
         workingDirectory: 'third_party/flatbuffers'
-        cmakeArgs: '-S . -B Builds -G "Visual Studio 15 2017 Win64"'
-      condition: variables.isWindows2017
-    - task: CMake@1
-      displayName: Configuring CMake for Flatbuffers
-      inputs:
-        workingDirectory: 'third_party/flatbuffers'
         cmakeArgs: '-S . -B Builds -G "Visual Studio 16 2019" -A x64'
       condition: variables.isWindows2019
     - task: CMake@1
@@ -69,13 +68,7 @@ jobs:
       displayName: Configuring CMake for Windows
       inputs:        
         workingDirectory: $(Build.SourcesDirectory)
-        cmakeArgs: '-S . -B Builds\Windows -G "Visual Studio 15 2017 Win64"'
-      condition: variables.isWindows2017
-    - task: CMake@1
-      displayName: Configuring CMake for Windows
-      inputs:        
-        workingDirectory: $(Build.SourcesDirectory)
-        cmakeArgs: '-S . -B Builds\Windows -G "Visual Studio 16 2019" -A x64'
+        cmakeArgs: '-S . -B Builds\Windows -G "Visual Studio 16 2019" -A x64 -DDIGITAL_STAGE_BRANDING=${variables.isDigitalStage}'
       condition: variables.isWindows2019
     - task: CMake@1
       displayName: Running CMake build for Windows
