@@ -67,13 +67,13 @@ jobs:
       displayName: Configuring CMake for Windows
       inputs:        
         workingDirectory: $(Build.SourcesDirectory)
-        cmakeArgs: '-S . -B Builds\Windows -G "Visual Studio 16 2019" -A x64 -DDIGITAL_STAGE_BRANDING=${{variables.isDigitalStage}}'
+        cmakeArgs: '-S . -B Builds\Windows -G "Visual Studio 16 2019" -A x64'
       condition: and(variables.isWindows2019, not(variables.isDigitalStage))
     - task: CMake@1
       displayName: Configuring CMake for Windows (DigitalStage)
       inputs:        
         workingDirectory: $(Build.SourcesDirectory)
-        cmakeArgs: '-S . -B Builds\Windows -G "Visual Studio 16 2019" -A x64 -DDIGITAL_STAGE_BRANDING=${{variables.isDigitalStage}}'
+        cmakeArgs: '-S . -B Builds\Windows -G "Visual Studio 16 2019" -A x64 -DDIGITAL_STAGE_BRANDING=ON'
       condition: and(variables.isWindows2019, variables.isDigitalStage)
     - task: CMake@1
       displayName: Running CMake build for Windows
