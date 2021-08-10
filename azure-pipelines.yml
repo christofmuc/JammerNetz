@@ -49,7 +49,9 @@ jobs:
         restoreDirectory: third_party
       condition: variables.isWindows
     - script: |
-        pip install conan --upgrade
+        pip3 install wheel setuptools
+        pip3 install conan
+        conan --version
         conan install -if Builds\Windows -s build_type=RelWithDebInfo --build missing .
       condition: variables.isWindows
     - task: CMake@1
