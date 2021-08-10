@@ -93,6 +93,7 @@ source_group(Source\\DigitalStage FILES ${DSBRANCH_FILES})
 
 if(DIGITAL_STAGE_BRANDING)
 set(DS_LIBRARIES
+		keychain::keychain 
 		DigitalStageAuth
         DigitalStageApi)
 set(DS_SOURCES ${DSBRANCH_FILES})
@@ -105,6 +106,7 @@ set_target_properties(JammerNetzClient PROPERTIES OUTPUT_NAME "digitalStagePC")
 set(JammerNetz_ApplicationName "digitalStagePC.exe")
 set(JammerNetz_AppId "{{9E315D5B-AF22-42B0-9735-8A7B058EAEF3}")
 set(JammerNetz_InstallerBaseName "digitalStagePC_setup")
+target_compile_options(JammerNetzClient PRIVATE -DDIGITAL_STAGE)
 else()
 # Use the standard historical values
 set(JammerNetz_ApplicationName "JammerNetzClient.exe")
