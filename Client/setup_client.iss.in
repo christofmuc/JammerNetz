@@ -5,7 +5,7 @@
 #define MyAppVersion "${JammerNetzClient_VERSION}"
 #define MyAppPublisher "Christof Ruch Beratungs UG (haftungsbeschränkt)"
 #define MyAppURL "https://github.com/christofmuc/JammerNetz"
-#define MyAppExeName ${JammerNetz_ApplicationName}
+#define MyAppExeName "${JammerNetz_ApplicationName}"
 #define VCRedistFileName "vc_redist.x64.exe"
 
 [Setup]
