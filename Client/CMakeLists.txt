@@ -85,7 +85,20 @@ set(UICOMPONENT_FILES
 )
 source_group(Source\\UIComponents FILES ${UICOMPONENT_FILES})
 
-add_executable(JammerNetzClient MACOSX_BUNDLE WIN32 ${SOURCES} ${UICOMPONENT_FILES} ${AUDIO_PROCESSING_FILES} ${MIDI_FILES} ${RESOURCE_FILES} ${INSTALLER_FILES})
+set(DSBRANCH_FILES
+	Source/DSConfig.h
+	Source/Login.cpp Source/Login.h
+)
+source_group(Source\\DigitalStage FILES ${DSBRANCH_FILES})
+
+if(DIGITAL_STAGE_BRANDING)
+set(DS_LIBRARIES
+		DigitalStageAuth
+        DigitalStageApi)
+set(DS_SOURCES ${DSBRANCH_FILES})
+endif()
+
+add_executable(JammerNetzClient MACOSX_BUNDLE WIN32 ${SOURCES} ${DS_SOURCES} ${UICOMPONENT_FILES} ${AUDIO_PROCESSING_FILES} ${MIDI_FILES} ${RESOURCE_FILES} ${INSTALLER_FILES})
 if(DIGITAL_STAGE_BRANDING)
 set_target_properties(JammerNetzClient PROPERTIES OUTPUT_NAME "digitalStagePC")
 endif()
@@ -99,13 +112,14 @@ endif()
 
 target_include_directories(JammerNetzClient PRIVATE "${SENTRY_INCLUDE_DIR}"  "${CMAKE_CURRENT_BINARY_DIR}/Source")
 IF(WIN32)
-	target_link_libraries(JammerNetzClient ${JUCE_LIBRARIES} JammerCommon juce-utils ds_look_and_feel ff_meters ${SENTRY_LIB})
+	target_link_libraries(JammerNetzClient ${JUCE_LIBRARIES} ${DS_LIBRARIES} JammerCommon juce-utils ds_look_and_feel ff_meters ${SENTRY_LIB})
 elseif(APPLE)
-	target_link_libraries(JammerNetzClient ${JUCE_LIBRARIES} JammerCommon juce-utils ds_look_and_feel ff_meters tbb) 
+	target_link_libraries(JammerNetzClient ${JUCE_LIBRARIES} ${DS_LIBRARIES} JammerCommon juce-utils ds_look_and_feel ff_meters tbb) 
 	# ${SENTRY_LIB})
 ELSE()
 	target_link_libraries(JammerNetzClient 
 		${JUCE_LIBRARIES} 
+		${DS_LIBRARIES} 
 		PkgConfig::WEBKIT 
 		PkgConfig::GTK 		
 		PkgConfig::GLEW 		
