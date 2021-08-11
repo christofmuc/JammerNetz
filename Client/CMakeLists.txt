@@ -103,13 +103,15 @@ add_executable(JammerNetzClient MACOSX_BUNDLE WIN32 ${SOURCES} ${DS_SOURCES} ${U
 if(DIGITAL_STAGE_BRANDING)
 # Use new DigitalStage branded versions
 set_target_properties(JammerNetzClient PROPERTIES OUTPUT_NAME "digitalStagePC")
-set(JammerNetz_ApplicationName "digitalStagePC.exe")
+set(JammerNetz_VersionedName "digitalStagePC by JammerNetz")
+set(JammerNetz_ApplicationName "digitalStagePC")
 set(JammerNetz_AppId "{{9E315D5B-AF22-42B0-9735-8A7B058EAEF3}")
 set(JammerNetz_InstallerBaseName "digitalStagePC_setup")
 target_compile_options(JammerNetzClient PRIVATE -DDIGITAL_STAGE)
 else()
 # Use the standard historical values
-set(JammerNetz_ApplicationName "JammerNetzClient.exe")
+set(JammerNetz_VersionedName "JammerNetz 2")
+set(JammerNetz_ApplicationName "JammerNetzClient")
 set(JammerNetz_AppId "{{704C397B-E756-47B0-AB7A-5C52A62E0A3F}")
 set(JammerNetz_InstallerBaseName "jammernetz_setup")
 endif()
