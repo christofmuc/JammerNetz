@@ -50,7 +50,7 @@ LoginDialog::LoginDialog() : password_("passwordEntry", 0x2022)
 		if (tryLogin({ userName, password })) {
 			sWindow_->exitModalState(1);
 			if (callback_) {
-				callback_({ userName, password });
+				callback_({ userName, password, apiToken_ });
 			}
 		}
 		else {
@@ -69,6 +69,7 @@ LoginDialog::LoginDialog() : password_("passwordEntry", 0x2022)
 
 LoginDialog::~LoginDialog()
 {
+	Component::setLookAndFeel(nullptr);
 	fetchLogin_.reset();
 }
 
@@ -118,21 +119,32 @@ void LoginDialog::resized()
 void LoginDialog::setUsername(std::string const& username)
 {
 	if (sLoginDialog->username_.getText().isEmpty()) {
-		sLoginDialog->username_.setText(username, true);
+		// Do this on the GUI thread
+		MessageManager::callAsync([username]() {
+			sLoginDialog->username_.setText(username, true);
+		});
 	}
 }
 
 void LoginDialog::setPassword(std::string const& password)
 {
 	if (sLoginDialog->password_.getText().isEmpty()) {
-		sLoginDialog->password_.setText(password, true);
+		// Do this on the GUI thread
+		MessageManager::callAsync([password]() {
+			sLoginDialog->password_.setText(password, true);
+		});
 	}
+}
+
+void LoginDialog::triggerCallback()
+{
+	callback_(LoginData{"", "", apiToken_});
 }
 
 static void dialogClosed(int modalResult, LoginDialog* dialog)
 {
 	if (modalResult == 1 && dialog != nullptr) { // (must check that dialog isn't null in case it was deleted..)
-		//dialog->notifyResult();
+		//dialog->triggerCallback();
 	}
 	else {
 		JUCEApplication::quit();
@@ -162,7 +174,8 @@ bool LoginDialog::tryLogin(LoginData const& login)
 	DigitalStage::Auth::string_t userName(login.username.begin(), login.username.end());
 	DigitalStage::Auth::string_t passWord(login.password.begin(), login.password.end());
 
-	auto token = authService_->signInSync(userName ,passWord);
-	return !token.empty();
+	apiToken_ = authService_->signInSync(userName ,passWord);
+	return !apiToken_.empty();
 }
+
 

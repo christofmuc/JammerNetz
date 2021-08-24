@@ -18,6 +18,10 @@
 
 #ifdef DIGITAL_STAGE
 #include "Login.h"
+#include "DataStore.h"
+#include "JoinStageDialog.h"
+
+std::shared_ptr<DataStore> globalDataStore_;
 #endif
 
 MainComponent::MainComponent(String clientID) : audioDevice_(nullptr),
@@ -102,7 +106,11 @@ callback_(deviceManager_)
 
 #ifdef DIGITAL_STAGE
 	MessageManager::callAsync([this]() {
-		LoginDialog::showDialog([this](LoginData login) {
+		LoginDialog::showDialog([this](LoginData loginData) {
+			globalDataStore_ = std::make_shared<DataStore>(loginData.apiToken);
+			// Busy wait until ready
+			while (!globalDataStore_->isReady());
+			JoinStageDialog::showDialog(globalDataStore_);
 		});
 	});
 #endif
@@ -112,6 +120,7 @@ MainComponent::~MainComponent()
 {
 #ifdef DIGITAL_STAGE
 	LoginDialog::release();
+	JoinStageDialog::release();
 #endif
 	stopAudioIfRunning();
 	clientConfigurator_.toData();

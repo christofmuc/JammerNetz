@@ -14,6 +14,7 @@
 struct LoginData {
 	std::string username;
 	std::string password;
+	DigitalStage::Auth::string_t apiToken;
 };
 
 class LoginDialog : public Component {
@@ -28,6 +29,8 @@ public:
 	void setUsername(std::string const& username);
 	void setPassword(std::string const& password);
 
+	void triggerCallback();
+
 	static void showDialog(TUserPasswordCallback callback);
 	static void release();
 
@@ -39,6 +42,7 @@ private:
 
 	std::unique_ptr<DigitalStage::Auth::AuthService> authService_;
 	TUserPasswordCallback callback_;
+	DigitalStage::Auth::string_t apiToken_;
 
 	Label usernameLabel_;
 	Label passwordLabel_;

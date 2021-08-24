@@ -86,7 +86,9 @@ set(UICOMPONENT_FILES
 source_group(Source\\UIComponents FILES ${UICOMPONENT_FILES})
 
 set(DSBRANCH_FILES
+	Source/DataStore.cpp Source/DataStore.h
 	Source/DSConfig.h
+	Source/JoinStageDialog.cpp Source/JoinStageDialog.h
 	Source/Login.cpp Source/Login.h
 )
 source_group(Source\\DigitalStage FILES ${DSBRANCH_FILES})
@@ -125,9 +127,9 @@ endif()
 
 target_include_directories(JammerNetzClient PRIVATE "${SENTRY_INCLUDE_DIR}"  "${CMAKE_CURRENT_BINARY_DIR}/Source")
 IF(WIN32)
-	target_link_libraries(JammerNetzClient ${JUCE_LIBRARIES} ${DS_LIBRARIES} JammerCommon juce-utils ds_look_and_feel ff_meters ${SENTRY_LIB})
+	target_link_libraries(JammerNetzClient ${JUCE_LIBRARIES} ${DS_LIBRARIES} JammerCommon juce-utils juce-widgets ds_look_and_feel ff_meters ${SENTRY_LIB})
 elseif(APPLE)
-	target_link_libraries(JammerNetzClient ${JUCE_LIBRARIES} ${DS_LIBRARIES} JammerCommon juce-utils ds_look_and_feel ff_meters tbb) 
+	target_link_libraries(JammerNetzClient ${JUCE_LIBRARIES} ${DS_LIBRARIES} JammerCommon juce-utils juce-widgets ds_look_and_feel ff_meters tbb) 
 	# ${SENTRY_LIB})
 ELSE()
 	target_link_libraries(JammerNetzClient 
@@ -145,7 +147,7 @@ ELSE()
 		asound 
 		tbb
 		${SENTRY_LIB}
-		JammerCommon juce-utils ds_look_and_feel ff_meters)
+		JammerCommon juce-utils juce-widgets ds_look_and_feel ff_meters)
 ENDIF()
 
 # Pedantic about warnings
