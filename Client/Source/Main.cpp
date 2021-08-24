@@ -38,7 +38,11 @@ public:
 		}
 
 		// This method is where you should put your application's initialization code..
+#ifdef DIGITAL_STAGE
+		char* applicationDataDirName = "DigitalStage";
+#else
 		char *applicationDataDirName = "JammerNetz";
+#endif
 		Settings::setSettingsID(applicationDataDirName);
 
 		// Create a file logger. Respect the fact that we might launch multiple clients at the same time, and then we should do collision avoidance with the filenames
