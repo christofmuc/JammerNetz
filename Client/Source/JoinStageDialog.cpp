@@ -23,11 +23,24 @@ void visit(DigitalStage::Types::Stage const& dataItem, int column, std::function
 }
 
 JoinStageDialog::JoinStageDialog(std::shared_ptr<DataStore> store) :
-	stageTable_({ "Name", "Audio Type", "Description"}, {}, [this](int) {})
+	stageTable_({ "Name", "Audio Type", "Description"}, {}, nullptr)
 {
 	setLookAndFeel(&dsLookAndFeel_);
 
 	addAndMakeVisible(stageTable_);
+	stageTable_.rowSelectedHandler = [this](int row) {
+		if (row >= 0 && row < stagesInTable_.size()) {
+			joinButton_.setEnabled(stagesInTable_[row].audioType == "jammer");
+		}
+		else {
+			jassertfalse;
+		}
+	};
+
+	joinButton_.setButtonText("Join");
+	addAndMakeVisible(&joinButton_);
+	joinButton_.setEnabled(false);
+	joinButton_.onClick = [this]() {};
 	setSize(400, 300);
 }
 
@@ -37,13 +50,17 @@ JoinStageDialog::~JoinStageDialog() {
 
 void JoinStageDialog::resized()
 {
-	auto area = getLocalBounds();
-	stageTable_.setBounds(area.reduced(kNormalInset));
+	auto area = getLocalBounds().reduced(kNormalInset);
+	auto buttonRow = area.removeFromBottom(kLineSpacing);
+	joinButton_.setBounds(buttonRow.withSizeKeepingCentre(kButtonWidth, kLineHeight));
+	stageTable_.setBounds(area.withTrimmedBottom(kNormalInset));
 }
 
 void JoinStageDialog::setStages(std::vector<DigitalStage::Types::Stage> const& stages)
 {
+	stagesInTable_ = stages; // We need to store this has those in the "DataStore" could be changed at any time via WebSockets
 	stageTable_.updateData(stages);
+	joinButton_.setEnabled(false);
 }
 
 static void dialogClosed(int modalResult, JoinStageDialog* dialog)

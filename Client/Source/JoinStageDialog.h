@@ -29,7 +29,9 @@ public:
 
 private:
 	std::shared_ptr<DataStore> store_;
+	std::vector<DigitalStage::Types::Stage> stagesInTable_;
 	SimpleTable<std::vector<DigitalStage::Types::Stage>> stageTable_;
+	TextButton joinButton_;
 
 	DSLookAndFeel dsLookAndFeel_;
 };

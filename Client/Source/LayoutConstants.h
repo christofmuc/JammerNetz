@@ -12,4 +12,5 @@ const int kLineHeight = 30;
 const int kLineSpacing = kLineHeight + kNormalInset;
 const int kLabelWidth = 80;
 const int kEntryBoxWidth = 120;
+const int kButtonWidth = 120;
 const int kSliderWithBoxWidth = kEntryBoxWidth + 100;
