@@ -29,3 +29,9 @@
 [submodule "modules/libds"]
 	path = modules/libds
 	url = https://github.com/christofmuc/libds.git
+[submodule "third_party/fmt"]
+	path = third_party/fmt
+	url = https://github.com/fmtlib/fmt.git
+[submodule "modules/juce-widgets"]
+	path = modules/juce-widgets
+	url = https://github.com/christofmuc/juce-widgets.git
