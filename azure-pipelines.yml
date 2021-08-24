@@ -30,7 +30,7 @@ jobs:
       displayName: "Disable git automatic line ending conversion"
     - bash: |
         sudo apt-get update
-        sudo apt-get install -y libcurl4-openssl-dev pkg-config libasound2-dev libgtk-3-dev libwebkit2gtk-4.0-dev libglew-dev libjack-dev libncurses5-dev
+        sudo apt-get install -y libcurl4-openssl-dev pkg-config libasound2-dev libgtk-3-dev libwebkit2gtk-4.0-dev libglew-dev libjack-dev libncurses5-dev nlohmann-json-dev
         apt list --installed
       displayName: Prepare Linux Host
       condition: variables.isLinux
@@ -110,7 +110,7 @@ jobs:
     # Mac build uses bash as well
     # No need to brew icu4c cmake as they are already present on Azure mac
     - bash: |
-        brew install cmake gtk+3 glew
+        brew install cmake gtk+3 glew nlohmann-json
         cd third_party/flatbuffers
         cmake -S . -B LinuxBuilds -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release
         cmake --build LinuxBuilds -- -j8
