@@ -89,7 +89,7 @@ jobs:
 
     - publish: $(System.DefaultWorkingDirectory)/Builds/Windows/Client/digitalStagePC_setup_2.1.3.exe
       displayName: Publish Windows Installer (Digital Stage)
-      artifact: WindowsInstaller
+      artifact: DigitalStage_WindowsInstaller
       condition: and(variables.isWindows2019, variables.isDigitalStage)
 
     # Linux uses bash to run CMake directly
