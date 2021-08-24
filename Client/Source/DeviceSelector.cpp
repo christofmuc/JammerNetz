@@ -144,8 +144,8 @@ void DeviceSelector::comboBoxChanged(ComboBox* comboBoxThatHasChanged)
 			//TODO When we allow other sample rates or buffer sizes, enable more devices
 			StringArray items;
 			for (auto device : selectedType->getDeviceNames(inputDevices_)) {
-				if (AudioDeviceDiscovery::canDeviceDoBufferSize(selectedType, device, inputDevices_, ServerInfo::bufferSize)
-					&& AudioDeviceDiscovery::canDeviceDoSampleRate(selectedType, device, inputDevices_, ServerInfo::sampleRate)) {
+				if (AudioDeviceDiscovery::canDeviceDoBufferSize(selectedType, device, inputDevices_, globalServerInfo.bufferSize)
+					&& AudioDeviceDiscovery::canDeviceDoSampleRate(selectedType, device, inputDevices_, globalServerInfo.sampleRate)) {
 					items.add(device);
 				}
 				else {

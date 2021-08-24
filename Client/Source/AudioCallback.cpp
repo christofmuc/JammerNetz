@@ -47,12 +47,12 @@ void AudioCallback::newServer()
 {
 	// Reload crypto key
 	std::shared_ptr<MemoryBlock> cryptoKey;
-	if (UDPEncryption::loadKeyfile(ServerInfo::cryptoKeyfilePath.c_str(), &cryptoKey)) {
+	if (UDPEncryption::loadKeyfile(globalServerInfo.cryptoKeyfilePath.c_str(), &cryptoKey)) {
 		setCryptoKey(cryptoKey->getData(), (int)cryptoKey->getSize());
 	}
 	else {
-		if (!ServerInfo::cryptoKeyfilePath.empty()) {
-			juce::AlertWindow::showMessageBox(AlertWindow::WarningIcon, "No crypto key loaded", "Could not load crypto key file " + ServerInfo::cryptoKeyfilePath);
+		if (!globalServerInfo.cryptoKeyfilePath.empty()) {
+			juce::AlertWindow::showMessageBox(AlertWindow::WarningIcon, "No crypto key loaded", "Could not load crypto key file " + globalServerInfo.cryptoKeyfilePath);
 		}
 	}
 

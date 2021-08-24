@@ -18,6 +18,9 @@ public:
 
 	virtual void resized() override;
 
+	// From ServerInfo struct
+	void fromServerInfo(ServerInfo const& serverInfo);
+
 	// Store to and load from settings
 	void fromData();
 	void toData() const;

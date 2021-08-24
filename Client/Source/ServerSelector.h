@@ -8,6 +8,8 @@
 
 #include "JuceHeader.h"
 
+#include "ServerInfo.h"
+
 class ServerSelector : public Component,
 	private Button::Listener
 {
@@ -15,6 +17,9 @@ public:
 	ServerSelector(std::function<void()> notify);
 
 	virtual void resized() override;
+
+	// From ServerInfo struct
+	void fromServerInfo(ServerInfo const& serverInfo);
 
 	// Store to and load from settings
 	void fromData();

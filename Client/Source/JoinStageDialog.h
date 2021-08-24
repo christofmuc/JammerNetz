@@ -12,12 +12,14 @@
 #include "SimpleTable.h"
 #include "DSLookAndFeel.h"
 
+#include "ServerInfo.h"
+
 #include <nlohmann/json.hpp>
 
 class JoinStageDialog : public Component
 {
 public:
-	static void showDialog(std::shared_ptr<DataStore> store);
+	static void showDialog(std::shared_ptr<DataStore> store, std::function<void(ServerInfo serverInfo)> joinHandler);
 	static void release();
 
 	JoinStageDialog(std::shared_ptr<DataStore> store);
@@ -27,10 +29,13 @@ public:
 
 	void setStages(std::vector<DigitalStage::Types::Stage> const& stages);
 
+	std::function<void(ServerInfo serverInfo)> joinHandler;
+
 private:
 	std::shared_ptr<DataStore> store_;
 	std::vector<DigitalStage::Types::Stage> stagesInTable_;
 	SimpleTable<std::vector<DigitalStage::Types::Stage>> stageTable_;
+	std::optional<DigitalStage::Types::Stage> selectedStage_;
 	TextButton joinButton_;
 
 	DSLookAndFeel dsLookAndFeel_;

@@ -28,6 +28,12 @@ void ServerStatus::resized()
 	cloudImage_.setBounds(area.withSizeKeepingCentre(96, 96).withTrimmedTop(kNormalInset));
 }
 
+void ServerStatus::fromServerInfo(ServerInfo const& serverInfo)
+{
+	//TODO This should go away and the ServerStatus should not encapsulate the ServerSelector!
+	serverSelector_.fromServerInfo(serverInfo);
+}
+
 void ServerStatus::fromData()
 {
 	serverSelector_.fromData();

@@ -11,7 +11,7 @@
 #include "Data.h"
 #include "LayoutConstants.h"
 
-ServerSelector::ServerSelector(std::function<void()> notify) : localhostSelected_(false), lastServer_(ServerInfo::serverName), notify_(notify)
+ServerSelector::ServerSelector(std::function<void()> notify) : localhostSelected_(false), lastServer_(globalServerInfo.serverName), notify_(notify)
 {
 	useLocalhost_.setButtonText("Use localhost as server");
 	useLocalhost_.addListener(this);
@@ -54,7 +54,7 @@ ServerSelector::ServerSelector(std::function<void()> notify) : localhostSelected
 }
 
 void ServerSelector::reloadCryptoKey() {
-	ServerInfo::cryptoKeyfilePath = cryptoKeyPath_.toStdString();
+	globalServerInfo.cryptoKeyfilePath = cryptoKeyPath_.toStdString();
 	notify_();
 	AlertWindow::showMessageBox(AlertWindow::InfoIcon, "New key loaded", "The new crypto key was loaded from " + cryptoKeyPath_);
 }
@@ -80,6 +80,22 @@ void ServerSelector::resized()
 	keyPath_.setBounds(lowerRow);
 }
 
+void ServerSelector::fromServerInfo(ServerInfo const& serverInfo)
+{
+	// Set the UI for the data from the ServerInfo struct
+	ipAddress_.setText(serverInfo.serverName, false);
+	lastServer_ = ipAddress_.getText();
+	port_.setText(String(serverInfo.serverPort), false);
+	lastPort_ = port_.getText();
+	useLocalhost_.setToggleState(false, dontSendNotification);
+	keyPath_.setText(serverInfo.cryptoKeyfilePath);
+	cryptoKeyPath_ = keyPath_.getText();
+	globalServerInfo.cryptoKeyfilePath = cryptoKeyPath_.toStdString(); // TODO This is ugly double data
+	globalServerInfo.serverName = lastServer_.toStdString();
+	globalServerInfo.serverPort = lastPort_.toStdString();
+	notify_();
+}
+
 void ServerSelector::fromData()
 {
 	ValueTree &data = Data::instance().get();
@@ -100,7 +116,7 @@ void ServerSelector::fromData()
 	if (data.hasProperty("CryptoFilePath")) {
 		keyPath_.setText(data.getProperty("CryptoFilePath"), true);
 		cryptoKeyPath_ = keyPath_.getText();
-		ServerInfo::cryptoKeyfilePath = cryptoKeyPath_.toStdString(); // TODO This is ugly double data
+		globalServerInfo.cryptoKeyfilePath = cryptoKeyPath_.toStdString(); // TODO This is ugly double data
 	}
 	buttonClicked(&useLocalhost_);
 }
@@ -119,8 +135,8 @@ void ServerSelector::updateServerInfo()
 	lastServer_ = ipAddress_.getText();
 	lastPort_ = port_.getText();
 	useLocalhost_.unfocusAllComponents();
-	ServerInfo::serverName = lastServer_.toStdString();
-	ServerInfo::serverPort = lastPort_.toStdString();
+	globalServerInfo.serverName = lastServer_.toStdString();
+	globalServerInfo.serverPort = lastPort_.toStdString();
 	notify_();
 }
 
@@ -129,11 +145,11 @@ void ServerSelector::buttonClicked(Button *button)
 	localhostSelected_ = button->getToggleState();
 	ipAddress_.setEnabled(!localhostSelected_);
 	if (localhostSelected_) {
-		ServerInfo::serverName = "127.0.0.1";
+		globalServerInfo.serverName = "127.0.0.1";
 	}
 	else {
-		ServerInfo::serverName = lastServer_.toStdString();
-		ServerInfo::serverPort = lastPort_.toStdString();
+		globalServerInfo.serverName = lastServer_.toStdString();
+		globalServerInfo.serverPort = lastPort_.toStdString();
 	}
 	notify_();
 }

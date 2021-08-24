@@ -110,7 +110,9 @@ callback_(deviceManager_)
 			globalDataStore_ = std::make_shared<DataStore>(loginData.apiToken);
 			// Busy wait until ready
 			while (!globalDataStore_->isReady());
-			JoinStageDialog::showDialog(globalDataStore_);
+			JoinStageDialog::showDialog(globalDataStore_, [this](ServerInfo serverInfo) {
+				serverStatus_.fromServerInfo(serverInfo);
+			});
 		});
 	});
 #endif
@@ -180,15 +182,15 @@ void MainComponent::restartAudio(std::shared_ptr<ChannelSetup> inputSetup, std::
 		if (audioDevice_) {
 			BigInteger inputChannelMask = inputSetup ? makeChannelMask(inputSetup->activeChannelIndices) : 0;
 			BigInteger outputChannelMask = outputSetup ? makeChannelMask(outputSetup->activeChannelIndices) : 0;
-			String error = audioDevice_->open(inputChannelMask, outputChannelMask, ServerInfo::sampleRate, ServerInfo::bufferSize);
+			String error = audioDevice_->open(inputChannelMask, outputChannelMask, globalServerInfo.sampleRate, globalServerInfo.bufferSize);
 			if (error.isNotEmpty()) {
 				jassert(false);
 				AlertWindow::showMessageBox(AlertWindow::WarningIcon, "Error opening audio device", "Error text: " + error);
 				refreshChannelSetup(std::shared_ptr < ChannelSetup>());
 			}
 			else {
-				inputLatencyInMS_ = audioDevice_->getInputLatencyInSamples() / (float)ServerInfo::sampleRate * 1000.0f;
-				outputLatencyInMS_ = audioDevice_->getOutputLatencyInSamples() / (float)ServerInfo::sampleRate* 1000.0f;
+				inputLatencyInMS_ = audioDevice_->getInputLatencyInSamples() / (float)globalServerInfo.sampleRate * 1000.0f;
+				outputLatencyInMS_ = audioDevice_->getOutputLatencyInSamples() / (float)globalServerInfo.sampleRate* 1000.0f;
 
 				refreshChannelSetup(inputSetup);
 				// We can actually start recording and playing
@@ -344,7 +346,7 @@ void MainComponent::timerCallback()
 	std::stringstream connectionInfo;
 	connectionInfo << std::fixed << std::setprecision(2)
 		<< "Network MTU: " << callback_.currentPacketSize() << " bytes. Bandwidth: "
-		<< callback_.currentPacketSize() * 8 * (ServerInfo::sampleRate / (float)ServerInfo::bufferSize) / (1024 * 1024.0f) << "MBit/s. ";
+		<< callback_.currentPacketSize() * 8 * (globalServerInfo.sampleRate / (float)globalServerInfo.bufferSize) / (1024 * 1024.0f) << "MBit/s. ";
 	connectionInfo_.setText(connectionInfo.str(), dontSendNotification);
 
 	if (callback_.getClientInfo() && callback_.getClientInfo()->getNumClients() != clientInfo_.size()) {
