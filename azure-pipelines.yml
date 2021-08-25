@@ -87,7 +87,7 @@ jobs:
       artifact: WindowsInstaller
       condition: and(variables.isWindows2019, not(variables.isDigitalStage))
 
-    - publish: $(System.DefaultWorkingDirectory)/Builds/Windows/Client/digitalStagePC_setup_2.1.3.exe
+    - publish: $(System.DefaultWorkingDirectory)/Builds/Windows/Client/digitalStagePC_setup_2.2.0.exe
       displayName: Publish Windows Installer (Digital Stage)
       artifact: DigitalStage_WindowsInstaller
       condition: and(variables.isWindows2019, variables.isDigitalStage)
