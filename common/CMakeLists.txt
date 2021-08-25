@@ -38,6 +38,7 @@ set(Sources
 	RunningStats.cpp RunningStats.h
 	sentry-config.h.in
 	ServerInfo.cpp ServerInfo.h
+	XPlatformUtils.h
 )
 
 # Setup library
