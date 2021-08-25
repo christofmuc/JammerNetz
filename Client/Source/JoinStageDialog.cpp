@@ -60,7 +60,21 @@ JoinStageDialog::JoinStageDialog(std::shared_ptr<DataStore> store) :
 			if (true) { //selectedStage_->jammerIpv4.has_value() && selectedStage_->jammerKey.has_value() && selectedStage_->jammerPort.has_value()) {
 				serverInfo.serverName = selectedStage_->jammerIpv4.value_or("");
 				serverInfo.serverPort = String(selectedStage_->jammerPort.value_or(7777)).toStdString();
-				serverInfo.cryptoKeyfilePath = selectedStage_->jammerKey.value_or(""); //TODO This won't work - the jammerkey should either be an uuencoded secret, or an URL to download?
+				std::string cryptoKeyAsHex = selectedStage_->jammerKey.value_or(""); 
+				if (!cryptoKeyAsHex.empty()) {
+					MemoryBlock cryptoKey;
+					cryptoKey.loadFromHexString(cryptoKeyAsHex);
+					if (cryptoKey.getSize() != 72) {
+						AlertWindow::showMessageBox(AlertWindow::WarningIcon, "Wrong crypto key", "The key from the server has the wrong length!");
+					}
+					else {
+						// For now, write this into a temporary file and put the path into the serverinfo struct
+						File file = File::createTempFile(".crypt");
+						FileOutputStream out(file);
+						out.write(cryptoKey.getData(), cryptoKey.getSize());
+						serverInfo.cryptoKeyfilePath = file.getFullPathName().toStdString();
+					}
+				}
 				serverInfo.bufferSize = SAMPLE_BUFFER_SIZE; // This is currently compiled into the software
 				serverInfo.sampleRate = SAMPLE_RATE; // This is currently compiled into the software
 				sWindow_->exitModalState(1);
