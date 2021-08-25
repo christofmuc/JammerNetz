@@ -12,6 +12,8 @@
 
 #include "BuffersConfig.h"
 
+#include "XPlatformUtils.h"
+
 Client::Client(std::function<void(std::shared_ptr<JammerNetzAudioData>)> newDataHandler) : messageCounter_(10) /* TODO - because of the pre-fill on server side, can't be 0 */
 	, currentBlockSize_(0), fecBuffer_(16), useFEC_(false)
 {
@@ -108,7 +110,7 @@ bool Client::sendData(JammerNetzChannelSetup const &channelSetup, std::shared_pt
 	else {
 		// No encryption key loaded - send unencrypted Audio stream through the Internet. This is for testing only, 
 		// and probably at some point should be disabled again ;-O
-		if (totalBytes <= INT_MAX) {
+		if (sizet_is_safe_as_int(totalBytes)) {
 			sendData(ServerInfo::serverName, port, sendBuffer_, static_cast<int>(totalBytes));
 			currentBlockSize_ = static_cast<int>(totalBytes);
 		}

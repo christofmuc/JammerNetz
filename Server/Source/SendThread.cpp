@@ -7,7 +7,7 @@
 #include "SendThread.h"
 
 #include "BuffersConfig.h"
-
+#include "XPlatformUtils.h"
 #include "ServerLogger.h"
 
 SendThread::SendThread(DatagramSocket& socket, TOutgoingQueue &sendQueue, TPacketStreamBundle &incomingData, void *keydata, int keysize, bool useFEC)
@@ -76,7 +76,7 @@ void SendThread::sendClientInfoPackage(std::string const &targetAddress)
 }
 
 void SendThread::sendWriteBuffer(String ipAddress, int port, size_t size) {	
-	if (size <= INT_MAX) {
+	if (sizet_is_safe_as_int(size)) {
 		int cipherLength = static_cast<int>(size);
 		if (blowFish_) {
 			// Encrypt in place. If no BlowFish is instantiated, it will just send unencrypted

@@ -15,6 +15,7 @@
 
 #include "BuffersConfig.h"
 #include "Recorder.h"
+#include "XPlatformUtils.h"
 
 #include "ServerLogger.h"
 
@@ -43,7 +44,7 @@ public:
 		// optional crypto key
 		void* cryptoData = nullptr;
 		int cipherLength = 0;
-		if (cryptoKey && cryptoKey->getSize() <= INT_MAX) {
+		if (cryptoKey && sizet_is_safe_as_int(cryptoKey->getSize())) {
 			cryptoData = cryptoKey->getData();
 			cipherLength = static_cast<int>(cryptoKey->getSize());
 		}
