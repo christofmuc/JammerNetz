@@ -31,7 +31,7 @@ private:
 	uint8 writebuffer_[MAXFRAMESIZE];
 	std::map<std::string, RingOfAudioBuffers<AudioBlock>> fecData_;
 	std::map<std::string, uint64_t> packageCounters_;
-	BlowFish blowFish_;
+	std::unique_ptr<BlowFish> blowFish_;
 };
 
 

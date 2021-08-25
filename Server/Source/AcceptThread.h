@@ -27,5 +27,5 @@ private:
 	uint8 readbuffer[MAXFRAMESIZE];
 	std::unique_ptr<PrintQualityTimer> qualityTimer_;
 	ServerBufferConfig bufferConfig_;
-	BlowFish blowFish_;
+	std::unique_ptr<BlowFish> blowFish_;
 };

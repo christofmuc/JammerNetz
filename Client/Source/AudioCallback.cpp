@@ -45,15 +45,19 @@ void AudioCallback::clearOutput(float** outputChannelData, int numOutputChannels
 
 void AudioCallback::newServer()
 {
-	// Reload crypto key
-	std::shared_ptr<MemoryBlock> cryptoKey;
-	if (UDPEncryption::loadKeyfile(ServerInfo::cryptoKeyfilePath.c_str(), &cryptoKey)) {
-		setCryptoKey(cryptoKey->getData(), (int)cryptoKey->getSize());
-	}
-	else {
-		if (!ServerInfo::cryptoKeyfilePath.empty()) {
+	if (!ServerInfo::cryptoKeyfilePath.empty()) {
+		// Reload crypto key
+		std::shared_ptr<MemoryBlock> cryptoKey;
+		if (UDPEncryption::loadKeyfile(ServerInfo::cryptoKeyfilePath.c_str(), &cryptoKey)) {
+			setCryptoKey(cryptoKey->getData(), (int)cryptoKey->getSize());
+		}
+		else {
 			juce::AlertWindow::showMessageBox(AlertWindow::WarningIcon, "No crypto key loaded", "Could not load crypto key file " + ServerInfo::cryptoKeyfilePath);
 		}
+	}
+	else {
+		// Turn off encryption
+		setCryptoKey(nullptr, 0);
 	}
 
 	// Reset counters etc
