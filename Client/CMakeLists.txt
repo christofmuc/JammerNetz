@@ -4,7 +4,7 @@
 #  Dual licensed: Distributed under Affero GPL license by default, an MIT license is available for purchase
 #
 
-project("JammerNetzClient" VERSION 2.1.3)
+project("JammerNetzClient" VERSION 2.2.0)
 
 configure_file("Source/version.cpp.in" "Source/version.cpp")
 
