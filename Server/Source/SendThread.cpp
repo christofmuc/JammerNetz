@@ -11,8 +11,11 @@
 #include "ServerLogger.h"
 
 SendThread::SendThread(DatagramSocket& socket, TOutgoingQueue &sendQueue, TPacketStreamBundle &incomingData, void *keydata, int keysize, bool useFEC)
-	: Thread("SenderThread"), sendSocket_(socket), sendQueue_(sendQueue), incomingData_(incomingData), blowFish_(keydata, keysize), useFEC_(useFEC)
+	: Thread("SenderThread"), sendSocket_(socket), sendQueue_(sendQueue), incomingData_(incomingData), useFEC_(useFEC)
 {
+	if (keydata) {
+		blowFish_ = std::make_unique<BlowFish>(keydata, keysize);
+	}
 }
 
 void SendThread::determineTargetIP(std::string const &targetAddress, String &ipAddress, int &portNumber) {
@@ -72,19 +75,24 @@ void SendThread::sendClientInfoPackage(std::string const &targetAddress)
 	sendWriteBuffer(ipAddress, port, bytesWritten);
 }
 
-void SendThread::sendWriteBuffer(String ipAddress, int port, size_t size) {
-	// Encrypt in place
-	int cipherLength = blowFish_.encrypt(writebuffer_, size, MAXFRAMESIZE);
-	if (cipherLength == -1) {
-		ServerLogger::deinit();
-		std::cerr << "Fatal: Failed to encrypt data package, abort!" << std::endl;
-		exit(-1);
+void SendThread::sendWriteBuffer(String ipAddress, int port, size_t size) {	
+	if (size <= INT_MAX) {
+		int cipherLength = static_cast<int>(size);
+		if (blowFish_) {
+			// Encrypt in place. If no BlowFish is instantiated, it will just send unencrypted
+			cipherLength = blowFish_->encrypt(writebuffer_, size, MAXFRAMESIZE);
+			if (cipherLength == -1) {
+				ServerLogger::deinit();
+				std::cerr << "Fatal: Failed to encrypt data package, abort!" << std::endl;
+				exit(-1);
+			}
+		}
+
+		// Now, back to the client! This will block when not ready to send yet, but that's ok.
+		sendSocket_.write(ipAddress, port, writebuffer_, cipherLength);
+
+		ServerLogger::printServerStatistics(4, ("Packet length: " + String(cipherLength)).toStdString());
 	}
-
-	// Now, back to the client! This will block when not ready to send yet, but that's ok.
-	sendSocket_.write(ipAddress, port, writebuffer_, cipherLength);
-
-	ServerLogger::printServerStatistics(4, ("Packet length: " + String(cipherLength)).toStdString());
 }
 
 void SendThread::run()

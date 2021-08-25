@@ -30,8 +30,12 @@ private:
 };
 
 AcceptThread::AcceptThread(int serverPort, DatagramSocket &socket, TPacketStreamBundle &incomingData, TMessageQueue &wakeUpQueue, ServerBufferConfig bufferConfig, void *keydata, int keysize)
-	: Thread("ReceiverThread"), receiveSocket_(socket), incomingData_(incomingData), wakeUpQueue_(wakeUpQueue), bufferConfig_(bufferConfig), blowFish_(keydata, keysize)
+	: Thread("ReceiverThread"), receiveSocket_(socket), incomingData_(incomingData), wakeUpQueue_(wakeUpQueue), bufferConfig_(bufferConfig)
 {
+	if (keydata) {
+		blowFish_ = std::make_unique<BlowFish>(keydata, keysize);
+	}
+
 	if (!receiveSocket_.bindToPort(serverPort)) {
 		ServerLogger::deinit();
 		std::cerr << "Failed to bind port to " << serverPort << std::endl;
@@ -73,10 +77,17 @@ void AcceptThread::run()
 				ServerLogger::printClientStatus(4, clientName, "Got empty packet from client, ignoring");
 				continue;
 			}
-			int messageLength = blowFish_.decrypt(readbuffer, dataRead);
-			if (messageLength == -1) {
-				ServerLogger::printClientStatus(4, clientName, "Using wrong encryption key, can't connect");
-				continue;
+			int messageLength = -1;
+			if (blowFish_) {
+				messageLength = blowFish_->decrypt(readbuffer, dataRead);
+				if (messageLength == -1) {
+					ServerLogger::printClientStatus(4, clientName, "Using wrong encryption key, can't connect");
+					continue;
+				}
+			}
+			else {
+				// No encryption!
+				messageLength = dataRead;
 			}
 
 			auto message = JammerNetzMessage::deserialize(readbuffer, messageLength);

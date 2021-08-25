@@ -43,47 +43,52 @@ void DataReceiveThread::run()
 				isReceiving_ = false;
 				continue;
 			}
+			int messageLength = -1;
 			if (blowFish_) {
 				ScopedLock lock(blowFishLock_);
-				int messageLength = blowFish_->decrypt(readbuffer_, dataRead);
+				messageLength = blowFish_->decrypt(readbuffer_, dataRead);
 				if (messageLength == -1) {
 					std::cerr << "Couldn't decrypt package received from server, probably fatal" << std::endl;
 					continue;
 				}
+			}
+			else {
+				// For now, accept unencrypted data as well, and hope for the best
+				messageLength = dataRead;
+			}
 
-				// Check that the package at least seems to come from the currently active server
+			// Check that the package at least seems to come from the currently active server
 #ifdef SECURITY_CHECK_PACKAGE_FROM_SERVER				
-				if (senderIPAdress.toStdString() == ServerInfo::serverName) {
+			if (senderIPAdress.toStdString() == ServerInfo::serverName) {
 #else
-				{
+			{
 #endif
-					auto message = JammerNetzMessage::deserialize(readbuffer_, messageLength);
-					if (message) {
-						isReceiving_ = true;
-						switch (message->getType()) {
-						case JammerNetzMessage::AUDIODATA: {
-							auto audioData = std::dynamic_pointer_cast<JammerNetzAudioData>(message);
-							if (audioData) {
-								ScopedLock sessionLock(sessionDataLock_);
-								// Hand off to player 
-								currentRTT_ = Time::getMillisecondCounterHiRes() - audioData->timestamp();
-								currentSession_ = audioData->sessionSetup(); //TODO - this is not thread safe, I trust
-								newDataHandler_(audioData);
-							}
-							break;
+				auto message = JammerNetzMessage::deserialize(readbuffer_, messageLength);
+				if (message) {
+					isReceiving_ = true;
+					switch (message->getType()) {
+					case JammerNetzMessage::AUDIODATA: {
+						auto audioData = std::dynamic_pointer_cast<JammerNetzAudioData>(message);
+						if (audioData) {
+							ScopedLock sessionLock(sessionDataLock_);
+							// Hand off to player 
+							currentRTT_ = Time::getMillisecondCounterHiRes() - audioData->timestamp();
+							currentSession_ = audioData->sessionSetup(); //TODO - this is not thread safe, I trust
+							newDataHandler_(audioData);
 						}
-						case JammerNetzMessage::CLIENTINFO: {
-							auto clientInfo = std::dynamic_pointer_cast<JammerNetzClientInfoMessage>(message);
-							if (clientInfo) {
-								// Yes, got it. Copy it! This is thread safe if and only if the read function to the shared_ptr is atomic!
-								lastClientInfoMessage_ = std::make_shared<JammerNetzClientInfoMessage>(*clientInfo);
-							}
-							break;
+						break;
+					}
+					case JammerNetzMessage::CLIENTINFO: {
+						auto clientInfo = std::dynamic_pointer_cast<JammerNetzClientInfoMessage>(message);
+						if (clientInfo) {
+							// Yes, got it. Copy it! This is thread safe if and only if the read function to the shared_ptr is atomic!
+							lastClientInfoMessage_ = std::make_shared<JammerNetzClientInfoMessage>(*clientInfo);
 						}
-						default:
-							// What's this?
-							jassert(false);
-						}
+						break;
+					}
+					default:
+						// What's this?
+						jassert(false);
 					}
 				}
 			}
@@ -120,5 +125,11 @@ bool DataReceiveThread::isReceivingData() const
 
 void DataReceiveThread::setCryptoKey(const void* keyData, int keyBytes) {
 	ScopedLock lock(blowFishLock_);
-	blowFish_ = std::make_unique<BlowFish>(keyData, keyBytes);
+	if (keyData) {
+		blowFish_ = std::make_unique<BlowFish>(keyData, keyBytes);
+	}
+	else {
+		// No more encryption from here on
+		blowFish_.reset();
+	}
 }

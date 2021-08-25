@@ -13,6 +13,9 @@ bool UDPEncryption::loadKeyfile(const char *filename, std::shared_ptr<MemoryBloc
 	if (keyFile.existsAsFile()) {
 		*outBlock = std::make_shared<MemoryBlock>();
 		if (keyFile.loadFileAsData(**outBlock)) {
+			juce::MD5 md5(**outBlock);
+			std::string fingerprint = md5.toHexString().toStdString();
+			std::cout << "Loaded key with fingerprint " <<  fingerprint << std::endl;
 			return true;
 		}
 	}

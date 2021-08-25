@@ -39,8 +39,17 @@ public:
 	{
 		// Start the recorder of the mix down
 		//mixdownRecorder_.updateChannelInfo(48000, mixdownSetup_);
-		acceptThread_ = std::make_unique<AcceptThread>(serverPort, socket_, incomingStreams_, wakeUpQueue_, bufferConfig, cryptoKey->getData(), (int) cryptoKey->getSize());
-		sendThread_ = std::make_unique <SendThread>(socket_, sendQueue_, incomingStreams_, cryptoKey->getData(), (int) cryptoKey->getSize(), useFEC);
+
+		// optional crypto key
+		void* cryptoData = nullptr;
+		int cipherLength = 0;
+		if (cryptoKey && cryptoKey->getSize() <= INT_MAX) {
+			cryptoData = cryptoKey->getData();
+			cipherLength = static_cast<int>(cryptoKey->getSize());
+		}
+
+		acceptThread_ = std::make_unique<AcceptThread>(serverPort, socket_, incomingStreams_, wakeUpQueue_, bufferConfig, cryptoData, cipherLength);
+		sendThread_ = std::make_unique <SendThread>(socket_, sendQueue_, incomingStreams_, cryptoData, cipherLength, useFEC);
 		mixerThread_ = std::make_unique<MixerThread>(incomingStreams_, mixdownSetup_, sendQueue_, wakeUpQueue_, mixdownRecorder_, bufferConfig);
 
 		sendQueue_.set_capacity(128); // This is an arbitrary number only to prevent memory overflow should the sender thread somehow die (i.e. no network or something)
@@ -112,7 +121,6 @@ int main(int argc, char *argv[])
 		"or\n\n  " + shortExeName + " -k <key file> [-b <buffer count>] [-w <buffer count>] [-p <buffer count>]\n\n", true);
 	app.addVersionCommand("--version|-v", "JammerNetzServer " + String(getServerVersion()));
 	app.addDefaultCommand({ "launch", "-k <key file>", "Launch the JammerNetzServer", "Use this to launch the server in the foreground", [&](const auto &args) {
-		args.failIfOptionIsMissing("--key|-k");
 		if (args.containsOption("--key|-k")) { //, "crypto key", "Crypto key file name", "Specify the file name of the file containing the crypto key to use", [&](const ArgumentList &args) {
 			File file(args.getFileForOption("--key|-k"));
 			// Try to load Crypto file

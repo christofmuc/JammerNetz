@@ -36,9 +36,13 @@ Client::~Client()
 
 void Client::setCryptoKey(const void* keyData, int keyBytes)
 {
+	ScopedLock blowfishLock(blowFishLock_);
+	if (keyData)
 	{
-		ScopedLock blowfishLock(blowFishLock_);
 		blowFish_ = std::make_unique<BlowFish>(keyData, keyBytes);
+	}
+	else {
+		blowFish_.reset();
 	}
 	receiver_->setCryptoKey(keyData, keyBytes);
 }
@@ -89,6 +93,8 @@ bool Client::sendData(JammerNetzChannelSetup const &channelSetup, std::shared_pt
 	fecBuffer_.push(redundencyData);
 
 	// Send off to server
+	int port = strtol(globalServerInfo.serverPort.c_str(), nullptr, 10);
+	if (port == 0) port = 7777; // Default value
 	if (blowFish_) {
 		ScopedLock blowfishLock(blowFishLock_);
 		int encryptedLength = blowFish_->encrypt(sendBuffer_, totalBytes, MAXFRAMESIZE);
@@ -96,13 +102,16 @@ bool Client::sendData(JammerNetzChannelSetup const &channelSetup, std::shared_pt
 			std::cerr << "Fatal: Couldn't encrypt package, not sending to server!" << std::endl;
 			return false;
 		}
-		int port = strtol(globalServerInfo.serverPort.c_str(), nullptr, 10);
-		if (port == 0) port = 7777; // Default value
 		sendData(globalServerInfo.serverName, port, sendBuffer_, encryptedLength);
 		currentBlockSize_ = encryptedLength;
 	}
 	else {
-		std::cerr << "Fatal: No crypto key loaded, can't send to server!" << std::endl;
+		// No encryption key loaded - send unencrypted Audio stream through the Internet. This is for testing only, 
+		// and probably at some point should be disabled again ;-O
+		if (totalBytes <= INT_MAX) {
+			sendData(ServerInfo::serverName, port, sendBuffer_, static_cast<int>(totalBytes));
+			currentBlockSize_ = static_cast<int>(totalBytes);
+		}
 	}
 
 	return true;

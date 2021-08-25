@@ -56,7 +56,12 @@ ServerSelector::ServerSelector(std::function<void()> notify) : localhostSelected
 void ServerSelector::reloadCryptoKey() {
 	globalServerInfo.cryptoKeyfilePath = cryptoKeyPath_.toStdString();
 	notify_();
-	AlertWindow::showMessageBox(AlertWindow::InfoIcon, "New key loaded", "The new crypto key was loaded from " + cryptoKeyPath_);
+	if (cryptoKeyPath_.isNotEmpty()) {
+		AlertWindow::showMessageBox(AlertWindow::InfoIcon, "New key loaded", "The new crypto key was loaded from " + cryptoKeyPath_);
+	}
+	else {
+		AlertWindow::showMessageBox(AlertWindow::WarningIcon, "No key loaded", "Connecting to the server sending with unencrypted audio");
+	}
 }
 
 void ServerSelector::resized()
