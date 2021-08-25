@@ -109,7 +109,7 @@ bool Client::sendData(JammerNetzChannelSetup const &channelSetup, std::shared_pt
 		// No encryption key loaded - send unencrypted Audio stream through the Internet. This is for testing only, 
 		// and probably at some point should be disabled again ;-O
 		if (totalBytes <= INT_MAX) {
-			sendData(ServerInfo::serverName, port, sendBuffer_, static_cast<int>(totalBytes));
+			sendData(globalServerInfo.serverName, port, sendBuffer_, static_cast<int>(totalBytes));
 			currentBlockSize_ = static_cast<int>(totalBytes);
 		}
 	}
