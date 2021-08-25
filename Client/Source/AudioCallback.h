@@ -62,8 +62,10 @@ public:
 	std::shared_ptr<JammerNetzClientInfoMessage> getClientInfo() const;
 	JammerNetzChannelSetup getSessionSetup() const;
 private:
-	void clearOutput(float** outputChannelData, int numOutputChannels, int numSamples);
 	void samplesPerTime(int numSamples);
+	void calcLocalMonitoring(std::shared_ptr<AudioBuffer<float>> inputBuffer, AudioBuffer<float>& outputBuffer);
+
+	bool localMonitoring_ = true;
 
 	PacketStreamQueue playBuffer_;
 	std::atomic_bool isPlaying_;

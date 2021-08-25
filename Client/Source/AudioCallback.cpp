@@ -36,13 +36,6 @@ AudioCallback::AudioCallback(AudioDeviceManager &deviceManager) : client_([this]
 	tuner_ = std::make_unique<Tuner>();
 }
 
-void AudioCallback::clearOutput(float** outputChannelData, int numOutputChannels, int numSamples) {
-	// Clear out the buffer so we do not play noise
-	for (int i = 0; i < numOutputChannels; i++) {
-		memset(outputChannelData[i], 0, sizeof(float) * numSamples);
-	}
-}
-
 void AudioCallback::newServer()
 {
 	if (!ServerInfo::cryptoKeyfilePath.empty()) {
@@ -84,10 +77,52 @@ void AudioCallback::samplesPerTime(int numSamples) {
 	}
 }
 
+void AudioCallback::calcLocalMonitoring(std::shared_ptr<AudioBuffer<float>> inputBuffer, AudioBuffer<float>& outputBuffer) {
+	
+	outputBuffer.clear();
+	if (localMonitoring_) {
+		// Apply gain to our channels and do a stereo mixdown
+		jassert(inputBuffer->getNumSamples() == outputBuffer.getNumSamples());
+		for (int channel = 0; channel < inputBuffer->getNumChannels(); channel++) {
+			const JammerNetzSingleChannelSetup& setup = channelSetup_.channels[channel];
+			switch (setup.target) {
+			case Unused:
+				// Nothing to be done, ignore this channel; This is the same as Mute
+				break;
+			case Left:
+				// This is a left channel, going into the left. 
+				if (outputBuffer.getNumChannels() > 0) {
+					outputBuffer.addFrom(0, 0, *inputBuffer, channel, 0, inputBuffer->getNumSamples(), setup.volume);
+				}
+				break;
+			case Right:
+				// And the same for the right channel
+				if (outputBuffer.getNumChannels() > 1) {
+					outputBuffer.addFrom(1, 0, *inputBuffer, channel, 0, inputBuffer->getNumSamples(), setup.volume);
+				}
+				break;
+			case SendOnly:
+				// Fall-through on purpose, treat it as Mono
+			case Mono:
+				if (outputBuffer.getNumChannels() > 0) {
+					outputBuffer.addFrom(0, 0, *inputBuffer, channel, 0, inputBuffer->getNumSamples(), setup.volume);
+				}
+				if (outputBuffer.getNumChannels() > 1) {
+					outputBuffer.addFrom(1, 0, *inputBuffer, channel, 0, inputBuffer->getNumSamples(), setup.volume);
+				}
+				break;
+			}
+		}
+	}
+}
+
 void AudioCallback::audioDeviceIOCallback(const float** inputChannelData, int numInputChannels, float** outputChannelData, int numOutputChannels, int numSamples)
 {
 	float *const *constnessCorrection = const_cast<float *const*>(inputChannelData);
 	auto audioBufferNotOwned = std::make_shared<AudioBuffer<float>>(constnessCorrection, numInputChannels, numSamples);
+
+	// Create a better access structure for the output data
+	AudioBuffer<float> outputBuffer(outputChannelData, numOutputChannels, numSamples);
 
 	// Allocate an audio buffer from the reusable pool and do a force copy of the samples, as we will need to send them down to the recorder and the network thread
 	auto audioBuffer = bufferPool_.alloc();
@@ -134,7 +169,7 @@ void AudioCallback::audioDeviceIOCallback(const float** inputChannelData, int nu
 
 	// Don't start playing before the desired play-out buffer size is reached
 	if (!isPlaying_ && playBuffer_.size() < minPlayoutBufferLength_) {
-		clearOutput(outputChannelData, numOutputChannels, numSamples);
+		calcLocalMonitoring(audioBuffer, outputBuffer);
 		return;
 	}
 	else if (playBuffer_.size() > maxPlayoutBufferLength_) {
@@ -149,6 +184,9 @@ void AudioCallback::audioDeviceIOCallback(const float** inputChannelData, int nu
 	}
 	isPlaying_ = true;
 
+	// Prepare the output buffer with the local monitoring signal
+	calcLocalMonitoring(audioBuffer, outputBuffer);
+
 	// Now, play the next audio block from the play buffer!
 	std::shared_ptr<JammerNetzAudioData> toPlay;
 	bool isFillIn;
@@ -161,7 +199,6 @@ void AudioCallback::audioDeviceIOCallback(const float** inputChannelData, int nu
 
 			// We have Audio data to play! Make sure it is the correct size
 			if (toPlay->audioBuffer()->getNumSamples() == numSamples) {
-				clearOutput(outputChannelData, numOutputChannels, numSamples);
 				for (int i = 0; i < std::min(numOutputChannels, toPlay->audioBuffer()->getNumChannels()); i++) {
 					//TODO - this would mean we always play the left channel, if we have only one output channel. There is no way to select if the output channel is left or right
 					// Need to add another channel selector.
@@ -170,7 +207,6 @@ void AudioCallback::audioDeviceIOCallback(const float** inputChannelData, int nu
 			}
 			else {
 				// Programming error, we should all agree on the buffer format!
-				clearOutput(outputChannelData, numOutputChannels, numSamples);
 				jassert(false);
 			}
 
@@ -190,7 +226,6 @@ void AudioCallback::audioDeviceIOCallback(const float** inputChannelData, int nu
 		}
 		else {
 			// That would be considered a programming error, I shall not enqueue nullptr
-			clearOutput(outputChannelData, numOutputChannels, numSamples);
 			jassert(false);
 		}
 		outMeterSource_.measureBlock(*toPlay->audioBuffer());
@@ -199,7 +234,6 @@ void AudioCallback::audioDeviceIOCallback(const float** inputChannelData, int nu
 		// This is a serious problem - either the server never started to send data, or we have a buffer underflow.
 		playUnderruns_++;
 		isPlaying_ = false;
-		clearOutput(outputChannelData, numOutputChannels, numSamples);
 	}
 }
 
