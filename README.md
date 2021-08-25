@@ -146,9 +146,22 @@ All clients *from the same build* should be able to connect to the server via it
 
 ## Native Linux builds
 
-If you are working on Linux, make sure to have all development prerequisites installed! On a fresh Debian 9 machine, that would e.g. require the following installs:
+If you are working on Linux, make sure to have all development prerequisites installed!
+
+### Debian/Ubuntu
+
+On a fresh Debian 9 machine, that would e.g. require the following installs:
 
     sudo apt-get -y install g++ libasound2-dev libcurl4-openssl-dev libfreetype6-dev libncurses-dev libjack-dev libx11-dev libglew-dev mesa-common-dev webkit2gtk-4.0
+
+### Fedora
+
+For a Fedora-based distribution like Amazon Linux 2, you would use `yum` to install the dependencies:
+
+    sudo yum install alsa-lib-devel libcurl-devel freetype-devel ncurses-devel jack-audio-connection-kit-devel libX11-devel  mesa-libGL-devel webkitgtk4-devel glew-devel
+
+
+### Compilation
 
 With those installs and the recursive git clone from above, cd into the cloned directory and run cmake with the following commands:
 
