@@ -54,35 +54,10 @@ JoinStageDialog::JoinStageDialog(std::shared_ptr<DataStore> store) :
 	joinButton_.setButtonText("Join");
 	addAndMakeVisible(&joinButton_);
 	joinButton_.setEnabled(false);
-	joinButton_.onClick = [this]() {
-		if (joinHandler && selectedStage_.has_value()) {
-			ServerInfo serverInfo;
-			if (true) { //selectedStage_->jammerIpv4.has_value() && selectedStage_->jammerKey.has_value() && selectedStage_->jammerPort.has_value()) {
-				serverInfo.serverName = selectedStage_->jammerIpv4.value_or("");
-				serverInfo.serverPort = String(selectedStage_->jammerPort.value_or(7777)).toStdString();
-				std::string cryptoKeyAsHex = selectedStage_->jammerKey.value_or(""); 
-				if (!cryptoKeyAsHex.empty()) {
-					MemoryBlock cryptoKey;
-					cryptoKey.loadFromHexString(cryptoKeyAsHex);
-					if (cryptoKey.getSize() != 72) {
-						AlertWindow::showMessageBox(AlertWindow::WarningIcon, "Wrong crypto key", "The key from the server has the wrong length!");
-					}
-					else {
-						// For now, write this into a temporary file and put the path into the serverinfo struct
-						File file = File::createTempFile(".crypt");
-						FileOutputStream out(file);
-						out.write(cryptoKey.getData(), cryptoKey.getSize());
-						serverInfo.cryptoKeyfilePath = file.getFullPathName().toStdString();
-					}
-				}
-				serverInfo.bufferSize = SAMPLE_BUFFER_SIZE; // This is currently compiled into the software
-				serverInfo.sampleRate = SAMPLE_RATE; // This is currently compiled into the software
-				sWindow_->exitModalState(1);
-				joinHandler(serverInfo);
-			}
-			else {
-				AlertWindow::showMessageBox(AlertWindow::WarningIcon, "Stage incomplete", "The selected stage is not equipped with all required data items to connect to. Please contact your administrator!");
-			}
+	joinButton_.onClick = [this, store]() {
+		if (selectedStage_.has_value()) {
+			sWindow_->exitModalState(1);
+			store->join(selectedStage_->_id);
 		}
 	};
 	setSize(400, 300);
@@ -107,13 +82,12 @@ void JoinStageDialog::setStages(std::vector<DigitalStage::Types::Stage> const& s
 	joinButton_.setEnabled(false);
 }
 
-void JoinStageDialog::showDialog(std::shared_ptr<DataStore> store, std::function<void(ServerInfo serverInfo)> joinHandler)
+void JoinStageDialog::showDialog(std::shared_ptr<DataStore> store)
 {
 	if (!sJoinStageDialog) {
 		sJoinStageDialog = std::make_unique<JoinStageDialog>(store);
 	}
 	sJoinStageDialog->setStages(store->allStages());
-	sJoinStageDialog->joinHandler = joinHandler;
 
 	DialogWindow::LaunchOptions launcher;
 	launcher.content.set(sJoinStageDialog.get(), false);

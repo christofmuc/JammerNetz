@@ -9,6 +9,9 @@
 #include "DSConfig.h"
 #include "JuceHeader.h"
 
+#include "ServerInfo.h"
+#include "BuffersConfig.h"
+
 void printStage(const DigitalStage::Api::Store* s)
 {
 	auto stages = s->getStages();
@@ -58,6 +61,13 @@ std::vector<DigitalStage::Types::Stage> DataStore::allStages() const
 	return client_->getStore()->getStages();
 }
 
+void DataStore::join(std::string stageId)
+{
+	nlohmann::json event;
+	event["stageId"] = stageId;
+	client_->send("join-stage", event);
+}
+
 void DataStore::registerClient(DigitalStage::Auth::string_t const& apiToken)
 {
 	try {
@@ -76,14 +86,42 @@ void DataStore::registerClient(DigitalStage::Auth::string_t const& apiToken)
 		/*client->deviceAdded.connect(handleDeviceAdded);
 		client->deviceChanged.connect(handleDeviceChanged);
 		client->deviceRemoved.connect(handleDeviceRemoved);
-		client->localDeviceReady.connect(handleLocalDeviceReady);
-		client->stageJoined.connect(handleStageJoined);
-		client->stageLeft.connect(handleStageLeft);*/
+		client->localDeviceReady.connect(handleLocalDeviceReady);*/
+
+		client_->stageJoined.connect([this](const auto& stageID, const auto& groupID, const DigitalStage::Api::Store* s) { 
+			// We joined a stage, make sure to issue an onJoin callback that will connect the client to the server
+			if (onJoin_) {
+				ServerInfo serverInfo;
+				auto selectedStage_ = s->getStage(stageID);
+				serverInfo.serverName = selectedStage_->jammerIpv4.value_or("");
+				serverInfo.serverPort = String(selectedStage_->jammerPort.value_or(7777)).toStdString();
+				std::string cryptoKeyAsHex = selectedStage_->jammerKey.value_or("");
+				if (!cryptoKeyAsHex.empty()) {
+					MemoryBlock cryptoKey;
+					cryptoKey.loadFromHexString(cryptoKeyAsHex);
+					if (cryptoKey.getSize() != 72) {
+						AlertWindow::showMessageBox(AlertWindow::WarningIcon, "Wrong crypto key", "The key from the server has the wrong length!");
+					}
+					else {
+						// For now, write this into a temporary file and put the path into the serverinfo struct
+						File file = File::createTempFile(".crypt");
+						FileOutputStream out(file);
+						out.write(cryptoKey.getData(), cryptoKey.getSize());
+						serverInfo.cryptoKeyfilePath = file.getFullPathName().toStdString();
+					}
+				}
+				serverInfo.bufferSize = SAMPLE_BUFFER_SIZE; // This is currently compiled into the software
+				serverInfo.sampleRate = SAMPLE_RATE; // This is currently compiled into the software
+				onJoin_(serverInfo);
+			}
+		});
+		client_->stageLeft.connect([this](const DigitalStage::Api::Store* s) {
+			if (onLeave_) {
+				onLeave_();
+			}
+		});
 
 		// Always print on stage changes
-		client_->stageJoined.connect(
-			[](const auto&, const auto&, const DigitalStage::Api::Store* s) { printStage(s); });
-		client_->stageLeft.connect([](const DigitalStage::Api::Store* s) { printStage(s); });
 		client_->groupAdded.connect(
 			[](const auto&, const DigitalStage::Api::Store* s) { printStage(s); });
 		client_->groupChanged.connect(

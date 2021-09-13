@@ -19,3 +19,4 @@ common/sentry-config.h
 .sentry-native/
 lookAndFeel/Resources.h
 builds_ds/
+build/

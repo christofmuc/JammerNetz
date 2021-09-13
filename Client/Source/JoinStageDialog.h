@@ -19,7 +19,7 @@
 class JoinStageDialog : public Component
 {
 public:
-	static void showDialog(std::shared_ptr<DataStore> store, std::function<void(ServerInfo serverInfo)> joinHandler);
+	static void showDialog(std::shared_ptr<DataStore> store);
 	static void release();
 
 	JoinStageDialog(std::shared_ptr<DataStore> store);
@@ -28,8 +28,6 @@ public:
 	virtual void resized() override;
 
 	void setStages(std::vector<DigitalStage::Types::Stage> const& stages);
-
-	std::function<void(ServerInfo serverInfo)> joinHandler;
 
 private:
 	std::shared_ptr<DataStore> store_;

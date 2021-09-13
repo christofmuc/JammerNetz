@@ -10,6 +10,7 @@
 
 #include "Data.h"
 #include "LayoutConstants.h"
+#include "BuffersConfig.h"
 
 ServerSelector::ServerSelector(std::function<void()> notify) : localhostSelected_(false), lastServer_(globalServerInfo.serverName), notify_(notify)
 {
@@ -99,6 +100,17 @@ void ServerSelector::fromServerInfo(ServerInfo const& serverInfo)
 	globalServerInfo.serverName = lastServer_.toStdString();
 	globalServerInfo.serverPort = lastPort_.toStdString();
 	notify_();
+}
+
+void ServerSelector::clear()
+{
+	ServerInfo serverInfo;
+	serverInfo.bufferSize = SAMPLE_BUFFER_SIZE;
+	serverInfo.sampleRate = SAMPLE_RATE;
+	serverInfo.cryptoKeyfilePath = "";
+	serverInfo.serverName = "";
+	serverInfo.serverPort = "";
+	fromServerInfo(serverInfo);
 }
 
 void ServerSelector::fromData()

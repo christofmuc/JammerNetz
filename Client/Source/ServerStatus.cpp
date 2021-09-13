@@ -34,6 +34,11 @@ void ServerStatus::fromServerInfo(ServerInfo const& serverInfo)
 	serverSelector_.fromServerInfo(serverInfo);
 }
 
+void ServerStatus::clear()
+{
+	serverSelector_.clear();
+}
+
 void ServerStatus::fromData()
 {
 	serverSelector_.fromData();

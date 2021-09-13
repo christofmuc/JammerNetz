@@ -11,6 +11,8 @@
 #include "DigitalStage/Auth/AuthService.h"
 #include "DigitalStage/Api/Client.h"
 
+#include "ServerInfo.h"
+
 class DataStore {
 public:
 	DataStore(DigitalStage::Auth::string_t const& apiToken);
@@ -18,6 +20,11 @@ public:
 	bool isReady() const;
 
 	std::vector<DigitalStage::Types::Stage> allStages() const;
+
+	void join(std::string stageId);
+	
+	std::function<void(ServerInfo serverInfo)> onJoin_;
+	std::function<void()> onLeave_;
 
 private:
 	void registerClient(DigitalStage::Auth::string_t const& apiToken);

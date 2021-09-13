@@ -94,7 +94,9 @@ callback_(deviceManager_)
 	Data::instance().initializeFromSettings();
 	inputSelector_.fromData();
 	outputSelector_.fromData();
+#ifndef DIGITAL_STAGE
 	serverStatus_.fromData();
+#endif
 	outputController_.fromData();
 	clientConfigurator_.fromData();
 
@@ -108,11 +110,18 @@ callback_(deviceManager_)
 	MessageManager::callAsync([this]() {
 		LoginDialog::showDialog([this](LoginData loginData) {
 			globalDataStore_ = std::make_shared<DataStore>(loginData.apiToken);
+
+			// Register callbacks
+			globalDataStore_->onJoin_ = [this](ServerInfo serverInfo) {
+				serverStatus_.fromServerInfo(serverInfo);
+			};
+			globalDataStore_->onLeave_ = [this]() {
+				serverStatus_.clear();
+			};
+
 			// Busy wait until ready
 			while (!globalDataStore_->isReady());
-			JoinStageDialog::showDialog(globalDataStore_, [this](ServerInfo serverInfo) {
-				serverStatus_.fromServerInfo(serverInfo);
-			});
+			JoinStageDialog::showDialog(globalDataStore_);
 		});
 	});
 #endif
