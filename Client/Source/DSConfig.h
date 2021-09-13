@@ -11,4 +11,4 @@
 // Dev servers 
 const std::string DS_AUTH_SERVER = "https://auth.dstage.org";
 const std::string DS_API_SERVER = "wss://api.dstage.org";
-const std::string DS_REGISTRATION_URL = "https://fastui.vercel.app/account/signup";
+const std::string DS_REGISTRATION_URL = "https://beta.digital-stage.org/account/signup";
