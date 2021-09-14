@@ -1,3 +1,9 @@
+/*
+   Copyright (c) 2021 Christof Ruch. All rights reserved.
+
+   Dual licensed: Distributed under Affero GPL license by default, an MIT license is available for purchase
+*/
+
 #pragma once
 
 #include "JuceHeader.h"
@@ -28,13 +34,5 @@ public:
 private:
 	Value value_;
 	std::function<void(Value& newValue)> onChanged_;
-};
-
-class ApplicationState {
-public:
-	static ValueTree sApplicationState;
-
-	static void fromSettings();
-	static void toSettings();
 };
 

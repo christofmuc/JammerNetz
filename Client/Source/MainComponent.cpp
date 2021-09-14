@@ -26,19 +26,20 @@
 std::shared_ptr<DataStore> globalDataStore_;
 #endif
 
-MainComponent::MainComponent(String clientID) : audioDevice_(nullptr),
-inputSelector_("Inputs", false, "InputSetup", deviceManager_, true, [this](std::shared_ptr<ChannelSetup> setup) { setupChanged(setup); }),
-outputSelector_("Outputs", false, "OutputSetup", deviceManager_, false, [this](std::shared_ptr<ChannelSetup> setup) { outputSetupChanged(setup);  }),
-outputController_("Master", "OutputController", [](double, JammerNetzChannelTarget) {}, false, false),
-clientConfigurator_([this](int clientBuffer, int maxBuffer, bool fec) { callback_.changeClientConfig(clientBuffer, maxBuffer);  callback_.setFEC(fec);  }),
-serverStatus_([this]() { newServerSelected();  }),
-callback_(deviceManager_)
+MainComponent::MainComponent(String clientID) :
+	audioDevice_(nullptr),
+	inputSelector_("Inputs", false, "InputSetup", deviceManager_, true, [this](std::shared_ptr<ChannelSetup> setup) { setupChanged(setup); }),
+	outputSelector_("Outputs", false, "OutputSetup", deviceManager_, false, [this](std::shared_ptr<ChannelSetup> setup) { outputSetupChanged(setup);  }),
+	outputController_("Master", "OutputController", [](double, JammerNetzChannelTarget) {}, false, false),
+	clientConfigurator_([this](int clientBuffer, int maxBuffer, bool fec) { callback_.changeClientConfig(clientBuffer, maxBuffer);  callback_.setFEC(fec);  }),
+	serverStatus_([this]() { newServerSelected();  }),
+	callback_(deviceManager_)
 {
 	setLookAndFeel(&dsLookAndFeel_);
 	addAndMakeVisible(dsLookAndFeel_.backgroundGradient());
 
-	// Load application state from settings file
-	ApplicationState::fromSettings();
+	// Load stored application state
+	Data::instance().initializeFromSettings();
 
 	//bpmDisplay_ = std::make_unique<BPMDisplay>(callback_.getClocker());
 	recordingInfo_ = std::make_unique<RecordingInfo>(callback_.getMasterRecorder(), "Press to record master mix");
@@ -49,12 +50,12 @@ callback_(deviceManager_)
 
 	
 	nameLabel_.setText("My name", dontSendNotification);
-	listeners_.push_back(std::make_unique<ValueListener>(ApplicationState::sApplicationState.getPropertyAsValue(VALUE_USER_NAME, nullptr), [this](Value &value) {
+	listeners_.push_back(std::make_unique<ValueListener>(Data::instance().get().getPropertyAsValue(VALUE_USER_NAME, nullptr), [this](Value &value) {
 		nameEntry_.setText(value.toString(), dontSendNotification);
 	}));
 	nameChange_.setButtonText("Change");
 	nameChange_.onClick = [this]() { updateUserName();  };
-	nameEntry_.onEscapeKey = [this]() { nameEntry_.setText(ApplicationState::sApplicationState.getProperty(VALUE_USER_NAME), dontSendNotification);  };
+	nameEntry_.onEscapeKey = [this]() { nameEntry_.setText(Data::instance().get().getProperty(VALUE_USER_NAME), dontSendNotification);  };
 	nameEntry_.onReturnKey = [this]() { updateUserName(); };
 
 	inputGroup_.setText("Input");
@@ -92,13 +93,15 @@ callback_(deviceManager_)
 		Settings::setSettingsID(clientID);
 	}
 
+#ifdef DIGITAL_STAGE
 	// Add logo
 	logo_.setClickingTogglesState(false);
 	logo_.setEnabled(false);
 	logo_.setImages(false, true, true, dsLookAndFeel_.logo(), 1.0f, Colours::white, dsLookAndFeel_.logo(), 1.0f, Colours::white, dsLookAndFeel_.logo(), 0.8f, Colours::white);
 	addAndMakeVisible(logo_);
+#endif
 
-	Data::instance().initializeFromSettings();
+	
 	inputSelector_.fromData();
 	outputSelector_.fromData();
 #ifndef DIGITAL_STAGE
@@ -133,7 +136,7 @@ callback_(deviceManager_)
 	});
 #endif	
 
-	ApplicationState::sApplicationState.sendPropertyChangeMessage(VALUE_USER_NAME);
+	Data::instance().get().sendPropertyChangeMessage(VALUE_USER_NAME);
 }
 
 MainComponent::~MainComponent()
@@ -160,7 +163,7 @@ void MainComponent::refreshChannelSetup(std::shared_ptr<ChannelSetup> setup) {
 		for (int i = 0; i < setup->activeChannelIndices.size(); i++) {
 			JammerNetzSingleChannelSetup channel((uint8)ownChannels_.getCurrentTarget(i));
 			channel.volume = ownChannels_.getCurrentVolume(i);
-			auto username = ApplicationState::sApplicationState.getProperty(VALUE_USER_NAME).toString().toStdString();
+			auto username = Data::instance().get().getProperty(VALUE_USER_NAME).toString().toStdString();
 			channel.name = setup->activeChannelIndices.size() > 1 ?  username + " " + setup->activeChannelNames[i] : username;
 			// Not more than 20 characters please
 			if (channel.name.length() > 20)
@@ -209,9 +212,9 @@ void MainComponent::restartAudio(std::shared_ptr<ChannelSetup> inputSetup, std::
 			}
 			else {
 				float inputLatencyInMS = audioDevice_->getInputLatencyInSamples() / (float)globalServerInfo.sampleRate * 1000.0f;
-				ApplicationState::sApplicationState.setProperty(VALUE_INPUT_LATENCY, inputLatencyInMS, nullptr);
+				Data::instance().get().setProperty(VALUE_INPUT_LATENCY, inputLatencyInMS, nullptr);
 				float outputLatencyInMS = audioDevice_->getOutputLatencyInSamples() / (float)globalServerInfo.sampleRate* 1000.0f;
-				ApplicationState::sApplicationState.setProperty(VALUE_OUTPUT_LATENCY, outputLatencyInMS, nullptr);
+				Data::instance().get().setProperty(VALUE_OUTPUT_LATENCY, outputLatencyInMS, nullptr);
 
 				refreshChannelSetup(inputSetup);
 				// We can actually start recording and playing
@@ -352,8 +355,8 @@ void MainComponent::timerCallback()
 {
 	// Refresh the UI with info from the Audio callback
 	std::stringstream status;
-	float inputLatency = ApplicationState::sApplicationState.getProperty(VALUE_INPUT_LATENCY);
-	float outputLatency = ApplicationState::sApplicationState.getProperty(VALUE_INPUT_LATENCY);
+	float inputLatency = Data::instance().get().getProperty(VALUE_INPUT_LATENCY);
+	float outputLatency = Data::instance().get().getProperty(VALUE_INPUT_LATENCY);
 	status << "Quality information" << std::endl << std::fixed << std::setprecision(2);
 	status << "Sample rate measured " << callback_.currentSampleRate() << std::endl;
 	status << "Underruns: " << callback_.numberOfUnderruns() << std::endl;
@@ -428,7 +431,7 @@ void MainComponent::newServerSelected()
 }
 
 void MainComponent::updateUserName() {
-	ApplicationState::sApplicationState.setProperty(VALUE_USER_NAME, nameEntry_.getText(), nullptr);
-	ApplicationState::toSettings(); // TODO This should be automatic!
-	refreshChannelSetup(currentInputSetup_);
+	Data::instance().get().setProperty(VALUE_USER_NAME, nameEntry_.getText(), nullptr);
+	Data::instance().saveToSettings(); // TODO This should be automatic!
+	refreshChannelSetup(currentInputSetup_); // TODO This should not be necessary!
 }
