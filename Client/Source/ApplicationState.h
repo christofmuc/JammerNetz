@@ -4,6 +4,8 @@
 
 constexpr const char* VALUE_SERVER_NAME = "serverName";
 constexpr const char* VALUE_USER_NAME = "userName";
+constexpr const char* VALUE_INPUT_LATENCY = "inputLatency";
+constexpr const char* VALUE_OUTPUT_LATENCY = "outputLatency";
 
 class ValueListener : public juce::Value::Listener {
 public:

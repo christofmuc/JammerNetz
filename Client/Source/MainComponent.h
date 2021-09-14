@@ -47,6 +47,7 @@ private:
 
 	AudioCallback callback_;
 
+	// DEFINE ALL OUR WIDGETS
 	DeviceSelector inputSelector_;
 	GroupComponent inputGroup_;
 	DeviceSelector outputSelector_;
@@ -72,15 +73,14 @@ private:
 	std::unique_ptr<RecordingInfo> recordingInfo_; // For the master files
 	std::unique_ptr<RecordingInfo> localRecordingInfo_; // For the local data
 	std::unique_ptr<PlayalongDisplay> playalongDisplay_;
+	// END OF WIDGET LIST
 
+	// Generic listeners, required to maintain the lifetime of the Values and their listeners
 	std::vector<std::unique_ptr<ValueListener>> listeners_;
 
 	std::shared_ptr<ChannelSetup> currentInputSetup_;
 	std::shared_ptr<JammerNetzChannelSetup> currentSessionSetup_;
 	std::shared_ptr<ChannelSetup> currentOutputSetup_;
-
-	float inputLatencyInMS_;
-	float outputLatencyInMS_;
 
 	DSLookAndFeel dsLookAndFeel_;
 

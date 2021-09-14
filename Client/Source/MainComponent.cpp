@@ -208,8 +208,10 @@ void MainComponent::restartAudio(std::shared_ptr<ChannelSetup> inputSetup, std::
 				refreshChannelSetup(std::shared_ptr < ChannelSetup>());
 			}
 			else {
-				inputLatencyInMS_ = audioDevice_->getInputLatencyInSamples() / (float)globalServerInfo.sampleRate * 1000.0f;
-				outputLatencyInMS_ = audioDevice_->getOutputLatencyInSamples() / (float)globalServerInfo.sampleRate* 1000.0f;
+				float inputLatencyInMS = audioDevice_->getInputLatencyInSamples() / (float)globalServerInfo.sampleRate * 1000.0f;
+				ApplicationState::sApplicationState.setProperty(VALUE_INPUT_LATENCY, inputLatencyInMS, nullptr);
+				float outputLatencyInMS = audioDevice_->getOutputLatencyInSamples() / (float)globalServerInfo.sampleRate* 1000.0f;
+				ApplicationState::sApplicationState.setProperty(VALUE_OUTPUT_LATENCY, outputLatencyInMS, nullptr);
 
 				refreshChannelSetup(inputSetup);
 				// We can actually start recording and playing
@@ -350,16 +352,18 @@ void MainComponent::timerCallback()
 {
 	// Refresh the UI with info from the Audio callback
 	std::stringstream status;
+	float inputLatency = ApplicationState::sApplicationState.getProperty(VALUE_INPUT_LATENCY);
+	float outputLatency = ApplicationState::sApplicationState.getProperty(VALUE_INPUT_LATENCY);
 	status << "Quality information" << std::endl << std::fixed << std::setprecision(2);
 	status << "Sample rate measured " << callback_.currentSampleRate() << std::endl;
 	status << "Underruns: " << callback_.numberOfUnderruns() << std::endl;
 	status << "Buffers: " << callback_.currentBufferSize() << std::endl;
-	status << "Input latency: " << inputLatencyInMS_ << "ms" << std::endl;
-	status << "Output latency: " << outputLatencyInMS_ << "ms" << std::endl;
+	status << "Input latency: " << inputLatency << "ms" << std::endl;
+	status << "Output latency: " << outputLatency << "ms" << std::endl;
 	status << "Roundtrip: " << callback_.currentRTT() << "ms" << std::endl;
 	status << "PlayQ: " << callback_.currentPlayQueueSize() << std::endl;
 	status << "Discarded: " << callback_.currentDiscardedPackageCounter() << std::endl;
-	status << "Total: " << callback_.currentToPlayLatency() + inputLatencyInMS_ + outputLatencyInMS_ << " ms" << std::endl;
+	status << "Total: " << callback_.currentToPlayLatency() + inputLatency + outputLatency << " ms" << std::endl;
 	statusInfo_.setText(status.str(), dontSendNotification);
 	downstreamInfo_.setText(callback_.currentReceptionQuality(), dontSendNotification);
 	std::stringstream connectionInfo;
