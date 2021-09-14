@@ -6,6 +6,8 @@
 
 #include "MainComponent.h"
 
+#include "ApplicationState.h"
+
 #include "StreamLogger.h"
 #include "Settings.h"
 #include "AudioDeviceDiscovery.h"
@@ -35,6 +37,9 @@ callback_(deviceManager_)
 	setLookAndFeel(&dsLookAndFeel_);
 	addAndMakeVisible(dsLookAndFeel_.backgroundGradient());
 
+	// Load application state from settings file
+	ApplicationState::fromSettings();
+
 	//bpmDisplay_ = std::make_unique<BPMDisplay>(callback_.getClocker());
 	recordingInfo_ = std::make_unique<RecordingInfo>(callback_.getMasterRecorder(), "Press to record master mix");
 	playalongDisplay_ = std::make_unique<PlayalongDisplay>(callback_.getPlayalong());
@@ -42,12 +47,14 @@ callback_(deviceManager_)
 
 	outputController_.setMeterSource(callback_.getOutputMeterSource(), -1);
 
-	userName_ = Settings::instance().get("username", SystemStats::getFullUserName().toStdString());
+	
 	nameLabel_.setText("My name", dontSendNotification);
-	nameEntry_.setText(userName_, dontSendNotification);
+	listeners_.push_back(std::make_unique<ValueListener>(ApplicationState::sApplicationState.getPropertyAsValue(VALUE_USER_NAME, nullptr), [this](Value &value) {
+		nameEntry_.setText(value.toString(), dontSendNotification);
+	}));
 	nameChange_.setButtonText("Change");
 	nameChange_.onClick = [this]() { updateUserName();  };
-	nameEntry_.onEscapeKey = [this]() { nameEntry_.setText(userName_, dontSendNotification);  };
+	nameEntry_.onEscapeKey = [this]() { nameEntry_.setText(ApplicationState::sApplicationState.getProperty(VALUE_USER_NAME), dontSendNotification);  };
 	nameEntry_.onReturnKey = [this]() { updateUserName(); };
 
 	inputGroup_.setText("Input");
@@ -124,7 +131,9 @@ callback_(deviceManager_)
 			JoinStageDialog::showDialog(globalDataStore_);
 		});
 	});
-#endif
+#endif	
+
+	ApplicationState::sApplicationState.sendPropertyChangeMessage(VALUE_USER_NAME);
 }
 
 MainComponent::~MainComponent()
@@ -151,7 +160,8 @@ void MainComponent::refreshChannelSetup(std::shared_ptr<ChannelSetup> setup) {
 		for (int i = 0; i < setup->activeChannelIndices.size(); i++) {
 			JammerNetzSingleChannelSetup channel((uint8)ownChannels_.getCurrentTarget(i));
 			channel.volume = ownChannels_.getCurrentVolume(i);
-			channel.name = setup->activeChannelIndices.size() > 1 ? userName_ + " " + setup->activeChannelNames[i] : userName_;
+			auto username = ApplicationState::sApplicationState.getProperty(VALUE_USER_NAME).toString().toStdString();
+			channel.name = setup->activeChannelIndices.size() > 1 ?  username + " " + setup->activeChannelNames[i] : username;
 			// Not more than 20 characters please
 			if (channel.name.length() > 20)
 				channel.name.erase(20, std::string::npos); 
@@ -414,7 +424,7 @@ void MainComponent::newServerSelected()
 }
 
 void MainComponent::updateUserName() {
-	userName_ = nameEntry_.getText().toStdString();
-	Settings::instance().set("username", userName_);
+	ApplicationState::sApplicationState.setProperty(VALUE_USER_NAME, nameEntry_.getText(), nullptr);
+	ApplicationState::toSettings(); // TODO This should be automatic!
 	refreshChannelSetup(currentInputSetup_);
 }

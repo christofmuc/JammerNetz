@@ -25,6 +25,7 @@ create_resources(Resources Source/Resources.h)
 add_definitions(-DJUCE_ASIO)
 
 set(SOURCES
+	Source/ApplicationState.cpp Source/ApplicationState.h
 	Source/AudioDeviceDiscovery.cpp
 	Source/AudioDeviceDiscovery.h
 	Source/LayoutConstants.h

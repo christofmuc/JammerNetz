@@ -20,6 +20,8 @@
 
 #include "DSLookAndFeel.h"
 
+#include "ApplicationState.h"
+
 class MainComponent   : public Component, private Timer
 {
 public:
@@ -71,7 +73,8 @@ private:
 	std::unique_ptr<RecordingInfo> localRecordingInfo_; // For the local data
 	std::unique_ptr<PlayalongDisplay> playalongDisplay_;
 
-	std::string userName_;
+	std::vector<std::unique_ptr<ValueListener>> listeners_;
+
 	std::shared_ptr<ChannelSetup> currentInputSetup_;
 	std::shared_ptr<JammerNetzChannelSetup> currentSessionSetup_;
 	std::shared_ptr<ChannelSetup> currentOutputSetup_;
