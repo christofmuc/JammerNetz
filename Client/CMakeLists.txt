@@ -32,8 +32,6 @@ set(SOURCES
 	Source/Main.cpp
 	Source/MainComponent.cpp
 	Source/MainComponent.h
-	Source/MidiPlayAlong.cpp Source/MidiPlayAlong.h
-	Source/PlayalongDisplay.cpp Source/PlayalongDisplay.h
 	Source/Resources.h
 	Source/version.cpp.in
 )
@@ -86,6 +84,12 @@ set(UICOMPONENT_FILES
 )
 source_group(Source\\UIComponents FILES ${UICOMPONENT_FILES})
 
+set(PLAYALONG_FILES
+	Source/MidiPlayAlong.cpp Source/MidiPlayAlong.h
+	Source/PlayalongDisplay.cpp Source/PlayalongDisplay.h
+)
+source_group(Source\\PlayAlong FILES ${PLAYALONG_FILES})
+
 set(DSBRANCH_FILES
 	Source/DataStore.cpp Source/DataStore.h
 	Source/DSConfig.h
@@ -102,7 +106,7 @@ set(DS_LIBRARIES
 set(DS_SOURCES ${DSBRANCH_FILES})
 endif()
 
-add_executable(JammerNetzClient MACOSX_BUNDLE WIN32 ${SOURCES} ${DS_SOURCES} ${UICOMPONENT_FILES} ${AUDIO_PROCESSING_FILES} ${MIDI_FILES} ${RESOURCE_FILES} ${INSTALLER_FILES})
+add_executable(JammerNetzClient MACOSX_BUNDLE WIN32 ${SOURCES} ${DS_SOURCES} ${UICOMPONENT_FILES} ${PLAYALONG_FILES} ${AUDIO_PROCESSING_FILES} ${MIDI_FILES} ${RESOURCE_FILES} ${INSTALLER_FILES})
 if(DIGITAL_STAGE_BRANDING)
 # Use new DigitalStage branded versions
 set_target_properties(JammerNetzClient PROPERTIES OUTPUT_NAME "digitalStagePC")
