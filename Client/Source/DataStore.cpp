@@ -79,7 +79,6 @@ void DataStore::registerClient(DigitalStage::Auth::string_t const& apiToken)
 		client_ = std::make_unique<DigitalStage::Api::Client>(DS_API_SERVER);
 
 		client_->ready.connect([this](const DigitalStage::Api::Store* store) {
-			auto stageId = store->getStageDeviceId();
 			gotReadySignal_ = true;
 		});
 
