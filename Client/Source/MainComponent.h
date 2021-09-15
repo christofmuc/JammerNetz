@@ -78,9 +78,12 @@ private:
 	// Generic listeners, required to maintain the lifetime of the Values and their listeners
 	std::vector<std::unique_ptr<ValueListener>> listeners_;
 
-	std::shared_ptr<ChannelSetup> currentInputSetup_;
-	std::shared_ptr<JammerNetzChannelSetup> currentSessionSetup_;
+	std::shared_ptr<ChannelSetup> currentInputSetup_;	
 	std::shared_ptr<ChannelSetup> currentOutputSetup_;
+
+	// This is a cached variable, not state, used by the timer callback to display the quality statistics
+	// Probably should go away
+	std::shared_ptr<JammerNetzChannelSetup> currentSessionSetup_;
 
 	DSLookAndFeel dsLookAndFeel_;
 
