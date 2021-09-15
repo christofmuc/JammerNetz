@@ -21,7 +21,7 @@ class DeviceSelector : public Component,
 	private ToggleButton::Listener
 {
 public:
-	DeviceSelector(String const &title, bool showTitle, String const &settingsKey, AudioDeviceManager &manager, bool inputInsteadOfOutputDevices, std::function<void(std::shared_ptr<ChannelSetup>)> updateHandler);
+	DeviceSelector(String const &title, bool showTitle, AudioDeviceManager &manager, bool inputInsteadOfOutputDevices, std::function<void(std::shared_ptr<ChannelSetup>)> updateHandler);
 	virtual ~DeviceSelector();
 
 	virtual void resized() override;
@@ -52,6 +52,5 @@ private:
 	OwnedArray<Label> channelNames_;
 
 	String title_;
-	String settingsKey_;
 	bool inputDevices_;
 };

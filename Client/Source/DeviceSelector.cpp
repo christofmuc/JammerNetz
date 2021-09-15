@@ -14,8 +14,8 @@
 
 #include "LayoutConstants.h"
 
-DeviceSelector::DeviceSelector(String const &title, bool showTitle, String const &settingsKey, AudioDeviceManager &manager, bool inputInsteadOfOutputDevices, std::function<void(std::shared_ptr<ChannelSetup>)> updateHandler)
-	: title_(title), showTitle_(showTitle), settingsKey_(settingsKey), manager_(manager), updateHandler_(updateHandler), inputDevices_(inputInsteadOfOutputDevices)
+DeviceSelector::DeviceSelector(String const &title, bool showTitle, AudioDeviceManager &manager, bool inputInsteadOfOutputDevices, std::function<void(std::shared_ptr<ChannelSetup>)> updateHandler)
+	: title_(title), showTitle_(showTitle), manager_(manager), updateHandler_(updateHandler), inputDevices_(inputInsteadOfOutputDevices)
 {
 	titleLabel_.setText(title, dontSendNotification);
 	manager_.createAudioDeviceTypes(deviceTypes_);
