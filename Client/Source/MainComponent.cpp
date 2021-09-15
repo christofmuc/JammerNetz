@@ -38,6 +38,10 @@ MainComponent::MainComponent(String clientID) :
 	setLookAndFeel(&dsLookAndFeel_);
 	addAndMakeVisible(dsLookAndFeel_.backgroundGradient());
 
+	if (clientID.isNotEmpty()) {
+		Settings::setSettingsID(clientID);
+	}
+
 	// Load stored application state
 	Data::instance().initializeFromSettings();
 
@@ -89,10 +93,6 @@ MainComponent::MainComponent(String clientID) :
 	addAndMakeVisible(*playalongDisplay_);
 	addAndMakeVisible(*localRecordingInfo_);
 
-	if (clientID.isNotEmpty()) {
-		Settings::setSettingsID(clientID);
-	}
-
 #ifdef DIGITAL_STAGE
 	// Add logo
 	logo_.setClickingTogglesState(false);
@@ -100,7 +100,6 @@ MainComponent::MainComponent(String clientID) :
 	logo_.setImages(false, true, true, dsLookAndFeel_.logo(), 1.0f, Colours::white, dsLookAndFeel_.logo(), 1.0f, Colours::white, dsLookAndFeel_.logo(), 0.8f, Colours::white);
 	addAndMakeVisible(logo_);
 #endif
-
 	
 	inputSelector_.fromData();
 	outputSelector_.fromData();
