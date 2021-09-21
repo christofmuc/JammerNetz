@@ -64,8 +64,9 @@ bool Client::sendData(String const &remoteHostname, int remotePort, void *data, 
 	auto bytesWritten = socket_.write(remoteHostname, remotePort, data, numbytes);
 	if (bytesWritten == -1 || bytesWritten != numbytes) {
 		// This is bad - when could this happen?
-		jassertfalse;
-		std::cerr << "Error writing to socket!" << std::endl;
+		/*jassertfalse;
+		std::cerr << "Error writing to socket!" << std::endl;*/
+		/* If the remoteHosename is incorr3ect */
 	}
 	return true;
 }
