@@ -24,7 +24,7 @@
 class MainComponent   : public Component, private Timer, public ValueTree::Listener
 {
 public:
-    MainComponent(String clientID, std::shared_ptr<Recorder> masterRecorder, std::shared_ptr<Recorder> localRecorder);
+    MainComponent(String clientID, std::shared_ptr<AudioService> audioService, std::shared_ptr<Recorder> masterRecorder, std::shared_ptr<Recorder> localRecorder);
     ~MainComponent();
 
     void resized() override;
@@ -37,6 +37,8 @@ private:
 	void updateUserName();
 	void numConnectedClientsChanged();
 	void fillConnectedClientsStatistics();
+
+	std::shared_ptr<AudioService> audioService_;
 
 	// DEFINE ALL OUR WIDGETS
 	DeviceSelector inputSelector_;

@@ -57,11 +57,12 @@ DeviceSelector::DeviceSelector(String const& title, bool showTitle, bool inputIn
 			deviceDropdown_.addItemList(items, 1);
 		}
 	}));
-	listeners_.push_back(std::make_unique<ValueListener>(setupDefinition.getPropertyAsValue(VALUE_DEVICE_NAME, nullptr), [this, setupDefinition](Value& newValue) {
+	listeners_.push_back(std::make_unique<ValueListener>(setupDefinition.getPropertyAsValue(VALUE_DEVICE_NAME, nullptr), [this](Value& newValue) {
+		ValueTree deviceSelector = Data::instance().get().getOrCreateChildWithName(Identifier(titleLabel_.getText(false)), nullptr);
 		channelSelectors_.clear(true);
 		channelNames_.clear(true);
 		controlPanelButton_.reset();
-		String typeName = setupDefinition.getProperty(VALUE_DEVICE_TYPE, "");
+		String typeName = deviceSelector.getProperty(VALUE_DEVICE_TYPE, "");
 		auto selectedType = AudioDeviceDiscovery::deviceTypeByName(typeName);
 		jassert(selectedType);
 		if (selectedType) {
@@ -85,13 +86,26 @@ DeviceSelector::DeviceSelector(String const& title, bool showTitle, bool inputIn
 					}
 
 					auto channels = inputDevices_ ? selectedDevice->getInputChannelNames() : selectedDevice->getOutputChannelNames();
+					ValueTree channelProps = deviceSelector.getOrCreateChildWithName(VALUE_CHANNELS, nullptr);
+					jassert(channelProps.isAChildOf(deviceSelector));
+					channelProps.removeAllChildren(nullptr);
+					channelProps.setProperty(VALUE_CHANNEL_COUNT, channels.size(), nullptr);
+					int index = 0;
 					for (auto channel : channels) {
 						ToggleButton* channelButton = new ToggleButton();
 						channelButton->setButtonText(channel);
+						String channelPropName = "Channel" + String(index++);
+						auto channelProp = channelProps.getOrCreateChildWithName(channelPropName, nullptr);
+						if (!channelProp.hasProperty(VALUE_CHANNEL_NAME)) {
+							channelProp.setProperty(VALUE_CHANNEL_NAME, channel, nullptr);
+						}
+						if (!channelProp.hasProperty(VALUE_CHANNEL_ACTIVE)) {
+							channelProp.setProperty(VALUE_CHANNEL_ACTIVE, false, nullptr);
+						}
+						channelButton->getToggleStateValue().referTo(channelProp.getPropertyAsValue(VALUE_CHANNEL_ACTIVE, nullptr));
 						channelButton->onClick = [this]() {
 							Data::instance().get().sendPropertyChangeMessage(title_);
 						};
-						//channelButton->addListener(this);
 						scrollArea_.addAndMakeVisible(channelButton);
 						channelSelectors_.add(channelButton);
 						//Label *channelName = new Label("", "unnamed");
@@ -208,21 +222,6 @@ void DeviceSelector::bindControls()
 		}
 		deviceDropdown_.setSelectedId(0, dontSendNotification);
 	}));
-
-	ValueTree channels = deviceSelector.getOrCreateChildWithName("Channels", nullptr);
-	if (channels.isValid()) {
-		for (int c = 0; c < channels.getNumChildren(); c++) {
-			auto child = channels.getChild(c);
-			if (child.isValid()) {
-				int index = child.getProperty("Index", var(0));
-				bool active = child.getProperty("Active");
-				if (index >= 0 && index < channelSelectors_.size()) {
-					// No notification, but we call the setup once we're done with all channels
-					channelSelectors_[index]->setToggleState(active, dontSendNotification);
-				}
-			}
-		}
-	}
 }
 
 /*void DeviceSelector::toData() const

@@ -26,7 +26,8 @@
 std::shared_ptr<DataStore> globalDataStore_;
 #endif
 
-MainComponent::MainComponent(String clientID, std::shared_ptr<Recorder> masterRecorder, std::shared_ptr<Recorder> localRecorder) :
+MainComponent::MainComponent(String clientID, std::shared_ptr<AudioService> audioService, std::shared_ptr<Recorder> masterRecorder, std::shared_ptr<Recorder> localRecorder) :
+	audioService_(audioService),
 	inputSelector_(VALUE_INPUT_SETUP, false, true),
 	outputSelector_(VALUE_OUTPUT_SETUP, false, false),
 	outputController_("Master", "OutputController", false, false)
@@ -93,11 +94,6 @@ MainComponent::MainComponent(String clientID, std::shared_ptr<Recorder> masterRe
 	logo_.setImages(false, true, true, dsLookAndFeel_.logo(), 1.0f, Colours::white, dsLookAndFeel_.logo(), 1.0f, Colours::white, dsLookAndFeel_.logo(), 0.8f, Colours::white);
 	addAndMakeVisible(logo_);
 #endif
-
-	// Register listeners that will react on a change of the input and output setup, accordingly.
-	listeners_.push_back(std::make_unique<ValueListener>(Data::instance().get().getPropertyAsValue(VALUE_INPUT_SETUP, nullptr), [this](Value& value) {
-		inputSetupChanged();
-	}));
 
 	startTimer(100);
 
@@ -229,15 +225,28 @@ void MainComponent::resized()
 	outputController_.setBounds(outputArea);
 }
 
+bool isChildOf(Identifier searchFor, ValueTree child) {
+	if (!child.isValid())
+		return false;
+	if (child.getType() == searchFor)
+		return true;
+	return isChildOf(searchFor, child.getParent());
+}
+
 void MainComponent::valueTreePropertyChanged(ValueTree& treeWhosePropertyHasChanged, const Identifier& property)
 {
 	String propertyName = property.toString();
-	ValueTree& parent = treeWhosePropertyHasChanged;
+	ValueTree parent = treeWhosePropertyHasChanged;
 	while (parent.isValid()) {
 		propertyName = parent.getType().toString() + ">" + propertyName;
 		parent = parent.getParent();
 	}
 	logView_.addMessageToList(propertyName + " updated: " + treeWhosePropertyHasChanged.getProperty(property).toString());
+
+	// Check if this was an input channel definition?
+	if (isChildOf(VALUE_INPUT_SETUP, treeWhosePropertyHasChanged)) {
+		inputSetupChanged();
+	}
 }
 
 void MainComponent::numConnectedClientsChanged() {
@@ -332,8 +341,7 @@ void MainComponent::timerCallback()
 
 void MainComponent::inputSetupChanged() {
 	// Rebuild UI for the channel controllers, and provide a callback to change the data in the Audio callback sent to the server
-	//ownChannels_.setup(setup, callback_.getMeterSource());
-	logView_.addMessageToList("inputSetup changed called - need to implement this!");
+	ownChannels_.setup(audioService_->getInputSetup(), audioService_->getInputMeterSource());
 }
 
 void MainComponent::updateUserName() {

@@ -22,6 +22,10 @@ constexpr const char* VALUE_USE_LOCALHOST = "UseLocalhost";
 constexpr const char* VALUE_CRYPTOPATH = "CryptoFilePath";
 constexpr const char* VALUE_DEVICE_TYPE = "Type";
 constexpr const char* VALUE_DEVICE_NAME = "Device";
+constexpr const char* VALUE_CHANNELS = "Channels";
+constexpr const char* VALUE_CHANNEL_COUNT = "ChannelCount";
+constexpr const char* VALUE_CHANNEL_ACTIVE = "ChannelActive";
+constexpr const char* VALUE_CHANNEL_NAME = "ChannelName";
 
 constexpr const char* EPHEMERAL_VALUE_DEVICE_TYPES_AVAILABLE = "AudioDeviceTypes";
 

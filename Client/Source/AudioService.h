@@ -27,9 +27,14 @@ public:
 
 	std::shared_ptr<Recorder> getMasterRecorder() const;
 	std::shared_ptr<Recorder> getLocalRecorder() const;
+	
+	std::shared_ptr<ChannelSetup> getInputSetup() const;
+	std::shared_ptr<ChannelSetup> getOutputSetup() const;
+
+	FFAU::LevelMeterSource* getInputMeterSource();
 
 private:
-	std::shared_ptr<ChannelSetup> getSetup(ValueTree data);
+	std::shared_ptr<ChannelSetup> getSetup(ValueTree data) const;
 
 	void refreshChannelSetup(std::shared_ptr<ChannelSetup> setup);
 	void restartAudio();

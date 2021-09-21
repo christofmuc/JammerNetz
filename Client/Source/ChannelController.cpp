@@ -164,7 +164,8 @@ void ChannelController::comboBoxChanged(ComboBox* comboBoxThatHasChanged)
 {
 	jassert(hasTarget_);
 	if (comboBoxThatHasChanged == &channelType_) {
-		updateHandler_(volumeSlider_.getValue(), getCurrentTarget());
+		if (updateHandler_)
+			updateHandler_(volumeSlider_.getValue(), getCurrentTarget());
 	}
 }
 
@@ -172,6 +173,7 @@ void ChannelController::sliderValueChanged(Slider* slider)
 {
 	jassert(hasVolume_);
 	if (slider == &volumeSlider_) {
-		updateHandler_(slider->getValue(), getCurrentTarget());
+		if (updateHandler_)
+			updateHandler_(slider->getValue(), getCurrentTarget());
 	}
 }

@@ -77,7 +77,22 @@ std::shared_ptr<Recorder> AudioService::getLocalRecorder() const
 	return callback_.getLocalRecorder();
 }
 
-std::shared_ptr<ChannelSetup> AudioService::getSetup(ValueTree data) 
+std::shared_ptr<ChannelSetup> AudioService::getInputSetup() const
+{
+	return getSetup(Data::instance().get().getChildWithName(VALUE_INPUT_SETUP));
+}
+
+std::shared_ptr<ChannelSetup> AudioService::getOutputSetup() const
+{
+	return getSetup(Data::instance().get().getChildWithName(VALUE_OUTPUT_SETUP));
+}
+
+FFAU::LevelMeterSource* AudioService::getInputMeterSource() 
+{
+	return callback_.getMeterSource();
+}
+
+std::shared_ptr<ChannelSetup> AudioService::getSetup(ValueTree data) const
 {
 	// Build the current setup as data record 
 	std::shared_ptr<ChannelSetup> channelSetup = std::make_shared<ChannelSetup>();
@@ -87,12 +102,21 @@ std::shared_ptr<ChannelSetup> AudioService::getSetup(ValueTree data)
 	if (selectedType && selectedType->getTypeName().isNotEmpty()) {
 		channelSetup->typeName = selectedType->getTypeName().toStdString();
 		channelSetup->isInputAndOutput = !selectedType->hasSeparateInputsAndOutputs();
-		/*for (int i = 0; i < channelSelectors_.size(); i++) {
-			if (channelSelectors_[i]->getToggleState()) {
-				channelSetup->activeChannelNames.push_back(channelSelectors_[i]->getButtonText().toStdString());
-				channelSetup->activeChannelIndices.push_back(i);
+		auto channels = data.getChildWithName(VALUE_CHANNELS);
+		if (channels.isValid()) {
+			int numChannels = channels.getProperty(VALUE_CHANNEL_COUNT);
+			for (int i = 0; i < numChannels; i++) {
+				String channelPropName = "Channel" + String(i);
+				auto channel = channels.getChildWithName(channelPropName);
+				if (channel.isValid()) {
+					bool isActive = channel.getProperty(VALUE_CHANNEL_ACTIVE);
+					if (isActive) {
+						channelSetup->activeChannelIndices.push_back(i);
+						channelSetup->activeChannelNames.push_back(channel.getProperty(VALUE_CHANNEL_NAME).toString().toStdString());
+					}
+				}
 			}
-		}*/
+		}
 	}
 	return channelSetup;
 }

@@ -70,13 +70,13 @@ public:
 		Logger::setCurrentLogger(logger_.get());*/
 
 		// Create the AudioService, which will contain all important client functionality except the UI
-		audioService_ = std::make_unique<AudioService>();
+		audioService_ = std::make_shared<AudioService>();
 
 		String windowTitle = getApplicationName();
 		if (clientID.isNotEmpty()) {
 			windowTitle += ": " + clientID;
 		}
-        mainWindow = std::make_unique<MainWindow>(new MainComponent(clientID, audioService_->getMasterRecorder(), audioService_->getLocalRecorder()), windowTitle, clientID);
+        mainWindow = std::make_unique<MainWindow>(new MainComponent(clientID, audioService_, audioService_->getMasterRecorder(), audioService_->getLocalRecorder()), windowTitle, clientID);
 		mainWindow->setName(getWindowTitle());
 
 #ifdef USE_SENTRY
@@ -173,7 +173,7 @@ public:
 
 private:
 	std::unique_ptr<FileLogger> logger_;
-	std::unique_ptr<AudioService> audioService_;
+	std::shared_ptr<AudioService> audioService_;
     std::unique_ptr<MainWindow> mainWindow;
 };
 
