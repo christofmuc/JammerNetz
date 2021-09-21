@@ -16,4 +16,3 @@ struct ServerInfo {
 	int sampleRate; // Should be the same for all clients
 };
 
-extern ServerInfo globalServerInfo;

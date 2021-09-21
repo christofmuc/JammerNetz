@@ -103,3 +103,61 @@ bool AudioDeviceDiscovery::canDeviceDoSampleRate(AudioIODeviceType *type, String
 	}
 	return false;
 }
+
+juce::StringArray AudioDeviceDiscovery::allDeviceTypeNames()
+{
+	init();
+	StringArray deviceTypeNames;
+	for (auto const& device : *deviceTypes_) {
+		deviceTypeNames.add(device->getTypeName());
+	}
+	return deviceTypeNames;
+}
+
+juce::AudioIODeviceType* AudioDeviceDiscovery::deviceTypeByName(String const& name)
+{
+	init();
+	for (auto device : *deviceTypes_) {
+		if (device->getTypeName() == name) {
+			return device;
+		}
+	}
+	return nullptr;
+
+}
+
+void AudioDeviceDiscovery::shutdown()
+{
+	deviceTypes_.reset();
+}
+
+void AudioDeviceDiscovery::init()
+{
+	if (!sIsInitialized) {
+		//TODO - do we really want to offer all these types or should we trim down the list?
+		std::vector< juce::AudioIODeviceType*> deviceTypes;
+		deviceTypes.push_back(AudioIODeviceType::createAudioIODeviceType_WASAPI(WASAPIDeviceMode::shared));
+		deviceTypes.push_back(AudioIODeviceType::createAudioIODeviceType_WASAPI(WASAPIDeviceMode::exclusive));
+		deviceTypes.push_back(AudioIODeviceType::createAudioIODeviceType_WASAPI(WASAPIDeviceMode::sharedLowLatency));
+		deviceTypes.push_back(AudioIODeviceType::createAudioIODeviceType_DirectSound());
+		deviceTypes.push_back(AudioIODeviceType::createAudioIODeviceType_ASIO());
+		deviceTypes.push_back(AudioIODeviceType::createAudioIODeviceType_CoreAudio());
+		deviceTypes.push_back(AudioIODeviceType::createAudioIODeviceType_iOSAudio());
+		deviceTypes.push_back(AudioIODeviceType::createAudioIODeviceType_Bela());
+		deviceTypes.push_back(AudioIODeviceType::createAudioIODeviceType_ALSA());
+		deviceTypes.push_back(AudioIODeviceType::createAudioIODeviceType_JACK());
+		deviceTypes.push_back(AudioIODeviceType::createAudioIODeviceType_Oboe());
+		deviceTypes.push_back(AudioIODeviceType::createAudioIODeviceType_OpenSLES());
+		deviceTypes.push_back(AudioIODeviceType::createAudioIODeviceType_Android());
+		deviceTypes_ = std::make_unique<OwnedArray<AudioIODeviceType>>();
+		for (auto deviceType : deviceTypes) {
+			if (deviceType != nullptr)
+				deviceTypes_->add(deviceType);
+		}
+		sIsInitialized = true;
+	}
+}
+
+bool AudioDeviceDiscovery::sIsInitialized = false;
+
+std::unique_ptr<juce::OwnedArray<juce::AudioIODeviceType>> AudioDeviceDiscovery::deviceTypes_;

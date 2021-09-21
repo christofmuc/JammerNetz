@@ -26,31 +26,23 @@
 std::shared_ptr<DataStore> globalDataStore_;
 #endif
 
-MainComponent::MainComponent(String clientID) :
-	audioDevice_(nullptr),
-	inputSelector_("Inputs", false, deviceManager_, true, [this](std::shared_ptr<ChannelSetup> setup) { setupChanged(setup); }),
-	outputSelector_("Outputs", false, deviceManager_, false, [this](std::shared_ptr<ChannelSetup> setup) { outputSetupChanged(setup);  }),
-	outputController_("Master", "OutputController", [](double, JammerNetzChannelTarget) {}, false, false),
-	clientConfigurator_([this](int clientBuffer, int maxBuffer, bool fec) { callback_.changeClientConfig(clientBuffer, maxBuffer);  callback_.setFEC(fec);  }),
-	serverStatus_([this]() { newServerSelected();  }),
-	callback_(deviceManager_)
+MainComponent::MainComponent(String clientID, std::shared_ptr<Recorder> masterRecorder, std::shared_ptr<Recorder> localRecorder) :
+	inputSelector_(VALUE_INPUT_SETUP, false, true),
+	outputSelector_(VALUE_OUTPUT_SETUP, false, false),
+	outputController_("Master", "OutputController", false, false)
 {
 	setLookAndFeel(&dsLookAndFeel_);
 	addAndMakeVisible(dsLookAndFeel_.backgroundGradient());
 
-	if (clientID.isNotEmpty()) {
-		Settings::setSettingsID(clientID);
-	}
-
-	// Load stored application state
-	Data::instance().initializeFromSettings();
+	// We want data updates for our log window
+	Data::instance().get().addListener(this);
 
 	//bpmDisplay_ = std::make_unique<BPMDisplay>(callback_.getClocker());
-	recordingInfo_ = std::make_unique<RecordingInfo>(callback_.getMasterRecorder(), "Press to record master mix");
-	playalongDisplay_ = std::make_unique<PlayalongDisplay>(callback_.getPlayalong());
-	localRecordingInfo_ = std::make_unique<RecordingInfo>(callback_.getLocalRecorder(), "Press to record yourself only");
+	recordingInfo_ = std::make_unique<RecordingInfo>(masterRecorder, "Press to record master mix");
+	//playalongDisplay_ = std::make_unique<PlayalongDisplay>(callback_.getPlayalong());
+	localRecordingInfo_ = std::make_unique<RecordingInfo>(localRecorder, "Press to record yourself only");
 
-	outputController_.setMeterSource(callback_.getOutputMeterSource(), -1);
+	//outputController_.setMeterSource(callback_.getOutputMeterSource(), -1);
 
 	
 	nameLabel_.setText("My name", dontSendNotification);
@@ -90,8 +82,9 @@ MainComponent::MainComponent(String clientID) :
 	addAndMakeVisible(qualityGroup_);
 	addAndMakeVisible(recordingGroup_);
 	addAndMakeVisible(*recordingInfo_);
-	addAndMakeVisible(*playalongDisplay_);
+	//addAndMakeVisible(*playalongDisplay_);
 	addAndMakeVisible(*localRecordingInfo_);
+	addAndMakeVisible(logView_);
 
 #ifdef DIGITAL_STAGE
 	// Add logo
@@ -100,14 +93,11 @@ MainComponent::MainComponent(String clientID) :
 	logo_.setImages(false, true, true, dsLookAndFeel_.logo(), 1.0f, Colours::white, dsLookAndFeel_.logo(), 1.0f, Colours::white, dsLookAndFeel_.logo(), 0.8f, Colours::white);
 	addAndMakeVisible(logo_);
 #endif
-	
-	inputSelector_.fromData();
-	outputSelector_.fromData();
-#ifndef DIGITAL_STAGE
-	serverStatus_.fromData();
-#endif
-	outputController_.fromData();
-	clientConfigurator_.fromData();
+
+	// Register listeners that will react on a change of the input and output setup, accordingly.
+	listeners_.push_back(std::make_unique<ValueListener>(Data::instance().get().getPropertyAsValue(VALUE_INPUT_SETUP, nullptr), [this](Value& value) {
+		inputSetupChanged();
+	}));
 
 	startTimer(100);
 
@@ -122,10 +112,24 @@ MainComponent::MainComponent(String clientID) :
 
 			// Register callbacks
 			globalDataStore_->onJoin_ = [this](ServerInfo serverInfo) {
-				serverStatus_.fromServerInfo(serverInfo);
+				// Call on UI Thread
+				MessageManager::callAsync([serverInfo, this]() {
+					// Update the global stored data
+					ValueTree& data = Data::instance().get();
+					data.setProperty(VALUE_SERVER_NAME, serverInfo.serverName.c_str(), nullptr);
+					data.setProperty(VALUE_SERVER_PORT, atoi(serverInfo.serverPort.c_str()), nullptr); // Need better parsing of int
+					data.setProperty(VALUE_USE_LOCALHOST, false, nullptr);
+					data.setProperty(VALUE_CRYPTOPATH, serverInfo.cryptoKeyfilePath.c_str(), nullptr);
+				});
 			};
 			globalDataStore_->onLeave_ = [this]() {
-				serverStatus_.clear();
+				MessageManager::callAsync([this]() {
+					ValueTree& data = Data::instance().get();
+					data.setProperty(VALUE_SERVER_NAME, "", nullptr);
+					data.setProperty(VALUE_SERVER_PORT, 7777, nullptr);
+					data.setProperty(VALUE_USE_LOCALHOST, false, nullptr);
+					data.setProperty(VALUE_CRYPTOPATH, "", nullptr);
+				});
 			};
 
 			// Busy wait until ready
@@ -134,8 +138,6 @@ MainComponent::MainComponent(String clientID) :
 		});
 	});
 #endif	
-
-	Data::instance().get().sendPropertyChangeMessage(VALUE_USER_NAME);
 }
 
 MainComponent::~MainComponent()
@@ -144,98 +146,9 @@ MainComponent::~MainComponent()
 	LoginDialog::release();
 	JoinStageDialog::release();
 #endif
-	stopAudioIfRunning();
-	clientConfigurator_.toData();
-	serverStatus_.toData();
-	inputSelector_.toData();
-	outputSelector_.toData();
-	outputController_.toData();
-	ownChannels_.toData();
 	Data::instance().saveToSettings();
 	Settings::instance().saveAndClose();
 	setLookAndFeel(nullptr);
-}
-
-void MainComponent::refreshChannelSetup(std::shared_ptr<ChannelSetup> setup) {
-	JammerNetzChannelSetup channelSetup;
-	if (setup) {
-		for (int i = 0; i < setup->activeChannelIndices.size(); i++) {
-			JammerNetzSingleChannelSetup channel((uint8)ownChannels_.getCurrentTarget(i));
-			channel.volume = ownChannels_.getCurrentVolume(i);
-			auto username = Data::instance().get().getProperty(VALUE_USER_NAME).toString().toStdString();
-			channel.name = setup->activeChannelIndices.size() > 1 ?  username + " " + setup->activeChannelNames[i] : username;
-			// Not more than 20 characters please
-			if (channel.name.length() > 20)
-				channel.name.erase(20, std::string::npos); 
-			channelSetup.channels.push_back(channel);
-		}
-	}
-	callback_.setChannelSetup(channelSetup);
-	resized();
-}
-
-BigInteger makeChannelMask(std::vector<int> const &indices) {
-	BigInteger inputChannelMask;
-	for (int activeChannelIndex : indices) {
-		inputChannelMask.setBit(activeChannelIndex);
-	}
-	return inputChannelMask;
-}
-
-void MainComponent::restartAudio(std::shared_ptr<ChannelSetup> inputSetup, std::shared_ptr<ChannelSetup> outputSetup)
-{
-	stopAudioIfRunning();
-
-	// Sample rate and buffer size are hard coded for now
-	auto selectedType = inputSelector_.deviceType();
-	if (selectedType) {
-		if (selectedType->hasSeparateInputsAndOutputs()) {
-			// This is for other Audio types like DirectSound
-			audioDevice_.reset(selectedType->createDevice(outputSetup ? outputSetup->device : "", inputSetup ? inputSetup->device : ""));
-		}
-		else {
-			// Try to create the device purely from the input name, this would be the path for ASIO)
-			if (inputSetup) {
-				audioDevice_.reset(selectedType->createDevice("", inputSetup->device));
-			}
-		}
-
-		if (audioDevice_) {
-			BigInteger inputChannelMask = inputSetup ? makeChannelMask(inputSetup->activeChannelIndices) : 0;
-			BigInteger outputChannelMask = outputSetup ? makeChannelMask(outputSetup->activeChannelIndices) : 0;
-			String error = audioDevice_->open(inputChannelMask, outputChannelMask, globalServerInfo.sampleRate, globalServerInfo.bufferSize);
-			if (error.isNotEmpty()) {
-				jassert(false);
-				AlertWindow::showMessageBox(AlertWindow::WarningIcon, "Error opening audio device", "Error text: " + error);
-				refreshChannelSetup(std::shared_ptr < ChannelSetup>());
-			}
-			else {
-				float inputLatencyInMS = audioDevice_->getInputLatencyInSamples() / (float)globalServerInfo.sampleRate * 1000.0f;
-				Data::instance().get().setProperty(VALUE_INPUT_LATENCY, inputLatencyInMS, nullptr);
-				float outputLatencyInMS = audioDevice_->getOutputLatencyInSamples() / (float)globalServerInfo.sampleRate* 1000.0f;
-				Data::instance().get().setProperty(VALUE_OUTPUT_LATENCY, outputLatencyInMS, nullptr);
-
-				refreshChannelSetup(inputSetup);
-				// We can actually start recording and playing
-				audioDevice_->start(&callback_);
-			}
-		}
-	}
-}
-
-void MainComponent::stopAudioIfRunning()
-{
-	if (audioDevice_) {
-		if (audioDevice_->isOpen()) {
-			if (audioDevice_->isPlaying()) {
-				audioDevice_->stop();
-				audioDevice_->close();
-				while (audioDevice_->isOpen()) {
-					Thread::sleep(10);
-				}
-			}
-		}
-	}
 }
 
 void MainComponent::resized()
@@ -249,7 +162,9 @@ void MainComponent::resized()
 	int deviceSelectorWidth = std::min(area.getWidth() / 4, 250);
 	int masterMixerWidth = 100; // Stereo mixer
 
-	int inputMixerWidth = masterMixerWidth * (int)currentInputSetup_->activeChannelNames.size() + deviceSelectorWidth + 2 * kNormalInset;
+	auto numInputMixers = 1; //TODO
+
+	int inputMixerWidth = masterMixerWidth * numInputMixers + deviceSelectorWidth + 2 * kNormalInset;
 
 	// To the bottom, the server info and status area
 	auto settingsArea = area.removeFromBottom(settingsHeight);
@@ -277,6 +192,7 @@ void MainComponent::resized()
 	}
 	downstreamInfo_.setBounds(qualityArea);*/
 	logo_.setBounds(qualityArea.reduced(kNormalInset).removeFromRight(151).removeFromBottom(81));
+	logView_.setBounds(qualityArea);
 
 
 	// Lower right - everything with recording!
@@ -313,21 +229,32 @@ void MainComponent::resized()
 	outputController_.setBounds(outputArea);
 }
 
+void MainComponent::valueTreePropertyChanged(ValueTree& treeWhosePropertyHasChanged, const Identifier& property)
+{
+	String propertyName = property.toString();
+	ValueTree& parent = treeWhosePropertyHasChanged;
+	while (parent.isValid()) {
+		propertyName = parent.getType().toString() + ">" + propertyName;
+		parent = parent.getParent();
+	}
+	logView_.addMessageToList(propertyName + " updated: " + treeWhosePropertyHasChanged.getProperty(property).toString());
+}
+
 void MainComponent::numConnectedClientsChanged() {
 	clientInfo_.clear();
 
-	auto info = callback_.getClientInfo();
+	/*auto info = callback_.getClientInfo();
 	for (uint8 i = 0; i < info->getNumClients(); i++) {
 		auto label = new Label();
 		addAndMakeVisible(label);
 		clientInfo_.add(label);
-	}
+	}*/
 	fillConnectedClientsStatistics();
 	resized();
 }
 
 void MainComponent::fillConnectedClientsStatistics() {
-	auto info = callback_.getClientInfo();
+	/*auto info = callback_.getClientInfo();
 	if (info) {
 		for (uint8 i = 0; i < info->getNumClients(); i++) {
 			auto label = clientInfo_[i];
@@ -347,7 +274,7 @@ void MainComponent::fillConnectedClientsStatistics() {
 
 			label->setText(status.str(), dontSendNotification);
 		}
-	}
+	}*/
 }
 
 void MainComponent::timerCallback()
@@ -357,12 +284,12 @@ void MainComponent::timerCallback()
 	float inputLatency = Data::instance().get().getProperty(VALUE_INPUT_LATENCY);
 	float outputLatency = Data::instance().get().getProperty(VALUE_INPUT_LATENCY);
 	status << "Quality information" << std::endl << std::fixed << std::setprecision(2);
-	status << "Sample rate measured " << callback_.currentSampleRate() << std::endl;
+	/*status << "Sample rate measured " << callback_.currentSampleRate() << std::endl;
 	status << "Underruns: " << callback_.numberOfUnderruns() << std::endl;
-	status << "Buffers: " << callback_.currentBufferSize() << std::endl;
+	status << "Buffers: " << callback_.currentBufferSize() << std::endl;*/
 	status << "Input latency: " << inputLatency << "ms" << std::endl;
 	status << "Output latency: " << outputLatency << "ms" << std::endl;
-	status << "Roundtrip: " << callback_.currentRTT() << "ms" << std::endl;
+	/*status << "Roundtrip: " << callback_.currentRTT() << "ms" << std::endl;
 	status << "PlayQ: " << callback_.currentPlayQueueSize() << std::endl;
 	status << "Discarded: " << callback_.currentDiscardedPackageCounter() << std::endl;
 	status << "Total: " << callback_.currentToPlayLatency() + inputLatency + outputLatency << " ms" << std::endl;
@@ -385,7 +312,7 @@ void MainComponent::timerCallback()
 	serverStatus_.setConnected(callback_.isReceivingData());
 
 	// Refresh tuning info for my own channels
-	for (int i = 0; i < currentInputSetup_->activeChannelNames.size(); i++) {
+	for (int i = 0; i < ownChannels_.numChannels(); i++) {
 		ownChannels_.setPitchDisplayed(i, MidiNote(callback_.channelPitch(i)));
 	}
 	// and for the session channels
@@ -400,37 +327,17 @@ void MainComponent::timerCallback()
 		currentSessionSetup_ = std::make_shared<JammerNetzChannelSetup>(callback_.getSessionSetup());
 		// Setup changed, need to re-init UI
 		allChannels_.setup(currentSessionSetup_, callback_.getSessionMeterSource());
-	}
+	}*/
 }
 
-void MainComponent::setupChanged(std::shared_ptr<ChannelSetup> setup)
-{
-	stopAudioIfRunning();
-
-	currentInputSetup_ = setup;
-
+void MainComponent::inputSetupChanged() {
 	// Rebuild UI for the channel controllers, and provide a callback to change the data in the Audio callback sent to the server
-	ownChannels_.setup(setup, callback_.getMeterSource(), [this](std::shared_ptr<ChannelSetup> setup) {
-		refreshChannelSetup(setup); 
-	});
-
-	// But now also start the Audio with this setup (hopefully it works...)
-	restartAudio(currentInputSetup_, currentOutputSetup_);
-}
-
-void MainComponent::outputSetupChanged(std::shared_ptr<ChannelSetup> setup)
-{
-	currentOutputSetup_ = setup;
-	restartAudio(currentInputSetup_, currentOutputSetup_);
-}
-
-void MainComponent::newServerSelected()
-{
-	callback_.newServer();
+	//ownChannels_.setup(setup, callback_.getMeterSource());
+	logView_.addMessageToList("inputSetup changed called - need to implement this!");
 }
 
 void MainComponent::updateUserName() {
 	Data::instance().get().setProperty(VALUE_USER_NAME, nameEntry_.getText(), nullptr);
 	Data::instance().saveToSettings(); // TODO This should be automatic!
-	refreshChannelSetup(currentInputSetup_); // TODO This should not be necessary!
+	//refreshChannelSetup(currentInputSetup_); // TODO This should not be necessary!
 }

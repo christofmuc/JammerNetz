@@ -10,29 +10,18 @@
 
 #include "ServerInfo.h"
 
-class ServerSelector : public Component,
-	private Button::Listener
+class ServerSelector : public Component
 {
 public:
-	ServerSelector(std::function<void()> notify);
+	ServerSelector();
 
 	virtual void resized() override;
 
-	// From ServerInfo struct
-	void fromServerInfo(ServerInfo const& serverInfo);
-
-	// Use this to disconnect
-	void clear();
-
 	// Store to and load from settings
-	void fromData();
-	void toData() const;
+	void bindControls();
 
 private:
 	void reloadCryptoKey();
-
-	virtual void buttonClicked(Button*) override;
-	virtual void updateServerInfo();
 
 	ToggleButton useLocalhost_;
 	Label serverLabel_;
@@ -45,10 +34,6 @@ private:
 	TextEditor keyPath_;
 	TextButton browseToKey_;
 
-	bool localhostSelected_;
-	String lastServer_;
-	String lastPort_;
-	String cryptoKeyPath_;
-
-	std::function<void()> notify_;
+	//String lastServer_;
+	//String lastPort_;
 };

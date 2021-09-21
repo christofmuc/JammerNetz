@@ -14,11 +14,13 @@
 
 #include "IncludeFFMeters.h"
 
+#include "AudioService.h"
+
 class ChannelControllerGroup : public Component {
 public:
 	ChannelControllerGroup();
 
-	void setup(std::shared_ptr<ChannelSetup> setup, FFAU::LevelMeterSource*meterSource, std::function<void(std::shared_ptr<ChannelSetup>)> callback);
+	void setup(std::shared_ptr<ChannelSetup> setup, FFAU::LevelMeterSource*meterSource);
 	void setup(std::shared_ptr<JammerNetzChannelSetup> sessionChannels, FFAU::LevelMeterSource*meterSource);
 
 	JammerNetzChannelTarget getCurrentTarget(int channel) const;
@@ -27,7 +29,7 @@ public:
 
 	virtual void resized();
 
-	void toData();
+	int numChannels() const;
 
 private:
 	void enableClientSideControls(bool enabled);

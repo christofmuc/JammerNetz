@@ -8,8 +8,6 @@
 
 #include "JuceHeader.h"
 
-#include "AudioCallback.h"
-
 #include "DeviceSelector.h"
 #include "ChannelControllerGroup.h"
 #include "ServerStatus.h"
@@ -17,35 +15,28 @@
 #include "BPMDisplay.h"
 #include "RecordingInfo.h"
 #include "PlayalongDisplay.h"
+#include "LogView.h"
 
 #include "DSLookAndFeel.h"
 
 #include "ApplicationState.h"
 
-class MainComponent   : public Component, private Timer
+class MainComponent   : public Component, private Timer, public ValueTree::Listener
 {
 public:
-    MainComponent(String clientID);
+    MainComponent(String clientID, std::shared_ptr<Recorder> masterRecorder, std::shared_ptr<Recorder> localRecorder);
     ~MainComponent();
 
     void resized() override;
 
+	void valueTreePropertyChanged(ValueTree& treeWhosePropertyHasChanged, const Identifier& property) override;
+
 private:
 	virtual void timerCallback() override;
-	void refreshChannelSetup(std::shared_ptr<ChannelSetup> setup);
-	void restartAudio(std::shared_ptr<ChannelSetup> inputSetup, std::shared_ptr<ChannelSetup> outputSetup);
-	void stopAudioIfRunning();
-	void setupChanged(std::shared_ptr<ChannelSetup> setup);
-	void outputSetupChanged(std::shared_ptr<ChannelSetup> setup);
-	void newServerSelected();
+	void inputSetupChanged();
 	void updateUserName();
 	void numConnectedClientsChanged();
 	void fillConnectedClientsStatistics();
-
-	AudioDeviceManager deviceManager_;
-	std::shared_ptr<AudioIODevice> audioDevice_;
-
-	AudioCallback callback_;
 
 	// DEFINE ALL OUR WIDGETS
 	DeviceSelector inputSelector_;
@@ -73,13 +64,11 @@ private:
 	std::unique_ptr<RecordingInfo> recordingInfo_; // For the master files
 	std::unique_ptr<RecordingInfo> localRecordingInfo_; // For the local data
 	std::unique_ptr<PlayalongDisplay> playalongDisplay_;
+	LogView logView_;
 	// END OF WIDGET LIST
 
 	// Generic listeners, required to maintain the lifetime of the Values and their listeners
 	std::vector<std::unique_ptr<ValueListener>> listeners_;
-
-	std::shared_ptr<ChannelSetup> currentInputSetup_;	
-	std::shared_ptr<ChannelSetup> currentOutputSetup_;
 
 	// This is a cached variable, not state, used by the timer callback to display the quality statistics
 	// Probably should go away

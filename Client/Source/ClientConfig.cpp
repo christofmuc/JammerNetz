@@ -8,29 +8,29 @@
 
 #include "BuffersConfig.h"
 #include "Data.h"
+#include "ApplicationState.h"
 
 #include "LayoutConstants.h"
 
-ClientConfigurator::ClientConfigurator(TUpdateHandler updateHandler) : updateHandler_(updateHandler)
+ClientConfigurator::ClientConfigurator() 
 {
 	bufferLabel_.setText("Client buffers: ", dontSendNotification);
 	bufferLength_.setSliderStyle(Slider::LinearHorizontal);
 	bufferLength_.setTextBoxStyle(Slider::TextBoxRight, true, 50, 30);
-	bufferLength_.addListener(this);
 	bufferLength_.setRange(Range<double>(1.0, 40.0), 1.0);
 	maxLabel_.setText("Max buffers: ", dontSendNotification);
 	maxLength_.setSliderStyle(Slider::LinearHorizontal);
 	maxLength_.setTextBoxStyle(Slider::TextBoxRight, true, 50, 30);
-	maxLength_.addListener(this);
 	maxLength_.setRange(Range<double>(1.0, 80.0), 1.0);
 	useFEC_.setButtonText("Heal");
-	useFEC_.onStateChange = [this]() { sliderValueChanged(nullptr);  };
 
 	addAndMakeVisible(bufferLabel_);
 	addAndMakeVisible(bufferLength_);
 	addAndMakeVisible(maxLabel_);
 	addAndMakeVisible(maxLength_);
 	addAndMakeVisible(useFEC_);
+
+	bindControls();
 }
 
 void ClientConfigurator::resized()
@@ -45,25 +45,21 @@ void ClientConfigurator::resized()
 	maxLength_.setBounds(row2.removeFromLeft(kSliderWithBoxWidth));
 }
 
-void ClientConfigurator::sliderValueChanged(Slider*)
-{
-	updateHandler_((int) bufferLength_.getValue(), (int) maxLength_.getValue(), useFEC_.getToggleState());
-}
-
-void ClientConfigurator::fromData()
+void ClientConfigurator::bindControls()
 {
 	ValueTree &data = Data::instance().get();
 	ValueTree clientConfig = data.getOrCreateChildWithName(Identifier("BufferConfig"), nullptr);
-	bufferLength_.setValue(clientConfig.getProperty("minPlayoutBuffer", CLIENT_PLAYOUT_JITTER_BUFFER), dontSendNotification);
-	maxLength_.setValue(clientConfig.getProperty("maxPlayoutBuffer", CLIENT_PLAYOUT_MAX_BUFFER), dontSendNotification);
-	useFEC_.setToggleState(clientConfig.getProperty("useFEC", false), dontSendNotification);
-	sliderValueChanged(&bufferLength_);
+	if (!clientConfig.hasProperty(VALUE_MIN_PLAYOUT_BUFFER)) {
+		clientConfig.setProperty(VALUE_MIN_PLAYOUT_BUFFER, CLIENT_PLAYOUT_JITTER_BUFFER, nullptr);
+	}
+	if (!clientConfig.hasProperty(VALUE_MAX_PLAYOUT_BUFFER)) {
+		clientConfig.setProperty(VALUE_MAX_PLAYOUT_BUFFER, CLIENT_PLAYOUT_MAX_BUFFER, nullptr);
+	}
+	if (!clientConfig.hasProperty(VALUE_USE_FEC)) {
+		clientConfig.setProperty(VALUE_USE_FEC, false, nullptr);
+	}
+	bufferLength_.getValueObject().referTo(clientConfig.getPropertyAsValue(VALUE_MIN_PLAYOUT_BUFFER, nullptr));
+	maxLength_.getValueObject().referTo(clientConfig.getPropertyAsValue(VALUE_MAX_PLAYOUT_BUFFER, nullptr));
+	useFEC_.getToggleStateValue().referTo(clientConfig.getPropertyAsValue(VALUE_USE_FEC, nullptr));
 }
 
-void ClientConfigurator::toData() const {
-	ValueTree &data = Data::instance().get();
-	ValueTree clientConfig = data.getOrCreateChildWithName(Identifier("BufferConfig"), nullptr);
-	clientConfig.setProperty("minPlayoutBuffer", bufferLength_.getValue(), nullptr);
-	clientConfig.setProperty("maxPlayoutBuffer", maxLength_.getValue(), nullptr);
-	clientConfig.setProperty("useFEC", useFEC_.getToggleState(), nullptr);
-}

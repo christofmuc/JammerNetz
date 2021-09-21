@@ -55,6 +55,8 @@ source_group(Source\\Resources FILES ${RESOURCE_FILES})
 set(AUDIO_PROCESSING_FILES
 	Source/AudioCallback.cpp
 	Source/AudioCallback.h
+	Source/AudioService.cpp
+	Source/AudioService.h
 	Source/Tuner.cpp
 	Source/Tuner.h
 	Source/Client.cpp

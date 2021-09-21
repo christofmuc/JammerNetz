@@ -12,21 +12,11 @@
 
 class ServerStatus : public Component {
 public:
-	ServerStatus(std::function<void()> notify);
+	ServerStatus();
 
 	void setConnected(bool isReceivingData);
 
 	virtual void resized() override;
-
-	// From ServerInfo struct
-	void fromServerInfo(ServerInfo const& serverInfo);
-
-	// Use this to disconnect
-	void clear();
-
-	// Store to and load from settings
-	void fromData();
-	void toData() const;
 
 private:
 	ServerSelector serverSelector_;

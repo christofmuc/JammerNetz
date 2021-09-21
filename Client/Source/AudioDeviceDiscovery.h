@@ -18,4 +18,14 @@ public:
 
 	static bool canDeviceDoBufferSize(AudioIODeviceType *type, String const &deviceName, bool isInputDevice, int bufferSize);
 	static bool canDeviceDoSampleRate(AudioIODeviceType *type, String const &deviceName, bool isInputDevice, int sampleRate);
+
+	static StringArray allDeviceTypeNames();
+	static AudioIODeviceType* deviceTypeByName(String const& name);
+
+	static void shutdown();
+
+private:
+	static void init();
+	static bool sIsInitialized;
+	static std::unique_ptr<OwnedArray<AudioIODeviceType>> deviceTypes_;
 };

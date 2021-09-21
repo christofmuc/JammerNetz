@@ -9,9 +9,9 @@
 #include "Data.h"
 #include "LayoutConstants.h"
 
-ChannelController::ChannelController(String const &name, String const &id, std::function<void(double, JammerNetzChannelTarget)> updateHandler, 
+ChannelController::ChannelController(String const &name, String const &id, 
 	bool hasVolume /*= true*/, bool hasTarget /*= true*/, bool hasPitch /* = false */) :
-		id_(id), updateHandler_(updateHandler), levelMeter_(name == "Master" ? FFAU::LevelMeter::Default : FFAU::LevelMeter::SingleChannel), 
+		id_(id), levelMeter_(name == "Master" ? FFAU::LevelMeter::Default : FFAU::LevelMeter::SingleChannel), 
 		hasVolume_(hasVolume), hasTarget_(hasTarget), hasPitch_(hasPitch), meterSource_(nullptr), channelNo_(0)
 {
 	channelName_.setText(name, dontSendNotification);
@@ -48,6 +48,8 @@ ChannelController::ChannelController(String const &name, String const &id, std::
 	addAndMakeVisible(channelName_);
 	addAndMakeVisible(levelMeter_);
 	//addAndMakeVisible(muteButton_);
+
+	bindControls();
 }
 
 void ChannelController::resized()
@@ -143,26 +145,19 @@ void ChannelController::enableTargetSelector(bool enabled)
 	channelType_.setEnabled(enabled);
 }
 
-void ChannelController::fromData()
-{
-	ValueTree &data = Data::instance().get();
-	auto channelSettings = data.getChildWithName(id_);
-	if (channelSettings.isValid()) {
-		if (channelSettings.hasProperty("Volume")) {
-			volumeSlider_.setValue(channelSettings.getProperty("Volume").operator float() * 100.0f, dontSendNotification);
-		}
-		if (channelSettings.hasProperty("Target")) {
-			channelType_.setSelectedId(channelSettings.getProperty("Target"), dontSendNotification);
-		}
-	}
-}
-
-void ChannelController::toData() const
+void ChannelController::bindControls()
 {
 	ValueTree &data = Data::instance().get();
 	auto channelSettings = data.getOrCreateChildWithName(id_, nullptr);
-	channelSettings.setProperty("Volume", volumeSlider_.getValue() / 100.0f, nullptr);
-	channelSettings.setProperty("Target", channelType_.getSelectedId(), nullptr);
+	if (!channelSettings.hasProperty("Volume")) {
+		channelSettings.setProperty("Volume", 100.0f, nullptr);
+	}
+	volumeSlider_.getValueObject().referTo(channelSettings.getPropertyAsValue("Volume", nullptr));
+
+	if (!channelSettings.hasProperty("Target")) {
+		channelSettings.setProperty("Target", 1, nullptr);
+	}
+	channelType_.getSelectedIdAsValue().referTo(channelSettings.getPropertyAsValue("Target", nullptr));
 }
 
 void ChannelController::comboBoxChanged(ComboBox* comboBoxThatHasChanged)

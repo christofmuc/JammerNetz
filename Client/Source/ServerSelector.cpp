@@ -11,36 +11,34 @@
 #include "Data.h"
 #include "LayoutConstants.h"
 #include "BuffersConfig.h"
+#include "ApplicationState.h"
 
-ServerSelector::ServerSelector(std::function<void()> notify) : localhostSelected_(false), lastServer_(globalServerInfo.serverName), notify_(notify)
+ServerSelector::ServerSelector() //: localhostSelected_(false), lastServer_(globalServerInfo.serverName)
 {
 	useLocalhost_.setButtonText("Use localhost as server");
-	useLocalhost_.addListener(this);
 	serverLabel_.setText("Server:", dontSendNotification);
-	ipAddress_.setText(lastServer_, dontSendNotification);
-	ipAddress_.onReturnKey = [this]() { updateServerInfo();  };
-	ipAddress_.onEscapeKey = [this]() { ipAddress_.setText(lastServer_, dontSendNotification);  };
+	//ipAddress_.onReturnKey = [this]() { updateServerInfo();  };
+	//ipAddress_.onEscapeKey = [this]() { ipAddress_.setText(lastServer_, dontSendNotification);  };
 	portLabel_.setText("Port:", dontSendNotification);
-	port_.setText(lastPort_, dontSendNotification);
-	port_.onReturnKey = [this]() { updateServerInfo();  };
-	port_.onEscapeKey = [this]() { port_.setText(lastPort_, dontSendNotification);  };
+	//port_.onReturnKey = [this]() { updateServerInfo();  };
+	//port_.onEscapeKey = [this]() { port_.setText(lastPort_, dontSendNotification);  };
 	connectButton_.setButtonText("Connect");
-	connectButton_.onClick = [this]() { updateServerInfo(); };
+	//connectButton_.onClick = [this]() { updateServerInfo(); };
 
 	keyLabel_.setText("Crypto file", dontSendNotification);
 	browseToKey_.setButtonText("Browse...");
 	browseToKey_.onClick = [this]() {
-		FileChooser fileChooser("Select crypto file to use", File(cryptoKeyPath_).getParentDirectory());
+		String cryptoKeyPath = Data::instance().get().getProperty(VALUE_CRYPTOPATH);
+		FileChooser fileChooser("Select crypto file to use", File(cryptoKeyPath).getParentDirectory());
 		if (fileChooser.browseForFileToOpen()) {
-			cryptoKeyPath_ = fileChooser.getResult().getFullPathName();
-			keyPath_.setText(cryptoKeyPath_, dontSendNotification);
+			Data::instance().get().setProperty(VALUE_CRYPTOPATH, fileChooser.getResult().getFullPathName(), nullptr);
 			reloadCryptoKey();
 		}
 	};
-	keyPath_.onEscapeKey = [this]() { keyPath_.setText(cryptoKeyPath_, dontSendNotification);  };
-	keyPath_.onReturnKey = [this]() { cryptoKeyPath_ = keyPath_.getText(); reloadCryptoKey(); };
+	//keyPath_.onEscapeKey = [this]() { keyPath_.setText(cryptoKeyPath_, dontSendNotification);  };
+	keyPath_.onReturnKey = [this]() { reloadCryptoKey(); };
 	loadKeyButton_.setButtonText("Load");
-	loadKeyButton_.onClick = [this]() { cryptoKeyPath_ = keyPath_.getText(); reloadCryptoKey(); };
+	loadKeyButton_.onClick = [this]() { reloadCryptoKey(); };
 
 	addAndMakeVisible(useLocalhost_);
 	addAndMakeVisible(serverLabel_);
@@ -52,13 +50,16 @@ ServerSelector::ServerSelector(std::function<void()> notify) : localhostSelected
 	addAndMakeVisible(keyPath_);
 	addAndMakeVisible(browseToKey_);
 	addAndMakeVisible(loadKeyButton_);
+
+	bindControls();
 }
 
 void ServerSelector::reloadCryptoKey() {
-	globalServerInfo.cryptoKeyfilePath = cryptoKeyPath_.toStdString();
-	notify_();
-	if (cryptoKeyPath_.isNotEmpty()) {
-		AlertWindow::showMessageBox(AlertWindow::InfoIcon, "New key loaded", "The new crypto key was loaded from " + cryptoKeyPath_);
+	// This method really is just to open the dialog in the right moment - the cryptokeypath is watched by somebody else and the file is loaded somewhere else
+	String cryptoKeyPath = Data::instance().get().getProperty(VALUE_CRYPTOPATH);
+	//notify_();
+	if (cryptoKeyPath.isNotEmpty()) {
+		AlertWindow::showMessageBox(AlertWindow::InfoIcon, "New key loaded", "The new crypto key was loaded from " + cryptoKeyPath);
 	}
 	else {
 		AlertWindow::showMessageBox(AlertWindow::WarningIcon, "No key loaded", "Connecting to the server sending with unencrypted audio");
@@ -86,78 +87,32 @@ void ServerSelector::resized()
 	keyPath_.setBounds(lowerRow);
 }
 
-void ServerSelector::fromServerInfo(ServerInfo const& serverInfo)
-{
-	// Set the UI for the data from the ServerInfo struct
-	ipAddress_.setText(serverInfo.serverName, false);
-	lastServer_ = ipAddress_.getText();
-	port_.setText(String(serverInfo.serverPort), false);
-	lastPort_ = port_.getText();
-	useLocalhost_.setToggleState(false, dontSendNotification);
-	keyPath_.setText(serverInfo.cryptoKeyfilePath);
-	cryptoKeyPath_ = keyPath_.getText();
-	globalServerInfo.cryptoKeyfilePath = cryptoKeyPath_.toStdString(); // TODO This is ugly double data
-	globalServerInfo.serverName = lastServer_.toStdString();
-	globalServerInfo.serverPort = lastPort_.toStdString();
-	notify_();
-}
-
-void ServerSelector::clear()
-{
-	ServerInfo serverInfo;
-	serverInfo.bufferSize = SAMPLE_BUFFER_SIZE;
-	serverInfo.sampleRate = SAMPLE_RATE;
-	serverInfo.cryptoKeyfilePath = "";
-	serverInfo.serverName = "";
-	serverInfo.serverPort = "";
-	fromServerInfo(serverInfo);
-}
-
-void ServerSelector::fromData()
+void ServerSelector::bindControls()
 {
 	ValueTree &data = Data::instance().get();
-	if (data.hasProperty("ServerName")) {
-		ipAddress_.setText(data.getProperty("ServerName"), true);
-		lastServer_ = ipAddress_.getText();
+	if (!data.hasProperty(VALUE_SERVER_NAME)) {
 	}
-	if (data.hasProperty("Port")) {
-		port_.setText(data.getProperty("Port"), true);
+	ipAddress_.getTextValue().referTo(data.getPropertyAsValue(VALUE_SERVER_NAME, nullptr));
+	//lastServer_ = ipAddress_.getText();
+
+	if (!data.hasProperty(VALUE_SERVER_PORT)) {
+		data.setProperty(VALUE_SERVER_PORT, 7777, nullptr);
 	}
-	else {
-		port_.setText("7777", true);
+	port_.getTextValue().referTo(data.getPropertyAsValue(VALUE_SERVER_PORT, nullptr));
+	//lastPort_ = port_.getText();
+
+	if (!data.hasProperty(VALUE_USE_LOCALHOST)) {
+		data.setProperty(VALUE_USE_LOCALHOST, false, nullptr);
 	}
-	lastPort_ = port_.getText();
-	if (data.hasProperty("UseLocalhost")) {
-		useLocalhost_.setToggleState(data.getProperty("UseLocalhost"), dontSendNotification);
+	useLocalhost_.getToggleStateValue().referTo(data.getPropertyAsValue(VALUE_USE_LOCALHOST, nullptr));
+
+	if (!data.hasProperty(VALUE_CRYPTOPATH)) {
+		data.setProperty(VALUE_CRYPTOPATH, "", nullptr);
 	}
-	if (data.hasProperty("CryptoFilePath")) {
-		keyPath_.setText(data.getProperty("CryptoFilePath"), true);
-		cryptoKeyPath_ = keyPath_.getText();
-		globalServerInfo.cryptoKeyfilePath = cryptoKeyPath_.toStdString(); // TODO This is ugly double data
-	}
-	buttonClicked(&useLocalhost_);
+	keyPath_.getTextValue().referTo(data.getPropertyAsValue(VALUE_CRYPTOPATH, nullptr));
 }
 
-void ServerSelector::toData() const
-{
-	ValueTree &data = Data::instance().get();
-	data.setProperty("ServerName", ipAddress_.getText(), nullptr);
-	data.setProperty("Port", port_.getText(), nullptr);
-	data.setProperty("UseLocalhost", useLocalhost_.getToggleState(), nullptr);
-	data.setProperty("CryptoFilePath", keyPath_.getText(), nullptr);
-}
-
-void ServerSelector::updateServerInfo()
-{
-	lastServer_ = ipAddress_.getText();
-	lastPort_ = port_.getText();
-	useLocalhost_.unfocusAllComponents();
-	globalServerInfo.serverName = lastServer_.toStdString();
-	globalServerInfo.serverPort = lastPort_.toStdString();
-	notify_();
-}
-
-void ServerSelector::buttonClicked(Button *button)
+/*void ServerSelector::buttonClicked(Button *button)
 {
 	localhostSelected_ = button->getToggleState();
 	ipAddress_.setEnabled(!localhostSelected_);
@@ -169,4 +124,4 @@ void ServerSelector::buttonClicked(Button *button)
 		globalServerInfo.serverPort = lastPort_.toStdString();
 	}
 	notify_();
-}
+}*/
