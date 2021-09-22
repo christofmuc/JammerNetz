@@ -24,7 +24,6 @@ AudioService::AudioService()
 	listeners_.push_back(std::make_unique<ValueListener>(Data::instance().get().getPropertyAsValue(VALUE_INPUT_SETUP, nullptr), [this](Value& value) {
 		restartAudio();
 	}));
-
 }
 
 AudioService::~AudioService()
