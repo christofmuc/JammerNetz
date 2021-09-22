@@ -88,7 +88,7 @@ DeviceSelector::DeviceSelector(String const& title, bool showTitle, bool inputIn
 					auto channels = inputDevices_ ? selectedDevice->getInputChannelNames() : selectedDevice->getOutputChannelNames();
 					ValueTree channelProps = deviceSelector.getOrCreateChildWithName(VALUE_CHANNELS, nullptr);
 					jassert(channelProps.isAChildOf(deviceSelector));
-					channelProps.removeAllChildren(nullptr);
+					//channelProps.removeAllChildren(nullptr);
 					channelProps.setProperty(VALUE_CHANNEL_COUNT, channels.size(), nullptr);
 					int index = 0;
 					for (auto channel : channels) {
@@ -132,6 +132,11 @@ DeviceSelector::DeviceSelector(String const& title, bool showTitle, bool inputIn
 	addAndMakeVisible(scrollList_);
 
 	bindControls();
+
+	// After construction, we need to fire each update trigger to make sure the combo boxes are filled 
+	MessageManager::callAsync([this]() {
+		for_each(listeners_.begin(), listeners_.end(), [](std::unique_ptr<ValueListener>& ptr) { ptr->triggerOnChanged();  });
+	});
 }
 
 DeviceSelector::~DeviceSelector()
