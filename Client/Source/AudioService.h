@@ -34,7 +34,8 @@ public:
 	std::shared_ptr<ChannelSetup> getOutputSetup() const;
 
 	FFAU::LevelMeterSource* getInputMeterSource();
-
+	FFAU::LevelMeterSource* getOutputMeterSource();
+	FFAU::LevelMeterSource* getSessionMeterSource();
 
 private:
 	virtual void valueTreePropertyChanged(ValueTree& treeWhosePropertyHasChanged, const Identifier& property) override;

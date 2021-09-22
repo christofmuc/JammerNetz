@@ -43,8 +43,7 @@ MainComponent::MainComponent(String clientID, std::shared_ptr<AudioService> audi
 	//playalongDisplay_ = std::make_unique<PlayalongDisplay>(callback_.getPlayalong());
 	localRecordingInfo_ = std::make_unique<RecordingInfo>(localRecorder, "Press to record yourself only");
 
-	//outputController_.setMeterSource(callback_.getOutputMeterSource(), -1);
-
+	outputController_.setMeterSource(audioService_->getOutputMeterSource(), -1);
 	
 	nameLabel_.setText("My name", dontSendNotification);
 	listeners_.push_back(std::make_unique<ValueListener>(Data::instance().get().getPropertyAsValue(VALUE_USER_NAME, nullptr), [this](Value &value) {

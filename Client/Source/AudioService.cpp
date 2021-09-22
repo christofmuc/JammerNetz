@@ -87,6 +87,16 @@ FFAU::LevelMeterSource* AudioService::getInputMeterSource()
 	return callback_.getMeterSource();
 }
 
+FFAU::LevelMeterSource* AudioService::getOutputMeterSource()
+{
+	return callback_.getOutputMeterSource();
+}
+
+FFAU::LevelMeterSource* AudioService::getSessionMeterSource()
+{
+	return callback_.getSessionMeterSource();
+}
+
 void AudioService::valueTreePropertyChanged(ValueTree& treeWhosePropertyHasChanged, const Identifier& property)
 {
 	if (ValueTreeUtils::isChildOf(VALUE_INPUT_SETUP, treeWhosePropertyHasChanged) || 
