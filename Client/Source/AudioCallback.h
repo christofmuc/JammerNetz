@@ -24,7 +24,7 @@
 
 class AudioCallback : public AudioIODeviceCallback {
 public:
-	AudioCallback(AudioDeviceManager &deviceManager);
+	AudioCallback();
 	virtual ~AudioCallback();
 
 	virtual void audioDeviceIOCallback(const float** inputChannelData, int numInputChannels, float** outputChannelData, int numOutputChannels, int numSamples) override;

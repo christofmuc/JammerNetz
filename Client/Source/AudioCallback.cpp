@@ -14,7 +14,7 @@
 
 #include "Encryption.h"
 
-AudioCallback::AudioCallback(AudioDeviceManager &deviceManager) : jammerService_([this](std::shared_ptr < JammerNetzAudioData> buffer) { playBuffer_.push(buffer); }),
+AudioCallback::AudioCallback() : jammerService_([this](std::shared_ptr < JammerNetzAudioData> buffer) { playBuffer_.push(buffer); }),
 	toPlayLatency_(0.0), currentPlayQueueLength_(0), discardedPackageCounter_(0), playBuffer_("server"), bufferPool_(10)
 {
 	isPlaying_ = false;
@@ -26,7 +26,6 @@ AudioCallback::AudioCallback(AudioDeviceManager &deviceManager) : jammerService_
 	uploadRecorder_ = std::make_shared<Recorder>(Settings::instance().getSessionStorageDir(), "LocalRecording", RecordingType::WAV);
 	masterRecorder_ = std::make_shared<Recorder>(Settings::instance().getSessionStorageDir(), "MasterRecording", RecordingType::FLAC);
 	masterRecorder_->setChannelInfo(SAMPLE_RATE, JammerNetzChannelSetup({ JammerNetzChannelTarget::Left, JammerNetzChannelTarget::Right }));
-	ignoreUnused(deviceManager);
 	//midiRecorder_ = std::make_unique<MidiRecorder>(deviceManager);
 
 	// We might want to share a score sheet or similar

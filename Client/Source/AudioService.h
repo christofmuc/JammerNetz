@@ -40,7 +40,6 @@ private:
 	void restartAudio();
 	void restartAudio(std::shared_ptr<ChannelSetup> inputSetup, std::shared_ptr<ChannelSetup> outputSetup);
 
-	juce::AudioDeviceManager deviceManager_;
 	std::shared_ptr<juce::AudioIODevice> audioDevice_;
 
 	AudioCallback callback_;

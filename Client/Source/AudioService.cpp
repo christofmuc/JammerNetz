@@ -11,7 +11,7 @@
 #include "BuffersConfig.h"
 #include "AudioDeviceDiscovery.h"
 
-AudioService::AudioService() : callback_(deviceManager_)
+AudioService::AudioService() 
 {
 	// Put the list into the ephemeral app data (not stored across runs of the software)
 	auto& data = Data::instance().getEphemeral();
