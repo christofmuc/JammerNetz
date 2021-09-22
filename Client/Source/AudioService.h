@@ -25,6 +25,8 @@ public:
 	AudioService();
 	~AudioService();
 
+	bool isConnected();
+
 	void stopAudioIfRunning();
 
 	std::shared_ptr<Recorder> getMasterRecorder() const;
@@ -32,6 +34,8 @@ public:
 	
 	std::shared_ptr<ChannelSetup> getInputSetup() const;
 	std::shared_ptr<ChannelSetup> getOutputSetup() const;
+
+	JammerNetzChannelSetup getSessionSetup();
 
 	FFAU::LevelMeterSource* getInputMeterSource();
 	FFAU::LevelMeterSource* getOutputMeterSource();

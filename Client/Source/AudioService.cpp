@@ -27,6 +27,11 @@ AudioService::~AudioService()
 	AudioDeviceDiscovery::shutdown();
 }
 
+bool AudioService::isConnected() 
+{
+	return callback_.isReceivingData();
+}
+
 void AudioService::refreshChannelSetup(std::shared_ptr<ChannelSetup> setup)
 {
 	JammerNetzChannelSetup channelSetup;
@@ -80,6 +85,11 @@ std::shared_ptr<ChannelSetup> AudioService::getInputSetup() const
 std::shared_ptr<ChannelSetup> AudioService::getOutputSetup() const
 {
 	return getSetup(Data::instance().get().getChildWithName(VALUE_OUTPUT_SETUP));
+}
+
+JammerNetzChannelSetup AudioService::getSessionSetup()
+{
+	return callback_.getSessionSetup();
 }
 
 FFAU::LevelMeterSource* AudioService::getInputMeterSource() 

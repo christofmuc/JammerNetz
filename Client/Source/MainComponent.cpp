@@ -309,11 +309,11 @@ void MainComponent::timerCallback()
 	}
 	else {
 		fillConnectedClientsStatistics();
-	}
+	}*/
 
-	serverStatus_.setConnected(callback_.isReceivingData());
+	serverStatus_.setConnected(audioService_->isConnected());
 
-	// Refresh tuning info for my own channels
+	/*// Refresh tuning info for my own channels
 	for (int i = 0; i < ownChannels_.numChannels(); i++) {
 		ownChannels_.setPitchDisplayed(i, MidiNote(callback_.channelPitch(i)));
 	}
@@ -322,14 +322,15 @@ void MainComponent::timerCallback()
 		for (int i = 0; i < currentSessionSetup_->channels.size(); i++) {
 			allChannels_.setPitchDisplayed(i, MidiNote(callback_.sessionPitch(i)));
 		}
-	}
+	}*/
 
 	// Refresh session participants in case this changed!
-	if (!currentSessionSetup_ || !(currentSessionSetup_->isEqualEnough(callback_.getSessionSetup()))) {
-		currentSessionSetup_ = std::make_shared<JammerNetzChannelSetup>(callback_.getSessionSetup());
+	auto thisSetup = audioService_->getSessionSetup();
+	if (!currentSessionSetup_ || !(currentSessionSetup_->isEqualEnough(thisSetup))) {
+		currentSessionSetup_ = std::make_shared<JammerNetzChannelSetup>(thisSetup);
 		// Setup changed, need to re-init UI
-		allChannels_.setup(currentSessionSetup_, callback_.getSessionMeterSource());
-	}*/
+		allChannels_.setup(currentSessionSetup_, audioService_->getSessionMeterSource());
+	}
 }
 
 void MainComponent::inputSetupChanged() {
