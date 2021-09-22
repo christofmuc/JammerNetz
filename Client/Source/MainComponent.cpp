@@ -50,6 +50,8 @@ MainComponent::MainComponent(String clientID, std::shared_ptr<AudioService> audi
 	listeners_.push_back(std::make_unique<ValueListener>(Data::instance().get().getPropertyAsValue(VALUE_USER_NAME, nullptr), [this](Value &value) {
 		nameEntry_.setText(value.toString(), dontSendNotification);
 	}));
+	for_each(listeners_.begin(), listeners_.end(), [](std::unique_ptr<ValueListener>& ptr) { ptr->triggerOnChanged();  });
+
 	nameChange_.setButtonText("Change");
 	nameChange_.onClick = [this]() { updateUserName();  };
 	nameEntry_.onEscapeKey = [this]() { nameEntry_.setText(Data::instance().get().getProperty(VALUE_USER_NAME), dontSendNotification);  };
@@ -347,6 +349,4 @@ void MainComponent::inputSetupChanged() {
 
 void MainComponent::updateUserName() {
 	Data::instance().get().setProperty(VALUE_USER_NAME, nameEntry_.getText(), nullptr);
-	Data::instance().saveToSettings(); // TODO This should be automatic!
-	//refreshChannelSetup(currentInputSetup_); // TODO This should not be necessary!
 }
