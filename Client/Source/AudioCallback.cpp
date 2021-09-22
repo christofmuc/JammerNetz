@@ -14,7 +14,7 @@
 
 #include "Encryption.h"
 
-AudioCallback::AudioCallback(AudioDeviceManager &deviceManager) : client_([this](std::shared_ptr < JammerNetzAudioData> buffer) { playBuffer_.push(buffer); }),
+AudioCallback::AudioCallback(AudioDeviceManager &deviceManager) : jammerService_([this](std::shared_ptr < JammerNetzAudioData> buffer) { playBuffer_.push(buffer); }),
 	toPlayLatency_(0.0), currentPlayQueueLength_(0), discardedPackageCounter_(0), playBuffer_("server"), bufferPool_(10)
 {
 	isPlaying_ = false;
@@ -36,6 +36,10 @@ AudioCallback::AudioCallback(AudioDeviceManager &deviceManager) : client_([this]
 	tuner_ = std::make_unique<Tuner>();
 }
 
+AudioCallback::~AudioCallback()
+{	
+}
+
 void AudioCallback::clearOutput(float** outputChannelData, int numOutputChannels, int numSamples) {
 	// Clear out the buffer so we do not play noise
 	for (int i = 0; i < numOutputChannels; i++) {
@@ -45,7 +49,7 @@ void AudioCallback::clearOutput(float** outputChannelData, int numOutputChannels
 
 void AudioCallback::newServer()
 {
-	if (!globalServerInfo.cryptoKeyfilePath.empty()) {
+	/*if (!globalServerInfo.cryptoKeyfilePath.empty()) {
 		// Reload crypto key
 		std::shared_ptr<MemoryBlock> cryptoKey;
 		if (UDPEncryption::loadKeyfile(globalServerInfo.cryptoKeyfilePath.c_str(), &cryptoKey)) {
@@ -58,7 +62,7 @@ void AudioCallback::newServer()
 	else {
 		// Turn off encryption
 		setCryptoKey(nullptr, 0);
-	}
+	}*/
 
 	// Reset counters etc
 	minPlayoutBufferLength_ = CLIENT_PLAYOUT_JITTER_BUFFER;
@@ -127,7 +131,7 @@ void AudioCallback::audioDeviceIOCallback(const float** inputChannelData, int nu
 		}
 	}
 
-	client_.sendData(channelSetup_, audioBuffer); //TODO offload the real sending to a different thread
+	jammerService_.sender()->sendData(channelSetup_, audioBuffer); //TODO offload the real sending to a different thread
 	if (uploadRecorder_ && uploadRecorder_->isRecording()) {
 		uploadRecorder_->saveBlock(audioBuffer->getArrayOfReadPointers(), audioBuffer->getNumSamples());
 	}
@@ -179,7 +183,7 @@ void AudioCallback::audioDeviceIOCallback(const float** inputChannelData, int nu
 			}
 
 			// Calculate the RMS and mag displays for the other session participants
-			auto session = client_.getCurrentSessionSetup();
+			auto session = jammerService_.receiver()->sessionSetup();
 			std::vector<float> magnitudes;
 			std::vector<float> rmss;
 			for (const auto& channel : session.channels) {
@@ -235,16 +239,6 @@ void AudioCallback::changeClientConfig(int clientBuffers, int maxBuffers)
 	maxPlayoutBufferLength_ = maxBuffers;
 }
 
-void AudioCallback::setFEC(bool fec)
-{
-	client_.setSendFECData(fec);
-}
-
-void AudioCallback::setCryptoKey(const void* keyData, int keyBytes)
-{
-	client_.setCryptoKey(keyData, keyBytes);
-}
-
 FFAU::LevelMeterSource* AudioCallback::getMeterSource()
 {
 	return &meterSource_;
@@ -280,9 +274,9 @@ uint64 AudioCallback::currentBufferSize() const
 	return minPlayoutBufferLength_;
 }
 
-int AudioCallback::currentPacketSize() const
+int AudioCallback::currentPacketSize()
 {
-	return client_.getCurrentBlockSize();
+	return jammerService_.sender()->getCurrentBlockSize();
 }
 
 uint64 AudioCallback::currentPlayQueueSize() const
@@ -311,14 +305,14 @@ double AudioCallback::currentSampleRate() const
 	return (numSamplesSinceStart_) / (double)(timeElapsed.count() / (double) 1e9);
 }
 
-bool AudioCallback::isReceivingData() const
+bool AudioCallback::isReceivingData() 
 {
-	return client_.isReceivingData();
+	return jammerService_.receiver()->isReceivingData();
 }
 
-double AudioCallback::currentRTT() const
+double AudioCallback::currentRTT() 
 {
-	return client_.currentRTT();
+	return jammerService_.receiver()->currentRTT();
 }
 
 float AudioCallback::channelPitch(int channel) const
@@ -326,7 +320,7 @@ float AudioCallback::channelPitch(int channel) const
 	return tuner_->getPitch(channel);
 }
 
-float AudioCallback::sessionPitch(int channel) const {
+float AudioCallback::sessionPitch(int channel) {
 	auto setup = getSessionSetup();
 	if (channel < setup.channels.size())
 		return setup.channels[channel].pitch;
@@ -343,13 +337,13 @@ std::shared_ptr<Recorder> AudioCallback::getLocalRecorder() const
 	return uploadRecorder_;
 }
 
-std::shared_ptr<JammerNetzClientInfoMessage> AudioCallback::getClientInfo() const
+std::shared_ptr<JammerNetzClientInfoMessage> AudioCallback::getClientInfo() 
 {
-	return client_.getClientInfo();
+	return jammerService_.receiver()->getClientInfo();
 }
 
-JammerNetzChannelSetup AudioCallback::getSessionSetup() const
+JammerNetzChannelSetup AudioCallback::getSessionSetup() 
 {
-	return client_.getCurrentSessionSetup();
+	return jammerService_.receiver()->sessionSetup();
 }
 

@@ -12,7 +12,8 @@
 
 #include "Pool.h"
 
-#include "Client.h"
+#include "JammerService.h"
+
 #include "PacketStreamQueue.h"
 #include "Recorder.h"
 #include "Tuner.h"
@@ -24,6 +25,7 @@
 class AudioCallback : public AudioIODeviceCallback {
 public:
 	AudioCallback(AudioDeviceManager &deviceManager);
+	virtual ~AudioCallback();
 
 	virtual void audioDeviceIOCallback(const float** inputChannelData, int numInputChannels, float** outputChannelData, int numOutputChannels, int numSamples) override;
 	virtual void audioDeviceAboutToStart(AudioIODevice* device) override;
@@ -32,9 +34,6 @@ public:
 	void newServer();
 	void setChannelSetup(JammerNetzChannelSetup const &channelSetup);
 	void changeClientConfig(int clientBuffers, int maxBuffers);
-	void setFEC(bool fec);
-
-	void setCryptoKey(const void* keyData, int keyBytes);
 
 	FFAU::LevelMeterSource* getMeterSource();
 	FFAU::LevelMeterSource* getSessionMeterSource();
@@ -45,25 +44,28 @@ public:
 	// Statistics
 	int64 numberOfUnderruns() const;
 	uint64 currentBufferSize() const;
-	int currentPacketSize() const;
+	int currentPacketSize();
 	uint64 currentPlayQueueSize() const;
 	int currentDiscardedPackageCounter() const;
 	double currentToPlayLatency() const;
 
 	std::string currentReceptionQuality() const;
 	double currentSampleRate() const;
-	bool isReceivingData() const;
-	double currentRTT() const;
+	bool isReceivingData();
+	double currentRTT();
 	float channelPitch(int channel) const;
-	float sessionPitch(int channel) const;
+	float sessionPitch(int channel);
 
 	std::shared_ptr<Recorder> getMasterRecorder() const;
 	std::shared_ptr<Recorder> getLocalRecorder() const;
-	std::shared_ptr<JammerNetzClientInfoMessage> getClientInfo() const;
-	JammerNetzChannelSetup getSessionSetup() const;
+	std::shared_ptr<JammerNetzClientInfoMessage> getClientInfo();
+	JammerNetzChannelSetup getSessionSetup();
+
 private:
 	void clearOutput(float** outputChannelData, int numOutputChannels, int numSamples);
 	void samplesPerTime(int numSamples);
+
+	JammerService jammerService_;
 
 	PacketStreamQueue playBuffer_;
 	std::atomic_bool isPlaying_;
@@ -75,7 +77,6 @@ private:
 	std::atomic_int64_t numSamplesSinceStart_;
 	int discardedPackageCounter_;
 	double toPlayLatency_;
-	Client client_;
 	JammerNetzChannelSetup channelSetup_;
 	FFAU::LevelMeterSource meterSource_; // This is for peak metering
 	FFAU::LevelMeterSource sessionMeterSource_; // This is to display the complete session peak meters

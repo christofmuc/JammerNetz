@@ -57,6 +57,8 @@ set(AUDIO_PROCESSING_FILES
 	Source/AudioCallback.h
 	Source/AudioService.cpp
 	Source/AudioService.h
+	Source/JammerService.cpp
+	Source/JammerService.h
 	Source/Tuner.cpp
 	Source/Tuner.h
 	Source/Client.cpp

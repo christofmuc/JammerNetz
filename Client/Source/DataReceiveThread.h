@@ -11,6 +11,8 @@
 #include "JammerNetzPackage.h"
 #include "JammerNetzClientInfoMessage.h"
 
+#include "ApplicationState.h"
+
 class DataReceiveThread : public Thread {
 public:
 	DataReceiveThread(DatagramSocket & socket, std::function<void(std::shared_ptr<JammerNetzAudioData>)> newDataHandler);
@@ -23,9 +25,9 @@ public:
 	JammerNetzChannelSetup sessionSetup() const;
 	std::shared_ptr<JammerNetzClientInfoMessage> getClientInfo() const;
 
+private:
 	void setCryptoKey(const void* keyData, int keyBytes);
 
-private:
 	DatagramSocket &socket_;
 	uint8 readbuffer_[MAXFRAMESIZE];
 	std::function<void(std::shared_ptr<JammerNetzAudioData>)> newDataHandler_;
@@ -40,4 +42,7 @@ private:
 	JammerNetzChannelSetup currentSession_;
 	CriticalSection sessionDataLock_;
 	std::shared_ptr<JammerNetzClientInfoMessage> lastClientInfoMessage_;
+
+	// Generic listeners, required to maintain the lifetime of the Values and their listeners
+	std::vector<std::unique_ptr<ValueListener>> listeners_;
 };

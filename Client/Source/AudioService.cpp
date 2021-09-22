@@ -29,6 +29,7 @@ AudioService::AudioService() : callback_(deviceManager_)
 
 AudioService::~AudioService()
 {
+	stopAudioIfRunning();
 	AudioDeviceDiscovery::shutdown();
 }
 
