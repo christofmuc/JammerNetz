@@ -124,7 +124,8 @@ if(UNIX AND NOT APPLE)
 	add_definitions(-fPIC)
 ENDIF()
 
-# Adding JUCE 6.0
+# Adding JUCE 6.1.x
+ADD_DEFINITIONS(-DJUCE_MODAL_LOOPS_PERMITTED)
 add_subdirectory("third_party/JUCE")
 
 # Build a static library from juce 
