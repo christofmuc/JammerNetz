@@ -158,7 +158,7 @@ void MainComponent::resized()
 	int deviceSelectorWidth = std::min(area.getWidth() / 4, 250);
 	int masterMixerWidth = 100; // Stereo mixer
 
-	auto numInputMixers = 1; //TODO
+	auto numInputMixers = ownChannels_.numChannels();
 
 	int inputMixerWidth = masterMixerWidth * numInputMixers + deviceSelectorWidth + 2 * kNormalInset;
 
@@ -342,6 +342,7 @@ void MainComponent::timerCallback()
 void MainComponent::inputSetupChanged() {
 	// Rebuild UI for the channel controllers, and provide a callback to change the data in the Audio callback sent to the server
 	ownChannels_.setup(audioService_->getInputSetup(), audioService_->getInputMeterSource());
+	resized();
 }
 
 void MainComponent::updateUserName() {
