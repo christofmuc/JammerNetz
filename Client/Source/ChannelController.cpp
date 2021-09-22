@@ -9,6 +9,8 @@
 #include "Data.h"
 #include "LayoutConstants.h"
 
+#include "ApplicationState.h"
+
 ChannelController::ChannelController(String const &name, String const &id, 
 	bool hasVolume /*= true*/, bool hasTarget /*= true*/, bool hasPitch /* = false */) :
 		id_(id), levelMeter_(name == "Master" ? FFAU::LevelMeter::Default : FFAU::LevelMeter::SingleChannel), 
@@ -148,16 +150,17 @@ void ChannelController::enableTargetSelector(bool enabled)
 void ChannelController::bindControls()
 {
 	ValueTree &data = Data::instance().get();
-	auto channelSettings = data.getOrCreateChildWithName(id_, nullptr);
-	if (!channelSettings.hasProperty("Volume")) {
-		channelSettings.setProperty("Volume", 100.0f, nullptr);
+	auto mixer = data.getOrCreateChildWithName(VALUE_MIXER, nullptr);
+	auto channelSettings = mixer.getOrCreateChildWithName(id_, nullptr);
+	if (!channelSettings.hasProperty(VALUE_VOLUME)) {
+		channelSettings.setProperty(VALUE_VOLUME, 100.0f, nullptr);
 	}
-	volumeSlider_.getValueObject().referTo(channelSettings.getPropertyAsValue("Volume", nullptr));
+	volumeSlider_.getValueObject().referTo(channelSettings.getPropertyAsValue(VALUE_VOLUME, nullptr));
 
-	if (!channelSettings.hasProperty("Target")) {
-		channelSettings.setProperty("Target", 1, nullptr);
+	if (!channelSettings.hasProperty(VALUE_TARGET)) {
+		channelSettings.setProperty(VALUE_TARGET, 1, nullptr);
 	}
-	channelType_.getSelectedIdAsValue().referTo(channelSettings.getPropertyAsValue("Target", nullptr));
+	channelType_.getSelectedIdAsValue().referTo(channelSettings.getPropertyAsValue(VALUE_TARGET, nullptr));
 }
 
 void ChannelController::comboBoxChanged(ComboBox* comboBoxThatHasChanged)

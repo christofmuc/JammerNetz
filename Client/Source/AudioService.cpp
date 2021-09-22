@@ -36,9 +36,16 @@ void AudioService::refreshChannelSetup(std::shared_ptr<ChannelSetup> setup)
 {
 	JammerNetzChannelSetup channelSetup;
 	if (setup) {
+		auto mixer = Data::instance().get().getChildWithName(VALUE_MIXER);
+		jassert(mixer.isValid());
 		for (int i = 0; i < setup->activeChannelIndices.size(); i++) {
-			JammerNetzSingleChannelSetup channel(JammerNetzChannelTarget::Mono /*(uint8)ownChannels_.getCurrentTarget(i)*/); //TODO
-			channel.volume = 1.0f; // ownChannels_.getCurrentVolume(i);
+			String inputController = "Input" + String(i);
+			auto controllerData = mixer.getChildWithName(inputController);
+			jassert(controllerData.isValid());
+			int target = controllerData.getProperty(VALUE_TARGET, JammerNetzChannelTarget::Mono);
+			JammerNetzSingleChannelSetup channel(target - 1); 
+			double volume = controllerData.getProperty(VALUE_VOLUME, 100.0);
+			channel.volume = (float)volume/100.0f;
 			auto username = Data::instance().get().getProperty(VALUE_USER_NAME).toString().toStdString();
 			channel.name = setup->activeChannelIndices.size() > 1 ? username + " " + setup->activeChannelNames[i] : username;
 			// Not more than 20 characters please
@@ -114,6 +121,9 @@ void AudioService::valueTreePropertyChanged(ValueTree& treeWhosePropertyHasChang
 		debouncer_.callDebounced([this]() {
 			restartAudio();
 		}, 250);
+	}
+	else if (ValueTreeUtils::isChildOf(VALUE_MIXER, treeWhosePropertyHasChanged) || property.toString() == VALUE_USER_NAME) {
+		refreshChannelSetup(getSetup(Data::instance().get().getChildWithName(VALUE_INPUT_SETUP)));
 	}
 }
 
