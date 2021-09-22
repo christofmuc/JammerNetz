@@ -11,7 +11,7 @@
 #include "StreamLogger.h"
 #include "BuffersConfig.h"
 #include "Settings.h"
-
+#include "Data.h"
 #include "Encryption.h"
 
 AudioCallback::AudioCallback() : jammerService_([this](std::shared_ptr < JammerNetzAudioData> buffer) { playBuffer_.push(buffer); }),
@@ -33,6 +33,16 @@ AudioCallback::AudioCallback() : jammerService_([this](std::shared_ptr < JammerN
 
 	// We want to be able to tune our instruments
 	tuner_ = std::make_unique<Tuner>();
+
+	// Setup listeners 
+	listeners_.push_back(std::make_unique<ValueListener>(Data::instance().get().getPropertyAsValue(VALUE_MIN_PLAYOUT_BUFFER, nullptr), [this](Value& newValue) {
+		minPlayoutBufferLength_ = (int) newValue.getValue();
+	}));
+	listeners_.push_back(std::make_unique<ValueListener>(Data::instance().get().getPropertyAsValue(VALUE_MAX_PLAYOUT_BUFFER, nullptr), [this](Value& newValue) {
+		maxPlayoutBufferLength_ = (int)newValue.getValue();
+	}));
+	// Execute the listeners so we read the current value from the setting file
+	for_each(listeners_.begin(), listeners_.end(), [](std::unique_ptr<ValueListener>& ptr) { ptr->triggerOnChanged();  });
 }
 
 AudioCallback::~AudioCallback()
@@ -230,12 +240,6 @@ void AudioCallback::setChannelSetup(JammerNetzChannelSetup const &channelSetup)
 			midiRecorder_->startRecording();
 		}
 	}
-}
-
-void AudioCallback::changeClientConfig(int clientBuffers, int maxBuffers)
-{
-	minPlayoutBufferLength_ = clientBuffers;
-	maxPlayoutBufferLength_ = maxBuffers;
 }
 
 FFAU::LevelMeterSource* AudioCallback::getMeterSource()

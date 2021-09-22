@@ -20,6 +20,8 @@
 #include "MidiRecorder.h"
 #include "MidiPlayAlong.h"
 
+#include "ApplicationState.h"
+
 #include <chrono>
 
 class AudioCallback : public AudioIODeviceCallback {
@@ -33,7 +35,6 @@ public:
 
 	void newServer();
 	void setChannelSetup(JammerNetzChannelSetup const &channelSetup);
-	void changeClientConfig(int clientBuffers, int maxBuffers);
 
 	FFAU::LevelMeterSource* getMeterSource();
 	FFAU::LevelMeterSource* getSessionMeterSource();
@@ -93,6 +94,9 @@ private:
 	std::chrono::time_point<std::chrono::steady_clock> lastTime_;
 
 	Pool<AudioBuffer<float>> bufferPool_;
+
+	// Generic listeners, required to maintain the lifetime of the Values and their listeners
+	std::vector<std::unique_ptr<ValueListener>> listeners_;
 };
 
 
