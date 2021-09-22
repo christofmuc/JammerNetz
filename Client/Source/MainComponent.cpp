@@ -227,14 +227,6 @@ void MainComponent::resized()
 	outputController_.setBounds(outputArea);
 }
 
-bool isChildOf(Identifier searchFor, ValueTree child) {
-	if (!child.isValid())
-		return false;
-	if (child.getType() == searchFor)
-		return true;
-	return isChildOf(searchFor, child.getParent());
-}
-
 void MainComponent::valueTreePropertyChanged(ValueTree& treeWhosePropertyHasChanged, const Identifier& property)
 {
 	String propertyName = property.toString();
@@ -246,7 +238,7 @@ void MainComponent::valueTreePropertyChanged(ValueTree& treeWhosePropertyHasChan
 	logView_.addMessageToList(propertyName + " updated: " + treeWhosePropertyHasChanged.getProperty(property).toString());
 
 	// Check if this was an input channel definition?
-	if (isChildOf(VALUE_INPUT_SETUP, treeWhosePropertyHasChanged)) {
+	if (ValueTreeUtils::isChildOf(VALUE_INPUT_SETUP, treeWhosePropertyHasChanged)) {
 		inputSetupChanged();
 	}
 }

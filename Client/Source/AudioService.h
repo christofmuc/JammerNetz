@@ -8,6 +8,8 @@
 
 #include "AudioCallback.h"
 #include "ApplicationState.h"
+#include "DebounceTimer.h"
+
 
 struct ChannelSetup {
 	std::string typeName;
@@ -18,7 +20,7 @@ struct ChannelSetup {
 };
 
 
-class AudioService {
+class AudioService : private ValueTree::Listener {
 public:
 	AudioService();
 	~AudioService();
@@ -33,7 +35,10 @@ public:
 
 	FFAU::LevelMeterSource* getInputMeterSource();
 
+
 private:
+	virtual void valueTreePropertyChanged(ValueTree& treeWhosePropertyHasChanged, const Identifier& property) override;
+
 	std::shared_ptr<ChannelSetup> getSetup(ValueTree data) const;
 
 	void refreshChannelSetup(std::shared_ptr<ChannelSetup> setup);
@@ -43,7 +48,5 @@ private:
 	std::shared_ptr<juce::AudioIODevice> audioDevice_;
 
 	AudioCallback callback_;
-
-	// Generic listeners, required to maintain the lifetime of the Values and their listeners
-	std::vector<std::unique_ptr<ValueListener>> listeners_;
+	DebounceTimer debouncer_;
 };

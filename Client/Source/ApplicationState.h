@@ -29,30 +29,21 @@ constexpr const char* VALUE_CHANNEL_NAME = "ChannelName";
 
 constexpr const char* EPHEMERAL_VALUE_DEVICE_TYPES_AVAILABLE = "AudioDeviceTypes";
 
-
 class ValueListener : public juce::Value::Listener {
 public:
-	ValueListener(Value value, std::function<void(Value& newValue)> onChanged) : value_(value), onChanged_(onChanged) {
-		value_.addListener(this);
-	}
+	ValueListener(Value value, std::function<void(Value& newValue)> onChanged);
 
-	virtual ~ValueListener() {
-		value_.removeListener(this);
-	}
+	virtual ~ValueListener();
 
-	void valueChanged(Value& value) override {
-		if (onChanged_) {
-			onChanged_(value);
-		}
-	}
-
-	void triggerOnChanged() {
-		if (onChanged_)
-			onChanged_(value_);
-	}
+	void valueChanged(Value& value) override;
+	void triggerOnChanged();
 
 private:
 	Value value_;
 	std::function<void(Value& newValue)> onChanged_;
 };
 
+class ValueTreeUtils {
+public:
+	static bool isChildOf(Identifier searchFor, ValueTree child);
+};

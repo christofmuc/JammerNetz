@@ -17,17 +17,12 @@ AudioService::AudioService()
 	auto& data = Data::instance().getEphemeral();
 	data.setProperty(EPHEMERAL_VALUE_DEVICE_TYPES_AVAILABLE, AudioDeviceDiscovery::allDeviceTypeNames(), nullptr);
 
-	// Register listeners that will react on a change of the input and output setup, accordingly.
-	listeners_.push_back(std::make_unique<ValueListener>(Data::instance().get().getPropertyAsValue(VALUE_OUTPUT_SETUP, nullptr), [this](Value& value) {
-		restartAudio();
-	}));
-	listeners_.push_back(std::make_unique<ValueListener>(Data::instance().get().getPropertyAsValue(VALUE_INPUT_SETUP, nullptr), [this](Value& value) {
-		restartAudio();
-	}));
+	Data::instance().get().addListener(this);
 }
 
 AudioService::~AudioService()
 {
+	Data::instance().get().removeListener(this);
 	stopAudioIfRunning();
 	AudioDeviceDiscovery::shutdown();
 }
@@ -90,6 +85,16 @@ std::shared_ptr<ChannelSetup> AudioService::getOutputSetup() const
 FFAU::LevelMeterSource* AudioService::getInputMeterSource() 
 {
 	return callback_.getMeterSource();
+}
+
+void AudioService::valueTreePropertyChanged(ValueTree& treeWhosePropertyHasChanged, const Identifier& property)
+{
+	if (ValueTreeUtils::isChildOf(VALUE_INPUT_SETUP, treeWhosePropertyHasChanged) || 
+		ValueTreeUtils::isChildOf(VALUE_OUTPUT_SETUP, treeWhosePropertyHasChanged)) {
+		debouncer_.callDebounced([this]() {
+			restartAudio();
+		}, 250);
+	}
 }
 
 std::shared_ptr<ChannelSetup> AudioService::getSetup(ValueTree data) const
