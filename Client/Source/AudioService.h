@@ -38,6 +38,10 @@ public:
 	std::shared_ptr<ChannelSetup> getOutputSetup() const;
 
 	JammerNetzChannelSetup getSessionSetup();
+	std::shared_ptr<JammerNetzClientInfoMessage> getClientInfo();
+
+	float channelPitch(int channel) const;
+	float sessionPitch(int channel);
 
 	FFAU::LevelMeterSource* getInputMeterSource();
 	FFAU::LevelMeterSource* getOutputMeterSource();

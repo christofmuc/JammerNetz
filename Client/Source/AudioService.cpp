@@ -104,6 +104,21 @@ JammerNetzChannelSetup AudioService::getSessionSetup()
 	return callback_.getSessionSetup();
 }
 
+std::shared_ptr<JammerNetzClientInfoMessage> AudioService::getClientInfo()
+{
+	return callback_.getClientInfo();
+}
+
+float AudioService::channelPitch(int channel) const
+{
+	return callback_.channelPitch(channel);
+}
+
+float AudioService::sessionPitch(int channel)
+{
+	return callback_.sessionPitch(channel);
+}
+
 FFAU::LevelMeterSource* AudioService::getInputMeterSource() 
 {
 	return callback_.getMeterSource();
