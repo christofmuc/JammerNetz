@@ -116,7 +116,7 @@ PlayoutQualityInfo AudioService::getPlayoutQualityInfo()
 
 double AudioService::currentRTT()
 {
-	return callback_.currentPacketSize();
+	return callback_.currentRTT();
 }
 
 std::string AudioService::currentReceptionQuality() const
