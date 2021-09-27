@@ -32,10 +32,15 @@ MainComponent::MainComponent(String clientID, std::shared_ptr<AudioService> audi
 	audioService_(audioService),
 	inputSelector_(VALUE_INPUT_SETUP, false, true),
 	outputSelector_(VALUE_OUTPUT_SETUP, false, false),
-	outputController_("Master", "OutputController", false, false)
+	outputController_("Master", "OutputController", false, false),
+	logView_(false) // Turn off line numbers
 {
 	setLookAndFeel(&dsLookAndFeel_);
 	addAndMakeVisible(dsLookAndFeel_.backgroundGradient());
+
+	// Create an a Logger for the JammerNetz client
+	logViewLogger_ = std::make_unique<LogViewLogger>(logView_);
+	SimpleLogger::instance()->postMessage("Welcome!");
 
 	// We want data updates for our log window
 	Data::instance().get().addListener(this);
@@ -64,6 +69,7 @@ MainComponent::MainComponent(String clientID, std::shared_ptr<AudioService> audi
 	serverGroup_.setText("Settings");
 	qualityGroup_.setText("Quality Info");
 	recordingGroup_.setText("Recording");
+	logGroup_.setText("Log");
 
 	addAndMakeVisible(outputController_);
 	addAndMakeVisible(inputGroup_);
@@ -88,6 +94,7 @@ MainComponent::MainComponent(String clientID, std::shared_ptr<AudioService> audi
 	addAndMakeVisible(*recordingInfo_);
 	//addAndMakeVisible(*playalongDisplay_);
 	addAndMakeVisible(*localRecordingInfo_);
+	addAndMakeVisible(logGroup_);
 	addAndMakeVisible(logView_);
 
 #ifdef DIGITAL_STAGE
@@ -168,7 +175,7 @@ void MainComponent::resized()
 
 	// To the bottom, the server info and status area
 	auto settingsArea = area.removeFromBottom(settingsHeight);
-	int settingsSectionWidth = settingsArea.getWidth() / 3;
+	int settingsSectionWidth = settingsArea.getWidth() / 4;
 
 	// Setup lower left - the server and client config
 	auto clientConfigArea = settingsArea.removeFromLeft(settingsSectionWidth);
@@ -192,8 +199,6 @@ void MainComponent::resized()
 	}
 	downstreamInfo_.setBounds(qualityArea);
 	logo_.setBounds(qualityArea.reduced(kNormalInset).removeFromRight(151).removeFromBottom(81));
-	//logView_.setBounds(qualityArea);
-
 
 	// Lower right - everything with recording!
 	auto recordingArea = settingsArea.removeFromLeft(settingsSectionWidth);
@@ -203,6 +208,12 @@ void MainComponent::resized()
 	//bpmDisplay_->setBounds(midiRecordingInfo);	
 	recordingInfo_->setBounds(recordingArea.removeFromTop(recordingArea.getHeight() / 2));
 	localRecordingInfo_->setBounds(recordingArea);
+
+	// Far lower right  - the new Log View
+	auto logArea = settingsArea;
+	logGroup_.setBounds(logArea);
+	logArea.reduce(kNormalInset, kNormalInset);
+	logView_.setBounds(logArea.reduced(kNormalInset));
 
 	// To the left, the input selector
 	auto inputArea = area.removeFromLeft(inputMixerWidth);

@@ -6,6 +6,7 @@
 
 #include "Encryption.h"
 
+#include "Logger.h"
 
 bool UDPEncryption::loadKeyfile(const char *filename, std::shared_ptr<MemoryBlock> *outBlock)
 {
@@ -15,7 +16,7 @@ bool UDPEncryption::loadKeyfile(const char *filename, std::shared_ptr<MemoryBloc
 		if (keyFile.loadFileAsData(**outBlock)) {
 			juce::MD5 md5(**outBlock);
 			std::string fingerprint = md5.toHexString().toStdString();
-			std::cout << "Loaded key with fingerprint " <<  fingerprint << std::endl;
+			SimpleLogger::instance()->postMessage("New key loaded with fingerprint " + fingerprint);
 			return true;
 		}
 	}

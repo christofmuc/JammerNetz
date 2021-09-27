@@ -6,6 +6,8 @@
 
 #include "AudioDeviceDiscovery.h"
 
+#include "Logger.h"
+
 void AudioDeviceDiscovery::listInputChannels(AudioIODevice *device, std::stringstream &list) {
 	auto inputs = device->getInputChannelNames();
 	for (auto input : inputs) list << "      Input " << input << std::endl;
@@ -43,6 +45,7 @@ void AudioDeviceDiscovery::listAudioDevices(AudioDeviceManager &deviceManager, s
 			list << "  Inputs:" << std::endl;
 			StringArray deviceNames = types[i]->getDeviceNames(true);
 			for (auto name : deviceNames) {
+				SimpleLogger::instance()->postMessage("Accessing audio device " + name);
 				AudioIODevice* device = types[i]->createDevice("", name);
 				list << "    Device " << (device != nullptr ? device->getName() : "nullptr") << std::endl;
 				listBufferSizes(device, list);
@@ -52,6 +55,7 @@ void AudioDeviceDiscovery::listAudioDevices(AudioDeviceManager &deviceManager, s
 			list << "  Outputs:" << std::endl;
 			deviceNames = types[i]->getDeviceNames(false);
 			for (auto name : deviceNames) {
+				SimpleLogger::instance()->postMessage("Accessing audio device " + name);
 				AudioIODevice* device = types[i]->createDevice(name, name);
 				list << "    Device " << (device != nullptr ? device->getName() : "nullptr") << std::endl;
 				listBufferSizes(device, list);
@@ -63,6 +67,7 @@ void AudioDeviceDiscovery::listAudioDevices(AudioDeviceManager &deviceManager, s
 			list << "  Input/Outputs:" << std::endl;
 			StringArray deviceNames = types[i]->getDeviceNames();
 			for (auto name : deviceNames) {
+				SimpleLogger::instance()->postMessage("Accessing audio device " + name);
 				AudioIODevice* device = types[i]->createDevice(name, name);
 				list << "    Device " << (device != nullptr ? device->getName() : "nullptr") << std::endl;
 				listBufferSizes(device, list);
@@ -76,6 +81,7 @@ void AudioDeviceDiscovery::listAudioDevices(AudioDeviceManager &deviceManager, s
 
 bool AudioDeviceDiscovery::canDeviceDoBufferSize(AudioIODeviceType *type, String const &deviceName, bool isInputDevice, int bufferSize)
 {
+	SimpleLogger::instance()->postMessage("Accessing audio device " + deviceName);
 	AudioIODevice* device = isInputDevice ? type->createDevice("", deviceName) : type->createDevice(deviceName, "");
 	if (device) {
 		auto buffers = device->getAvailableBufferSizes();
@@ -91,6 +97,7 @@ bool AudioDeviceDiscovery::canDeviceDoBufferSize(AudioIODeviceType *type, String
 
 bool AudioDeviceDiscovery::canDeviceDoSampleRate(AudioIODeviceType *type, String const &deviceName, bool isInputDevice, int sampleRate)
 {
+	SimpleLogger::instance()->postMessage("Accessing audio device " + deviceName);
 	AudioIODevice* device = isInputDevice ? type->createDevice("", deviceName) : type->createDevice(deviceName, "");
 	if (device) {
 		auto rates = device->getAvailableSampleRates();

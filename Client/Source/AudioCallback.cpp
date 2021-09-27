@@ -8,11 +8,12 @@
 
 #include "ServerInfo.h"
 
-#include "StreamLogger.h"
 #include "BuffersConfig.h"
 #include "Settings.h"
 #include "Data.h"
 #include "Encryption.h"
+
+#include "Logger.h"
 
 AudioCallback::AudioCallback() : jammerService_([this](std::shared_ptr < JammerNetzAudioData> buffer) { playBuffer_.push(buffer); }),
 	playBuffer_("server"), bufferPool_(10)
@@ -231,15 +232,13 @@ void AudioCallback::audioDeviceIOCallback(const float** inputChannelData, int nu
 
 void AudioCallback::audioDeviceAboutToStart(AudioIODevice* device)
 {
-	// This will normally no be seen unless you start from a console
-	std::cout << "Audio device " << device->getName() << " starting" << std::endl;
+	SimpleLogger::instance()->postMessage("Audio device " + device->getName() + " starting");
 	lastPlayoutQualityInfo_ = PlayoutQualityInfo();
 }
 
 void AudioCallback::audioDeviceStopped()
 {
-	// This will normally no be seen unless you start from a console
-	std::cout << "Audio device stopped" << std::endl;
+	SimpleLogger::instance()->postMessage("Audio device stopped");
 }
 
 void AudioCallback::setChannelSetup(JammerNetzChannelSetup const &channelSetup)

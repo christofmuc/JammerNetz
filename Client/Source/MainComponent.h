@@ -66,8 +66,12 @@ private:
 	std::unique_ptr<RecordingInfo> recordingInfo_; // For the master files
 	std::unique_ptr<RecordingInfo> localRecordingInfo_; // For the local data
 	std::unique_ptr<PlayalongDisplay> playalongDisplay_;
+	GroupComponent logGroup_;
 	LogView logView_;
 	// END OF WIDGET LIST
+
+	// We hold the simple logger, as we want it to log into our log view
+	std::unique_ptr<SimpleLogger> logViewLogger_;
 
 	// Generic listeners, required to maintain the lifetime of the Values and their listeners
 	std::vector<std::unique_ptr<ValueListener>> listeners_;
