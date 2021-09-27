@@ -40,6 +40,11 @@ public:
 	JammerNetzChannelSetup getSessionSetup();
 	std::shared_ptr<JammerNetzClientInfoMessage> getClientInfo();
 
+	PlayoutQualityInfo getPlayoutQualityInfo();
+	double currentRTT();
+	std::string currentReceptionQuality() const;
+	int currentPacketSize();
+
 	float channelPitch(int channel) const;
 	float sessionPitch(int channel);
 

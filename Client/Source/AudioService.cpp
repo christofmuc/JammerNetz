@@ -109,6 +109,26 @@ std::shared_ptr<JammerNetzClientInfoMessage> AudioService::getClientInfo()
 	return callback_.getClientInfo();
 }
 
+PlayoutQualityInfo AudioService::getPlayoutQualityInfo()
+{
+	return callback_.getPlayoutQualityInfo();
+}
+
+double AudioService::currentRTT()
+{
+	return callback_.currentPacketSize();
+}
+
+std::string AudioService::currentReceptionQuality() const
+{
+	return callback_.currentReceptionQuality();
+}
+
+int AudioService::currentPacketSize()
+{
+	return callback_.currentPacketSize();
+}
+
 float AudioService::channelPitch(int channel) const
 {
 	return callback_.channelPitch(channel);

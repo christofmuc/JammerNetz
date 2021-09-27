@@ -18,6 +18,8 @@
 
 #include "LayoutConstants.h"
 
+#include "BuffersConfig.h"
+
 #ifdef DIGITAL_STAGE
 #include "Login.h"
 #include "DataStore.h"
@@ -286,23 +288,24 @@ void MainComponent::timerCallback()
 	std::stringstream status;
 	float inputLatency = Data::instance().get().getProperty(VALUE_INPUT_LATENCY);
 	float outputLatency = Data::instance().get().getProperty(VALUE_INPUT_LATENCY);
+	PlayoutQualityInfo qualityInfo = audioService_->getPlayoutQualityInfo();
 	status << "Quality information" << std::endl << std::fixed << std::setprecision(2);
-	/*status << "Sample rate measured " << callback_.currentSampleRate() << std::endl;
-	status << "Underruns: " << callback_.numberOfUnderruns() << std::endl;
-	status << "Buffers: " << callback_.currentBufferSize() << std::endl;*/
+	status << "Sample rate measured " << qualityInfo.measuredSampleRate << std::endl;
+	status << "Underruns: " << qualityInfo.playUnderruns_ << std::endl;
 	status << "Input latency: " << inputLatency << "ms" << std::endl;
 	status << "Output latency: " << outputLatency << "ms" << std::endl;
-	/*status << "Roundtrip: " << callback_.currentRTT() << "ms" << std::endl;
-	status << "PlayQ: " << callback_.currentPlayQueueSize() << std::endl;
-	status << "Discarded: " << callback_.currentDiscardedPackageCounter() << std::endl;
-	status << "Total: " << callback_.currentToPlayLatency() + inputLatency + outputLatency << " ms" << std::endl;
+	status << "Roundtrip: " << audioService_->currentRTT() << "ms" << std::endl;
+	status << "PlayQ: " << qualityInfo.currentPlayQueueLength_ << std::endl;
+	status << "Discarded: " << qualityInfo.discardedPackageCounter_ << std::endl;
+	status << "Latency without I/O: " << qualityInfo.toPlayLatency_ << " ms" << std::endl;
+	status << "Total: " <<  qualityInfo.toPlayLatency_ + inputLatency + outputLatency << " ms" << std::endl;
 	statusInfo_.setText(status.str(), dontSendNotification);
-	downstreamInfo_.setText(callback_.currentReceptionQuality(), dontSendNotification);
+	downstreamInfo_.setText(audioService_->currentReceptionQuality(), dontSendNotification);
 	std::stringstream connectionInfo;
 	connectionInfo << std::fixed << std::setprecision(2)
-		<< "Network MTU: " << callback_.currentPacketSize() << " bytes. Bandwidth: "
-		<< callback_.currentPacketSize() * 8 * (globalServerInfo.sampleRate / (float)globalServerInfo.bufferSize) / (1024 * 1024.0f) << "MBit/s. ";
-	connectionInfo_.setText(connectionInfo.str(), dontSendNotification);*/
+		<< "Network MTU: " << audioService_->currentPacketSize() << " bytes. Bandwidth: "
+		<< audioService_->currentPacketSize() * 8 * (SAMPLE_RATE / (float)SAMPLE_BUFFER_SIZE) / (1024 * 1024.0f) << "MBit/s. ";
+	connectionInfo_.setText(connectionInfo.str(), dontSendNotification);
 
 	if (audioService_->getClientInfo() && audioService_->getClientInfo()->getNumClients() != clientInfo_.size()) {
 		// Need to re-setup the UI

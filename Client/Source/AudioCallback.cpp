@@ -15,10 +15,9 @@
 #include "Encryption.h"
 
 AudioCallback::AudioCallback() : jammerService_([this](std::shared_ptr < JammerNetzAudioData> buffer) { playBuffer_.push(buffer); }),
-	toPlayLatency_(0.0), currentPlayQueueLength_(0), discardedPackageCounter_(0), playBuffer_("server"), bufferPool_(10)
+	playBuffer_("server"), bufferPool_(10)
 {
 	isPlaying_ = false;
-	playUnderruns_ = 0;
 	minPlayoutBufferLength_ = CLIENT_PLAYOUT_JITTER_BUFFER;
 	maxPlayoutBufferLength_ = CLIENT_PLAYOUT_MAX_BUFFER;
 
@@ -80,30 +79,34 @@ void AudioCallback::newServer()
 
 	// Reset counters etc
 	minPlayoutBufferLength_ = CLIENT_PLAYOUT_JITTER_BUFFER;
-	currentPlayQueueLength_ = 0;
-	discardedPackageCounter_ = 0;
-	playUnderruns_ = 0;
-	toPlayLatency_ = 0.0;
+	PlayoutQualityInfo pqi;
+	lastPlayoutQualityInfo_ = pqi;
+	while (playoutQualityInfo_.try_pop(pqi));
 	isPlaying_ = false;
 	std::shared_ptr<JammerNetzAudioData> elem;
 	bool isFillIn;
 	while (playBuffer_.try_pop(elem, isFillIn));
 }
 
-void AudioCallback::samplesPerTime(int numSamples) {
-	if (numSamplesSinceStart_ == -1) {
+void AudioCallback::measureSamplesPerTime(PlayoutQualityInfo &qualityInfo, int numSamples) const {
+	if (qualityInfo.numSamplesSinceStart_ == -1) {
 		// Take start time
-		startTime_ = std::chrono::steady_clock::now();
-		numSamplesSinceStart_ = 0;
+		qualityInfo.startTime_ = std::chrono::steady_clock::now();
+		qualityInfo.numSamplesSinceStart_ = 0;
+		qualityInfo.measuredSampleRate = 0.0;
 	}
 	else {
-		numSamplesSinceStart_ += numSamples;
-		lastTime_ = std::chrono::steady_clock::now();
+		qualityInfo.numSamplesSinceStart_ += numSamples;
+		qualityInfo.lastTime_ = std::chrono::steady_clock::now();
+		auto timeElapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(qualityInfo.lastTime_ - qualityInfo.startTime_);
+		qualityInfo.measuredSampleRate = (qualityInfo.numSamplesSinceStart_) / (double)(timeElapsed.count() / (double)1e9);
 	}
 }
 
 void AudioCallback::audioDeviceIOCallback(const float** inputChannelData, int numInputChannels, float** outputChannelData, int numOutputChannels, int numSamples)
 {
+	PlayoutQualityInfo qualityInfo = lastPlayoutQualityInfo_;
+
 	float *const *constnessCorrection = const_cast<float *const*>(inputChannelData);
 	auto audioBufferNotOwned = std::make_shared<AudioBuffer<float>>(constnessCorrection, numInputChannels, numSamples);
 
@@ -130,10 +133,10 @@ void AudioCallback::audioDeviceIOCallback(const float** inputChannelData, int nu
 	}
 
 	// Measure time passed
-	samplesPerTime(numSamples);
+	measureSamplesPerTime(qualityInfo, numSamples);
 
 	// Get play-along data. The MIDI Buffer should be ready to be played out now, but we will only look at the text events for now
-	if (false) {
+	/*if (false) {
 		std::vector<MidiMessage> buffer;
 		midiPlayalong_->fillNextMidiBuffer(buffer, numSamples);
 		if (!buffer.empty()) {
@@ -143,7 +146,7 @@ void AudioCallback::audioDeviceIOCallback(const float** inputChannelData, int nu
 				currentText_ = message.getTextFromTextMetaEvent().toStdString();
 			}
 		}
-	}
+	}*/
 
 	jammerService_.sender()->sendData(channelSetup_, audioBuffer); //TODO offload the real sending to a different thread
 	if (uploadRecorder_ && uploadRecorder_->isRecording()) {
@@ -158,9 +161,10 @@ void AudioCallback::audioDeviceIOCallback(const float** inputChannelData, int nu
 	else if (playBuffer_.size() > maxPlayoutBufferLength_) {
 		// That's too many packages in our buffer, where did those come from? Did the server deliver too many packets/did our playback stop?
 		// Reduce the length of the queue until it is the right size, through away audio that is too old to be played out
+		
 		std::shared_ptr<JammerNetzAudioData> data;
 		while (playBuffer_.size() > CLIENT_PLAYOUT_JITTER_BUFFER) {
-			discardedPackageCounter_++;
+			qualityInfo.discardedPackageCounter_++;
 			bool isFillIn;
 			playBuffer_.try_pop(data, isFillIn);
 		}
@@ -171,11 +175,11 @@ void AudioCallback::audioDeviceIOCallback(const float** inputChannelData, int nu
 	std::shared_ptr<JammerNetzAudioData> toPlay;
 	bool isFillIn;
 	if (playBuffer_.try_pop(toPlay, isFillIn)) {
-		currentPlayQueueLength_ = playBuffer_.size();
+		qualityInfo.currentPlayQueueLength_ = playBuffer_.size();
 		// Ok, we have an Audio buffer to play. Hand over the data to the playback!
 		if (toPlay && toPlay->audioBuffer()) {
 			// Calculate the to-play latency
-			toPlayLatency_ = Time::getMillisecondCounterHiRes() - toPlay->timestamp();
+			qualityInfo.toPlayLatency_ = Time::getMillisecondCounterHiRes() - toPlay->timestamp();
 
 			// We have Audio data to play! Make sure it is the correct size
 			if (toPlay->audioBuffer()->getNumSamples() == numSamples) {
@@ -215,17 +219,21 @@ void AudioCallback::audioDeviceIOCallback(const float** inputChannelData, int nu
 	}
 	else {
 		// This is a serious problem - either the server never started to send data, or we have a buffer underflow.
-		playUnderruns_++;
+		qualityInfo.playUnderruns_++;
 		isPlaying_ = false;
 		clearOutput(outputChannelData, numOutputChannels, numSamples);
 	}
+
+	// Make the calculated quality info available for an interested consumer
+	lastPlayoutQualityInfo_ = qualityInfo;
+	playoutQualityInfo_.push(qualityInfo);
 }
 
 void AudioCallback::audioDeviceAboutToStart(AudioIODevice* device)
 {
 	// This will normally no be seen unless you start from a console
 	std::cout << "Audio device " << device->getName() << " starting" << std::endl;
-	numSamplesSinceStart_ = -1;
+	lastPlayoutQualityInfo_ = PlayoutQualityInfo();
 }
 
 void AudioCallback::audioDeviceStopped()
@@ -272,9 +280,12 @@ MidiPlayAlong *AudioCallback::getPlayalong()
 	return midiPlayalong_.get();
 }
 
-int64 AudioCallback::numberOfUnderruns() const
+PlayoutQualityInfo AudioCallback::getPlayoutQualityInfo() 
 {
-	return playUnderruns_;
+	// Return the latest QualityInfo
+	PlayoutQualityInfo latest;
+	while (playoutQualityInfo_.try_pop(latest));
+	return latest;
 }
 
 uint64 AudioCallback::currentBufferSize() const
@@ -287,30 +298,9 @@ int AudioCallback::currentPacketSize()
 	return jammerService_.sender()->getCurrentBlockSize();
 }
 
-uint64 AudioCallback::currentPlayQueueSize() const
-{
-	return currentPlayQueueLength_;
-}
-
-int AudioCallback::currentDiscardedPackageCounter() const
-{
-	return discardedPackageCounter_;
-}
-
-double AudioCallback::currentToPlayLatency() const
-{
-	return toPlayLatency_;
-}
-
 std::string AudioCallback::currentReceptionQuality() const
 {
 	return playBuffer_.qualityStatement();
-}
-
-double AudioCallback::currentSampleRate() const
-{
-	auto timeElapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(lastTime_ - startTime_);
-	return (numSamplesSinceStart_) / (double)(timeElapsed.count() / (double) 1e9);
 }
 
 bool AudioCallback::isReceivingData() 

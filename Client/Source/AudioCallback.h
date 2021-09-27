@@ -23,6 +23,23 @@
 #include "ApplicationState.h"
 
 #include <chrono>
+#include <tbb/concurrent_queue.h>
+
+struct PlayoutQualityInfo {
+	PlayoutQualityInfo() 
+		: currentPlayQueueLength_(0), playUnderruns_(0), discardedPackageCounter_(0),
+		toPlayLatency_(0.0), numSamplesSinceStart_(-1), measuredSampleRate(0.0) {}
+
+	uint64 currentPlayQueueLength_;
+	uint64 playUnderruns_;
+	uint64 discardedPackageCounter_;
+	double toPlayLatency_; // in ms
+
+	int64 numSamplesSinceStart_;
+	std::chrono::time_point<std::chrono::steady_clock> startTime_;
+	std::chrono::time_point<std::chrono::steady_clock> lastTime_;
+	double measuredSampleRate; // in Hz
+};
 
 class AudioCallback : public AudioIODeviceCallback {
 public:
@@ -45,15 +62,12 @@ public:
 	MidiPlayAlong *getPlayalong();
 
 	// Statistics
-	int64 numberOfUnderruns() const;
+	PlayoutQualityInfo getPlayoutQualityInfo();
+
 	uint64 currentBufferSize() const;
 	int currentPacketSize();
-	uint64 currentPlayQueueSize() const;
-	int currentDiscardedPackageCounter() const;
-	double currentToPlayLatency() const;
 
 	std::string currentReceptionQuality() const;
-	double currentSampleRate() const;
 	bool isReceivingData();
 	double currentRTT();
 	float channelPitch(int channel) const;
@@ -66,20 +80,16 @@ public:
 
 private:
 	void clearOutput(float** outputChannelData, int numOutputChannels, int numSamples);
-	void samplesPerTime(int numSamples);
+	void measureSamplesPerTime(PlayoutQualityInfo &qualityInfo, int numSamples) const;
 
 	JammerService jammerService_; //TODO - this instance needs to be pulled up another level, so the audiocallback class wouldn't know anything about the network
 
 	PacketStreamQueue playBuffer_;
 	std::atomic_bool isPlaying_;
-	std::atomic_int64_t playUnderruns_;
 	std::atomic_uint64_t minPlayoutBufferLength_;
-	std::atomic_uint64_t maxPlayoutBufferLength_;
-	std::atomic_int64_t currentPlayQueueLength_;
+	std::atomic_uint64_t maxPlayoutBufferLength_;	
 	std::string currentText_;
-	std::atomic_int64_t numSamplesSinceStart_;
-	int discardedPackageCounter_;
-	double toPlayLatency_;
+	
 	JammerNetzChannelSetup channelSetup_;
 	FFAU::LevelMeterSource meterSource_; // This is for peak metering
 	FFAU::LevelMeterSource sessionMeterSource_; // This is to display the complete session peak meters
@@ -92,10 +102,11 @@ private:
 
 	std::unique_ptr<Tuner> tuner_;
 
-	std::chrono::time_point<std::chrono::steady_clock> startTime_;
-	std::chrono::time_point<std::chrono::steady_clock> lastTime_;
-
 	Pool<AudioBuffer<float>> bufferPool_;
+
+	// Use this to hand out statistics from the audio/real time callback to other interested threads
+	tbb::concurrent_queue<PlayoutQualityInfo> playoutQualityInfo_;
+	PlayoutQualityInfo lastPlayoutQualityInfo_;
 
 	// Generic listeners, required to maintain the lifetime of the Values and their listeners
 	std::vector<std::unique_ptr<ValueListener>> listeners_;
