@@ -68,7 +68,7 @@ private:
 	void clearOutput(float** outputChannelData, int numOutputChannels, int numSamples);
 	void samplesPerTime(int numSamples);
 
-	JammerService jammerService_;
+	JammerService jammerService_; //TODO - this instance needs to be pulled up another level, so the audiocallback class wouldn't know anything about the network
 
 	PacketStreamQueue playBuffer_;
 	std::atomic_bool isPlaying_;
