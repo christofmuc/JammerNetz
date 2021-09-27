@@ -79,7 +79,6 @@ void AudioCallback::newServer()
 	}*/
 
 	// Reset counters etc
-	minPlayoutBufferLength_ = CLIENT_PLAYOUT_JITTER_BUFFER;
 	PlayoutQualityInfo pqi;
 	lastPlayoutQualityInfo_ = pqi;
 	while (playoutQualityInfo_.try_pop(pqi));
