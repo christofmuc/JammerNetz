@@ -242,13 +242,13 @@ void MainComponent::resized()
 
 void MainComponent::valueTreePropertyChanged(ValueTree& treeWhosePropertyHasChanged, const Identifier& property)
 {
-	String propertyName = property.toString();
+	/*String propertyName = property.toString();
 	ValueTree parent = treeWhosePropertyHasChanged;
 	while (parent.isValid()) {
 		propertyName = parent.getType().toString() + ">" + propertyName;
 		parent = parent.getParent();
 	}
-	logView_.addMessageToList(propertyName + " updated: " + treeWhosePropertyHasChanged.getProperty(property).toString());
+	logView_.addMessageToList(propertyName + " updated: " + treeWhosePropertyHasChanged.getProperty(property).toString());*/
 
 	// Check if this was an input channel definition?
 	if (ValueTreeUtils::isChildOf(VALUE_INPUT_SETUP, treeWhosePropertyHasChanged)) {
