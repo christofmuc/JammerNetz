@@ -185,12 +185,12 @@ void MainComponent::resized()
 	qualityGroup_.setBounds(qualityArea);
 	qualityArea.reduce(kNormalInset, kNormalInset);
 	statusInfo_.setBounds(qualityArea.removeFromTop(qualityArea.getHeight() / 2));
-	/*for (auto clientInfo : clientInfo_) {
+	for (auto clientInfo : clientInfo_) {
 		clientInfo->setBounds(qualityArea.removeFromTop(kLineHeight * 2));
 	}
-	downstreamInfo_.setBounds(qualityArea);*/
+	downstreamInfo_.setBounds(qualityArea);
 	logo_.setBounds(qualityArea.reduced(kNormalInset).removeFromRight(151).removeFromBottom(81));
-	logView_.setBounds(qualityArea);
+	//logView_.setBounds(qualityArea);
 
 
 	// Lower right - everything with recording!
@@ -246,18 +246,18 @@ void MainComponent::valueTreePropertyChanged(ValueTree& treeWhosePropertyHasChan
 void MainComponent::numConnectedClientsChanged() {
 	clientInfo_.clear();
 
-	/*auto info = callback_.getClientInfo();
+	auto info = audioService_->getClientInfo();
 	for (uint8 i = 0; i < info->getNumClients(); i++) {
 		auto label = new Label();
 		addAndMakeVisible(label);
 		clientInfo_.add(label);
-	}*/
+	}
 	fillConnectedClientsStatistics();
 	resized();
 }
 
 void MainComponent::fillConnectedClientsStatistics() {
-	/*auto info = callback_.getClientInfo();
+	auto info = audioService_->getClientInfo();
 	if (info) {
 		for (uint8 i = 0; i < info->getNumClients(); i++) {
 			auto label = clientInfo_[i];
@@ -277,7 +277,7 @@ void MainComponent::fillConnectedClientsStatistics() {
 
 			label->setText(status.str(), dontSendNotification);
 		}
-	}*/
+	}
 }
 
 void MainComponent::timerCallback()
@@ -302,28 +302,28 @@ void MainComponent::timerCallback()
 	connectionInfo << std::fixed << std::setprecision(2)
 		<< "Network MTU: " << callback_.currentPacketSize() << " bytes. Bandwidth: "
 		<< callback_.currentPacketSize() * 8 * (globalServerInfo.sampleRate / (float)globalServerInfo.bufferSize) / (1024 * 1024.0f) << "MBit/s. ";
-	connectionInfo_.setText(connectionInfo.str(), dontSendNotification);
+	connectionInfo_.setText(connectionInfo.str(), dontSendNotification);*/
 
-	if (callback_.getClientInfo() && callback_.getClientInfo()->getNumClients() != clientInfo_.size()) {
+	if (audioService_->getClientInfo() && audioService_->getClientInfo()->getNumClients() != clientInfo_.size()) {
 		// Need to re-setup the UI
 		numConnectedClientsChanged();
 	}
 	else {
 		fillConnectedClientsStatistics();
-	}*/
+	}
 
 	serverStatus_.setConnected(audioService_->isConnected());
 
-	/*// Refresh tuning info for my own channels
+	// Refresh tuning info for my own channels
 	for (int i = 0; i < ownChannels_.numChannels(); i++) {
-		ownChannels_.setPitchDisplayed(i, MidiNote(callback_.channelPitch(i)));
+		ownChannels_.setPitchDisplayed(i, MidiNote(audioService_->channelPitch(i)));
 	}
 	// and for the session channels
 	if (currentSessionSetup_) {
 		for (int i = 0; i < currentSessionSetup_->channels.size(); i++) {
-			allChannels_.setPitchDisplayed(i, MidiNote(callback_.sessionPitch(i)));
+			allChannels_.setPitchDisplayed(i, MidiNote(audioService_->sessionPitch(i)));
 		}
-	}*/
+	}
 
 	// Refresh session participants in case this changed!
 	auto thisSetup = audioService_->getSessionSetup();
