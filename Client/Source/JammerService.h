@@ -14,28 +14,15 @@ public:
 	JammerService(std::function<void(std::shared_ptr<JammerNetzAudioData>)> newDataHandler);
 	virtual ~JammerService();
 
+	void shutdown();
+
 	Client* sender();
 	DataReceiveThread* receiver();
 
-	bool isReceivingData() const
-	{
-		return receiver_->isReceivingData();
-	}
-
-	double currentRTT() const
-	{
-		return receiver_->currentRTT();
-	}
-
-	std::shared_ptr<JammerNetzClientInfoMessage> getClientInfo() const
-	{
-		return receiver_->getClientInfo();
-	}
-
-	JammerNetzChannelSetup getCurrentSessionSetup() const
-	{
-		return receiver_->sessionSetup();
-	}
+	bool isReceivingData() const;
+	double currentRTT() const;
+	std::shared_ptr<JammerNetzClientInfoMessage> getClientInfo() const;
+	JammerNetzChannelSetup getCurrentSessionSetup() const;
 
 private:
 	juce::DatagramSocket socket_;

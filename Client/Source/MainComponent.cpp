@@ -145,6 +145,7 @@ MainComponent::~MainComponent()
 #endif
 	Data::instance().saveToSettings();
 	Settings::instance().saveAndClose();
+	audioService_->shutdown();
 	setLookAndFeel(nullptr);
 }
 

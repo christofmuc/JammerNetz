@@ -25,6 +25,8 @@ public:
 	AudioService();
 	~AudioService();
 
+	void shutdown(); // Controlled stop 
+
 	bool isConnected();
 
 	void stopAudioIfRunning();

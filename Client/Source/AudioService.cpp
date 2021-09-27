@@ -23,8 +23,13 @@ AudioService::AudioService()
 AudioService::~AudioService()
 {
 	Data::instance().get().removeListener(this);
-	stopAudioIfRunning();
 	AudioDeviceDiscovery::shutdown();
+}
+
+void AudioService::shutdown()
+{
+	stopAudioIfRunning();
+	callback_.shutdown();
 }
 
 bool AudioService::isConnected() 

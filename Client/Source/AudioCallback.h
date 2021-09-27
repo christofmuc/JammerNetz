@@ -29,6 +29,8 @@ public:
 	AudioCallback();
 	virtual ~AudioCallback();
 
+	void shutdown();
+
 	virtual void audioDeviceIOCallback(const float** inputChannelData, int numInputChannels, float** outputChannelData, int numOutputChannels, int numSamples) override;
 	virtual void audioDeviceAboutToStart(AudioIODevice* device) override;
 	virtual void audioDeviceStopped() override;

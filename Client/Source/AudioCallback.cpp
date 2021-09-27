@@ -49,6 +49,11 @@ AudioCallback::~AudioCallback()
 {	
 }
 
+void AudioCallback::shutdown()
+{
+	jammerService_.shutdown();
+}
+
 void AudioCallback::clearOutput(float** outputChannelData, int numOutputChannels, int numSamples) {
 	// Clear out the buffer so we do not play noise
 	for (int i = 0; i < numOutputChannels; i++) {

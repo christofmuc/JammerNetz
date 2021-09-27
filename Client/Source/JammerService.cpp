@@ -26,6 +26,15 @@ JammerService::JammerService(std::function<void(std::shared_ptr<JammerNetzAudioD
 
 JammerService::~JammerService()
 {
+	// Please call shuwdown first before destroying the JammerService
+	if (receiver_->isThreadRunning()) {
+		jassertfalse;
+		receiver_->stopThread(2000);
+	}
+}
+
+void JammerService::shutdown()
+{
 	// Give the network thread a moment to exit
 	receiver_->stopThread(2000);
 	socket_.shutdown();
@@ -39,4 +48,24 @@ Client* JammerService::sender()
 DataReceiveThread* JammerService::receiver()
 {
 	return receiver_.get();
+}
+
+bool JammerService::isReceivingData() const
+{
+	return receiver_->isReceivingData();
+}
+
+double JammerService::currentRTT() const
+{
+	return receiver_->currentRTT();
+}
+
+std::shared_ptr<JammerNetzClientInfoMessage> JammerService::getClientInfo() const
+{
+	return receiver_->getClientInfo();
+}
+
+JammerNetzChannelSetup JammerService::getCurrentSessionSetup() const
+{
+	return receiver_->sessionSetup();
 }
