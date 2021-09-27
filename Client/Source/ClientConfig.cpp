@@ -48,18 +48,17 @@ void ClientConfigurator::resized()
 void ClientConfigurator::bindControls()
 {
 	ValueTree &data = Data::instance().get();
-	ValueTree clientConfig = data.getOrCreateChildWithName(Identifier("BufferConfig"), nullptr);
-	if (!clientConfig.hasProperty(VALUE_MIN_PLAYOUT_BUFFER)) {
-		clientConfig.setProperty(VALUE_MIN_PLAYOUT_BUFFER, CLIENT_PLAYOUT_JITTER_BUFFER, nullptr);
+	if (!data.hasProperty(VALUE_MIN_PLAYOUT_BUFFER)) {
+		data.setProperty(VALUE_MIN_PLAYOUT_BUFFER, CLIENT_PLAYOUT_JITTER_BUFFER, nullptr);
 	}
-	if (!clientConfig.hasProperty(VALUE_MAX_PLAYOUT_BUFFER)) {
-		clientConfig.setProperty(VALUE_MAX_PLAYOUT_BUFFER, CLIENT_PLAYOUT_MAX_BUFFER, nullptr);
+	if (!data.hasProperty(VALUE_MAX_PLAYOUT_BUFFER)) {
+		data.setProperty(VALUE_MAX_PLAYOUT_BUFFER, CLIENT_PLAYOUT_MAX_BUFFER, nullptr);
 	}
-	if (!clientConfig.hasProperty(VALUE_USE_FEC)) {
-		clientConfig.setProperty(VALUE_USE_FEC, false, nullptr);
+	if (!data.hasProperty(VALUE_USE_FEC)) {
+		data.setProperty(VALUE_USE_FEC, false, nullptr);
 	}
-	bufferLength_.getValueObject().referTo(clientConfig.getPropertyAsValue(VALUE_MIN_PLAYOUT_BUFFER, nullptr));
-	maxLength_.getValueObject().referTo(clientConfig.getPropertyAsValue(VALUE_MAX_PLAYOUT_BUFFER, nullptr));
-	useFEC_.getToggleStateValue().referTo(clientConfig.getPropertyAsValue(VALUE_USE_FEC, nullptr));
+	bufferLength_.getValueObject().referTo(data.getPropertyAsValue(VALUE_MIN_PLAYOUT_BUFFER, nullptr));
+	maxLength_.getValueObject().referTo(data.getPropertyAsValue(VALUE_MAX_PLAYOUT_BUFFER, nullptr));
+	useFEC_.getToggleStateValue().referTo(data.getPropertyAsValue(VALUE_USE_FEC, nullptr));
 }
 
