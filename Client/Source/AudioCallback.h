@@ -82,7 +82,11 @@ private:
 	void clearOutput(float** outputChannelData, int numOutputChannels, int numSamples);
 	void measureSamplesPerTime(PlayoutQualityInfo &qualityInfo, int numSamples) const;
 
+	void calcLocalMonitoring(std::shared_ptr<AudioBuffer<float>> inputBuffer, AudioBuffer<float>& outputBuffer);
+
 	JammerService jammerService_; //TODO - this instance needs to be pulled up another level, so the audiocallback class wouldn't know anything about the network
+
+	bool localMonitoring_ = true;
 
 	PacketStreamQueue playBuffer_;
 	std::atomic_bool isPlaying_;
