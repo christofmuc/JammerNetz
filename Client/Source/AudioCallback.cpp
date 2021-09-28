@@ -47,6 +47,17 @@ AudioCallback::AudioCallback() : jammerService_([this](std::shared_ptr < JammerN
 	}));
 	// Execute the listeners so we read the current value from the setting file
 	for_each(listeners_.begin(), listeners_.end(), [](std::unique_ptr<ValueListener>& ptr) { ptr->triggerOnChanged();  });
+
+	// A few more listeners that need to get called when the server switches, to clear statistics
+	listeners_.push_back(std::make_unique<ValueListener>(Data::instance().get().getPropertyAsValue(VALUE_SERVER_NAME, nullptr), [this](Value&) {
+		newServer();
+	}));
+	listeners_.push_back(std::make_unique<ValueListener>(Data::instance().get().getPropertyAsValue(VALUE_SERVER_PORT, nullptr), [this](Value&) {
+		newServer();
+	}));
+	listeners_.push_back(std::make_unique<ValueListener>(Data::instance().get().getPropertyAsValue(VALUE_USE_LOCALHOST, nullptr), [this](Value&) {
+		newServer();
+	}));
 }
 
 AudioCallback::~AudioCallback()
@@ -60,21 +71,6 @@ void AudioCallback::shutdown()
 
 void AudioCallback::newServer()
 {
-	/*if (!globalServerInfo.cryptoKeyfilePath.empty()) {
-		// Reload crypto key
-		std::shared_ptr<MemoryBlock> cryptoKey;
-		if (UDPEncryption::loadKeyfile(globalServerInfo.cryptoKeyfilePath.c_str(), &cryptoKey)) {
-			setCryptoKey(cryptoKey->getData(), (int)cryptoKey->getSize());
-		}
-		else {
-			juce::AlertWindow::showMessageBox(AlertWindow::WarningIcon, "No crypto key loaded", "Could not load crypto key file " + globalServerInfo.cryptoKeyfilePath);
-		}
-	}
-	else {
-		// Turn off encryption
-		setCryptoKey(nullptr, 0);
-	}*/
-
 	// Reset counters etc
 	PlayoutQualityInfo pqi;
 	lastPlayoutQualityInfo_ = pqi;
