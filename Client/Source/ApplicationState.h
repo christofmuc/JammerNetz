@@ -17,6 +17,7 @@ constexpr const char* VALUE_MIXER = "Mixer";
 constexpr const char* VALUE_MASTER_OUTPUT = "OutputController";
 constexpr const char* VALUE_VOLUME = "Volume";
 constexpr const char* VALUE_TARGET = "Target";
+constexpr const char* VALUE_MONITOR_BALANCE = "MonitorBalance";
 constexpr const char* VALUE_MIN_PLAYOUT_BUFFER = "minPlayoutBuffer";
 constexpr const char* VALUE_MAX_PLAYOUT_BUFFER = "maxPlayoutBuffer";
 constexpr const char* VALUE_USE_FEC = "useFEC";

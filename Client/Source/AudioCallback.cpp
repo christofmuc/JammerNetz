@@ -16,7 +16,7 @@
 #include "Logger.h"
 
 AudioCallback::AudioCallback() : jammerService_([this](std::shared_ptr < JammerNetzAudioData> buffer) { playBuffer_.push(buffer); }),
-	playBuffer_("server"), masterVolume_(1.0), bufferPool_(10)
+	playBuffer_("server"), masterVolume_(1.0), monitorBalance_(0.0), bufferPool_(10)
 {
 	isPlaying_ = false;
 	minPlayoutBufferLength_ = CLIENT_PLAYOUT_JITTER_BUFFER;
@@ -41,10 +41,15 @@ AudioCallback::AudioCallback() : jammerService_([this](std::shared_ptr < JammerN
 	listeners_.push_back(std::make_unique<ValueListener>(Data::instance().get().getPropertyAsValue(VALUE_MAX_PLAYOUT_BUFFER, nullptr), [this](Value& newValue) {
 		maxPlayoutBufferLength_ = (int)newValue.getValue();
 	}));
-	auto outputController = Data::instance().get().getOrCreateChildWithName(VALUE_MIXER, nullptr).getOrCreateChildWithName(VALUE_MASTER_OUTPUT, nullptr);
+	auto mixer = Data::instance().get().getOrCreateChildWithName(VALUE_MIXER, nullptr);
+	auto outputController = mixer.getOrCreateChildWithName(VALUE_MASTER_OUTPUT, nullptr);
 	listeners_.push_back(std::make_unique<ValueListener>(outputController.getPropertyAsValue(VALUE_VOLUME, nullptr), [this](Value& newValue) {
 		masterVolume_ = ((double) newValue.getValue()) / 100.0;
 	}));
+	listeners_.push_back(std::make_unique<ValueListener>(outputController.getPropertyAsValue(VALUE_MONITOR_BALANCE, nullptr), [this](Value& newValue) {
+		monitorBalance_ = newValue.getValue();
+	}));
+
 	// Execute the listeners so we read the current value from the setting file
 	for_each(listeners_.begin(), listeners_.end(), [](std::unique_ptr<ValueListener>& ptr) { ptr->triggerOnChanged();  });
 
@@ -96,15 +101,27 @@ void AudioCallback::measureSamplesPerTime(PlayoutQualityInfo &qualityInfo, int n
 	}
 }
 
+// https://dsp.stackexchange.com/questions/14754/equal-power-crossfade
+std::pair<double, double> calcMonitorGain() {
+	auto mixer = Data::instance().get().getChildWithName(VALUE_MIXER);
+	double t = mixer.getProperty(VALUE_MONITOR_BALANCE);
+
+	double left = sqrt(0.5 * (1.0 - t));
+	double right = sqrt(0.5 * (1.0 + t));
+
+	return { left, right };
+}
+
 void AudioCallback::calcLocalMonitoring(std::shared_ptr<AudioBuffer<float>> inputBuffer, AudioBuffer<float>& outputBuffer) {
 	
 	outputBuffer.clear();
 	if (localMonitoring_) {
+		auto [monitorVolume, _] = calcMonitorGain();
 		// Apply gain to our channels and do a stereo mixdown
 		jassert(inputBuffer->getNumSamples() == outputBuffer.getNumSamples());
 		for (int channel = 0; channel < inputBuffer->getNumChannels(); channel++) {
 			const JammerNetzSingleChannelSetup& setup = channelSetup_.channels[channel];
-			double input_volume = setup.volume * masterVolume_;
+			double input_volume = setup.volume * monitorVolume * masterVolume_;
 			switch (setup.target) {
 			case Unused:
 				// Nothing to be done, ignore this channel; This is the same as Mute
@@ -122,7 +139,7 @@ void AudioCallback::calcLocalMonitoring(std::shared_ptr<AudioBuffer<float>> inpu
 				}
 				break;
 			case SendOnly:
-				// Fall-through on purpose, treat it as Mono
+				break;
 			case Mono:
 				if (outputBuffer.getNumChannels() > 0) {
 					outputBuffer.addFrom(0, 0, *inputBuffer, channel, 0, inputBuffer->getNumSamples(), input_volume);
@@ -223,10 +240,12 @@ void AudioCallback::audioDeviceIOCallback(const float** inputChannelData, int nu
 
 			// We have Audio data to play! Make sure it is the correct size
 			if (toPlay->audioBuffer()->getNumSamples() == numSamples) {
+				auto [_, remoteVolume] = calcMonitorGain();
+				double volume = remoteVolume * masterVolume_;
 				for (int i = 0; i < std::min(numOutputChannels, toPlay->audioBuffer()->getNumChannels()); i++) {
 					//TODO - this would mean we always play the left channel, if we have only one output channel. There is no way to select if the output channel is left or right
 					// Need to add another channel selector.
-					memcpy(outputChannelData[i], toPlay->audioBuffer()->getReadPointer(i), sizeof(float) * numSamples);
+					outputBuffer.addFrom(i, 0, toPlay->audioBuffer()->getReadPointer(i), numSamples, volume);
 				}
 			}
 			else {

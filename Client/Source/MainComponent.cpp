@@ -33,6 +33,7 @@ MainComponent::MainComponent(String clientID, std::shared_ptr<AudioService> audi
 	inputSelector_(VALUE_INPUT_SETUP, false, true),
 	outputSelector_(VALUE_OUTPUT_SETUP, false, false),
 	outputController_("Master", VALUE_MASTER_OUTPUT, true, false),
+	monitorBalance_("Local", "Remote", 50),
 	logView_(false) // Turn off line numbers
 {
 	setLookAndFeel(&dsLookAndFeel_);
@@ -50,6 +51,13 @@ MainComponent::MainComponent(String clientID, std::shared_ptr<AudioService> audi
 	//playalongDisplay_ = std::make_unique<PlayalongDisplay>(callback_.getPlayalong());
 	localRecordingInfo_ = std::make_unique<RecordingInfo>(localRecorder, "Press to record yourself only");
 
+	// Setup output and monitoring
+	monitorBalance_.slider().setSliderStyle(Slider::SliderStyle::LinearHorizontal);
+	monitorBalance_.slider().setTextBoxStyle(Slider::TextEntryBoxPosition::NoTextBox, true, 0, 0);
+	auto mixer = Data::instance().get().getOrCreateChildWithName(VALUE_MIXER, nullptr);
+	monitorBalance_.slider().setRange(-1.0, 1.0, 0.1);
+	monitorBalance_.slider().getValueObject().referTo(mixer.getPropertyAsValue(VALUE_MONITOR_BALANCE, nullptr));
+	addAndMakeVisible(monitorBalance_);
 	outputController_.setMeterSource(audioService_->getOutputMeterSource(), -1);
 	
 	nameLabel_.setText("My name", dontSendNotification);
@@ -236,19 +244,21 @@ void MainComponent::resized()
 
 	outputGroup_.setBounds(outputArea);
 	outputArea.reduce(kNormalInset, kNormalInset);
-	outputSelector_.setBounds(outputArea.removeFromRight(deviceSelectorWidth));
+	auto outputRightColumn = outputArea.removeFromRight(deviceSelectorWidth);
+	monitorBalance_.setBounds(outputRightColumn.removeFromBottom(40));
+	outputSelector_.setBounds(outputRightColumn);
 	outputController_.setBounds(outputArea);
 }
 
 void MainComponent::valueTreePropertyChanged(ValueTree& treeWhosePropertyHasChanged, const Identifier& property)
 {
-	/*String propertyName = property.toString();
+	String propertyName = property.toString();
 	ValueTree parent = treeWhosePropertyHasChanged;
 	while (parent.isValid()) {
 		propertyName = parent.getType().toString() + ">" + propertyName;
 		parent = parent.getParent();
 	}
-	logView_.addMessageToList(propertyName + " updated: " + treeWhosePropertyHasChanged.getProperty(property).toString());*/
+	logView_.addMessageToList(propertyName + " updated: " + treeWhosePropertyHasChanged.getProperty(property).toString());
 
 	// Check if this was an input channel definition?
 	if (ValueTreeUtils::isChildOf(VALUE_INPUT_SETUP, treeWhosePropertyHasChanged)) {

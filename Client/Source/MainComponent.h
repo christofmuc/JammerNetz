@@ -16,6 +16,7 @@
 #include "RecordingInfo.h"
 #include "PlayalongDisplay.h"
 #include "LogView.h"
+#include "TwoLabelSlider.h"
 
 #include "DSLookAndFeel.h"
 
@@ -48,6 +49,7 @@ private:
 	ChannelControllerGroup allChannels_;
 	GroupComponent sessionGroup_;
 	ChannelController outputController_;
+	TwoLabelSlider monitorBalance_;
 	GroupComponent outputGroup_;
 	Label nameLabel_;
 	TextEditor nameEntry_;
