@@ -79,7 +79,6 @@ public:
 	JammerNetzChannelSetup getSessionSetup();
 
 private:
-	void clearOutput(float** outputChannelData, int numOutputChannels, int numSamples);
 	void measureSamplesPerTime(PlayoutQualityInfo &qualityInfo, int numSamples) const;
 
 	void calcLocalMonitoring(std::shared_ptr<AudioBuffer<float>> inputBuffer, AudioBuffer<float>& outputBuffer);
