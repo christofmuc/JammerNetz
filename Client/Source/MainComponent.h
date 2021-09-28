@@ -50,6 +50,8 @@ private:
 	GroupComponent sessionGroup_;
 	ChannelController outputController_;
 	TwoLabelSlider monitorBalance_;
+	TextButton monitorLocal_;
+	GroupComponent monitorGroup_;
 	GroupComponent outputGroup_;
 	Label nameLabel_;
 	TextEditor nameEntry_;

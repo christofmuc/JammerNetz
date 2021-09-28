@@ -52,12 +52,16 @@ MainComponent::MainComponent(String clientID, std::shared_ptr<AudioService> audi
 	localRecordingInfo_ = std::make_unique<RecordingInfo>(localRecorder, "Press to record yourself only");
 
 	// Setup output and monitoring
+	monitorLocal_.setClickingTogglesState(true);
+	auto mixer = Data::instance().get().getOrCreateChildWithName(VALUE_MIXER, nullptr);
+	listeners_.push_back(std::make_unique<ValueListener>(mixer.getPropertyAsValue(VALUE_USE_LOCAL_MONITOR, nullptr), [this](Value& value) {
+		monitorLocal_.setButtonText(monitorLocal_.getToggleState() ? "Local" : "Remote");
+	}));
+	monitorLocal_.getToggleStateValue().referTo(mixer.getPropertyAsValue(VALUE_USE_LOCAL_MONITOR, nullptr));
 	monitorBalance_.slider().setSliderStyle(Slider::SliderStyle::LinearHorizontal);
 	monitorBalance_.slider().setTextBoxStyle(Slider::TextEntryBoxPosition::NoTextBox, true, 0, 0);
-	auto mixer = Data::instance().get().getOrCreateChildWithName(VALUE_MIXER, nullptr);
 	monitorBalance_.slider().setRange(-1.0, 1.0, 0.1);
-	monitorBalance_.slider().getValueObject().referTo(mixer.getPropertyAsValue(VALUE_MONITOR_BALANCE, nullptr));
-	addAndMakeVisible(monitorBalance_);
+	monitorBalance_.slider().getValueObject().referTo(mixer.getPropertyAsValue(VALUE_MONITOR_BALANCE, nullptr));	
 	outputController_.setMeterSource(audioService_->getOutputMeterSource(), -1);
 	
 	nameLabel_.setText("My name", dontSendNotification);
@@ -77,6 +81,7 @@ MainComponent::MainComponent(String clientID, std::shared_ptr<AudioService> audi
 	serverGroup_.setText("Settings");
 	qualityGroup_.setText("Quality Info");
 	recordingGroup_.setText("Recording");
+	monitorGroup_.setText("Monitor Balance");
 	logGroup_.setText("Log");
 
 	addAndMakeVisible(outputController_);
@@ -89,6 +94,9 @@ MainComponent::MainComponent(String clientID, std::shared_ptr<AudioService> audi
 	addAndMakeVisible(downstreamInfo_);
 	addAndMakeVisible(outputGroup_);
 	addAndMakeVisible(outputSelector_);
+	addAndMakeVisible(monitorBalance_);
+	addAndMakeVisible(monitorLocal_);
+	addAndMakeVisible(monitorGroup_);
 	addAndMakeVisible(nameLabel_);
 	addAndMakeVisible(nameEntry_);
 	addAndMakeVisible(nameChange_);
@@ -244,8 +252,13 @@ void MainComponent::resized()
 
 	outputGroup_.setBounds(outputArea);
 	outputArea.reduce(kNormalInset, kNormalInset);
-	auto outputRightColumn = outputArea.removeFromRight(deviceSelectorWidth);
-	monitorBalance_.setBounds(outputRightColumn.removeFromBottom(40));
+	auto outputRightColumn = outputArea.removeFromRight(deviceSelectorWidth).withTrimmedLeft(kSmallInset);
+	auto monitorArea = outputRightColumn.removeFromBottom(2 * kLineSpacing + 2 * kNormalInset);
+	monitorGroup_.setBounds(monitorArea);
+	auto monitorContent = monitorArea.reduced(kNormalInset);
+	monitorBalance_.setBounds(monitorContent.removeFromBottom(kLineHeight));
+	monitorLocal_.setBounds(monitorContent.removeFromBottom(kLineSpacing).reduced(kSmallInset));
+
 	outputSelector_.setBounds(outputRightColumn);
 	outputController_.setBounds(outputArea);
 }
