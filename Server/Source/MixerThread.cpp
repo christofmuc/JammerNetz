@@ -59,8 +59,9 @@ void MixerThread::run() {
 		}
 
 		// All clients who have not delivered by now are to be gone!
+		// While doing this, sort all session infos into a multimap with sender -> session info
+		std::multimap<std::string, JammerNetzChannelSetup> allSessionChannels;
 		std::vector<std::string> toBeRemoved;
-		sessionSetup_.channels.clear();
 		for (auto inClient = incoming_.cbegin(); inClient != incoming_.cend(); inClient++) {
 			if (inClient->second) {
 				if (incomingData.find(inClient->first) == incomingData.end()) {
@@ -70,8 +71,7 @@ void MixerThread::run() {
 				else {
 					// TODO- do we need to do this every packet?
 					// Is part of mix, list in session info
-					auto client_channels = incomingData[inClient->first]->channelSetup().channels;
-					std::copy(client_channels.begin(), client_channels.end(), std::back_inserter(sessionSetup_.channels));
+					allSessionChannels.emplace(inClient->first, incomingData[inClient->first]->channelSetup());
 				}
 			}
 		}
@@ -93,9 +93,17 @@ void MixerThread::run() {
 				outBuffer->clear();
 
 				// We now produce one mix for each client, specific, because you might not want to hear your own voice microphone
+				JammerNetzChannelSetup sessionSetup;
 				for (auto &client : incomingData) {
 					//recorder_.saveBlock(client.second->audioBuffer()->getArrayOfReadPointers(), outBuffer->getNumSamples());
 					bufferMixdown(outBuffer, client.second, client.first == receiver.first);
+					// Build the client specific session data structure - this is basically all channels except your own
+					if (client.first != receiver.first) {
+						auto range = allSessionChannels.equal_range(client.first);
+						for_each(range.first, range.second, [&](std::pair<const std::string, JammerNetzChannelSetup> setup) {
+							std::copy(setup.second.channels.cbegin(), setup.second.channels.cend(), std::back_inserter(sessionSetup.channels));
+						});
+					}
 				}
 
 				// The outgoing queue takes packages for all clients, they will be sent out to different addresses
@@ -105,7 +113,7 @@ void MixerThread::run() {
 					48000,
 					mixdownSetup_,
 					outBuffer,
-					sessionSetup_
+					sessionSetup
 					));
 				if (!outgoing_.try_push(package)) {
 					// That's a bad sign - I would assume the sender thread died and that's possibly because the network is down. 
