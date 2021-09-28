@@ -92,6 +92,7 @@ private:
 	std::atomic_bool isPlaying_;
 	std::atomic_uint64_t minPlayoutBufferLength_;
 	std::atomic_uint64_t maxPlayoutBufferLength_;	
+	std::atomic<double> masterVolume_;
 	std::string currentText_;
 	
 	JammerNetzChannelSetup channelSetup_;

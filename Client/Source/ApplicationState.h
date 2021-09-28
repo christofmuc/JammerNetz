@@ -14,6 +14,7 @@ constexpr const char* VALUE_OUTPUT_LATENCY = "outputLatency";
 constexpr const char* VALUE_INPUT_SETUP = "Inputs";
 constexpr const char* VALUE_OUTPUT_SETUP = "Outputs";
 constexpr const char* VALUE_MIXER = "Mixer";
+constexpr const char* VALUE_MASTER_OUTPUT = "OutputController";
 constexpr const char* VALUE_VOLUME = "Volume";
 constexpr const char* VALUE_TARGET = "Target";
 constexpr const char* VALUE_MIN_PLAYOUT_BUFFER = "minPlayoutBuffer";

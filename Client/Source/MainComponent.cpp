@@ -32,7 +32,7 @@ MainComponent::MainComponent(String clientID, std::shared_ptr<AudioService> audi
 	audioService_(audioService),
 	inputSelector_(VALUE_INPUT_SETUP, false, true),
 	outputSelector_(VALUE_OUTPUT_SETUP, false, false),
-	outputController_("Master", "OutputController", false, false),
+	outputController_("Master", VALUE_MASTER_OUTPUT, true, false),
 	logView_(false) // Turn off line numbers
 {
 	setLookAndFeel(&dsLookAndFeel_);
@@ -167,7 +167,7 @@ void MainComponent::resized()
 
 	int settingsHeight = 400;
 	int deviceSelectorWidth = std::min(area.getWidth() / 4, 250);
-	int masterMixerWidth = 100; // Stereo mixer
+	int masterMixerWidth = 180; // Stereo mixer
 
 	auto numInputMixers = ownChannels_.numChannels();
 

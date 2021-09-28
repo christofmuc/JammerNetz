@@ -16,7 +16,7 @@
 #include "Logger.h"
 
 AudioCallback::AudioCallback() : jammerService_([this](std::shared_ptr < JammerNetzAudioData> buffer) { playBuffer_.push(buffer); }),
-	playBuffer_("server"), bufferPool_(10)
+	playBuffer_("server"), masterVolume_(1.0), bufferPool_(10)
 {
 	isPlaying_ = false;
 	minPlayoutBufferLength_ = CLIENT_PLAYOUT_JITTER_BUFFER;
@@ -40,6 +40,10 @@ AudioCallback::AudioCallback() : jammerService_([this](std::shared_ptr < JammerN
 	}));
 	listeners_.push_back(std::make_unique<ValueListener>(Data::instance().get().getPropertyAsValue(VALUE_MAX_PLAYOUT_BUFFER, nullptr), [this](Value& newValue) {
 		maxPlayoutBufferLength_ = (int)newValue.getValue();
+	}));
+	auto outputController = Data::instance().get().getOrCreateChildWithName(VALUE_MIXER, nullptr).getOrCreateChildWithName(VALUE_MASTER_OUTPUT, nullptr);
+	listeners_.push_back(std::make_unique<ValueListener>(outputController.getPropertyAsValue(VALUE_VOLUME, nullptr), [this](Value& newValue) {
+		masterVolume_ = ((double) newValue.getValue()) / 100.0;
 	}));
 	// Execute the listeners so we read the current value from the setting file
 	for_each(listeners_.begin(), listeners_.end(), [](std::unique_ptr<ValueListener>& ptr) { ptr->triggerOnChanged();  });
@@ -104,6 +108,7 @@ void AudioCallback::calcLocalMonitoring(std::shared_ptr<AudioBuffer<float>> inpu
 		jassert(inputBuffer->getNumSamples() == outputBuffer.getNumSamples());
 		for (int channel = 0; channel < inputBuffer->getNumChannels(); channel++) {
 			const JammerNetzSingleChannelSetup& setup = channelSetup_.channels[channel];
+			double input_volume = setup.volume * masterVolume_;
 			switch (setup.target) {
 			case Unused:
 				// Nothing to be done, ignore this channel; This is the same as Mute
@@ -111,23 +116,23 @@ void AudioCallback::calcLocalMonitoring(std::shared_ptr<AudioBuffer<float>> inpu
 			case Left:
 				// This is a left channel, going into the left. 
 				if (outputBuffer.getNumChannels() > 0) {
-					outputBuffer.addFrom(0, 0, *inputBuffer, channel, 0, inputBuffer->getNumSamples(), setup.volume);
+					outputBuffer.addFrom(0, 0, *inputBuffer, channel, 0, inputBuffer->getNumSamples(), input_volume);
 				}
 				break;
 			case Right:
 				// And the same for the right channel
 				if (outputBuffer.getNumChannels() > 1) {
-					outputBuffer.addFrom(1, 0, *inputBuffer, channel, 0, inputBuffer->getNumSamples(), setup.volume);
+					outputBuffer.addFrom(1, 0, *inputBuffer, channel, 0, inputBuffer->getNumSamples(), input_volume);
 				}
 				break;
 			case SendOnly:
 				// Fall-through on purpose, treat it as Mono
 			case Mono:
 				if (outputBuffer.getNumChannels() > 0) {
-					outputBuffer.addFrom(0, 0, *inputBuffer, channel, 0, inputBuffer->getNumSamples(), setup.volume);
+					outputBuffer.addFrom(0, 0, *inputBuffer, channel, 0, inputBuffer->getNumSamples(), input_volume);
 				}
 				if (outputBuffer.getNumChannels() > 1) {
-					outputBuffer.addFrom(1, 0, *inputBuffer, channel, 0, inputBuffer->getNumSamples(), setup.volume);
+					outputBuffer.addFrom(1, 0, *inputBuffer, channel, 0, inputBuffer->getNumSamples(), input_volume);
 				}
 				break;
 			}
