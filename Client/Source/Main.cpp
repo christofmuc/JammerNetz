@@ -72,12 +72,11 @@ public:
 		// Create the AudioService, which will contain all important client functionality except the UI
 		audioService_ = std::make_shared<AudioService>();
 
-		String windowTitle = getApplicationName();
+		String windowTitle = getWindowTitle();
 		if (clientID.isNotEmpty()) {
 			windowTitle += ": " + clientID;
 		}
         mainWindow = std::make_unique<MainWindow>(new MainComponent(clientID, audioService_, audioService_->getMasterRecorder(), audioService_->getLocalRecorder()), windowTitle, clientID);
-		mainWindow->setName(getWindowTitle());
 
 #ifdef USE_SENTRY
 		// Initialize sentry for error crash reporting
