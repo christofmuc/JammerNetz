@@ -57,16 +57,20 @@ set(AUDIO_PROCESSING_FILES
 	Source/AudioCallback.h
 	Source/AudioService.cpp
 	Source/AudioService.h
-	Source/JammerService.cpp
-	Source/JammerService.h
 	Source/Tuner.cpp
 	Source/Tuner.h
+)
+source_group(Source\\AudioProcessing FILES ${AUDIO_PROCESSING_FILES})
+
+set(NETWORK_FILES
+	Source/JammerService.cpp
+	Source/JammerService.h
 	Source/Client.cpp
 	Source/Client.h
 	Source/DataReceiveThread.cpp
 	Source/DataReceiveThread.h
 )
-source_group(Source\\AudioProcessing FILES ${AUDIO_PROCESSING_FILES})
+source_group(Source\\Networking FILES ${NETWORK_FILES})
 
 set(UICOMPONENT_FILES
 	Source/BPMDisplay.cpp
@@ -110,7 +114,7 @@ set(DS_LIBRARIES
 set(DS_SOURCES ${DSBRANCH_FILES})
 endif()
 
-add_executable(JammerNetzClient MACOSX_BUNDLE WIN32 ${SOURCES} ${DS_SOURCES} ${UICOMPONENT_FILES} ${PLAYALONG_FILES} ${AUDIO_PROCESSING_FILES} ${MIDI_FILES} ${RESOURCE_FILES} ${INSTALLER_FILES})
+add_executable(JammerNetzClient MACOSX_BUNDLE WIN32 ${SOURCES} ${DS_SOURCES} ${UICOMPONENT_FILES} ${PLAYALONG_FILES} ${AUDIO_PROCESSING_FILES} ${NETWORK_FILES} ${MIDI_FILES} ${RESOURCE_FILES} ${INSTALLER_FILES})
 if(DIGITAL_STAGE_BRANDING)
 # Use new DigitalStage branded versions
 set_target_properties(JammerNetzClient PROPERTIES OUTPUT_NAME "digitalStagePC")
