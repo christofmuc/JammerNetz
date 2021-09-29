@@ -29,11 +29,13 @@ ChannelController::ChannelController(String const &name, String const &id,
 	}
 
 	if (hasTarget) {
-		channelType_.addItem("Off", JammerNetzChannelTarget::Unused + 1);
+		channelType_.addItem("Mute", JammerNetzChannelTarget::Mute + 1);
 		channelType_.addItem("Left", JammerNetzChannelTarget::Left + 1);
 		channelType_.addItem("Right", JammerNetzChannelTarget::Right + 1);
 		channelType_.addItem("Mono", JammerNetzChannelTarget::Mono + 1);
-		channelType_.addItem("Send", JammerNetzChannelTarget::SendOnly + 1);
+		channelType_.addItem("Send", JammerNetzChannelTarget::SendMono + 1);
+		channelType_.addItem("SendLeft", JammerNetzChannelTarget::SendLeft + 1);
+		channelType_.addItem("SendRight", JammerNetzChannelTarget::SendRight + 1);
 		channelType_.setText("Mono");
 		channelType_.addListener(this);
 		addAndMakeVisible(channelType_);
@@ -111,14 +113,16 @@ JammerNetzChannelTarget ChannelController::getCurrentTarget() const
 {
 	JammerNetzChannelTarget target;
 	switch (channelType_.getSelectedItemIndex()) {
-	case 0: target = Unused; break;
+	case 0: target = Mute; break;
 	case 1: target = Left; break;
 	case 2: target = Right; break;
 	case 3: target = Mono; break;
-	case 4: target = SendOnly; break;
+	case 4: target = SendMono; break;
+	case 5: target = SendLeft; break;
+	case 6: target = SendRight; break;
 	default:
 		jassert(false);
-		target = Unused;
+		target = Mute;
 	}
 	return target;
 }

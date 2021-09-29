@@ -16,7 +16,7 @@
 #include "Logger.h"
 
 AudioCallback::AudioCallback() : jammerService_([this](std::shared_ptr < JammerNetzAudioData> buffer) { playBuffer_.push(buffer); }),
-	playBuffer_("server"), masterVolume_(1.0), monitorBalance_(0.0), bufferPool_(10)
+	playBuffer_("server"), masterVolume_(1.0), monitorBalance_(0.0), channelSetup_(false), bufferPool_(10)
 {
 	isPlaying_ = false;
 	minPlayoutBufferLength_ = CLIENT_PLAYOUT_JITTER_BUFFER;
@@ -25,7 +25,7 @@ AudioCallback::AudioCallback() : jammerService_([this](std::shared_ptr < JammerN
 	// Where to record to?
 	uploadRecorder_ = std::make_shared<Recorder>(Settings::instance().getSessionStorageDir(), "LocalRecording", RecordingType::WAV);
 	masterRecorder_ = std::make_shared<Recorder>(Settings::instance().getSessionStorageDir(), "MasterRecording", RecordingType::FLAC);
-	masterRecorder_->setChannelInfo(SAMPLE_RATE, JammerNetzChannelSetup({ JammerNetzChannelTarget::Left, JammerNetzChannelTarget::Right }));
+	masterRecorder_->setChannelInfo(SAMPLE_RATE, JammerNetzChannelSetup(false, { JammerNetzChannelTarget::Left, JammerNetzChannelTarget::Right }));
 	//midiRecorder_ = std::make_unique<MidiRecorder>(deviceManager);
 
 	// We might want to share a score sheet or similar
@@ -48,6 +48,9 @@ AudioCallback::AudioCallback() : jammerService_([this](std::shared_ptr < JammerN
 	}));
 	listeners_.push_back(std::make_unique<ValueListener>(outputController.getPropertyAsValue(VALUE_MONITOR_BALANCE, nullptr), [this](Value& newValue) {
 		monitorBalance_ = newValue.getValue();
+	}));
+	listeners_.push_back(std::make_unique<ValueListener>(mixer.getPropertyAsValue(VALUE_USE_LOCAL_MONITOR, nullptr), [this](Value& newValue) {
+		monitorIsLocal_ = newValue.getValue();
 	}));
 
 	// Execute the listeners so we read the current value from the setting file
@@ -115,7 +118,7 @@ std::pair<double, double> calcMonitorGain() {
 void AudioCallback::calcLocalMonitoring(std::shared_ptr<AudioBuffer<float>> inputBuffer, AudioBuffer<float>& outputBuffer) {
 	
 	outputBuffer.clear();
-	if (localMonitoring_) {
+	if (monitorIsLocal_) {
 		auto [monitorVolume, _] = calcMonitorGain();
 		// Apply gain to our channels and do a stereo mixdown
 		jassert(inputBuffer->getNumSamples() == outputBuffer.getNumSamples());
@@ -123,8 +126,8 @@ void AudioCallback::calcLocalMonitoring(std::shared_ptr<AudioBuffer<float>> inpu
 			const JammerNetzSingleChannelSetup& setup = channelSetup_.channels[channel];
 			double input_volume = setup.volume * monitorVolume * masterVolume_;
 			switch (setup.target) {
-			case Unused:
-				// Nothing to be done, ignore this channel; This is the same as Mute
+			case Mute:
+				// Nothing to be done, ignore this channel
 				break;
 			case Left:
 				// This is a left channel, going into the left. 
@@ -138,7 +141,10 @@ void AudioCallback::calcLocalMonitoring(std::shared_ptr<AudioBuffer<float>> inpu
 					outputBuffer.addFrom(1, 0, *inputBuffer, channel, 0, inputBuffer->getNumSamples(), input_volume);
 				}
 				break;
-			case SendOnly:
+			case SendLeft:
+			case SendRight:
+			case SendMono:
+				// Don't include the "send only" channel types into the local monitoring mix, this is what that flag is for!
 				break;
 			case Mono:
 				if (outputBuffer.getNumChannels() > 0) {

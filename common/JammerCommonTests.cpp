@@ -15,7 +15,7 @@ TEST(TestSerialization, TestAudioData) {
 	}
 
 	// Create a setup for this
-	JammerNetzChannelSetup setup;
+	JammerNetzChannelSetup setup(false);
 	setup.channels.push_back(JammerNetzSingleChannelSetup(JammerNetzChannelTarget::Left));
 
 	JammerNetzAudioData  message(0, 1234.0, setup, SAMPLE_RATE, buffer, nullptr);

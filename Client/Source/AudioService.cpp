@@ -39,16 +39,16 @@ bool AudioService::isConnected()
 
 void AudioService::refreshChannelSetup(std::shared_ptr<ChannelSetup> setup)
 {
-	JammerNetzChannelSetup channelSetup;
+	auto mixer = Data::instance().get().getChildWithName(VALUE_MIXER);
+	bool isLocalMonitoring = mixer.getProperty(VALUE_USE_LOCAL_MONITOR);
+	JammerNetzChannelSetup channelSetup(isLocalMonitoring);
 	if (setup) {
-		auto mixer = Data::instance().get().getChildWithName(VALUE_MIXER);
-		jassert(mixer.isValid());
 		for (int i = 0; i < setup->activeChannelIndices.size(); i++) {
 			String inputController = "Input" + String(i);
 			auto controllerData = mixer.getChildWithName(inputController);
 			jassert(controllerData.isValid());
-			int target = controllerData.getProperty(VALUE_TARGET, JammerNetzChannelTarget::Mono);
-			JammerNetzSingleChannelSetup channel(target - 1); 
+			JammerNetzChannelTarget target = static_cast<JammerNetzChannelTarget>(((int)  controllerData.getProperty(VALUE_TARGET, JammerNetzChannelTarget::Mono)) - 1);
+			JammerNetzSingleChannelSetup channel(target); 
 			double volume = controllerData.getProperty(VALUE_VOLUME, 100.0);
 			channel.volume = (float)volume/100.0f;
 			auto username = Data::instance().get().getProperty(VALUE_USER_NAME).toString().toStdString();

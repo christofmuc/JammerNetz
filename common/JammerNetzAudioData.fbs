@@ -26,6 +26,7 @@ table JammerNetzPNPAudioBlock {
 	channelSetup :[JammerNetzPNPChannelSetup];
 	channels :[JammerNetzPNPAudioSamples];
 	allChannels :[JammerNetzPNPChannelSetup];
+	wantEcho: bool = true; // True is the old behavior where the client did not have any local monitoring!
 }
 
 table JammerNetzPNPAudioData {

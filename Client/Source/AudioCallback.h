@@ -85,14 +85,13 @@ private:
 
 	JammerService jammerService_; //TODO - this instance needs to be pulled up another level, so the audiocallback class wouldn't know anything about the network
 
-	bool localMonitoring_ = true;
-
 	PacketStreamQueue playBuffer_;
 	std::atomic_bool isPlaying_;
 	std::atomic_uint64_t minPlayoutBufferLength_;
 	std::atomic_uint64_t maxPlayoutBufferLength_;	
 	std::atomic<double> masterVolume_;
 	std::atomic<double> monitorBalance_;
+	std::atomic<bool> monitorIsLocal_;
 	std::string currentText_;
 	
 	JammerNetzChannelSetup channelSetup_;

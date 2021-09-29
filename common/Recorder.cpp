@@ -7,7 +7,7 @@
 #include "Recorder.h"
 
 Recorder::Recorder(File directory, std::string const &baseFileName, RecordingType recordingType) 
-	: directory_(directory), baseFileName_(baseFileName), writer_(nullptr), recordingType_(recordingType), samplesWritten_(0)
+	: directory_(directory), baseFileName_(baseFileName), writer_(nullptr), recordingType_(recordingType), samplesWritten_(0), lastChannelSetup_(false)
 {
 	thread_ = std::make_unique<TimeSliceThread>("RecorderDiskWriter");
 	thread_->startThread();
@@ -98,18 +98,23 @@ void Recorder::updateChannelInfo(int sampleRate, JammerNetzChannelSetup const &c
 	int numChannels = 0;
 	for (auto channel : channelSetup.channels) {
 		switch (channel.target) {
-		case Unused:
+		case Mute:
 			// Ignore
+			//TODO Think if Mute is really part of the recording, but empty. Because you don't want mute/unmute to restart the file recording
 			break;
 		case Left:
+			// Fall through
+		case SendLeft:
 			channels.addChannel(AudioChannelSet::left);
 			numChannels++;
 			break;
 		case Right:
+			// Fall through
+		case SendRight:
 			channels.addChannel(AudioChannelSet::right);
 			numChannels++;
 			break;
-		case SendOnly:
+		case SendMono:
 			// Fall through
 		case Mono:
 			channels.addChannel(AudioChannelSet::centre);

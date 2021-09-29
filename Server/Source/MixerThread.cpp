@@ -93,7 +93,7 @@ void MixerThread::run() {
 				outBuffer->clear();
 
 				// We now produce one mix for each client, specific, because you might not want to hear your own voice microphone
-				JammerNetzChannelSetup sessionSetup;
+				JammerNetzChannelSetup sessionSetup(false);
 				for (auto &client : incomingData) {
 					//recorder_.saveBlock(client.second->audioBuffer()->getArrayOfReadPointers(), outBuffer->getNumSamples());
 					bufferMixdown(outBuffer, client.second, client.first == receiver.first);
@@ -145,27 +145,53 @@ void MixerThread::bufferMixdown(std::shared_ptr<AudioBuffer<float>> &outBuffer, 
 		return;
 	}
 	// Loop over the input channels, and add them to either the left or right or both channels!
+	auto channelSetup = audioData->channelSetup();
+	bool wantsEcho = !channelSetup.isLocalMonitoringDontSendEcho;
 	for (int channel = 0; channel < audioData->audioBuffer()->getNumChannels(); channel++) {
-		JammerNetzSingleChannelSetup setup = audioData->channelSetup().channels[channel];
+		JammerNetzSingleChannelSetup setup = channelSetup.channels[channel];
 		switch (setup.target) {
-		case Unused:
-			// Nothing to be done, ignore this channel; This is the same as Mute
+		case Mute:
+			// Nothing to be done
 			break;
+		case SendLeft:
+			if (isForSender) {
+				// Never send this back
+				break;
+			}
+			// Fall-though
 		case Left:
+			if (isForSender && !wantsEcho) {
+				// Don't send this back if it is not requested
+				break;
+			}
 			// This is a left channel, going into the left. 
 			outBuffer->addFrom(0, 0, *audioData->audioBuffer(), channel, 0, audioData->audioBuffer()->getNumSamples(), setup.volume);
 			break;
+		case SendRight:
+			if (isForSender) {
+				// Never send this back
+				break;
+			}
+			// Fall-though
 		case Right:
+			if (isForSender && !wantsEcho) {
+				// Don't send this back if it is not requested
+				break;
+			}
 			// And the same for the right channel
 			outBuffer->addFrom(1, 0, *audioData->audioBuffer(), channel, 0, audioData->audioBuffer()->getNumSamples(), setup.volume);
 			break;
-		case SendOnly:
+		case SendMono:
 			if (isForSender) {
-				// Don't send this back, we don't want to hear our own voice talking
+				// Never send this back
 				break;
 			}
 			// Fall-through on purpose, treat it as Mono
 		case Mono:
+			if (isForSender && !wantsEcho) {
+				// Don't send this back if it is not requested
+				break;
+			}
 			outBuffer->addFrom(0, 0, *audioData->audioBuffer(), channel, 0, audioData->audioBuffer()->getNumSamples(), setup.volume);
 			outBuffer->addFrom(1, 0, *audioData->audioBuffer(), channel, 0, audioData->audioBuffer()->getNumSamples(), setup.volume);
 			break;

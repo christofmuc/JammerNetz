@@ -53,7 +53,7 @@ JammerNetzChannelTarget ChannelControllerGroup::getCurrentTarget(int channel) co
 	if (channel < channelControllers_.size())
 		return channelControllers_[channel]->getCurrentTarget();
 	jassertfalse;
-	return JammerNetzChannelTarget::Unused;
+	return JammerNetzChannelTarget::Mute;
 }
 
 float ChannelControllerGroup::getCurrentVolume(int channel) const

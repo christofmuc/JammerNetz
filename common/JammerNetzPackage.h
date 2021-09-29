@@ -34,11 +34,13 @@ struct JammerNetzHeader {
 };
 
 enum JammerNetzChannelTarget {
-	Unused = 0,
+	Mute = 0,
 	Left,
 	Right, 
 	Mono,
-	SendOnly,
+	SendMono,
+	SendLeft,
+	SendRight
 };
 
 struct JammerNetzSingleChannelSetup {
@@ -56,8 +58,9 @@ struct JammerNetzSingleChannelSetup {
 };
 
 struct JammerNetzChannelSetup {
-	JammerNetzChannelSetup();
-	JammerNetzChannelSetup(std::vector<JammerNetzSingleChannelSetup> const &channelInfo);
+	JammerNetzChannelSetup(bool localMonitoring);
+	JammerNetzChannelSetup(bool localMonitoring, std::vector<JammerNetzSingleChannelSetup> const &channelInfo);
+	bool isLocalMonitoringDontSendEcho;
 	std::vector<JammerNetzSingleChannelSetup> channels;
 
 	bool isEqualEnough(const JammerNetzChannelSetup &other) const; 
@@ -79,7 +82,9 @@ struct JammerNetzAudioHeader {
 };
 
 struct AudioBlock {
-	AudioBlock() = default;
+	AudioBlock() : channelSetup(false), sessionSetup(false) {
+	}
+
 	AudioBlock(AudioBlock const &other) = default;
 	AudioBlock(double timestamp, uint64 messageCounter, uint16 sampleRate, JammerNetzChannelSetup const &channelSetup, std::shared_ptr<AudioBuffer<float>> audioBuffer, JammerNetzChannelSetup const &sessionSetup);
 	double timestamp; // Using JUCE's high resolution timer

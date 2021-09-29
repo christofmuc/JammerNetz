@@ -13,7 +13,7 @@
 #include "XPlatformUtils.h"
 
 DataReceiveThread::DataReceiveThread(DatagramSocket &socket, std::function<void(std::shared_ptr<JammerNetzAudioData>)> newDataHandler)
-	: Thread("ReceiveDataFromServer"), socket_(socket), newDataHandler_(newDataHandler), currentRTT_(0.0), isReceiving_(false)
+	: Thread("ReceiveDataFromServer"), socket_(socket), newDataHandler_(newDataHandler), currentRTT_(0.0), isReceiving_(false), currentSession_(false)
 {
 	// Create listeners to get notified if the application state we depend on changes
 	listeners_.push_back(std::make_unique<ValueListener>(Data::instance().get().getPropertyAsValue(VALUE_CRYPTOPATH, nullptr), [this](Value& value) {
