@@ -36,8 +36,10 @@ MainComponent::MainComponent(String clientID, std::shared_ptr<AudioService> audi
 	monitorBalance_("Local", "Remote", 50),
 	logView_(false) // Turn off line numbers
 {
+#ifdef DIGITAL_STAGE
 	setLookAndFeel(&dsLookAndFeel_);
 	addAndMakeVisible(dsLookAndFeel_.backgroundGradient());
+#endif
 
 	// Create an a Logger for the JammerNetz client
 	logViewLogger_ = std::make_unique<LogViewLogger>(logView_);
@@ -177,8 +179,10 @@ MainComponent::~MainComponent()
 void MainComponent::resized()
 {
 	auto area = getLocalBounds();
+#ifdef DIGITAL_STAGE
 	dsLookAndFeel_.backgroundGradient()->setBounds(area);
 	dsLookAndFeel_.backgroundGradient()->setTransformToFit(area.toFloat(), RectanglePlacement::stretchToFit);
+#endif
 	area = area.reduced(kSmallInset);
 
 	int settingsHeight = 400;
@@ -214,7 +218,9 @@ void MainComponent::resized()
 		clientInfo->setBounds(qualityArea.removeFromTop(kLineHeight * 2));
 	}
 	downstreamInfo_.setBounds(qualityArea);
+#ifdef DIGITAL_STAGE
 	logo_.setBounds(qualityArea.reduced(kNormalInset).removeFromRight(151).removeFromBottom(81));
+#endif
 
 	// Lower right - everything with recording!
 	auto recordingArea = settingsArea.removeFromLeft(settingsSectionWidth);
