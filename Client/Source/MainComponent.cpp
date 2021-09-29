@@ -188,10 +188,11 @@ void MainComponent::resized()
 	int settingsHeight = 400;
 	int deviceSelectorWidth = std::min(area.getWidth() / 4, 250);
 	int masterMixerWidth = 180; // Stereo mixer
+	int singleMixerWidth = 100;
 
 	auto numInputMixers = ownChannels_.numChannels();
 
-	int inputMixerWidth = masterMixerWidth * numInputMixers + deviceSelectorWidth + 2 * kNormalInset;
+	int inputMixerWidth = singleMixerWidth * numInputMixers + deviceSelectorWidth + 2 * kNormalInset;
 
 	// To the bottom, the server info and status area
 	auto settingsArea = area.removeFromBottom(settingsHeight);
