@@ -76,7 +76,6 @@ bool Client::sendData(String const &remoteHostname, int remotePort, void *data, 
 	if (bytesWritten == -1 || bytesWritten != numbytes) {
 		// This is bad - when could this happen?
 		// Well, for once, if the remoteHostname is empty or incorrect
-		jassertfalse;
 		return false;
 	}
 	return true;
