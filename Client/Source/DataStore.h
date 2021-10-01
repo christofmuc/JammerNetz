@@ -18,6 +18,7 @@ public:
 	DataStore(DigitalStage::Auth::string_t const& apiToken);
 
 	bool isReady() const;
+	bool isOnStage() const;
 
 	std::vector<DigitalStage::Types::Stage> allStages() const;
 
@@ -31,6 +32,7 @@ private:
 
 	std::unique_ptr< DigitalStage::Api::Client> client_;
 	std::atomic<bool> gotReadySignal_;
+	std::atomic<bool> joined_;
 };
 
 

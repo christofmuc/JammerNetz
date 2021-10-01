@@ -158,7 +158,11 @@ MainComponent::MainComponent(String clientID, std::shared_ptr<AudioService> audi
 
 			// Busy wait until ready
 			while (!globalDataStore_->isReady());
-			JoinStageDialog::showDialog(globalDataStore_);
+
+			// If not on a stage, show the join stage dialog
+			if (!globalDataStore_->isOnStage()) {
+				JoinStageDialog::showDialog(globalDataStore_);
+			}
 		});
 	});
 #endif	

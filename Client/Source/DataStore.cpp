@@ -46,7 +46,7 @@ void printStage(const DigitalStage::Api::Store* s)
 }
 
 
-DataStore::DataStore(DigitalStage::Auth::string_t const& apiToken) : gotReadySignal_(false)
+DataStore::DataStore(DigitalStage::Auth::string_t const& apiToken) : gotReadySignal_(false), joined_(false)
 {
 	registerClient(apiToken);
 }
@@ -54,6 +54,11 @@ DataStore::DataStore(DigitalStage::Auth::string_t const& apiToken) : gotReadySig
 bool DataStore::isReady() const
 {
 	return gotReadySignal_;
+}
+
+bool DataStore::isOnStage() const
+{
+	return joined_;
 }
 
 std::vector<DigitalStage::Types::Stage> DataStore::allStages() const
@@ -111,10 +116,12 @@ void DataStore::registerClient(DigitalStage::Auth::string_t const& apiToken)
 				}
 				serverInfo.bufferSize = SAMPLE_BUFFER_SIZE; // This is currently compiled into the software
 				serverInfo.sampleRate = SAMPLE_RATE; // This is currently compiled into the software
+				joined_ = true;
 				onJoin_(serverInfo);
 			}
 		});
 		client_->stageLeft.connect([this](const DigitalStage::Api::Store* s) {
+			joined_ = false;
 			if (onLeave_) {
 				onLeave_();
 			}
