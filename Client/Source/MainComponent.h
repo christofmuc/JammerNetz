@@ -39,6 +39,10 @@ private:
 	void numConnectedClientsChanged();
 	void fillConnectedClientsStatistics();
 
+#ifdef DIGITAL_STAGE
+	void showJoinStage();
+#endif
+
 	std::shared_ptr<AudioService> audioService_;
 
 	// DEFINE ALL OUR WIDGETS
@@ -56,6 +60,9 @@ private:
 	Label nameLabel_;
 	TextEditor nameEntry_;
 	TextButton nameChange_;
+#ifdef DIGITAL_STAGE
+	TextButton joinStage_;
+#endif
 	ClientConfigurator clientConfigurator_;
 	ServerStatus serverStatus_;
 	GroupComponent serverGroup_;

@@ -40,6 +40,12 @@ MainComponent::MainComponent(String clientID, std::shared_ptr<AudioService> audi
 #ifdef DIGITAL_STAGE
 	setLookAndFeel(&dsLookAndFeel_);
 	addAndMakeVisible(dsLookAndFeel_.backgroundGradient());
+
+	joinStage_.setButtonText("Change stage");
+	joinStage_.onClick = [this] {
+		showJoinStage();
+	};
+	addAndMakeVisible(joinStage_);
 #endif
 
 	// Create an a Logger for the JammerNetz client
@@ -163,7 +169,7 @@ MainComponent::MainComponent(String clientID, std::shared_ptr<AudioService> audi
 
 			// If not on a stage, show the join stage dialog
 			if (!globalDataStore_->isOnStage()) {
-				JoinStageDialog::showDialog(globalDataStore_);
+				showJoinStage();
 			}
 		});
 	});
@@ -209,9 +215,14 @@ void MainComponent::resized()
 	serverGroup_.setBounds(clientConfigArea);
 	clientConfigArea.reduce(kNormalInset, kNormalInset);
 	auto nameRow = clientConfigArea.removeFromTop(kLineSpacing).withTrimmedTop(kNormalInset).withTrimmedLeft(kNormalInset).withTrimmedRight(kNormalInset);
+#ifdef DIGITAL_STAGE
+	joinStage_.setBounds(nameRow.withSizeKeepingCentre(kButtonWidth, kLineHeight));
+#else
 	nameLabel_.setBounds(nameRow.removeFromLeft(kLabelWidth));
 	nameEntry_.setBounds(nameRow.removeFromLeft(kEntryBoxWidth));
-	nameChange_.setBounds(nameRow.removeFromLeft(kLabelWidth).withTrimmedLeft(kNormalInset));
+	nameChange_.setBounds(nameRow.removeFromLeft(kLabelWidth / 2).withTrimmedLeft(kNormalInset));
+#endif
+
 	clientConfigurator_.setBounds(clientConfigArea.removeFromBottom(kLineSpacing * 2));
 	connectionInfo_.setBounds(clientConfigArea.removeFromBottom(kLineSpacing));
 	serverStatus_.setBounds(clientConfigArea);
@@ -329,6 +340,13 @@ void MainComponent::fillConnectedClientsStatistics() {
 	}
 }
 
+void MainComponent::showJoinStage()
+{
+	if (!JoinStageDialog::isCurrentlyOpen()) {
+		JoinStageDialog::showDialog(globalDataStore_);
+	}
+}
+
 void MainComponent::timerCallback()
 {
 	// Refresh the UI with info from the Audio callback
@@ -384,13 +402,13 @@ void MainComponent::timerCallback()
 	}
 
 #ifdef DIGITAL_STAGE
-	// Special magic - check how long ago we have left a stage. If this is more than, say, 200 ms and we did not get a rejoin, open the join dialog
+	// Special magic - check how long ago we have left a stage. If this is more than, say, 1000ms and we did not get a rejoin, open the join dialog
 	// but open it only once!
 	if (globalDataStore_ && !globalDataStore_->isOnStage() && Time::currentTimeMillis() > stageLeftWhenInMillis_ + 1000) {
 		if (!JoinStageDialog::isCurrentlyOpen()) {
-			stageLeftWhenInMillis_ = Time::currentTimeMillis(); // Give me 200ms to open the dialog, please
-			MessageManager::callAsync([] {
-				JoinStageDialog::showDialog(globalDataStore_);
+			stageLeftWhenInMillis_ = Time::currentTimeMillis(); // Give me a second to open the dialog, please
+			MessageManager::callAsync([this] {
+				showJoinStage();
 			});
 		}
 	}
