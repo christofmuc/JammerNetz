@@ -24,8 +24,14 @@ Client::Client(DatagramSocket& socket) : socket_(socket), messageCounter_(10) /*
 		std::shared_ptr<MemoryBlock> cryptokey;
 		String newCryptopath = value.getValue();
 		if (newCryptopath.isNotEmpty()) {
-			UDPEncryption::loadKeyfile(newCryptopath.toRawUTF8(), &cryptokey);			
-			setCryptoKey(cryptokey->getData(), safe_sizet_to_int(cryptokey->getSize()));
+			UDPEncryption::loadKeyfile(newCryptopath.toRawUTF8(), &cryptokey);	
+			if (cryptokey) {
+				setCryptoKey(cryptokey->getData(), safe_sizet_to_int(cryptokey->getSize()));
+			}
+			else {
+				// Turn off encrpytion
+				setCryptoKey(nullptr, 0);
+			}
 		}
 		else {
 			// Turn off encrpytion

@@ -21,7 +21,13 @@ DataReceiveThread::DataReceiveThread(DatagramSocket &socket, std::function<void(
 		String newCryptopath = value.getValue();
 		if (newCryptopath.isNotEmpty()) {
 			UDPEncryption::loadKeyfile(newCryptopath.toRawUTF8(), &cryptokey);
-			setCryptoKey(cryptokey->getData(), safe_sizet_to_int(cryptokey->getSize()));
+			if (cryptokey) {
+				setCryptoKey(cryptokey->getData(), safe_sizet_to_int(cryptokey->getSize()));
+			}
+			else {
+				// Turn off encrpytion
+				setCryptoKey(nullptr, 0);
+			}
 		}
 		else {
 			// Turn off encrpytion
