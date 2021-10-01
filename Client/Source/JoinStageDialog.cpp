@@ -75,6 +75,11 @@ void JoinStageDialog::resized()
 	stageTable_.setBounds(area.withTrimmedBottom(kNormalInset));
 }
 
+bool JoinStageDialog::isCurrentlyOpen()
+{
+	return sJoinStageDialog && sJoinStageDialog->isShowing();
+}
+
 void JoinStageDialog::setStages(std::vector<DigitalStage::Types::Stage> const& stages)
 {
 	stagesInTable_ = stages; // We need to store this has those in the "DataStore" could be changed at any time via WebSockets

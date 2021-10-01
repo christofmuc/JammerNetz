@@ -27,6 +27,7 @@ public:
 
 	virtual void resized() override;
 
+	static bool isCurrentlyOpen();
 	void setStages(std::vector<DigitalStage::Types::Stage> const& stages);
 
 private:

@@ -85,6 +85,7 @@ private:
 	std::shared_ptr<JammerNetzChannelSetup> currentSessionSetup_;
 
 	DSLookAndFeel dsLookAndFeel_;
+	juce::int64 stageLeftWhenInMillis_;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MainComponent)
 };

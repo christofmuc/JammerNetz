@@ -34,7 +34,8 @@ MainComponent::MainComponent(String clientID, std::shared_ptr<AudioService> audi
 	outputSelector_(VALUE_OUTPUT_SETUP, false, false),
 	outputController_("Master", VALUE_MASTER_OUTPUT, true, false),
 	monitorBalance_("Local", "Remote", 50),
-	logView_(false) // Turn off line numbers
+	logView_(false), // Turn off line numbers
+	stageLeftWhenInMillis_(Time::currentTimeMillis())
 {
 #ifdef DIGITAL_STAGE
 	setLookAndFeel(&dsLookAndFeel_);
@@ -154,6 +155,7 @@ MainComponent::MainComponent(String clientID, std::shared_ptr<AudioService> audi
 					data.setProperty(VALUE_USE_LOCALHOST, false, nullptr);
 					data.setProperty(VALUE_CRYPTOPATH, "", nullptr);
 				});
+				stageLeftWhenInMillis_ = Time::currentTimeMillis();
 			};
 
 			// Busy wait until ready
@@ -380,6 +382,19 @@ void MainComponent::timerCallback()
 		// Setup changed, need to re-init UI
 		allChannels_.setup(currentSessionSetup_, audioService_->getSessionMeterSource());
 	}
+
+#ifdef DIGITAL_STAGE
+	// Special magic - check how long ago we have left a stage. If this is more than, say, 200 ms and we did not get a rejoin, open the join dialog
+	// but open it only once!
+	if (globalDataStore_ && !globalDataStore_->isOnStage() && Time::currentTimeMillis() > stageLeftWhenInMillis_ + 1000) {
+		if (!JoinStageDialog::isCurrentlyOpen()) {
+			stageLeftWhenInMillis_ = Time::currentTimeMillis(); // Give me 200ms to open the dialog, please
+			MessageManager::callAsync([] {
+				JoinStageDialog::showDialog(globalDataStore_);
+			});
+		}
+	}
+#endif
 }
 
 void MainComponent::inputSetupChanged() {
