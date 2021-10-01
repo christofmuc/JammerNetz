@@ -28,10 +28,18 @@ ServerSelector::ServerSelector() //: localhostSelected_(false), lastServer_(glob
 	keyLabel_.setText("Crypto file", dontSendNotification);
 	browseToKey_.setButtonText("Browse...");
 	browseToKey_.onClick = [this]() {
-		String cryptoKeyPath = Data::instance().get().getProperty(VALUE_CRYPTOPATH);
+#ifdef DIGITAL_STAGE
+		String cryptoKeyPath = Data::getEphemeralProperty(VALUE_CRYPTOPATH);
+#else
+		String cryptoKeyPath = Data::getProperty(VALUE_CRYPTOPATH);
+#endif
 		FileChooser fileChooser("Select crypto file to use", File(cryptoKeyPath).getParentDirectory());
 		if (fileChooser.browseForFileToOpen()) {
+#ifdef DIGITAL_STAGE
+			Data::instance().getEphemeral().setProperty(VALUE_CRYPTOPATH, fileChooser.getResult().getFullPathName(), nullptr);
+#else
 			Data::instance().get().setProperty(VALUE_CRYPTOPATH, fileChooser.getResult().getFullPathName(), nullptr);
+#endif
 			reloadCryptoKey();
 		}
 	};
@@ -56,7 +64,11 @@ ServerSelector::ServerSelector() //: localhostSelected_(false), lastServer_(glob
 
 void ServerSelector::reloadCryptoKey() {
 	// This method really is just to open the dialog in the right moment - the cryptokeypath is watched by somebody else and the file is loaded somewhere else
+#ifdef DIGITAL_STAGE
+	String cryptoKeyPath = Data::instance().getEphemeral().getProperty(VALUE_CRYPTOPATH);
+#else
 	String cryptoKeyPath = Data::instance().get().getProperty(VALUE_CRYPTOPATH);
+#endif
 	//notify_();
 	if (cryptoKeyPath.isNotEmpty()) {
 		AlertWindow::showMessageBox(AlertWindow::InfoIcon, "New key loaded", "The new crypto key was loaded from " + cryptoKeyPath);
@@ -89,7 +101,11 @@ void ServerSelector::resized()
 
 void ServerSelector::bindControls()
 {
-	ValueTree &data = Data::instance().get();
+#ifdef DIGITAL_STAGE
+	ValueTree &data = Data::instance().getEphemeral();
+#else
+	ValueTree& data = Data::instance().get();
+#endif
 	if (!data.hasProperty(VALUE_SERVER_NAME)) {
 	}
 	ipAddress_.getTextValue().referTo(data.getPropertyAsValue(VALUE_SERVER_NAME, nullptr));

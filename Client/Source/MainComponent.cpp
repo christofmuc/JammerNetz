@@ -146,7 +146,7 @@ MainComponent::MainComponent(String clientID, std::shared_ptr<AudioService> audi
 				// Call on UI Thread
 				MessageManager::callAsync([serverInfo, this]() {
 					// Update the global stored data
-					ValueTree& data = Data::instance().get();
+					ValueTree& data = Data::instance().getEphemeral();
 					data.setProperty(VALUE_SERVER_NAME, serverInfo.serverName.c_str(), nullptr);
 					data.setProperty(VALUE_SERVER_PORT, atoi(serverInfo.serverPort.c_str()), nullptr); // Need better parsing of int
 					data.setProperty(VALUE_USE_LOCALHOST, false, nullptr);
@@ -155,7 +155,7 @@ MainComponent::MainComponent(String clientID, std::shared_ptr<AudioService> audi
 			};
 			globalDataStore_->onLeave_ = [this]() {
 				MessageManager::callAsync([this]() {
-					ValueTree& data = Data::instance().get();
+					ValueTree& data = Data::instance().getEphemeral();
 					data.setProperty(VALUE_SERVER_NAME, "", nullptr);
 					data.setProperty(VALUE_SERVER_PORT, 7777, nullptr);
 					data.setProperty(VALUE_USE_LOCALHOST, false, nullptr);

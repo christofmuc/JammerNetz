@@ -20,7 +20,11 @@ Client::Client(DatagramSocket& socket) : socket_(socket), messageCounter_(10) /*
 	, currentBlockSize_(0), fecBuffer_(16), useFEC_(false), serverPort_(7777), useLocalhost_(false)
 {
 	// Create listeners to get notified if the application state we depend on changes
-	listeners_.push_back(std::make_unique<ValueListener>(Data::instance().get().getPropertyAsValue(VALUE_CRYPTOPATH, nullptr), [this](Value& value) {
+#ifdef DIGITAL_STAGE
+	listeners_.push_back(std::make_unique<ValueListener>(Data::getEphemeralPropertyAsValue(VALUE_CRYPTOPATH), [this](Value& value) {
+#else
+	listeners_.push_back(std::make_unique<ValueListener>(Data::getPropertyAsValue(VALUE_CRYPTOPATH), [this](Value& value) {
+#endif
 		std::shared_ptr<MemoryBlock> cryptokey;
 		String newCryptopath = value.getValue();
 		if (newCryptopath.isNotEmpty()) {
@@ -41,18 +45,30 @@ Client::Client(DatagramSocket& socket) : socket_(socket), messageCounter_(10) /*
 	listeners_.push_back(std::make_unique<ValueListener>(Data::instance().get().getPropertyAsValue(VALUE_USE_FEC, nullptr), [this](Value& value) {
 		useFEC_ = value.getValue();
 	}));
-	listeners_.push_back(std::make_unique<ValueListener>(Data::instance().get().getPropertyAsValue(VALUE_SERVER_NAME, nullptr), [this](Value& value) {
+#ifdef DIGITAL_STAGE
+	listeners_.push_back(std::make_unique<ValueListener>(Data::getEphemeralPropertyAsValue(VALUE_SERVER_NAME), [this](Value& value) {
+#else
+	listeners_.push_back(std::make_unique<ValueListener>(Data::getPropertyAsValue(VALUE_SERVER_NAME), [this](Value& value) {
+#endif
 		ScopedLock lock(serverLock_);
 		serverName_ = value.getValue();
 	}));
-	listeners_.push_back(std::make_unique<ValueListener>(Data::instance().get().getPropertyAsValue(VALUE_SERVER_PORT, nullptr), [this](Value& value) {
+#ifdef DIGITAL_STAGE
+	listeners_.push_back(std::make_unique<ValueListener>(Data::getEphemeralPropertyAsValue(VALUE_SERVER_PORT), [this](Value& value) {
+#else
+	listeners_.push_back(std::make_unique<ValueListener>(Data::getPropertyAsValue(VALUE_SERVER_PORT), [this](Value& value) {
+#endif
 		String serverPortAsString = value.getValue();
 		serverPort_ = strtol(serverPortAsString.toRawUTF8(), nullptr, 10); // https://forum.juce.com/t/string-to-float-int-bool/16733/12
 		if (serverPort_ == 0) {
 			serverPort_ = 7777; // Default value
 		}
 	}));
-	listeners_.push_back(std::make_unique<ValueListener>(Data::instance().get().getPropertyAsValue(VALUE_USE_LOCALHOST, nullptr), [this](Value& value) {
+#ifdef DIGITAL_STAGE
+	listeners_.push_back(std::make_unique<ValueListener>(Data::getEphemeralPropertyAsValue(VALUE_USE_LOCALHOST), [this](Value& value) {
+#else
+	listeners_.push_back(std::make_unique<ValueListener>(Data::getPropertyAsValue(VALUE_USE_LOCALHOST), [this](Value& value) {
+#endif
 		useLocalhost_ = value.getValue();
 	}));
 
