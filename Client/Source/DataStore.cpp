@@ -12,6 +12,9 @@
 #include "ServerInfo.h"
 #include "BuffersConfig.h"
 
+#include "Data.h"
+#include "ApplicationState.h"
+
 void printStage(const DigitalStage::Api::Store* s)
 {
 	auto stages = s->getStages();
@@ -85,6 +88,10 @@ void DataStore::registerClient(DigitalStage::Auth::string_t const& apiToken)
 
 		client_->ready.connect([this](const DigitalStage::Api::Store* store) {
 			gotReadySignal_ = true;
+		});
+
+		client_->localUserReady.connect([this](User const user, const DigitalStage::Api::Store* store) {
+			Data::instance().get().setProperty(VALUE_USER_NAME, String(user.name), nullptr);
 		});
 
 		/*client->deviceAdded.connect(handleDeviceAdded);
