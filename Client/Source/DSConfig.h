@@ -9,6 +9,8 @@
 #include <string>
 
 // Dev servers 
-const std::string DS_AUTH_SERVER = "https://auth.dstage.org";
-const std::string DS_API_SERVER = "wss://api.dstage.org";
+//const std::string DS_AUTH_SERVER = "https://auth.dstage.org";
+//const std::string DS_API_SERVER = "wss://api.dstage.org";
+const std::string DS_AUTH_SERVER = "https://digitalstage-auth.germanywestcentral.cloudapp.azure.com";
+const std::string DS_API_SERVER = "wss://digitalstage-api.germanywestcentral.cloudapp.azure.com";
 const std::string DS_REGISTRATION_URL = "https://beta.digital-stage.org/account/signup";
