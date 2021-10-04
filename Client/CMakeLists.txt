@@ -215,7 +215,7 @@ IF(APPLE)
 		MACOSX_BUNDLE_BUNDLE_VERSION ${CMAKE_PROJECT_VERSION_MAJOR}.${CMAKE_PROJECT_VERSION_MINOR}.${CMAKE_PROJECT_VERSION_PATCH}
 		MACOSX_BUNDLE_GUI_IDENTIFIER com.christofmuc.jammernetz
 		MACOSX_BUNDLE_SIGNATURE jmrn
-		CPACK_BUNDLE_STARTUP_COMMAND $<TARGET_FILE:${EXECUTABLE_BASE_NAME}>  
+		CPACK_BUNDLE_STARTUP_COMMAND $<TARGET_FILE:JammerNetzClient>  
 		MACOSX_BUNDLE_BUNDLE_VERSION ${JammerNetzClient_VERSION}
 		MACOSX_BUNDLE_COPYRIGHT "Copyright 2021 Christof Ruch"
 		MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/Info.plist
@@ -241,21 +241,21 @@ IF(APPLE)
     INSTALL(CODE "include(BundleUtilities)
 	set(BU_CHMOD_BUNDLE_ITEMS TRUE)
 			message(STATUS \"Integrating dynlibs and signing app bundle $<TARGET_BUNDLE_DIR:JammerNetzClient>\")
-			fixup_bundle(\"$<TARGET_BUNDLE_DIR:${EXECUTABLE_BASE_NAME}>\"  \"\"  \"\" IGNORE_ITEM \"Python\")
-			execute_process(COMMAND codesign --force --deep --sign \"${CPACK_BUNDLE_APPLE_CERT_APP}\" \"$<TARGET_BUNDLE_DIR:${EXECUTABLE_BASE_NAME}>\" COMMENT \"Signing app bundle\")
+			fixup_bundle(\"$<TARGET_BUNDLE_DIR:JammerNetzClient>\"  \"\"  \"\" IGNORE_ITEM \"Python\")
+			execute_process(COMMAND codesign --force --deep --sign \"${CPACK_BUNDLE_APPLE_CERT_APP}\" \"$<TARGET_BUNDLE_DIR:JammerNetzClient>\" COMMENT \"Signing app bundle\")
 		" COMPONENT package)
 	ELSE()
 		INSTALL(CODE "include(BundleUtilities)
 			set(BU_CHMOD_BUNDLE_ITEMS TRUE)
-			message(STATUS \"Integrating dynlibs into app bundle $<TARGET_BUNDLE_DIR:${EXECUTABLE_BASE_NAME}>\")
-			fixup_bundle(\"$<TARGET_BUNDLE_DIR:${EXECUTABLE_BASE_NAME}>\"  \"\"  \"${DIRS}\" IGNORE_ITEM \"Python\")
+			message(STATUS \"Integrating dynlibs into app bundle $<TARGET_BUNDLE_DIR:JammerNetzClient>\")
+			fixup_bundle(\"$<TARGET_BUNDLE_DIR:JammerNetzClient>\"  \"\"  \"${DIRS}\" IGNORE_ITEM \"Python\")
 		" COMPONENT package)
 	ENDIF()
 
 	add_custom_command(TARGET JammerNetzClient 
 		POST_BUILD COMMAND 
 		${CMAKE_INSTALL_NAME_TOOL} -add_rpath "@executable_path/../Frameworks/"
-        $<TARGET_BUNDLE_DIR:${EXECUTABLE_BASE_NAME}>/Contents/MacOS/${EXECUTABLE_BASE_NAME}
+        $<TARGET_BUNDLE_DIR:JammerNetzClient>/Contents/MacOS/${EXECUTABLE_BASE_NAME}
 	)
     
     # Setup CPack variables
