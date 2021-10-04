@@ -16,14 +16,18 @@ jobs:
           imageName: 'windows-2019'
           isWindows2019: True
           isWindows: True
-        linux:
-          imageName: 'ubuntu-18.04'
-          isLinux: True
         win2019_DS:
           imageName: 'windows-2019'
           isWindows2019: True
           isWindows: True
           isDigitalStage: True
+        linux:
+          imageName: 'ubuntu-18.04'
+          isLinux: True
+          isDigitalStage: True
+        linux_DS:
+          imageName: 'ubuntu-18.04'
+          isLinux: True
         
     pool:
       vmImage: $(imageName)
@@ -113,11 +117,21 @@ jobs:
         cmake -S . -B builds -DSENTRY_BACKEND=crashpad
         cmake -DCMAKE_INSTALL_PREFIX=./install --build builds --target install 
         cd ../..
+      displayName: Build with CMake for Linux
+      condition: variables.isLinux        
+    
+    - bash: |
         cmake -S . -B builds 
         cmake --build builds
       displayName: Build with CMake for Linux
-      condition: variables.isLinux
+      condition: and(variables.isLinux, not(variables.isDigitalStage)) 
       
+    - bash: |
+        cmake -S . -B builds -DDIGITAL_STAGE_BRANDING=ON
+        cmake --build builds
+      displayName: Build with CMake for Linux (Digital Stage)
+      condition: and(variables.isLinux, variables.isDigitalStage)    
+
     # Mac build uses bash as well
     # No need to brew icu4c cmake as they are already present on Azure mac
     - script: |
