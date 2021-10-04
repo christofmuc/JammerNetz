@@ -106,20 +106,22 @@ set(DSBRANCH_FILES
 )
 source_group(Source\\DigitalStage FILES ${DSBRANCH_FILES})
 
+set(EXECUTABLE_BASE_NAME "JammerNetzClient")
+set(INSTALLER_BASE_NAME "JammerNetz")
 if(DIGITAL_STAGE_BRANDING)
 set(DS_LIBRARIES
 		keychain::keychain 
 		DigitalStageAuth
         DigitalStageApi)
 set(DS_SOURCES ${DSBRANCH_FILES})
+set(EXECUTABLE_BASE_NAME "digitalStagePC")
+set(INSTALLER_BASE_NAME "digitalStagePC")
 endif()
 
-set(EXECUTABLE_BASE_NAME "JammerNetzClient")
 add_executable(JammerNetzClient MACOSX_BUNDLE WIN32 ${SOURCES} ${DS_SOURCES} ${UICOMPONENT_FILES} ${PLAYALONG_FILES} ${AUDIO_PROCESSING_FILES} ${NETWORK_FILES} ${MIDI_FILES} ${RESOURCE_FILES} ${INSTALLER_FILES})
 if(DIGITAL_STAGE_BRANDING)
 # Use new DigitalStage branded versions
 set_target_properties(JammerNetzClient PROPERTIES OUTPUT_NAME "digitalStagePC")
-set(EXECUTABLE_BASE_NAME "digitalStagePC")
 set(JammerNetz_VersionedName "digitalStagePC by JammerNetz")
 set(JammerNetz_ApplicationName "digitalStagePC")
 set(JammerNetz_AppId "{{9E315D5B-AF22-42B0-9735-8A7B058EAEF3}")
@@ -259,7 +261,7 @@ IF(APPLE)
 	)
     
     # Setup CPack variables
-	set(CPACK_PACKAGE_NAME ${EXECUTABLE_BASE_NAME})
+	set(CPACK_PACKAGE_NAME ${INSTALLER_BASE_NAME})
 	set(CPACK_PACKAGE_ICON ${CMAKE_CURRENT_SOURCE_DIR}/Resources/JammerNetzIcon.icns)
     set(CPACK_PACKAGE_VERSION ${JammerNetzClient_VERSION})
     set(CPACK_PACKAGE_VENDOR "Christof Ruch Beratungs UG (haftungsbeschraenkt)")
