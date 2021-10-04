@@ -75,7 +75,7 @@ void DataReceiveThread::run()
 			int messageLength = -1;
 			if (blowFish_) {
 				ScopedLock lock(blowFishLock_);
-				messageLength = blowFish_->decrypt(readbuffer_, dataRead);
+				messageLength = blowFish_->decrypt(readbuffer_, safe_int_to_sizet(dataRead));
 				if (messageLength == -1) {
 					//TODO - This should be handled differently
 					std::cerr << "Couldn't decrypt package received from server, probably fatal" << std::endl;
@@ -93,7 +93,7 @@ void DataReceiveThread::run()
 #else
 			{
 #endif
-				auto message = JammerNetzMessage::deserialize(readbuffer_, messageLength);
+				auto message = JammerNetzMessage::deserialize(readbuffer_, safe_int_to_sizet(messageLength));
 				if (message) {
 					isReceiving_ = true;
 					switch (message->getType()) {

@@ -39,7 +39,7 @@ class ValueListener : public juce::Value::Listener {
 public:
 	ValueListener(Value value, std::function<void(Value& newValue)> onChanged);
 
-	virtual ~ValueListener();
+	virtual ~ValueListener() override;
 
 	void valueChanged(Value& value) override;
 	void triggerOnChanged();

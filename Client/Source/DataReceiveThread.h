@@ -16,7 +16,7 @@
 class DataReceiveThread : public Thread {
 public:
 	DataReceiveThread(DatagramSocket & socket, std::function<void(std::shared_ptr<JammerNetzAudioData>)> newDataHandler);
-	virtual ~DataReceiveThread();
+	virtual ~DataReceiveThread() override;
 
 	virtual void run() override;
 

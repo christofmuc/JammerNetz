@@ -12,7 +12,7 @@ template <class T>
 class RingOfAudioBuffers {
 public:
 
-	RingOfAudioBuffers(int capacity) : endIndex_(0), headIndex_(0)
+	RingOfAudioBuffers(size_t capacity) : endIndex_(0), headIndex_(0)
 	{
 		data_.resize(capacity);
 	}

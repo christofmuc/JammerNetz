@@ -17,7 +17,7 @@
 #include "Data.h"
 
 Client::Client(DatagramSocket& socket) : socket_(socket), messageCounter_(10) /* TODO - because of the pre-fill on server side, can't be 0 */
-	, currentBlockSize_(0), fecBuffer_(16), useFEC_(false), serverPort_(7777), useLocalhost_(false)
+	, currentBlockSize_(0), useFEC_(false), serverPort_(7777), useLocalhost_(false), fecBuffer_(16)
 {
 	// Create listeners to get notified if the application state we depend on changes
 #ifdef DIGITAL_STAGE
@@ -59,7 +59,7 @@ Client::Client(DatagramSocket& socket) : socket_(socket), messageCounter_(10) /*
 	listeners_.push_back(std::make_unique<ValueListener>(Data::getPropertyAsValue(VALUE_SERVER_PORT), [this](Value& value) {
 #endif
 		String serverPortAsString = value.getValue();
-		serverPort_ = strtol(serverPortAsString.toRawUTF8(), nullptr, 10); // https://forum.juce.com/t/string-to-float-int-bool/16733/12
+		serverPort_ = atoi(serverPortAsString.toRawUTF8()); // https://forum.juce.com/t/string-to-float-int-bool/16733/12
 		if (serverPort_ == 0) {
 			serverPort_ = 7777; // Default value
 		}

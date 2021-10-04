@@ -19,3 +19,9 @@ inline int safe_sizet_to_int(size_t size) {
 	}
 	throw std::runtime_error("size_t out of range for int");
 }
+
+inline size_t safe_int_to_sizet(int integer) {
+	if (integer < 0)
+		throw std::runtime_error("int out of range for size_t");
+	return static_cast<size_t>(integer);
+}
