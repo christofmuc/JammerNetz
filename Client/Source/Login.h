@@ -51,7 +51,7 @@ private:
 	Label loginError_;
 	HyperlinkButton register_;
 	TextButton login_;
-	std::unique_ptr<std::thread> fetchLogin_;
+	std::unique_ptr<juce::Thread> fetchLogin_;
 
 	DSLookAndFeel dsLookAndFeel_;
 };
