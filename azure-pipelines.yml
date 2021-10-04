@@ -22,11 +22,11 @@ jobs:
           isWindows: True
           isDigitalStage: True
         linux:
-          imageName: 'ubuntu-18.04'
+          imageName: 'ubuntu-20.04'
           isLinux: True
           isDigitalStage: True
         linux_DS:
-          imageName: 'ubuntu-18.04'
+          imageName: 'ubuntu-20.04'
           isLinux: True
         
     pool:
