@@ -259,6 +259,7 @@ IF(APPLE)
 	)
     
     # Setup CPack variables
+	set(CPACK_PACKAGE_NAME ${EXECUTABLE_BASE_NAME})
 	set(CPACK_PACKAGE_ICON ${CMAKE_CURRENT_SOURCE_DIR}/Resources/JammerNetzIcon.icns)
     set(CPACK_PACKAGE_VERSION ${JammerNetzClient_VERSION})
     set(CPACK_PACKAGE_VENDOR "Christof Ruch Beratungs UG (haftungsbeschraenkt)")
