@@ -97,6 +97,13 @@ jobs:
       condition: and(variables.isWindows2019, variables.isDigitalStage)
 
     # Linux uses bash to run CMake directly
+    - script: |
+        pip3 install wheel setuptools
+        pip3 install conan
+        conan --version
+        conan install -if builds -s build_type=Release .
+      condition: and(variables.isLinux, variables.isDigitalStage)    
+    
     - bash: |
         cd third_party/flatbuffers 
         cmake -S . -B LinuxBuilds
@@ -113,6 +120,13 @@ jobs:
       
     # Mac build uses bash as well
     # No need to brew icu4c cmake as they are already present on Azure mac
+    - script: |
+        pip3 install wheel setuptools
+        pip3 install conan
+        conan --version
+        conan install -if Builds/macOS -s build_type=Release .
+      condition: and(variables.isMac, variables.isDigitalStage)
+
     - bash: |
         brew install cmake gtk+3 glew nlohmann-json cpprestsdk
         cd third_party/flatbuffers
