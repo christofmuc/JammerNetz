@@ -8,6 +8,10 @@ jobs:
         mac:
           imageName: 'macos-10.14'
           isMac: True          
+        mac_DS:
+          imageName: 'macos-10.14'
+          isMac: True          
+          isDigitalStage: True
         win2019:
           imageName: 'windows-2019'
           isWindows2019: True
@@ -119,10 +123,26 @@ jobs:
         cmake --build Builds/macOS -- -j8
         VERBOSE=1 cmake --build Builds/macOS --target package -- -j8 
       displayName: Build with CMake for Mac
-      condition: variables.isMac
+      condition: and(variables.isMac, not(variables.isDigitalStage))
+      
+    - bash: |
+        brew install cmake gtk+3 glew nlohmann-json cpprestsdk
+        cd third_party/flatbuffers
+        cmake -S . -B LinuxBuilds -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release
+        cmake --build LinuxBuilds -- -j8
+        cd ../..
+        cmake -S . -B Builds/macOS -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DDIGITAL_STAGE_BRANDING=ON
+        cmake --build Builds/macOS -- -j8
+        VERBOSE=1 cmake --build Builds/macOS --target package -- -j8 
+      displayName: Build with CMake for Mac
+      condition: and(variables.isMac, variables.isDigitalStage)
       
     - publish: $(System.DefaultWorkingDirectory)/Builds/macOS/JammerNetz-2.2.0-Darwin.dmg 
       displayName: Publish Mac Installer
       artifact: MacInstaller
-      condition: variables.isMac
+      condition: and(variables.isMac, not(variables.isDigitalStage))
         
+    - publish: $(System.DefaultWorkingDirectory)/Builds/macOS/digitalStagePC-2.2.0-Darwin.dmg 
+      displayName: Publish Mac Installer (Digital Stage)
+      artifact: DigitalStage_MacInstaller
+      condition: and(variables.isMac, variables.isDigitalStage)
