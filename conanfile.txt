@@ -1,9 +1,0 @@
-[requires]
-pdcurses/3.9
-nlohmann_json/3.9.1
-cpprestsdk/2.10.18
-keychain/1.2.0
-
-[generators]
-cmake
-cmake_find_package
