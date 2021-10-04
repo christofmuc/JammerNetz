@@ -114,10 +114,12 @@ set(DS_LIBRARIES
 set(DS_SOURCES ${DSBRANCH_FILES})
 endif()
 
+set(EXECUTABLE_BASE_NAME "JammerNetzClient")
 add_executable(JammerNetzClient MACOSX_BUNDLE WIN32 ${SOURCES} ${DS_SOURCES} ${UICOMPONENT_FILES} ${PLAYALONG_FILES} ${AUDIO_PROCESSING_FILES} ${NETWORK_FILES} ${MIDI_FILES} ${RESOURCE_FILES} ${INSTALLER_FILES})
 if(DIGITAL_STAGE_BRANDING)
 # Use new DigitalStage branded versions
 set_target_properties(JammerNetzClient PROPERTIES OUTPUT_NAME "digitalStagePC")
+set(EXECUTABLE_BASE_NAME "digitalStagePC")
 set(JammerNetz_VersionedName "digitalStagePC by JammerNetz")
 set(JammerNetz_ApplicationName "digitalStagePC")
 set(JammerNetz_AppId "{{9E315D5B-AF22-42B0-9735-8A7B058EAEF3}")
@@ -209,11 +211,11 @@ IF(APPLE)
 		MACOSX_BUNDLE TRUE
 		MACOSX_BUNDLE_BUNDLE_NAME "JammerNetz ${JammerNetzClient_VERSION}"
 		MACOSX_BUNDLE_ICON_FILE JammerNetzIcon
-		MACOSX_BUNDLE_BUNDLE_NAME JammerNetzClient
+		MACOSX_BUNDLE_BUNDLE_NAME ${EXECUTABLE_BASE_NAME}
 		MACOSX_BUNDLE_BUNDLE_VERSION ${CMAKE_PROJECT_VERSION_MAJOR}.${CMAKE_PROJECT_VERSION_MINOR}.${CMAKE_PROJECT_VERSION_PATCH}
 		MACOSX_BUNDLE_GUI_IDENTIFIER com.christofmuc.jammernetz
 		MACOSX_BUNDLE_SIGNATURE jmrn
-		CPACK_BUNDLE_STARTUP_COMMAND $<TARGET_FILE:JammerNetzClient>
+		CPACK_BUNDLE_STARTUP_COMMAND $<TARGET_FILE:${EXECUTABLE_BASE_NAME}>  
 		MACOSX_BUNDLE_BUNDLE_VERSION ${JammerNetzClient_VERSION}
 		MACOSX_BUNDLE_COPYRIGHT "Copyright 2021 Christof Ruch"
 		MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/Info.plist
@@ -239,21 +241,21 @@ IF(APPLE)
     INSTALL(CODE "include(BundleUtilities)
 	set(BU_CHMOD_BUNDLE_ITEMS TRUE)
 			message(STATUS \"Integrating dynlibs and signing app bundle $<TARGET_BUNDLE_DIR:JammerNetzClient>\")
-			fixup_bundle(\"$<TARGET_BUNDLE_DIR:JammerNetzClient>\"  \"\"  \"\" IGNORE_ITEM \"Python\")
-			execute_process(COMMAND codesign --force --deep --sign \"${CPACK_BUNDLE_APPLE_CERT_APP}\" \"$<TARGET_BUNDLE_DIR:JammerNetzClient>\" COMMENT \"Signing app bundle\")
+			fixup_bundle(\"$<TARGET_BUNDLE_DIR:${EXECUTABLE_BASE_NAME}>\"  \"\"  \"\" IGNORE_ITEM \"Python\")
+			execute_process(COMMAND codesign --force --deep --sign \"${CPACK_BUNDLE_APPLE_CERT_APP}\" \"$<TARGET_BUNDLE_DIR:${EXECUTABLE_BASE_NAME}>\" COMMENT \"Signing app bundle\")
 		" COMPONENT package)
 	ELSE()
 		INSTALL(CODE "include(BundleUtilities)
 			set(BU_CHMOD_BUNDLE_ITEMS TRUE)
-			message(STATUS \"Integrating dynlibs into app bundle $<TARGET_BUNDLE_DIR:JammerNetzClient>\")
-			fixup_bundle(\"$<TARGET_BUNDLE_DIR:JammerNetzClient>\"  \"\"  \"${DIRS}\" IGNORE_ITEM \"Python\")
+			message(STATUS \"Integrating dynlibs into app bundle $<TARGET_BUNDLE_DIR:${EXECUTABLE_BASE_NAME}>\")
+			fixup_bundle(\"$<TARGET_BUNDLE_DIR:${EXECUTABLE_BASE_NAME}>\"  \"\"  \"${DIRS}\" IGNORE_ITEM \"Python\")
 		" COMPONENT package)
 	ENDIF()
 
 	add_custom_command(TARGET JammerNetzClient 
 		POST_BUILD COMMAND 
 		${CMAKE_INSTALL_NAME_TOOL} -add_rpath "@executable_path/../Frameworks/"
-        $<TARGET_BUNDLE_DIR:JammerNetzClient>/Contents/MacOS/JammerNetzClient
+        $<TARGET_BUNDLE_DIR:${EXECUTABLE_BASE_NAME}>/Contents/MacOS/${EXECUTABLE_BASE_NAME}
 	)
     
     # Setup CPack variables
