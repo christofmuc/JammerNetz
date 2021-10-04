@@ -110,7 +110,7 @@ set(EXECUTABLE_BASE_NAME "JammerNetzClient")
 set(INSTALLER_BASE_NAME "JammerNetz")
 if(DIGITAL_STAGE_BRANDING)
 set(DS_LIBRARIES
-		keychain::keychain 
+		keychain 
 		DigitalStageAuth
         DigitalStageApi)
 set(DS_SOURCES ${DSBRANCH_FILES})
