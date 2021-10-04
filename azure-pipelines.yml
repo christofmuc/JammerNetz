@@ -105,6 +105,7 @@ jobs:
         pip3 install wheel setuptools
         pip3 install conan
         conan --version
+        conan profile new default --detect
         conan profile update settings.compiler.libcxx=libstdc++11 default
         conan install -if builds -s build_type=Release --build missing .
       condition: and(variables.isLinux, variables.isDigitalStage)    
