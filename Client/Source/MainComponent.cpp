@@ -340,12 +340,14 @@ void MainComponent::fillConnectedClientsStatistics() {
 	}
 }
 
+#ifdef DIGITAL_STAGE
 void MainComponent::showJoinStage()
 {
 	if (!JoinStageDialog::isCurrentlyOpen()) {
 		JoinStageDialog::showDialog(globalDataStore_);
 	}
 }
+#endif
 
 void MainComponent::timerCallback()
 {
