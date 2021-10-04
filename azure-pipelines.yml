@@ -105,7 +105,7 @@ jobs:
         pip3 install wheel setuptools
         pip3 install conan
         conan --version
-        conan install -if builds -s build_type=Release .
+        conan install -if builds -s build_type=Release --build missing .
       condition: and(variables.isLinux, variables.isDigitalStage)    
     
     - bash: |
@@ -138,7 +138,7 @@ jobs:
         pip3 install wheel setuptools
         pip3 install conan
         conan --version
-        conan install -if Builds/macOS -s build_type=Release .
+        conan install -if Builds/macOS -s build_type=Release --build missing .
       condition: and(variables.isMac, variables.isDigitalStage)
 
     - bash: |
