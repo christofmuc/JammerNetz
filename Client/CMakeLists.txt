@@ -22,7 +22,9 @@ include_directories("${INTEL_TBB_DIRECTORY}/include/"
 create_resources(Resources Source/Resources.h)
 
 # Setup definition for ASIO support
+if(WIN32)
 add_definitions(-DJUCE_ASIO)
+endif()
 
 set(SOURCES
 	Source/ApplicationState.cpp Source/ApplicationState.h
