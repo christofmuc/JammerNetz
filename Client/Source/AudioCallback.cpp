@@ -177,7 +177,7 @@ void AudioCallback::audioDeviceIOCallback(const float** inputChannelData, int nu
 
 		// Pump the new data into the ingest ring buffer, if it has space. Else that's possibly an assert
 		if (numSamples <= ingestBuffer_->getFreeSpace()) {
-			ingestBuffer_->write(constnessCorrection, numSamples);
+			ingestBuffer_->write(constnessCorrection, numInputChannels, numSamples);
 		}
 		else {
 			jassertfalse;
@@ -187,7 +187,7 @@ void AudioCallback::audioDeviceIOCallback(const float** inputChannelData, int nu
 		while (ingestBuffer_->getNumReady() >= SAMPLE_BUFFER_SIZE) {
 			// Allocate an audio buffer and read a buffer full from the ring buffer
 			auto audioBuffer = std::make_shared<AudioBuffer<float>>(numInputChannels, SAMPLE_BUFFER_SIZE);
-			ingestBuffer_->read(audioBuffer->getArrayOfWritePointers(), SAMPLE_BUFFER_SIZE);
+			ingestBuffer_->read(audioBuffer->getArrayOfWritePointers(), numInputChannels, SAMPLE_BUFFER_SIZE);
 
 			// Send it to pitch detection
 			tuner_->detectPitch(audioBuffer);
@@ -258,7 +258,9 @@ void AudioCallback::audioDeviceIOCallback(const float** inputChannelData, int nu
 			if (toPlay && toPlay->audioBuffer()) {
 				// Calculate the to-play latency
 				qualityInfo.toPlayLatency_ = Time::getMillisecondCounterHiRes() - toPlay->timestamp();
-				playoutBuffer_->write(toPlay->audioBuffer()->getArrayOfReadPointers(), toPlay->audioBuffer()->getNumSamples());
+				playoutBuffer_->write(toPlay->audioBuffer()->getArrayOfReadPointers(), 
+					toPlay->audioBuffer()->getNumChannels(), 
+					toPlay->audioBuffer()->getNumSamples());
 			}
 			else {
 				// That would be considered a programming error, I shall not enqueue nullptr
@@ -281,11 +283,11 @@ void AudioCallback::audioDeviceIOCallback(const float** inputChannelData, int nu
 		else {
 			// We have Audio data to play! Make sure it is the correct size
 			AudioBuffer<float> sessionAudio(2, numSamples);
-			playoutBuffer_->read(sessionAudio.getArrayOfWritePointers(), numSamples);
+			playoutBuffer_->read(sessionAudio.getArrayOfWritePointers(), 2, numSamples);
 
 			auto [_, remoteVolume] = calcMonitorGain();
 			double volume = remoteVolume * masterVolume_;
-			for (int c = 0; c < outputBuffer.getNumChannels(); c++) {
+			for (int c = 0; c < std::min(2, outputBuffer.getNumChannels()); c++) {
 				outputBuffer.addFrom(c, 0, sessionAudio.getReadPointer(c), numSamples, volume);
 			}
 		}
