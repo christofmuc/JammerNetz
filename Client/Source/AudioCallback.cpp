@@ -16,11 +16,12 @@
 #include "Logger.h"
 
 AudioCallback::AudioCallback() : jammerService_([this](std::shared_ptr < JammerNetzAudioData> buffer) { playBuffer_.push(buffer); }),
-	playBuffer_("server"), masterVolume_(1.0), monitorBalance_(0.0), channelSetup_(false), bufferPool_(10)
+	playBuffer_("server"), masterVolume_(1.0), monitorBalance_(0.0), channelSetup_(false)
 {
 	isPlaying_ = false;
 	minPlayoutBufferLength_ = CLIENT_PLAYOUT_JITTER_BUFFER;
 	maxPlayoutBufferLength_ = CLIENT_PLAYOUT_MAX_BUFFER;
+	playoutBuffer_ = std::make_unique<RingBuffer>(2, PLAYOUT_RINGBUFFER_SIZE);
 
 	// Where to record to?
 	uploadRecorder_ = std::make_shared<Recorder>(Settings::instance().getSessionStorageDir(), "LocalRecording", RecordingType::WAV);
@@ -118,7 +119,7 @@ std::pair<double, double> calcMonitorGain() {
 void AudioCallback::calcLocalMonitoring(std::shared_ptr<AudioBuffer<float>> inputBuffer, AudioBuffer<float>& outputBuffer) {
 	
 	outputBuffer.clear();
-	if (monitorIsLocal_) {
+	if (monitorIsLocal_ && inputBuffer->getNumChannels() > 0) {
 		auto [monitorVolume, _] = calcMonitorGain();
 		// Apply gain to our channels and do a stereo mixdown
 		jassert(inputBuffer->getNumSamples() == outputBuffer.getNumSamples());
@@ -161,60 +162,75 @@ void AudioCallback::calcLocalMonitoring(std::shared_ptr<AudioBuffer<float>> inpu
 
 void AudioCallback::audioDeviceIOCallback(const float** inputChannelData, int numInputChannels, float** outputChannelData, int numOutputChannels, int numSamples)
 {
+	float* const* constnessCorrection = const_cast<float* const*>(inputChannelData);
 	PlayoutQualityInfo qualityInfo = lastPlayoutQualityInfo_;
-
-	float *const *constnessCorrection = const_cast<float *const*>(inputChannelData);
-	auto audioBufferNotOwned = std::make_shared<AudioBuffer<float>>(constnessCorrection, numInputChannels, numSamples);
-
-	// Create a better access structure for the output data
-	AudioBuffer<float> outputBuffer(outputChannelData, numOutputChannels, numSamples);
-
-	// Allocate an audio buffer from the reusable pool and do a force copy of the samples, as we will need to send them down to the recorder and the network thread
-	auto audioBuffer = bufferPool_.alloc();
-	*audioBuffer = *audioBufferNotOwned; // Forces deep copy of data
-
-	// Send it to pitch detection
-	tuner_->detectPitch(audioBuffer);
-
-	// Measure the peak values for each channel
-	meterSource_.measureBlock(*audioBuffer);
-
-	// Send the MAG, RMS values and the pitch to the server, which will forward it to the other clients so they can show my levels even if they have only the mixed audio
-	for (int c = 0; c < numInputChannels; c++) {
-		if (c < channelSetup_.channels.size()) {
-			channelSetup_.channels[c].mag = meterSource_.getMaxLevel(c);
-			channelSetup_.channels[c].rms = meterSource_.getRMSLevel(c);
-			channelSetup_.channels[c].pitch = tuner_->getPitch(c);
-		}
-		else {
-			jassertfalse;
-		}
-	}
 
 	// Measure time passed
 	measureSamplesPerTime(qualityInfo, numSamples);
 
-	// Get play-along data. The MIDI Buffer should be ready to be played out now, but we will only look at the text events for now
-	/*if (false) {
-		std::vector<MidiMessage> buffer;
-		midiPlayalong_->fillNextMidiBuffer(buffer, numSamples);
-		if (!buffer.empty()) {
-			// The whole buffer is just a few milliseconds - take only the last text event
-			MidiMessage &message = buffer.back();
-			if (message.isTextMetaEvent()) {
-				currentText_ = message.getTextFromTextMetaEvent().toStdString();
-			}
+	// If we have at least one input channel, do something with the data!
+	if (numInputChannels > 0) {
+		// Hard disk recording
+		if (uploadRecorder_ && uploadRecorder_->isRecording()) {
+			uploadRecorder_->saveBlock(inputChannelData, numSamples);
 		}
-	}*/
 
-	jammerService_.sender()->sendData(channelSetup_, audioBuffer); //TODO offload the real sending to a different thread
-	if (uploadRecorder_ && uploadRecorder_->isRecording()) {
-		uploadRecorder_->saveBlock(audioBuffer->getArrayOfReadPointers(), audioBuffer->getNumSamples());
+		// Pump the new data into the ingest ring buffer, if it has space. Else that's possibly an assert
+		if (numSamples <= ingestBuffer_->getFreeSpace()) {
+			ingestBuffer_->write(constnessCorrection, numSamples);
+		}
+		else {
+			jassertfalse;
+		}
+
+		// Ok, now we can exhaust the ring buffer by reading network packet sized chunks and sending them to the server one by one
+		while (ingestBuffer_->getNumReady() >= SAMPLE_BUFFER_SIZE) {
+			// Allocate an audio buffer and read a buffer full from the ring buffer
+			auto audioBuffer = std::make_shared<AudioBuffer<float>>(numInputChannels, SAMPLE_BUFFER_SIZE);
+			ingestBuffer_->read(audioBuffer->getArrayOfWritePointers(), SAMPLE_BUFFER_SIZE);
+
+			// Send it to pitch detection
+			tuner_->detectPitch(audioBuffer);
+
+			// Measure the peak values for each channel
+			meterSource_.measureBlock(*audioBuffer);
+
+			// Send the MAG, RMS values and the pitch to the server, which will forward it to the other clients so they can show my levels even if they have only the mixed audio
+			for (int c = 0; c < numInputChannels; c++) {
+				if (c < channelSetup_.channels.size()) {
+					channelSetup_.channels[c].mag = meterSource_.getMaxLevel(c);
+					channelSetup_.channels[c].rms = meterSource_.getRMSLevel(c);
+					channelSetup_.channels[c].pitch = tuner_->getPitch(c);
+				}
+				else {
+					jassertfalse;
+				}
+			}
+
+			// Get play-along data. The MIDI Buffer should be ready to be played out now, but we will only look at the text events for now
+			/*if (false) {
+				std::vector<MidiMessage> buffer;
+				midiPlayalong_->fillNextMidiBuffer(buffer, numSamples);
+				if (!buffer.empty()) {
+					// The whole buffer is just a few milliseconds - take only the last text event
+					MidiMessage &message = buffer.back();
+					if (message.isTextMetaEvent()) {
+						currentText_ = message.getTextFromTextMetaEvent().toStdString();
+					}
+				}
+			}*/
+
+			jammerService_.sender()->sendData(channelSetup_, audioBuffer); //TODO offload the real sending to a different thread
+		}
 	}
+
+	// Create a better access structure for the output data
+	AudioBuffer<float> outputBuffer(outputChannelData, numOutputChannels, numSamples);
+	auto inputBufferNotOwned = std::make_shared<AudioBuffer<float>>(constnessCorrection, numInputChannels, numSamples);
 
 	// Don't start playing before the desired play-out buffer size is reached
 	if (!isPlaying_ && playBuffer_.size() < minPlayoutBufferLength_) {
-		calcLocalMonitoring(audioBuffer, outputBuffer);
+		calcLocalMonitoring(inputBufferNotOwned, outputBuffer);
 		outMeterSource_.measureBlock(outputBuffer);
 		return;
 	}
@@ -232,57 +248,65 @@ void AudioCallback::audioDeviceIOCallback(const float** inputChannelData, int nu
 	isPlaying_ = true;
 
 	// Prepare the output buffer with the local monitoring signal
-	calcLocalMonitoring(audioBuffer, outputBuffer);
+	calcLocalMonitoring(inputBufferNotOwned, outputBuffer);
 
-	// Now, play the next audio block from the play buffer!
-	std::shared_ptr<JammerNetzAudioData> toPlay;
-	bool isFillIn;
-	if (playBuffer_.try_pop(toPlay, isFillIn)) {
-		qualityInfo.currentPlayQueueLength_ = playBuffer_.size();
-		// Ok, we have an Audio buffer to play. Hand over the data to the playback!
-		if (toPlay && toPlay->audioBuffer()) {
-			// Calculate the to-play latency
-			qualityInfo.toPlayLatency_ = Time::getMillisecondCounterHiRes() - toPlay->timestamp();
-
-			// We have Audio data to play! Make sure it is the correct size
-			if (toPlay->audioBuffer()->getNumSamples() == numSamples) {
-				auto [_, remoteVolume] = calcMonitorGain();
-				double volume = remoteVolume * masterVolume_;
-				for (int i = 0; i < std::min(numOutputChannels, toPlay->audioBuffer()->getNumChannels()); i++) {
-					//TODO - this would mean we always play the left channel, if we have only one output channel. There is no way to select if the output channel is left or right
-					// Need to add another channel selector.
-					outputBuffer.addFrom(i, 0, toPlay->audioBuffer()->getReadPointer(i), numSamples, volume);
-				}
+	// For playout, we have to have enough bytes in the out ringbuffer to fill the output audio block. 
+	// Let's see if we have enough data from the network!
+	while (playoutBuffer_->getNumReady() < numSamples) {
+		// We need to produce a network package to fill up the playout ring buffer
+		std::shared_ptr<JammerNetzAudioData> toPlay;
+		bool isFillIn;
+		if (playBuffer_.try_pop(toPlay, isFillIn)) {
+			qualityInfo.currentPlayQueueLength_ = playBuffer_.size();
+			// Ok, we have an Audio buffer to play. Hand over the data to the playback!
+			if (toPlay && toPlay->audioBuffer()) {
+				// Calculate the to-play latency
+				qualityInfo.toPlayLatency_ = Time::getMillisecondCounterHiRes() - toPlay->timestamp();
+				playoutBuffer_->write(toPlay->audioBuffer()->getArrayOfReadPointers(), toPlay->audioBuffer()->getNumSamples());
 			}
 			else {
-				// Programming error, we should all agree on the buffer format!
+				// That would be considered a programming error, I shall not enqueue nullptr
 				jassert(false);
+				break;
 			}
-
-			if (masterRecorder_ && masterRecorder_->isRecording()) {
-				masterRecorder_->saveBlock(toPlay->audioBuffer()->getArrayOfReadPointers(), toPlay->audioBuffer()->getNumSamples());
-			}
-
-			// Calculate the RMS and mag displays for the other session participants
-			auto session = jammerService_.receiver()->sessionSetup();
-			std::vector<float> magnitudes;
-			std::vector<float> rmss;
-			for (const auto& channel : session.channels) {
-				magnitudes.push_back(channel.mag);
-				rmss.push_back(channel.rms);
-			}
-			sessionMeterSource_.setBlockMeasurement(session.channels.size(), magnitudes, rmss);
 		}
 		else {
-			// That would be considered a programming error, I shall not enqueue nullptr
-			jassert(false);
+			// Buffer underrun
+			break;
 		}
-		outMeterSource_.measureBlock(*toPlay->audioBuffer());
 	}
-	else {
+
+	if (playoutBuffer_->getNumReady() < numSamples) {
 		// This is a serious problem - either the server never started to send data, or we have a buffer underflow.
 		qualityInfo.playUnderruns_++;
 		isPlaying_ = false;
+	}
+	else {
+		// We have Audio data to play! Make sure it is the correct size
+		AudioBuffer<float> sessionAudio(2, numSamples);
+		playoutBuffer_->read(sessionAudio.getArrayOfWritePointers(), numSamples);
+			
+		auto [_, remoteVolume] = calcMonitorGain();
+		double volume = remoteVolume * masterVolume_;
+		for (int c = 0; c < outputBuffer.getNumChannels(); c++) {
+			outputBuffer.addFrom(c, 0, sessionAudio.getReadPointer(c), numSamples, volume);
+		}
+	}
+
+	// Calculate the RMS and mag displays for the other session participants
+	auto session = jammerService_.receiver()->sessionSetup();
+	std::vector<float> magnitudes;
+	std::vector<float> rmss;
+	for (const auto& channel : session.channels) {
+		magnitudes.push_back(channel.mag);
+		rmss.push_back(channel.rms);
+	}
+	sessionMeterSource_.setBlockMeasurement(session.channels.size(), magnitudes, rmss);
+
+	outMeterSource_.measureBlock(outputBuffer);
+
+	if (masterRecorder_ && masterRecorder_->isRecording()) {
+		masterRecorder_->saveBlock(outputBuffer.getArrayOfReadPointers(), numSamples);
 	}
 
 	// Make the calculated quality info available for an interested consumer
@@ -292,7 +316,7 @@ void AudioCallback::audioDeviceIOCallback(const float** inputChannelData, int nu
 
 void AudioCallback::audioDeviceAboutToStart(AudioIODevice* device)
 {
-	SimpleLogger::instance()->postMessage("Audio device " + device->getName() + " starting");
+	SimpleLogger::instance()->postMessage("Audio device " + device->getName() + " starting with " + String(device->getCurrentSampleRate()) + "Hz, buffer size " + String(device->getCurrentBufferSizeSamples()));
 	lastPlayoutQualityInfo_ = PlayoutQualityInfo();
 }
 
@@ -304,6 +328,7 @@ void AudioCallback::audioDeviceStopped()
 void AudioCallback::setChannelSetup(JammerNetzChannelSetup const &channelSetup)
 {
 	if (!(channelSetup_.isEqualEnough(channelSetup))) {
+		ingestBuffer_.reset(new RingBuffer((int) channelSetup.channels.size(), INGEST_RINGBUFFER_SIZE));
 		channelSetup_ = channelSetup;
 		if (uploadRecorder_) {
 			uploadRecorder_->setChannelInfo(SAMPLE_RATE, channelSetup_);

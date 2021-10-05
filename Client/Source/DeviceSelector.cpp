@@ -46,8 +46,7 @@ DeviceSelector::DeviceSelector(String const& title, bool showTitle, bool inputIn
 			//TODO When we allow other sample rates or buffer sizes, enable more devices
 			StringArray items;
 			for (auto device : selectedType->getDeviceNames(inputDevices_)) {
-				if (AudioDeviceDiscovery::canDeviceDoBufferSize(selectedType, device, inputDevices_, SAMPLE_BUFFER_SIZE)
-					&& AudioDeviceDiscovery::canDeviceDoSampleRate(selectedType, device, inputDevices_, SAMPLE_RATE)) {
+				if (AudioDeviceDiscovery::canDeviceDoSampleRate(selectedType, device, inputDevices_, SAMPLE_RATE)) {
 					items.add(device);
 				}
 				else {

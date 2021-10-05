@@ -11,7 +11,7 @@
 #include "IncludeFFMeters.h"
 
 #include "Pool.h"
-
+#include "RingBuffer.h"
 #include "JammerService.h"
 
 #include "PacketStreamQueue.h"
@@ -85,6 +85,9 @@ private:
 
 	JammerService jammerService_; //TODO - this instance needs to be pulled up another level, so the audiocallback class wouldn't know anything about the network
 
+	std::unique_ptr<RingBuffer> ingestBuffer_;
+	std::unique_ptr<RingBuffer> playoutBuffer_;
+
 	PacketStreamQueue playBuffer_;
 	std::atomic_bool isPlaying_;
 	std::atomic_uint64_t minPlayoutBufferLength_;
@@ -105,8 +108,6 @@ private:
 	std::unique_ptr<MidiPlayAlong> midiPlayalong_;
 
 	std::unique_ptr<Tuner> tuner_;
-
-	Pool<AudioBuffer<float>> bufferPool_;
 
 	// Use this to hand out statistics from the audio/real time callback to other interested threads
 	tbb::concurrent_queue<PlayoutQualityInfo> playoutQualityInfo_;
