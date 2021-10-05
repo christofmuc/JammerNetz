@@ -146,7 +146,6 @@ void AudioDeviceDiscovery::init()
 		deviceTypes.push_back(AudioIODeviceType::createAudioIODeviceType_WASAPI(WASAPIDeviceMode::shared));
 		deviceTypes.push_back(AudioIODeviceType::createAudioIODeviceType_WASAPI(WASAPIDeviceMode::exclusive));
 		deviceTypes.push_back(AudioIODeviceType::createAudioIODeviceType_WASAPI(WASAPIDeviceMode::sharedLowLatency));
-		deviceTypes.push_back(AudioIODeviceType::createAudioIODeviceType_DirectSound());
 		deviceTypes.push_back(AudioIODeviceType::createAudioIODeviceType_ASIO());
 		deviceTypes.push_back(AudioIODeviceType::createAudioIODeviceType_CoreAudio());
 		deviceTypes.push_back(AudioIODeviceType::createAudioIODeviceType_iOSAudio());
