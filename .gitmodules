@@ -38,3 +38,6 @@
 [submodule "third_party/keychain"]
 	path = third_party/keychain
 	url = https://github.com/hrantzsch/keychain.git
+[submodule "third_party/miniaudio"]
+	path = third_party/miniaudio
+	url = https://github.com/mackron/miniaudio.git
