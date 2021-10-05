@@ -173,7 +173,7 @@ std::shared_ptr<ChannelSetup> AudioService::getSetup(ValueTree data) const
 	std::shared_ptr<ChannelSetup> channelSetup = std::make_shared<ChannelSetup>();
 	String deviceName = data.getProperty(VALUE_DEVICE_NAME, "unknown");
 	channelSetup->device = deviceName.toStdString();
-	auto selectedType = AudioDeviceDiscovery::deviceTypeByName(data.getProperty(VALUE_DEVICE_TYPE, "unknown"));
+	auto selectedType = AudioDeviceDiscovery::deviceTypeByName(Data::instance().get().getProperty(VALUE_DEVICE_TYPE, "unknown"));
 	if (selectedType && selectedType->getTypeName().isNotEmpty()) {
 		channelSetup->typeName = selectedType->getTypeName().toStdString();
 		channelSetup->isInputAndOutput = !selectedType->hasSeparateInputsAndOutputs();

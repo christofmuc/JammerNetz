@@ -36,7 +36,7 @@ DeviceSelector::DeviceSelector(String const& title, bool showTitle, bool inputIn
 	// Make sure to execute the update at least once
 	listener->triggerOnChanged();
 	auto setupDefinition = Data::instance().get().getChildWithName(title);
-	listeners_.push_back(std::make_unique<ValueListener>(setupDefinition.getPropertyAsValue(VALUE_DEVICE_TYPE, nullptr), [this](Value& newValue) {
+	listeners_.push_back(std::make_unique<ValueListener>(Data::instance().get().getPropertyAsValue(VALUE_DEVICE_TYPE, nullptr), [this](Value& newValue) {
 		deviceDropdown_.clear();
 		String typeName = newValue.getValue();
 		auto selectedType = AudioDeviceDiscovery::deviceTypeByName(typeName);
@@ -61,7 +61,7 @@ DeviceSelector::DeviceSelector(String const& title, bool showTitle, bool inputIn
 		channelSelectors_.clear(true);
 		channelNames_.clear(true);
 		controlPanelButton_.reset();
-		String typeName = deviceSelector.getProperty(VALUE_DEVICE_TYPE, "");
+		String typeName = Data::instance().get().getProperty(VALUE_DEVICE_TYPE, "");
 		auto selectedType = AudioDeviceDiscovery::deviceTypeByName(typeName);
 		jassert(selectedType);
 		if (selectedType) {
@@ -191,14 +191,13 @@ void DeviceSelector::bindControls()
 
 	ValueTree& data = Data::instance().get();
 	ValueTree deviceSelector = data.getOrCreateChildWithName(Identifier(titleLabel_.getText(false)), nullptr);
-	if (!deviceSelector.hasProperty(VALUE_DEVICE_TYPE)) {
-		deviceSelector.setProperty(VALUE_DEVICE_TYPE, defaultType, nullptr);
+	if (!Data::instance().get().hasProperty(VALUE_DEVICE_TYPE)) {
+		Data::instance().get().setProperty(VALUE_DEVICE_TYPE, defaultType, nullptr);
 	}
 	typeDropdown_.onChange = [this]() {
-		ValueTree deviceSelector = Data::instance().get().getChildWithName(Identifier(titleLabel_.getText(false)));
-		deviceSelector.setProperty(VALUE_DEVICE_TYPE, typeDropdown_.getText(), nullptr);
+		Data::instance().get().setProperty(VALUE_DEVICE_TYPE, typeDropdown_.getText(), nullptr);
 	};
-	listeners_.push_back(std::make_unique<ValueListener>(deviceSelector.getPropertyAsValue(VALUE_DEVICE_TYPE, nullptr), [this](Value& newValue) {
+	listeners_.push_back(std::make_unique<ValueListener>(Data::instance().get().getPropertyAsValue(VALUE_DEVICE_TYPE, nullptr), [this](Value& newValue) {
 		String newType = newValue.getValue();
 		for (int i = 0; i < typeDropdown_.getNumItems(); i++) {
 			if (typeDropdown_.getItemText(i) == newType) {
