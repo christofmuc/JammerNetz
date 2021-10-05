@@ -229,15 +229,12 @@ void AudioCallback::audioDeviceIOCallback(const float** inputChannelData, int nu
 	auto inputBufferNotOwned = std::make_shared<AudioBuffer<float>>(constnessCorrection, numInputChannels, numSamples);
 
 	// Don't start playing before the desired play-out buffer size is reached
-	if (!isPlaying_ && playBuffer_.size() < minPlayoutBufferLength_) {
-		calcLocalMonitoring(inputBufferNotOwned, outputBuffer);
-		outMeterSource_.measureBlock(outputBuffer);
-		return;
+	if (!isPlaying_ && playBuffer_.size() >= minPlayoutBufferLength_) {
+		isPlaying_ = true;
 	}
 	else if (playBuffer_.size() > maxPlayoutBufferLength_) {
 		// That's too many packages in our buffer, where did those come from? Did the server deliver too many packets/did our playback stop?
-		// Reduce the length of the queue until it is the right size, through away audio that is too old to be played out
-		
+		// Reduce the length of the queue until it is the right size, throuw away audio that is too old to be played out		
 		std::shared_ptr<JammerNetzAudioData> data;
 		while (playBuffer_.size() > CLIENT_PLAYOUT_JITTER_BUFFER) {
 			qualityInfo.discardedPackageCounter_++;
@@ -245,14 +242,13 @@ void AudioCallback::audioDeviceIOCallback(const float** inputChannelData, int nu
 			playBuffer_.try_pop(data, isFillIn);
 		}
 	}
-	isPlaying_ = true;
 
 	// Prepare the output buffer with the local monitoring signal
 	calcLocalMonitoring(inputBufferNotOwned, outputBuffer);
 
 	// For playout, we have to have enough bytes in the out ringbuffer to fill the output audio block. 
 	// Let's see if we have enough data from the network!
-	while (playoutBuffer_->getNumReady() < numSamples) {
+	while (isPlaying_ && playoutBuffer_->getNumReady() < numSamples) {
 		// We need to produce a network package to fill up the playout ring buffer
 		std::shared_ptr<JammerNetzAudioData> toPlay;
 		bool isFillIn;
@@ -276,35 +272,36 @@ void AudioCallback::audioDeviceIOCallback(const float** inputChannelData, int nu
 		}
 	}
 
-	if (playoutBuffer_->getNumReady() < numSamples) {
-		// This is a serious problem - either the server never started to send data, or we have a buffer underflow.
-		qualityInfo.playUnderruns_++;
-		isPlaying_ = false;
-	}
-	else {
-		// We have Audio data to play! Make sure it is the correct size
-		AudioBuffer<float> sessionAudio(2, numSamples);
-		playoutBuffer_->read(sessionAudio.getArrayOfWritePointers(), numSamples);
-			
-		auto [_, remoteVolume] = calcMonitorGain();
-		double volume = remoteVolume * masterVolume_;
-		for (int c = 0; c < outputBuffer.getNumChannels(); c++) {
-			outputBuffer.addFrom(c, 0, sessionAudio.getReadPointer(c), numSamples, volume);
+	if (isPlaying_) {
+		if (playoutBuffer_->getNumReady() < numSamples) {
+			// This is a serious problem - either the server never started to send data, or we have a buffer underflow.
+			qualityInfo.playUnderruns_++;
+			isPlaying_ = false;
 		}
-	}
+		else {
+			// We have Audio data to play! Make sure it is the correct size
+			AudioBuffer<float> sessionAudio(2, numSamples);
+			playoutBuffer_->read(sessionAudio.getArrayOfWritePointers(), numSamples);
 
-	// Calculate the RMS and mag displays for the other session participants
-	auto session = jammerService_.receiver()->sessionSetup();
-	std::vector<float> magnitudes;
-	std::vector<float> rmss;
-	for (const auto& channel : session.channels) {
-		magnitudes.push_back(channel.mag);
-		rmss.push_back(channel.rms);
+			auto [_, remoteVolume] = calcMonitorGain();
+			double volume = remoteVolume * masterVolume_;
+			for (int c = 0; c < outputBuffer.getNumChannels(); c++) {
+				outputBuffer.addFrom(c, 0, sessionAudio.getReadPointer(c), numSamples, volume);
+			}
+		}
+
+		// Calculate the RMS and mag displays for the other session participants
+		auto session = jammerService_.receiver()->sessionSetup();
+		std::vector<float> magnitudes;
+		std::vector<float> rmss;
+		for (const auto& channel : session.channels) {
+			magnitudes.push_back(channel.mag);
+			rmss.push_back(channel.rms);
+		}
+		sessionMeterSource_.setBlockMeasurement(session.channels.size(), magnitudes, rmss);
 	}
-	sessionMeterSource_.setBlockMeasurement(session.channels.size(), magnitudes, rmss);
 
 	outMeterSource_.measureBlock(outputBuffer);
-
 	if (masterRecorder_ && masterRecorder_->isRecording()) {
 		masterRecorder_->saveBlock(outputBuffer.getArrayOfReadPointers(), numSamples);
 	}
