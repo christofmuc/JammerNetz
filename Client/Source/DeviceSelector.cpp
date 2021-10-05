@@ -39,14 +39,14 @@ DeviceSelector::DeviceSelector(String const& title, bool showTitle, bool inputIn
 	listeners_.push_back(std::make_unique<ValueListener>(setupDefinition.getPropertyAsValue(VALUE_DEVICE_TYPE, nullptr), [this](Value& newValue) {
 		deviceDropdown_.clear();
 		String typeName = newValue.getValue();
-		auto selectedType = AudioDeviceDiscovery::deviceTypeByName(typeName);
+		AudioIODeviceType* selectedType = nullptr; // AudioDeviceDiscovery::deviceTypeByName(typeName);
 		if (selectedType) {
 			// Refill the device dropdown
 			selectedType->scanForDevices();
 			//TODO When we allow other sample rates or buffer sizes, enable more devices
 			StringArray items;
 			for (auto device : selectedType->getDeviceNames(inputDevices_)) {
-				if (AudioDeviceDiscovery::canDeviceDoSampleRate(selectedType, device, inputDevices_, SAMPLE_RATE)) {
+				if (AudioDeviceDiscovery::canDeviceDoSampleRate(device, inputDevices_, SAMPLE_RATE)) {
 					items.add(device);
 				}
 				else {
@@ -62,7 +62,7 @@ DeviceSelector::DeviceSelector(String const& title, bool showTitle, bool inputIn
 		channelNames_.clear(true);
 		controlPanelButton_.reset();
 		String typeName = deviceSelector.getProperty(VALUE_DEVICE_TYPE, "");
-		auto selectedType = AudioDeviceDiscovery::deviceTypeByName(typeName);
+		AudioIODeviceType* selectedType = nullptr; // AudioDeviceDiscovery::deviceTypeByName(typeName);
 		jassert(selectedType);
 		if (selectedType) {
 			String name = newValue.getValue();

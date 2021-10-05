@@ -173,7 +173,7 @@ std::shared_ptr<ChannelSetup> AudioService::getSetup(ValueTree data) const
 	std::shared_ptr<ChannelSetup> channelSetup = std::make_shared<ChannelSetup>();
 	String deviceName = data.getProperty(VALUE_DEVICE_NAME, "unknown");
 	channelSetup->device = deviceName.toStdString();
-	auto selectedType = AudioDeviceDiscovery::deviceTypeByName(data.getProperty(VALUE_DEVICE_TYPE, "unknown"));
+	AudioIODeviceType* selectedType = nullptr; // AudioDeviceDiscovery::deviceTypeByName(data.getProperty(VALUE_DEVICE_TYPE, "unknown"));
 	if (selectedType && selectedType->getTypeName().isNotEmpty()) {
 		channelSetup->typeName = selectedType->getTypeName().toStdString();
 		channelSetup->isInputAndOutput = !selectedType->hasSeparateInputsAndOutputs();
@@ -206,7 +206,7 @@ BigInteger makeChannelMask(std::vector<int> const& indices) {
 
 void AudioService::restartAudio(std::shared_ptr<ChannelSetup> inputSetup, std::shared_ptr<ChannelSetup> outputSetup)
 {
-	juce::AudioIODeviceType* selectedType = AudioDeviceDiscovery::deviceTypeByName(inputSetup ? inputSetup->typeName : "");
+	juce::AudioIODeviceType* selectedType = nullptr; // AudioDeviceDiscovery::deviceTypeByName(inputSetup ? inputSetup->typeName : "");
 	// Sample rate and buffer size are hard coded for now
 	if (selectedType) {
 		if (selectedType->hasSeparateInputsAndOutputs()) {

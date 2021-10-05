@@ -8,6 +8,8 @@
 
 #include "Logger.h"
 
+#include "fmt/format.h"
+/*
 void AudioDeviceDiscovery::listInputChannels(AudioIODevice *device, std::stringstream &list) {
 	auto inputs = device->getInputChannelNames();
 	for (auto input : inputs) list << "      Input " << input << std::endl;
@@ -77,11 +79,12 @@ void AudioDeviceDiscovery::listAudioDevices(AudioDeviceManager &deviceManager, s
 			}
 		}
 	}
-}
+}*/
 
-bool AudioDeviceDiscovery::canDeviceDoBufferSize(AudioIODeviceType *type, String const &deviceName, bool isInputDevice, int bufferSize)
+bool AudioDeviceDiscovery::canDeviceDoBufferSize(String const &deviceName, bool isInputDevice, int bufferSize)
 {
-	SimpleLogger::instance()->postMessage("Accessing audio device " + deviceName);
+	return false;
+	/*SimpleLogger::instance()->postMessage("Accessing audio device " + deviceName);
 	AudioIODevice* device = isInputDevice ? type->createDevice("", deviceName) : type->createDevice(deviceName, "");
 	if (device) {
 		auto buffers = device->getAvailableBufferSizes();
@@ -92,12 +95,13 @@ bool AudioDeviceDiscovery::canDeviceDoBufferSize(AudioIODeviceType *type, String
 			}
 		}
 	}
-	return false;
+	return false;*/
 }
 
-bool AudioDeviceDiscovery::canDeviceDoSampleRate(AudioIODeviceType *type, String const &deviceName, bool isInputDevice, int sampleRate)
+bool AudioDeviceDiscovery::canDeviceDoSampleRate(String const &deviceName, bool isInputDevice, int sampleRate)
 {
-	SimpleLogger::instance()->postMessage("Accessing audio device " + deviceName);
+	return false;
+	/*SimpleLogger::instance()->postMessage("Accessing audio device " + deviceName);
 	AudioIODevice* device = isInputDevice ? type->createDevice("", deviceName) : type->createDevice(deviceName, "");
 	if (device) {
 		auto rates = device->getAvailableSampleRates();
@@ -108,20 +112,18 @@ bool AudioDeviceDiscovery::canDeviceDoSampleRate(AudioIODeviceType *type, String
 			}
 		}
 	}
-	return false;
+	return false;*/
 }
 
 juce::StringArray AudioDeviceDiscovery::allDeviceTypeNames()
 {
 	init();
 	StringArray deviceTypeNames;
-	for (auto const& device : *deviceTypes_) {
-		deviceTypeNames.add(device->getTypeName());
-	}
+	deviceTypeNames.add("miniaudio");
 	return deviceTypeNames;
 }
 
-juce::AudioIODeviceType* AudioDeviceDiscovery::deviceTypeByName(String const& name)
+/*juce::AudioIODeviceType* AudioDeviceDiscovery::deviceTypeByName(String const& name)
 {
 	init();
 	for (auto device : *deviceTypes_) {
@@ -131,40 +133,48 @@ juce::AudioIODeviceType* AudioDeviceDiscovery::deviceTypeByName(String const& na
 	}
 	return nullptr;
 
-}
+}*/
 
 void AudioDeviceDiscovery::shutdown()
 {
-	deviceTypes_.reset();
+	ma_context_uninit(&sContext_);
 }
 
 void AudioDeviceDiscovery::init()
 {
 	if (!sIsInitialized) {
-		//TODO - do we really want to offer all these types or should we trim down the list?
-		std::vector< juce::AudioIODeviceType*> deviceTypes;
-		deviceTypes.push_back(AudioIODeviceType::createAudioIODeviceType_WASAPI(WASAPIDeviceMode::shared));
-		deviceTypes.push_back(AudioIODeviceType::createAudioIODeviceType_WASAPI(WASAPIDeviceMode::exclusive));
-		deviceTypes.push_back(AudioIODeviceType::createAudioIODeviceType_WASAPI(WASAPIDeviceMode::sharedLowLatency));
-		deviceTypes.push_back(AudioIODeviceType::createAudioIODeviceType_DirectSound());
-		deviceTypes.push_back(AudioIODeviceType::createAudioIODeviceType_ASIO());
-		deviceTypes.push_back(AudioIODeviceType::createAudioIODeviceType_CoreAudio());
-		deviceTypes.push_back(AudioIODeviceType::createAudioIODeviceType_iOSAudio());
-		deviceTypes.push_back(AudioIODeviceType::createAudioIODeviceType_Bela());
-		deviceTypes.push_back(AudioIODeviceType::createAudioIODeviceType_ALSA());
-		deviceTypes.push_back(AudioIODeviceType::createAudioIODeviceType_JACK());
-		deviceTypes.push_back(AudioIODeviceType::createAudioIODeviceType_Oboe());
-		deviceTypes.push_back(AudioIODeviceType::createAudioIODeviceType_OpenSLES());
-		deviceTypes.push_back(AudioIODeviceType::createAudioIODeviceType_Android());
-		deviceTypes_ = std::make_unique<OwnedArray<AudioIODeviceType>>();
-		for (auto deviceType : deviceTypes) {
-			if (deviceType != nullptr)
-				deviceTypes_->add(deviceType);
+
+		if (ma_context_init(NULL, 0, NULL, &sContext_) != MA_SUCCESS) {
+			SimpleLogger::instance()->postMessage("FATAL - cannot initialize miniaudio context!");
+			return;
 		}
+
+		ma_device_info* pPlaybackDeviceInfos;
+		ma_uint32 playbackDeviceCount;
+		ma_device_info* pCaptureDeviceInfos;
+		ma_uint32 captureDeviceCount;
+		ma_uint32 iDevice;
+
+		auto result = ma_context_get_devices(&sContext_, &pPlaybackDeviceInfos, &playbackDeviceCount, &pCaptureDeviceInfos, &captureDeviceCount);
+		if (result != MA_SUCCESS) {
+			SimpleLogger::instance()->postMessage("FATAL - cannot retrieve device information from miniaudio context!");
+			return;
+		}
+
+		for (iDevice = 0; iDevice < playbackDeviceCount; ++iDevice) {
+			SimpleLogger::instance()->postMessage(fmt::format("Playback Device ID {}: {}", iDevice, pPlaybackDeviceInfos[iDevice].name));
+		}
+
+		for (iDevice = 0; iDevice < captureDeviceCount; ++iDevice) {
+			SimpleLogger::instance()->postMessage(fmt::format("Capture Device ID {}: {}", iDevice, pCaptureDeviceInfos[iDevice].name));
+			printf("    %u: %s\n", iDevice, pCaptureDeviceInfos[iDevice].name);
+		}
+
 		sIsInitialized = true;
 	}
 }
 
 bool AudioDeviceDiscovery::sIsInitialized = false;
 
-std::unique_ptr<juce::OwnedArray<juce::AudioIODeviceType>> AudioDeviceDiscovery::deviceTypes_;
+ma_context AudioDeviceDiscovery::sContext_;
+

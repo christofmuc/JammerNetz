@@ -8,24 +8,26 @@
 
 #include "JuceHeader.h"
 
+#include "miniaudio.h"
+
 class AudioDeviceDiscovery {
 public:
-	static void listInputChannels(AudioIODevice *device, std::stringstream &list);
+	/*static void listInputChannels(AudioIODevice *device, std::stringstream &list);
 	static void listOutputChannels(AudioIODevice *device, std::stringstream &list);
 	static void listBufferSizes(AudioIODevice *device, std::stringstream &list);
 
-	static void listAudioDevices(AudioDeviceManager &deviceManager, std::stringstream &list);
+	static void listAudioDevices(AudioDeviceManager &deviceManager, std::stringstream &list);*/
 
-	static bool canDeviceDoBufferSize(AudioIODeviceType *type, String const &deviceName, bool isInputDevice, int bufferSize);
-	static bool canDeviceDoSampleRate(AudioIODeviceType *type, String const &deviceName, bool isInputDevice, int sampleRate);
+	static bool canDeviceDoBufferSize(String const &deviceName, bool isInputDevice, int bufferSize);
+	static bool canDeviceDoSampleRate(String const &deviceName, bool isInputDevice, int sampleRate);
 
 	static StringArray allDeviceTypeNames();
-	static AudioIODeviceType* deviceTypeByName(String const& name);
+	//static AudioIODeviceType* deviceTypeByName(String const& name);
 
 	static void shutdown();
 
 private:
 	static void init();
 	static bool sIsInitialized;
-	static std::unique_ptr<OwnedArray<AudioIODeviceType>> deviceTypes_;
+	static ma_context sContext_;
 };
