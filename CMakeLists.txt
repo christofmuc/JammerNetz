@@ -154,6 +154,7 @@ target_compile_definitions(juce-static
 		JUCE_QUICKTIME=0
 		JUCE_USE_DIRECTWRITE=1
 		JUCE_ASIO=1
+		JUCE_WASAPI_LOGGING=1
 		#JUCE_DIRECT2D=1  # That doesn't work, and the JUCE forum is full of confusing threads about Direct2D and font rendering
 		JUCE_CATCH_UNHANDLED_EXCEPTIONS=0
 		JUCE_COREGRAPHICS_DRAW_ASYNC=1
