@@ -11,6 +11,8 @@
 #include "BuffersConfig.h"
 #include "AudioDeviceDiscovery.h"
 
+#include "Logger.h"
+
 AudioService::AudioService() 
 {
 	// Put the list into the ephemeral app data (not stored across runs of the software)
@@ -223,7 +225,15 @@ void AudioService::restartAudio(std::shared_ptr<ChannelSetup> inputSetup, std::s
 		if (audioDevice_) {
 			BigInteger inputChannelMask = inputSetup ? makeChannelMask(inputSetup->activeChannelIndices) : 0;
 			BigInteger outputChannelMask = outputSetup ? makeChannelMask(outputSetup->activeChannelIndices) : 0;
-			String error = audioDevice_->open(inputChannelMask, outputChannelMask, SAMPLE_RATE, SAMPLE_BUFFER_SIZE);
+
+			// Ask for the smallest possible buffer size in this device! We should probably expose a UI control for this?
+			auto buffers = audioDevice_->getAvailableBufferSizes();
+			if (buffers.size() == 0) {
+				SimpleLogger::instance()->postMessage("Device reports no buffer sizes are available!");
+			}
+			int minBufferSize = buffers[0];
+
+			String error = audioDevice_->open(inputChannelMask, outputChannelMask, SAMPLE_RATE, minBufferSize);
 			if (error.isNotEmpty()) {
 				jassert(false);
 				AlertWindow::showMessageBox(AlertWindow::WarningIcon, "Error opening audio device", "Error text: " + error);
