@@ -191,7 +191,7 @@ if(WIN32)
 endif()
 
 # Add subdirectories
-add_subdirectory("third_party/JUCE-user-modules")
+add_subdirectory("third_party")
 add_subdirectory("third_party/fmt")
 add_subdirectory("modules/juce-utils")
 add_subdirectory("modules/juce-widgets")

@@ -146,7 +146,7 @@ endif()
 
 target_include_directories(JammerNetzClient PRIVATE "${SENTRY_INCLUDE_DIR}"  "${CMAKE_CURRENT_BINARY_DIR}/Source")
 IF(WIN32)
-	target_link_libraries(JammerNetzClient ${JUCE_LIBRARIES} ${DS_LIBRARIES} JammerCommon juce-utils juce-widgets ds_look_and_feel ff_meters ${SENTRY_LIB})
+	target_link_libraries(JammerNetzClient ${JUCE_LIBRARIES} ${DS_LIBRARIES} miniaudio JammerCommon juce-utils juce-widgets ds_look_and_feel ff_meters ${SENTRY_LIB})
 elseif(APPLE)
 	target_link_libraries(JammerNetzClient ${JUCE_LIBRARIES} ${DS_LIBRARIES} JammerCommon juce-utils juce-widgets ds_look_and_feel ff_meters tbb) 
 	# ${SENTRY_LIB})

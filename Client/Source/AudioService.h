@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include <miniaudio.h>
+
 #include "AudioCallback.h"
 #include "ApplicationState.h"
 #include "DebounceTimer.h"
