@@ -126,7 +126,7 @@ ENDIF()
 
 # Adding JUCE 6.1.x
 ADD_DEFINITIONS(-DJUCE_MODAL_LOOPS_PERMITTED)
-add_subdirectory("third_party/JUCE")
+add_subdirectory("third_party/JUCE" EXCLUDE_FROM_ALL)
 
 # Build a static library from juce 
 add_library(juce-static STATIC)
