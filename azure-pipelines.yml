@@ -149,7 +149,7 @@ jobs:
         cmake -S . -B LinuxBuilds -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release
         cmake --build LinuxBuilds -- -j8
         cd ../..
-        cmake -S . -B Builds/macOS -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release
+        cmake -S . -B Builds/macOS -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_RPATH_USE_LINK_PATH="ON"
         cmake --build Builds/macOS -- -j8
         VERBOSE=1 cmake --build Builds/macOS --target package -- -j8
       displayName: Build with CMake for Mac
@@ -161,7 +161,7 @@ jobs:
         cmake -S . -B LinuxBuilds -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release
         cmake --build LinuxBuilds -- -j8
         cd ../..
-        cmake -S . -B Builds/macOS -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DDIGITAL_STAGE_BRANDING=ON
+        cmake -S . -B Builds/macOS -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DDIGITAL_STAGE_BRANDING=ON -DCMAKE_INSTALL_RPATH_USE_LINK_PATH="ON"
         cmake --build Builds/macOS -- -j8
         VERBOSE=1 cmake --build Builds/macOS --target package -- -j8
       displayName: Build with CMake for Mac
