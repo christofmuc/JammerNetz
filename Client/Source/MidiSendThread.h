@@ -27,4 +27,3 @@ private:
 	tbb::concurrent_queue<MessageQueueItem> midiMessages;
 	std::string midiOutput_;
 };
-

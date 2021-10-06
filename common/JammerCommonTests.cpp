@@ -45,10 +45,5 @@ TEST(TestSerialization, TestAudioData) {
 			EXPECT_LE(fabs(loadedAudio2->audioBuffer()->getReadPointer(channel)[i] - loadedAudio1->audioBuffer()->getReadPointer(channel)[i]), 0.0001f);
 		}
 	}
-	
+
 }
-
-
-
-
-

@@ -37,7 +37,7 @@ LoginDialog::LoginDialog() : password_("passwordEntry", 0x2022)
 	addAndMakeVisible(&password_);
 	addAndMakeVisible(loginError_);
 	loginError_.setVisible(false);
-	
+
 	register_.setButtonText("Register");
 	register_.setURL(juce::URL(DS_REGISTRATION_URL));
 	addAndMakeVisible(register_);
@@ -177,5 +177,3 @@ bool LoginDialog::tryLogin(LoginData const& login)
 	apiToken_ = authService_->signInSync(userName ,passWord);
 	return !apiToken_.empty();
 }
-
-

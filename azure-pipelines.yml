@@ -7,10 +7,10 @@ jobs:
       matrix:
         mac:
           imageName: 'macos-10.14'
-          isMac: True          
+          isMac: True
         mac_DS:
           imageName: 'macos-10.14'
-          isMac: True          
+          isMac: True
           isDigitalStage: True
         win2019:
           imageName: 'windows-2019'
@@ -23,12 +23,12 @@ jobs:
           isDigitalStage: True
         linux:
           imageName: 'ubuntu-20.04'
-          isLinux: True          
+          isLinux: True
         linux_DS:
           imageName: 'ubuntu-20.04'
           isLinux: True
           isDigitalStage: True
-        
+
     pool:
       vmImage: $(imageName)
     steps:
@@ -73,13 +73,13 @@ jobs:
       condition: variables.isWindows
     - task: CMake@1
       displayName: Configuring CMake for Windows
-      inputs:        
+      inputs:
         workingDirectory: $(Build.SourcesDirectory)
         cmakeArgs: '-S . -B Builds\Windows -G "Visual Studio 16 2019" -A x64'
       condition: and(variables.isWindows2019, not(variables.isDigitalStage))
     - task: CMake@1
       displayName: Configuring CMake for Windows (DigitalStage)
-      inputs:        
+      inputs:
         workingDirectory: $(Build.SourcesDirectory)
         cmakeArgs: '-S . -B Builds\Windows -G "Visual Studio 16 2019" -A x64 -DDIGITAL_STAGE_BRANDING=ON'
       condition: and(variables.isWindows2019, variables.isDigitalStage)
@@ -108,31 +108,31 @@ jobs:
         conan profile new default --detect
         conan profile update settings.compiler.libcxx=libstdc++11 default
         conan install -if builds -s build_type=Release --build missing .
-      condition: and(variables.isLinux, variables.isDigitalStage)    
-    
+      condition: and(variables.isLinux, variables.isDigitalStage)
+
     - bash: |
-        cd third_party/flatbuffers 
+        cd third_party/flatbuffers
         cmake -S . -B LinuxBuilds
         cmake --build LinuxBuilds
-        cd ../.. 
+        cd ../..
         cd third_party/sentry-native
         cmake -S . -B builds -DSENTRY_BACKEND=crashpad
-        cmake -DCMAKE_INSTALL_PREFIX=./install --build builds --target install 
+        cmake -DCMAKE_INSTALL_PREFIX=./install --build builds --target install
         cd ../..
       displayName: Build with CMake for Linux
-      condition: variables.isLinux        
-    
+      condition: variables.isLinux
+
     - bash: |
-        cmake -S . -B builds 
+        cmake -S . -B builds
         cmake --build builds
       displayName: Build with CMake for Linux
-      condition: and(variables.isLinux, not(variables.isDigitalStage)) 
-      
+      condition: and(variables.isLinux, not(variables.isDigitalStage))
+
     - bash: |
         cmake -S . -B builds -DDIGITAL_STAGE_BRANDING=ON
         cmake --build builds
       displayName: Build with CMake for Linux (Digital Stage)
-      condition: and(variables.isLinux, variables.isDigitalStage)    
+      condition: and(variables.isLinux, variables.isDigitalStage)
 
     # Mac build uses bash as well
     # No need to brew icu4c cmake as they are already present on Azure mac
@@ -151,10 +151,10 @@ jobs:
         cd ../..
         cmake -S . -B Builds/macOS -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release
         cmake --build Builds/macOS -- -j8
-        VERBOSE=1 cmake --build Builds/macOS --target package -- -j8 
+        VERBOSE=1 cmake --build Builds/macOS --target package -- -j8
       displayName: Build with CMake for Mac
       condition: and(variables.isMac, not(variables.isDigitalStage))
-      
+
     - bash: |
         brew install cmake gtk+3 glew nlohmann-json cpprestsdk
         cd third_party/flatbuffers
@@ -163,16 +163,16 @@ jobs:
         cd ../..
         cmake -S . -B Builds/macOS -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DDIGITAL_STAGE_BRANDING=ON
         cmake --build Builds/macOS -- -j8
-        VERBOSE=1 cmake --build Builds/macOS --target package -- -j8 
+        VERBOSE=1 cmake --build Builds/macOS --target package -- -j8
       displayName: Build with CMake for Mac
       condition: and(variables.isMac, variables.isDigitalStage)
-      
-    - publish: $(System.DefaultWorkingDirectory)/Builds/macOS/JammerNetz-2.2.0-Darwin.dmg 
+
+    - publish: $(System.DefaultWorkingDirectory)/Builds/macOS/JammerNetz-2.2.0-Darwin.dmg
       displayName: Publish Mac Installer
       artifact: MacInstaller
       condition: and(variables.isMac, not(variables.isDigitalStage))
-        
-    - publish: $(System.DefaultWorkingDirectory)/Builds/macOS/digitalStagePC-2.2.0-Darwin.dmg 
+
+    - publish: $(System.DefaultWorkingDirectory)/Builds/macOS/digitalStagePC-2.2.0-Darwin.dmg
       displayName: Publish Mac Installer (Digital Stage)
       artifact: DigitalStage_MacInstaller
       condition: and(variables.isMac, variables.isDigitalStage)

@@ -39,4 +39,3 @@ private:
 
 	DSLookAndFeel dsLookAndFeel_;
 };
-

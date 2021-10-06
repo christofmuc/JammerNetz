@@ -35,7 +35,7 @@ AudioCallback::AudioCallback() : jammerService_([this](std::shared_ptr < JammerN
 	// We want to be able to tune our instruments
 	tuner_ = std::make_unique<Tuner>();
 
-	// Setup listeners 
+	// Setup listeners
 	listeners_.push_back(std::make_unique<ValueListener>(Data::instance().get().getPropertyAsValue(VALUE_MIN_PLAYOUT_BUFFER, nullptr), [this](Value& newValue) {
 		minPlayoutBufferLength_ = (int) newValue.getValue();
 	}));
@@ -70,7 +70,7 @@ AudioCallback::AudioCallback() : jammerService_([this](std::shared_ptr < JammerN
 }
 
 AudioCallback::~AudioCallback()
-{	
+{
 }
 
 void AudioCallback::shutdown()
@@ -117,7 +117,7 @@ std::pair<double, double> calcMonitorGain() {
 }
 
 void AudioCallback::calcLocalMonitoring(std::shared_ptr<AudioBuffer<float>> inputBuffer, AudioBuffer<float>& outputBuffer) {
-	
+
 	outputBuffer.clear();
 	if (monitorIsLocal_ && inputBuffer->getNumChannels() > 0) {
 		auto [monitorVolume, _] = calcMonitorGain();
@@ -131,7 +131,7 @@ void AudioCallback::calcLocalMonitoring(std::shared_ptr<AudioBuffer<float>> inpu
 				// Nothing to be done, ignore this channel
 				break;
 			case Left:
-				// This is a left channel, going into the left. 
+				// This is a left channel, going into the left.
 				if (outputBuffer.getNumChannels() > 0) {
 					outputBuffer.addFrom(0, 0, *inputBuffer, channel, 0, inputBuffer->getNumSamples(), input_volume);
 				}
@@ -234,7 +234,7 @@ void AudioCallback::audioDeviceIOCallback(const float** inputChannelData, int nu
 	}
 	else if (playBuffer_.size() > maxPlayoutBufferLength_) {
 		// That's too many packages in our buffer, where did those come from? Did the server deliver too many packets/did our playback stop?
-		// Reduce the length of the queue until it is the right size, throuw away audio that is too old to be played out		
+		// Reduce the length of the queue until it is the right size, throuw away audio that is too old to be played out
 		std::shared_ptr<JammerNetzAudioData> data;
 		while (playBuffer_.size() > CLIENT_PLAYOUT_JITTER_BUFFER) {
 			qualityInfo.discardedPackageCounter_++;
@@ -246,7 +246,7 @@ void AudioCallback::audioDeviceIOCallback(const float** inputChannelData, int nu
 	// Prepare the output buffer with the local monitoring signal
 	calcLocalMonitoring(inputBufferNotOwned, outputBuffer);
 
-	// For playout, we have to have enough bytes in the out ringbuffer to fill the output audio block. 
+	// For playout, we have to have enough bytes in the out ringbuffer to fill the output audio block.
 	// Let's see if we have enough data from the network!
 	while (isPlaying_ && playoutBuffer_->getNumReady() < numSamples) {
 		// We need to produce a network package to fill up the playout ring buffer
@@ -258,8 +258,8 @@ void AudioCallback::audioDeviceIOCallback(const float** inputChannelData, int nu
 			if (toPlay && toPlay->audioBuffer()) {
 				// Calculate the to-play latency
 				qualityInfo.toPlayLatency_ = Time::getMillisecondCounterHiRes() - toPlay->timestamp();
-				playoutBuffer_->write(toPlay->audioBuffer()->getArrayOfReadPointers(), 
-					toPlay->audioBuffer()->getNumChannels(), 
+				playoutBuffer_->write(toPlay->audioBuffer()->getArrayOfReadPointers(),
+					toPlay->audioBuffer()->getNumChannels(),
 					toPlay->audioBuffer()->getNumSamples());
 			}
 			else {
@@ -363,7 +363,7 @@ MidiPlayAlong *AudioCallback::getPlayalong()
 	return midiPlayalong_.get();
 }
 
-PlayoutQualityInfo AudioCallback::getPlayoutQualityInfo() 
+PlayoutQualityInfo AudioCallback::getPlayoutQualityInfo()
 {
 	// Return the latest QualityInfo
 	PlayoutQualityInfo latest;
@@ -386,12 +386,12 @@ std::string AudioCallback::currentReceptionQuality() const
 	return playBuffer_.qualityStatement();
 }
 
-bool AudioCallback::isReceivingData() 
+bool AudioCallback::isReceivingData()
 {
 	return jammerService_.receiver()->isReceivingData();
 }
 
-double AudioCallback::currentRTT() 
+double AudioCallback::currentRTT()
 {
 	return jammerService_.receiver()->currentRTT();
 }
@@ -418,13 +418,12 @@ std::shared_ptr<Recorder> AudioCallback::getLocalRecorder() const
 	return uploadRecorder_;
 }
 
-std::shared_ptr<JammerNetzClientInfoMessage> AudioCallback::getClientInfo() 
+std::shared_ptr<JammerNetzClientInfoMessage> AudioCallback::getClientInfo()
 {
 	return jammerService_.receiver()->getClientInfo();
 }
 
-JammerNetzChannelSetup AudioCallback::getSessionSetup() 
+JammerNetzChannelSetup AudioCallback::getSessionSetup()
 {
 	return jammerService_.receiver()->sessionSetup();
 }
-

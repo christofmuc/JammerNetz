@@ -112,7 +112,7 @@ set(EXECUTABLE_BASE_NAME "JammerNetzClient")
 set(INSTALLER_BASE_NAME "JammerNetz")
 if(DIGITAL_STAGE_BRANDING)
 set(DS_LIBRARIES
-		keychain 
+		keychain
 		DigitalStageAuth
         DigitalStageApi)
 set(DS_SOURCES ${DSBRANCH_FILES})
@@ -148,22 +148,22 @@ target_include_directories(JammerNetzClient PRIVATE "${SENTRY_INCLUDE_DIR}"  "${
 IF(WIN32)
 	target_link_libraries(JammerNetzClient ${JUCE_LIBRARIES} ${DS_LIBRARIES} JammerCommon juce-utils juce-widgets ds_look_and_feel ff_meters ${SENTRY_LIB})
 elseif(APPLE)
-	target_link_libraries(JammerNetzClient ${JUCE_LIBRARIES} ${DS_LIBRARIES} JammerCommon juce-utils juce-widgets ds_look_and_feel ff_meters tbb) 
+	target_link_libraries(JammerNetzClient ${JUCE_LIBRARIES} ${DS_LIBRARIES} JammerCommon juce-utils juce-widgets ds_look_and_feel ff_meters tbb)
 	# ${SENTRY_LIB})
 ELSE()
-	target_link_libraries(JammerNetzClient 
-		${JUCE_LIBRARIES} 
-		${DS_LIBRARIES} 
-		PkgConfig::WEBKIT 
-		PkgConfig::GTK 		
-		PkgConfig::GLEW 		
-		Xext 
-		X11 
-		pthread 
-		${CMAKE_DL_LIBS} 
-		freetype 
-		curl 
-		asound 
+	target_link_libraries(JammerNetzClient
+		${JUCE_LIBRARIES}
+		${DS_LIBRARIES}
+		PkgConfig::WEBKIT
+		PkgConfig::GTK
+		PkgConfig::GLEW
+		Xext
+		X11
+		pthread
+		${CMAKE_DL_LIBS}
+		freetype
+		curl
+		asound
 		tbb
 		${SENTRY_LIB}
 		JammerCommon juce-utils juce-widgets ds_look_and_feel ff_meters)
@@ -182,8 +182,8 @@ IF(WIN32)
 	# Post build commands - copy the DLLs (Windows only I guess). Due to the directory format of the oneTBB output directory, we need to parse the MSVC compiler version and use it appropriately
 	add_custom_command(
 			TARGET JammerNetzClient POST_BUILD
-			COMMAND ${CMAKE_COMMAND} -E copy					
-					${SENTRY_DISTRIBUTION_FILES} 
+			COMMAND ${CMAKE_COMMAND} -E copy
+					${SENTRY_DISTRIBUTION_FILES}
 					${CMAKE_BINARY_DIR}/$<IF:$<CONFIG:Release>,${MY_TBB_BINARY_DIR_BASE}_release/tbb12.dll,$<IF:$<CONFIG:Debug>,${MY_TBB_BINARY_DIR_BASE}_debug/tbb12_debug.dll,${MY_TBB_BINARY_DIR_BASE}_relwithdebinfo/tbb12.dll>>
 					${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>)
 ENDIF()
@@ -205,7 +205,7 @@ IF(WIN32)
 	add_custom_command(
 		TARGET JammerNetzClient POST_BUILD
 		COMMAND  "${CMAKE_COMMAND}" -E $<${no_copy}:echo> $<${no_copy}:"Not building Installer with "> chdir . ${INNOSETUP} "${CMAKE_CURRENT_BINARY_DIR}/setup_client.iss"
-		DEPENDS setup_client.iss 
+		DEPENDS setup_client.iss
 	)
 ENDIF()
 
@@ -219,7 +219,7 @@ IF(APPLE)
 		MACOSX_BUNDLE_BUNDLE_VERSION ${CMAKE_PROJECT_VERSION_MAJOR}.${CMAKE_PROJECT_VERSION_MINOR}.${CMAKE_PROJECT_VERSION_PATCH}
 		MACOSX_BUNDLE_GUI_IDENTIFIER com.christofmuc.jammernetz
 		MACOSX_BUNDLE_SIGNATURE jmrn
-		CPACK_BUNDLE_STARTUP_COMMAND $<TARGET_FILE:JammerNetzClient>  
+		CPACK_BUNDLE_STARTUP_COMMAND $<TARGET_FILE:JammerNetzClient>
 		MACOSX_BUNDLE_BUNDLE_VERSION ${JammerNetzClient_VERSION}
 		MACOSX_BUNDLE_COPYRIGHT "Copyright 2021 Christof Ruch"
 		MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/Info.plist
@@ -235,7 +235,7 @@ IF(APPLE)
         BUNDLE DESTINATION . COMPONENT Runtime
         RUNTIME DESTINATION bin COMPONENT Runtime
         )
-    
+
 	# Moving icon into application bundle here.
 	# See second answer from: https://stackoverflow.com/questions/22745728/cmake-set-icon-for-a-mac-os-x-app
 	SET(JAMMERNETZ_ICON ${CMAKE_CURRENT_SOURCE_DIR}/Resources/JammerNetzIcon.icns)
@@ -256,19 +256,19 @@ IF(APPLE)
 		" COMPONENT package)
 	ENDIF()
 
-	add_custom_command(TARGET JammerNetzClient 
-		POST_BUILD COMMAND 
+	add_custom_command(TARGET JammerNetzClient
+		POST_BUILD COMMAND
 		${CMAKE_INSTALL_NAME_TOOL} -add_rpath "@executable_path/../../../lib/"
         $<TARGET_BUNDLE_DIR:JammerNetzClient>/Contents/MacOS/${EXECUTABLE_BASE_NAME}
 	)
-    
+
     # Setup CPack variables
 	set(CPACK_PACKAGE_NAME ${INSTALLER_BASE_NAME})
 	set(CPACK_PACKAGE_ICON ${CMAKE_CURRENT_SOURCE_DIR}/Resources/JammerNetzIcon.icns)
     set(CPACK_PACKAGE_VERSION ${JammerNetzClient_VERSION})
     set(CPACK_PACKAGE_VENDOR "Christof Ruch Beratungs UG (haftungsbeschraenkt)")
     set(CPACK_RESOURCE_FILE_LICENSE ${CMAKE_CURRENT_SOURCE_DIR}/Redist/agpl-3.0.txt)
-    
+
     # Select only the dmg generator for now
     SET(CPACK_BINARY_DRAGNDROP ON)
     SET(CPACK_BINARY_TGZ OFF)

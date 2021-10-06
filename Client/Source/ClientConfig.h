@@ -8,7 +8,7 @@
 
 #include "JuceHeader.h"
 
-class ClientConfigurator : public Component {	
+class ClientConfigurator : public Component {
 public:
 	ClientConfigurator();
 

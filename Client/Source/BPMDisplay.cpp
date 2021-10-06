@@ -22,7 +22,7 @@ private:
 	std::weak_ptr<MidiClocker> clocker_;
 };
 
-BPMDisplay::BPMDisplay(std::weak_ptr<MidiClocker> clocker) 
+BPMDisplay::BPMDisplay(std::weak_ptr<MidiClocker> clocker)
 {
 	addAndMakeVisible(bpmText_);
 	timer_ = std::make_unique<BPMTimer>(bpmText_, clocker);

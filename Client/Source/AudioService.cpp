@@ -13,7 +13,7 @@
 
 #include "Logger.h"
 
-AudioService::AudioService() 
+AudioService::AudioService()
 {
 	// Put the list into the ephemeral app data (not stored across runs of the software)
 	auto& data = Data::instance().getEphemeral();
@@ -34,7 +34,7 @@ void AudioService::shutdown()
 	callback_.shutdown();
 }
 
-bool AudioService::isConnected() 
+bool AudioService::isConnected()
 {
 	return callback_.isReceivingData();
 }
@@ -50,7 +50,7 @@ void AudioService::refreshChannelSetup(std::shared_ptr<ChannelSetup> setup)
 			auto controllerData = mixer.getChildWithName(inputController);
 			jassert(controllerData.isValid());
 			JammerNetzChannelTarget target = static_cast<JammerNetzChannelTarget>(((int)  controllerData.getProperty(VALUE_TARGET, JammerNetzChannelTarget::Mono)) - 1);
-			JammerNetzSingleChannelSetup channel(target); 
+			JammerNetzSingleChannelSetup channel(target);
 			double volume = controllerData.getProperty(VALUE_VOLUME, 100.0);
 			channel.volume = (float)volume/100.0f;
 			auto username = Data::instance().get().getProperty(VALUE_USER_NAME).toString().toStdString();
@@ -141,7 +141,7 @@ float AudioService::sessionPitch(int channel)
 	return callback_.sessionPitch(channel);
 }
 
-FFAU::LevelMeterSource* AudioService::getInputMeterSource() 
+FFAU::LevelMeterSource* AudioService::getInputMeterSource()
 {
 	return callback_.getMeterSource();
 }
@@ -158,7 +158,7 @@ FFAU::LevelMeterSource* AudioService::getSessionMeterSource()
 
 void AudioService::valueTreePropertyChanged(ValueTree& treeWhosePropertyHasChanged, const Identifier& property)
 {
-	if (ValueTreeUtils::isChildOf(VALUE_INPUT_SETUP, treeWhosePropertyHasChanged) || 
+	if (ValueTreeUtils::isChildOf(VALUE_INPUT_SETUP, treeWhosePropertyHasChanged) ||
 		ValueTreeUtils::isChildOf(VALUE_OUTPUT_SETUP, treeWhosePropertyHasChanged)) {
 		debouncer_.callDebounced([this]() {
 			restartAudio();
@@ -171,7 +171,7 @@ void AudioService::valueTreePropertyChanged(ValueTree& treeWhosePropertyHasChang
 
 std::shared_ptr<ChannelSetup> AudioService::getSetup(ValueTree data) const
 {
-	// Build the current setup as data record 
+	// Build the current setup as data record
 	std::shared_ptr<ChannelSetup> channelSetup = std::make_shared<ChannelSetup>();
 	String deviceName = data.getProperty(VALUE_DEVICE_NAME, "unknown");
 	channelSetup->device = deviceName.toStdString();

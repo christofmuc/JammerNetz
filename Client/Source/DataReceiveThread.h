@@ -35,7 +35,7 @@ private:
 	juce::CriticalSection blowFishLock_;
 
 	// Thread safe storage of info for the UI thread
-	std::atomic<double> currentRTT_;	
+	std::atomic<double> currentRTT_;
 	std::atomic<bool> isReceiving_;
 
 	// For the session UI

@@ -9,4 +9,3 @@
 #include "BuffersConfig.h"
 
 ServerInfo globalServerInfo{ "127.0.0.1", "7777", "", SAMPLE_BUFFER_SIZE, SAMPLE_RATE};
-

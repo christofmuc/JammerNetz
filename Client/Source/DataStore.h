@@ -23,7 +23,7 @@ public:
 	std::vector<DigitalStage::Types::Stage> allStages() const;
 
 	void join(std::string stageId);
-	
+
 	std::function<void(ServerInfo serverInfo)> onJoin_;
 	std::function<void()> onLeave_;
 

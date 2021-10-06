@@ -46,7 +46,7 @@ public:
 		char *applicationDataDirName = "JammerNetz";
 #endif
 		if (clientID.isNotEmpty()) {
-			Settings::setSettingsID(clientID); 
+			Settings::setSettingsID(clientID);
 		}
 		else {
 			Settings::setSettingsID(applicationDataDirName);

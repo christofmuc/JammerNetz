@@ -8,4 +8,3 @@ class DSLevelMeterLAF : public FFAU::LevelMeterLookAndFeel {
 public:
 	DSLevelMeterLAF();
 };
-

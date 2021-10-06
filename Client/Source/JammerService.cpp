@@ -16,7 +16,7 @@ JammerService::JammerService(std::function<void(std::shared_ptr<JammerNetzAudioD
 		AlertWindow::showMessageBox(AlertWindow::WarningIcon, "Fatal error", "Couldn't bind to port " + String(randomPort));
 	}
 
-	// Create the sender 
+	// Create the sender
 	sender_ = std::make_unique<Client>(socket_);
 
 	// Fire up the network listener thread which will receive the answers from the server

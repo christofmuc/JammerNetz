@@ -11,9 +11,9 @@
 
 #include "ApplicationState.h"
 
-ChannelController::ChannelController(String const &name, String const &id, 
+ChannelController::ChannelController(String const &name, String const &id,
 	bool hasVolume /*= true*/, bool hasTarget /*= true*/, bool hasPitch /* = false */) :
-		id_(id), levelMeter_(name == "Master" ? FFAU::LevelMeter::Default : FFAU::LevelMeter::SingleChannel), 
+		id_(id), levelMeter_(name == "Master" ? FFAU::LevelMeter::Default : FFAU::LevelMeter::SingleChannel),
 		hasVolume_(hasVolume), hasTarget_(hasTarget), hasPitch_(hasPitch), meterSource_(nullptr), channelNo_(0)
 {
 	channelName_.setText(name, dontSendNotification);

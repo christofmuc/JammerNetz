@@ -84,7 +84,7 @@ void ServerSelector::resized()
 	auto topRow = area.removeFromTop(kLineHeight);
 	serverLabel_.setBounds(topRow.removeFromLeft(kLabelWidth));
 	auto entryArea = topRow.removeFromLeft(kEntryBoxWidth);
-	ipAddress_.setBounds(entryArea);	
+	ipAddress_.setBounds(entryArea);
 	portLabel_.setBounds(topRow.removeFromLeft(kLabelWidth/2));
 	port_.setBounds(topRow.removeFromLeft(kEntryBoxWidth/2));
 	connectButton_.setBounds(topRow.removeFromLeft(kLabelWidth).withTrimmedLeft(kNormalInset));

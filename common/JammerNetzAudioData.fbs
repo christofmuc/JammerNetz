@@ -14,7 +14,7 @@ table JammerNetzPNPChannelSetup {
 }
 
 table JammerNetzPNPAudioSamples {
-	audioSamples :[uint16]; 
+	audioSamples :[uint16];
 }
 
 table JammerNetzPNPAudioBlock {
@@ -34,4 +34,3 @@ table JammerNetzPNPAudioData {
 }
 
 root_type JammerNetzPNPAudioData;
-

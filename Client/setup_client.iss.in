@@ -61,7 +61,7 @@ Filename: "{tmp}\{#VCRedistFileName}"; StatusMsg: "Installing required VS2017 C+
 
 [Code]
 function VC2017RedistNeedsInstall: Boolean;
-var 
+var
   Version: String;
 begin
   if (RegQueryStringValue(HKEY_LOCAL_MACHINE, 'SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64', 'Version', Version)) then
@@ -74,7 +74,7 @@ begin
       Log('Skipping installation of new VC Redist Version');
     end
   end
-  else 
+  else
   begin
     // Not even an old version installed
     Result := True;

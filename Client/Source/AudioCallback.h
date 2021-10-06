@@ -26,7 +26,7 @@
 #include <tbb/concurrent_queue.h>
 
 struct PlayoutQualityInfo {
-	PlayoutQualityInfo() 
+	PlayoutQualityInfo()
 		: currentPlayQueueLength_(0), playUnderruns_(0), discardedPackageCounter_(0),
 		toPlayLatency_(0.0), numSamplesSinceStart_(-1), measuredSampleRate(0.0) {}
 
@@ -91,12 +91,12 @@ private:
 	PacketStreamQueue playBuffer_;
 	std::atomic_bool isPlaying_;
 	std::atomic_uint64_t minPlayoutBufferLength_;
-	std::atomic_uint64_t maxPlayoutBufferLength_;	
+	std::atomic_uint64_t maxPlayoutBufferLength_;
 	std::atomic<double> masterVolume_;
 	std::atomic<double> monitorBalance_;
 	std::atomic<bool> monitorIsLocal_;
 	std::string currentText_;
-	
+
 	JammerNetzChannelSetup channelSetup_;
 	FFAU::LevelMeterSource meterSource_; // This is for peak metering
 	FFAU::LevelMeterSource sessionMeterSource_; // This is to display the complete session peak meters
@@ -116,5 +116,3 @@ private:
 	// Generic listeners, required to maintain the lifetime of the Values and their listeners
 	std::vector<std::unique_ptr<ValueListener>> listeners_;
 };
-
-

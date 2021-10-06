@@ -99,7 +99,7 @@ void DataStore::registerClient(DigitalStage::Auth::string_t const& apiToken)
 		client->deviceRemoved.connect(handleDeviceRemoved);
 		client->localDeviceReady.connect(handleLocalDeviceReady);*/
 
-		client_->stageJoined.connect([this](const auto& stageID, const auto& groupID, const DigitalStage::Api::Store* s) { 
+		client_->stageJoined.connect([this](const auto& stageID, const auto& groupID, const DigitalStage::Api::Store* s) {
 			// We joined a stage, make sure to issue an onJoin callback that will connect the client to the server
 			if (onJoin_) {
 				ServerInfo serverInfo;
@@ -156,7 +156,7 @@ void DataStore::registerClient(DigitalStage::Auth::string_t const& apiToken)
 	}
 }
 
-DataStorePopulationWindow::DataStorePopulationWindow(std::shared_ptr<DataStore> store) 
+DataStorePopulationWindow::DataStorePopulationWindow(std::shared_ptr<DataStore> store)
 	: ThreadWithProgressWindow("Waiting for data from digital-stage.org", true, true), store_(store)
 {
 }

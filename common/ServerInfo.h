@@ -15,4 +15,3 @@ struct ServerInfo {
 	int bufferSize; // Should be the same for all clients
 	int sampleRate; // Should be the same for all clients
 };
-

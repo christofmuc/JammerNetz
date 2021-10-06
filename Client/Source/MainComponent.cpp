@@ -70,9 +70,9 @@ MainComponent::MainComponent(String clientID, std::shared_ptr<AudioService> audi
 	monitorBalance_.slider().setSliderStyle(Slider::SliderStyle::LinearHorizontal);
 	monitorBalance_.slider().setTextBoxStyle(Slider::TextEntryBoxPosition::NoTextBox, true, 0, 0);
 	monitorBalance_.slider().setRange(-1.0, 1.0, 0.1);
-	monitorBalance_.slider().getValueObject().referTo(mixer.getPropertyAsValue(VALUE_MONITOR_BALANCE, nullptr));	
+	monitorBalance_.slider().getValueObject().referTo(mixer.getPropertyAsValue(VALUE_MONITOR_BALANCE, nullptr));
 	outputController_.setMeterSource(audioService_->getOutputMeterSource(), -1);
-	
+
 	nameLabel_.setText("My name", dontSendNotification);
 	listeners_.push_back(std::make_unique<ValueListener>(Data::instance().get().getPropertyAsValue(VALUE_USER_NAME, nullptr), [this](Value &value) {
 		nameEntry_.setText(value.toString(), dontSendNotification);
@@ -173,7 +173,7 @@ MainComponent::MainComponent(String clientID, std::shared_ptr<AudioService> audi
 			}
 		});
 	});
-#endif	
+#endif
 }
 
 MainComponent::~MainComponent()
@@ -245,7 +245,7 @@ void MainComponent::resized()
 	recordingGroup_.setBounds(recordingArea);
 	recordingArea.reduce(kNormalInset, kNormalInset);
 	//auto midiRecordingInfo = recordingArea.removeFromBottom(30);
-	//bpmDisplay_->setBounds(midiRecordingInfo);	
+	//bpmDisplay_->setBounds(midiRecordingInfo);
 	recordingInfo_->setBounds(recordingArea.removeFromTop(recordingArea.getHeight() / 2));
 	localRecordingInfo_->setBounds(recordingArea);
 

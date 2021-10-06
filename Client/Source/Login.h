@@ -18,7 +18,7 @@ struct LoginData {
 };
 
 class LoginDialog : public Component {
-public:	
+public:
 	typedef std::function<void(LoginData)> TUserPasswordCallback;
 
 	LoginDialog();

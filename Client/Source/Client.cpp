@@ -28,7 +28,7 @@ Client::Client(DatagramSocket& socket) : socket_(socket), messageCounter_(10) /*
 		std::shared_ptr<MemoryBlock> cryptokey;
 		String newCryptopath = value.getValue();
 		if (newCryptopath.isNotEmpty()) {
-			UDPEncryption::loadKeyfile(newCryptopath.toRawUTF8(), &cryptokey);	
+			UDPEncryption::loadKeyfile(newCryptopath.toRawUTF8(), &cryptokey);
 			if (cryptokey) {
 				setCryptoKey(cryptokey->getData(), safe_sizet_to_int(cryptokey->getSize()));
 			}
@@ -113,7 +113,7 @@ bool Client::sendData(JammerNetzChannelSetup const &channelSetup, std::shared_pt
 
 	// Create a message
 	JammerNetzAudioData audioMessage(messageCounter_, Time::getMillisecondCounterHiRes(), channelSetup, SAMPLE_RATE, audioBuffer, fecBlock);
-	
+
 	messageCounter_++;
 	size_t totalBytes;
 	audioMessage.serialize(sendBuffer_, totalBytes);
@@ -149,7 +149,7 @@ bool Client::sendData(JammerNetzChannelSetup const &channelSetup, std::shared_pt
 		currentBlockSize_ = encryptedLength;
 	}
 	else {
-		// No encryption key loaded - send unencrypted Audio stream through the Internet. This is for testing only, 
+		// No encryption key loaded - send unencrypted Audio stream through the Internet. This is for testing only,
 		// and probably at some point should be disabled again ;-O
 		if (sizet_is_safe_as_int(totalBytes)) {
 			sendData(servername, serverPort_, sendBuffer_, static_cast<int>(totalBytes));
@@ -164,4 +164,3 @@ int Client::getCurrentBlockSize() const
 {
 	return currentBlockSize_;
 }
-

@@ -21,7 +21,7 @@ const size_t MAXFRAMESIZE = 65536;
   | JammerNetzAudioHeader
   |                                  | Audio - 2 Blocks, one active data and one FEC block containing the previous active block
   | JammerNetzHeader                 | JammerNetzAudioBlock                                                                     | AudioData for Block                       |
-  | magic0 magic1 magic2 messageType | timestamp messageCounter channelSetup            numChannels numberOfSamples sampleRate  | numChannels * numberOfSamples audio bytes | 
+  | magic0 magic1 magic2 messageType | timestamp messageCounter channelSetup            numChannels numberOfSamples sampleRate  | numChannels * numberOfSamples audio bytes |
   | uint8  uint8  uint8  uint8       | double    uint64         JammerNetzChannelSetup  uint8       uint16          uint16      | uint16                                    |
 
 */
@@ -36,7 +36,7 @@ struct JammerNetzHeader {
 enum JammerNetzChannelTarget {
 	Mute = 0,
 	Left,
-	Right, 
+	Right,
 	Mono,
 	SendMono,
 	SendLeft,
@@ -63,7 +63,7 @@ struct JammerNetzChannelSetup {
 	bool isLocalMonitoringDontSendEcho;
 	std::vector<JammerNetzSingleChannelSetup> channels;
 
-	bool isEqualEnough(const JammerNetzChannelSetup &other) const; 
+	bool isEqualEnough(const JammerNetzChannelSetup &other) const;
 	//bool operator ==(const JammerNetzChannelSetup &other) const;
 };
 

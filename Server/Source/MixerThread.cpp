@@ -109,14 +109,14 @@ void MixerThread::run() {
 				// The outgoing queue takes packages for all clients, they will be sent out to different addresses
 				OutgoingPackage package(receiver.first, AudioBlock(
 					receiver.second->timestamp(),
-					receiver.second->messageCounter(), 
+					receiver.second->messageCounter(),
 					48000,
 					mixdownSetup_,
 					outBuffer,
 					sessionSetup
 					));
 				if (!outgoing_.try_push(package)) {
-					// That's a bad sign - I would assume the sender thread died and that's possibly because the network is down. 
+					// That's a bad sign - I would assume the sender thread died and that's possibly because the network is down.
 					// Abort
 					std::cerr << "send queue length overflow at " << outgoing_.size() << " packets - network down? FATAL!" << std::endl;
 					exit(-1);
@@ -137,7 +137,7 @@ void MixerThread::run() {
 }
 
 void MixerThread::bufferMixdown(std::shared_ptr<AudioBuffer<float>> &outBuffer, std::shared_ptr<JammerNetzAudioData> const &audioData, bool isForSender) {
-	if (audioData->audioBuffer()->getNumChannels() == 0) { 
+	if (audioData->audioBuffer()->getNumChannels() == 0) {
 		ServerLogger::errorln("Got audio block with no channels, somebody needs to setup his interface");
 	}
 	if (audioData->audioBuffer()->getNumSamples() != outBuffer->getNumSamples()) {
@@ -164,7 +164,7 @@ void MixerThread::bufferMixdown(std::shared_ptr<AudioBuffer<float>> &outBuffer, 
 				// Don't send this back if it is not requested
 				break;
 			}
-			// This is a left channel, going into the left. 
+			// This is a left channel, going into the left.
 			outBuffer->addFrom(0, 0, *audioData->audioBuffer(), channel, 0, audioData->audioBuffer()->getNumSamples(), setup.volume);
 			break;
 		case SendRight:

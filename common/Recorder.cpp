@@ -6,7 +6,7 @@
 
 #include "Recorder.h"
 
-Recorder::Recorder(File directory, std::string const &baseFileName, RecordingType recordingType) 
+Recorder::Recorder(File directory, std::string const &baseFileName, RecordingType recordingType)
 	: directory_(directory), baseFileName_(baseFileName), writer_(nullptr), recordingType_(recordingType), samplesWritten_(0), lastChannelSetup_(false)
 {
 	thread_ = std::make_unique<TimeSliceThread>("RecorderDiskWriter");

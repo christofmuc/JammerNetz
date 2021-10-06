@@ -75,7 +75,7 @@ void SendThread::sendClientInfoPackage(std::string const &targetAddress)
 	sendWriteBuffer(ipAddress, port, bytesWritten);
 }
 
-void SendThread::sendWriteBuffer(String ipAddress, int port, size_t size) {	
+void SendThread::sendWriteBuffer(String ipAddress, int port, size_t size) {
 	if (sizet_is_safe_as_int(size)) {
 		int cipherLength = static_cast<int>(size);
 		if (blowFish_) {

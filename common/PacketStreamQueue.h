@@ -43,7 +43,7 @@ struct StreamQualityData {
 
 	std::string qualityStatement() const;
 	JammerNetzStreamQualityInfo qualityInfoPackage() const;
-	
+
 };
 
 class PacketStreamQueue {

@@ -76,7 +76,7 @@ void ServerLogger::printColumnHeader(int row) {
 
 void ServerLogger::printStatistics(int row, std::string const &clientID, JammerNetzStreamQualityInfo quality) {
 	if (terminal) {
-		// Find y 
+		// Find y
 		int y = row + yForClient(clientID);
 
 		move(y, kColumnHeaders[0].first);
@@ -152,4 +152,3 @@ void ServerLogger::printClientStatus(int row, std::string const &clientID, std::
 juce::String ServerLogger::lastMessage;
 
 long long ServerLogger::counter = 0;
-

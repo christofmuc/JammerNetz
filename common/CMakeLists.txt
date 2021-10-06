@@ -14,9 +14,9 @@ find_package(Flatbuffers REQUIRED PATHS "${CMAKE_CURRENT_LIST_DIR}/../third_part
 include(HomegrownFlatC)
 
 # Compile Flatbuffers. The output will be found because we added CMAKE_CURRENT_BINARY_DIR to the list of includes above
-IF (WIN32)	
+IF (WIN32)
 	set(FLATBUFFERS_FLATC_EXECUTABLE "${CMAKE_CURRENT_LIST_DIR}/../third_party/flatbuffers/builds/$<CONFIG>/flatc.exe")
-ELSE()	
+ELSE()
     set(FLATBUFFERS_FLATC_EXECUTABLE "${CMAKE_CURRENT_LIST_DIR}/../third_party/flatbuffers/LinuxBuilds/flatc")
 ENDIF()
 FLATBUFFERS_GENERATE_C_HEADERS(FlatJammer JammerNetzPackages.fbs JammerNetzAudioData.fbs)
@@ -27,7 +27,7 @@ set(Sources
 	CMakeLists.txt
 	Encryption.cpp Encryption.h
 	JammerNetzClientInfoMessage.cpp JammerNetzClientInfoMessage.h
-	JammerNetzPackage.cpp JammerNetzPackage.h	
+	JammerNetzPackage.cpp JammerNetzPackage.h
 	JammerNetzPackages.fbs
 	JammerNetzAudioData.fbs
 	${FlatJammer_OUTPUTS}
@@ -43,7 +43,7 @@ set(Sources
 
 # Setup library
 add_library(JammerCommon ${Sources})
-target_include_directories(JammerCommon 
+target_include_directories(JammerCommon
 	PUBLIC "${INTEL_TBB_DIRECTORY}/include/" "${CMAKE_CURRENT_LIST_DIR}/../third_party/flatbuffers/include" "${CMAKE_CURRENT_BINARY_DIR}"
 	INTERFACE ${CMAKE_CURRENT_LIST_DIR}
 	PRIVATE ${JUCE_INCLUDES}

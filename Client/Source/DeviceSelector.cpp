@@ -132,7 +132,7 @@ DeviceSelector::DeviceSelector(String const& title, bool showTitle, bool inputIn
 
 	bindControls();
 
-	// After construction, we need to fire each update trigger to make sure the combo boxes are filled 
+	// After construction, we need to fire each update trigger to make sure the combo boxes are filled
 	MessageManager::callAsync([this]() {
 		for_each(listeners_.begin(), listeners_.end(), [](std::unique_ptr<ValueListener>& ptr) { ptr->triggerOnChanged();  });
 	});
@@ -244,4 +244,3 @@ void DeviceSelector::bindControls()
 		channels.appendChild(obj, nullptr);
 	}
 }*/
-

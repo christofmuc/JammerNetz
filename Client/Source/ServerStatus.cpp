@@ -9,7 +9,7 @@
 #include "LayoutConstants.h"
 #include "Resources.h"
 
-ServerStatus::ServerStatus() 
+ServerStatus::ServerStatus()
 {
 	addAndMakeVisible(serverSelector_);
 	PNGImageFormat reader;

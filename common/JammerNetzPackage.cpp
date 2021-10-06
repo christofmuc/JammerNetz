@@ -70,7 +70,7 @@ std::shared_ptr<JammerNetzMessage> JammerNetzMessage::deserialize(uint8 *data, s
 		JammerNetzHeader *header = reinterpret_cast<JammerNetzHeader*>(data);
 
 		try {
-			// Check the magic 
+			// Check the magic
 			if (header->magic0 == '1' && header->magic1 == '2' && header->magic2 == '3') {
 				switch (header->messageType) {
 				case AUDIODATA:
@@ -321,7 +321,7 @@ void JammerNetzAudioData::readAudioBytes(flatbuffers::Vector<flatbuffers::Offset
 	for (auto channel = samples->cbegin(); channel != samples->cend(); channel++) {
 		//TODO we might not have enough bytes in the package for this operation
 		if (upsampleRate == 1) {
-			
+
 			AudioData::Pointer <AudioData::Int16,
 				AudioData::LittleEndian,
 				AudioData::NonInterleaved,
@@ -354,4 +354,3 @@ void JammerNetzAudioData::readAudioBytes(flatbuffers::Vector<flatbuffers::Offset
 		c++;
 	}
 }
-

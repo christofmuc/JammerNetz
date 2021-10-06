@@ -30,4 +30,3 @@ private:
 
 	String karaoke_;
 };
-

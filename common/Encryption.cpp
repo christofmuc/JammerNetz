@@ -22,4 +22,3 @@ bool UDPEncryption::loadKeyfile(const char *filename, std::shared_ptr<MemoryBloc
 	}
 	return false;
 }
-

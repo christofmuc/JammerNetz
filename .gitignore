@@ -21,3 +21,5 @@ lookAndFeel/Resources.h
 builds_ds/
 build/
 builds2019/
+venv/
+.vs/

@@ -21,7 +21,7 @@ class Tuner::TunerImpl {
 public:
 	void detectPitch(std::shared_ptr<AudioBuffer<float>> audioData) {
 		if (audioData) {
-			
+
 			auto readPointers = audioData->getArrayOfReadPointers();
 			for (int channel = 0; channel < audioData->getNumChannels(); channel++) {
 				// Do we already create a detector for this channel?
@@ -29,7 +29,7 @@ public:
 					detectors.push_back(std::make_unique<q::pitch_detector>(50.0_Hz, 2000.0_Hz, SAMPLE_RATE, 0.0));
 				}
 
-				// Feed the samples of this channel into the pitch detector 	
+				// Feed the samples of this channel into the pitch detector
 				for (int s = 0; s < audioData->getNumSamples(); s++) {
 					(*detectors[channel])(readPointers[channel][s]);
 				}
@@ -50,7 +50,7 @@ private:
 	std::vector<std::unique_ptr<q::pitch_detector>> detectors;
 };
 
-Tuner::Tuner() 
+Tuner::Tuner()
 {
 	impl = std::make_unique<TunerImpl>();
 }

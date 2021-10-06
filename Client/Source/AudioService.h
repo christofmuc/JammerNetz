@@ -25,7 +25,7 @@ public:
 	AudioService();
 	~AudioService();
 
-	void shutdown(); // Controlled stop 
+	void shutdown(); // Controlled stop
 
 	bool isConnected();
 
@@ -33,7 +33,7 @@ public:
 
 	std::shared_ptr<Recorder> getMasterRecorder() const;
 	std::shared_ptr<Recorder> getLocalRecorder() const;
-	
+
 	std::shared_ptr<ChannelSetup> getInputSetup() const;
 	std::shared_ptr<ChannelSetup> getOutputSetup() const;
 

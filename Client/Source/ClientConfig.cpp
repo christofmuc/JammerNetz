@@ -12,7 +12,7 @@
 
 #include "LayoutConstants.h"
 
-ClientConfigurator::ClientConfigurator() 
+ClientConfigurator::ClientConfigurator()
 {
 	bufferLabel_.setText("Client buffers: ", dontSendNotification);
 	bufferLength_.setSliderStyle(Slider::LinearHorizontal);
@@ -61,4 +61,3 @@ void ClientConfigurator::bindControls()
 	maxLength_.getValueObject().referTo(data.getPropertyAsValue(VALUE_MAX_PLAYOUT_BUFFER, nullptr));
 	useFEC_.getToggleStateValue().referTo(data.getPropertyAsValue(VALUE_USE_FEC, nullptr));
 }
-

@@ -22,4 +22,3 @@ private:
 	ServerSelector serverSelector_;
 	ImageButton cloudImage_;
 };
-

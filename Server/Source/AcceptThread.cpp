@@ -42,7 +42,7 @@ AcceptThread::AcceptThread(int serverPort, DatagramSocket &socket, TPacketStream
 		exit(-1);
 	}
 	ServerLogger::printServerStatus(("Server listening on port " + String(serverPort)).toStdString());
-	
+
 	qualityTimer_ = std::make_unique<PrintQualityTimer>(incomingData);
 }
 
