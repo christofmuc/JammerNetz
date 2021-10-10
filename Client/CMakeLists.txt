@@ -213,7 +213,7 @@ IF(APPLE)
 	# For apple, set the properties file to be included in the link. This is important to allow Microphone access on macOS (you will get a dialog asking for permission)
 	SET_TARGET_PROPERTIES(JammerNetzClient PROPERTIES
 		MACOSX_BUNDLE TRUE
-		MACOSX_BUNDLE_BUNDLE_NAME "JammerNetz ${JammerNetzClient_VERSION}"
+		MACOSX_BUNDLE_BUNDLE_NAME "${EXECUTABLE_BASE_NAME} ${JammerNetzClient_VERSION}"
 		MACOSX_BUNDLE_ICON_FILE JammerNetzIcon
 		MACOSX_BUNDLE_BUNDLE_NAME ${EXECUTABLE_BASE_NAME}
 		MACOSX_BUNDLE_BUNDLE_VERSION ${CMAKE_PROJECT_VERSION_MAJOR}.${CMAKE_PROJECT_VERSION_MINOR}.${CMAKE_PROJECT_VERSION_PATCH}
@@ -242,23 +242,24 @@ IF(APPLE)
 	SET_SOURCE_FILES_PROPERTIES(${JAMMERNETZ_ICON} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
 
 	IF(CPACK_BUNDLE_APPLE_CERT_APP)
+	message("Certifing!!!!!!")
     INSTALL(CODE "include(BundleUtilities)
 	set(BU_CHMOD_BUNDLE_ITEMS TRUE)
 			message(STATUS \"Integrating dynlibs and signing app bundle $<TARGET_BUNDLE_DIR:JammerNetzClient>\")
 			fixup_bundle(\"$<TARGET_BUNDLE_DIR:JammerNetzClient>\"  \"\"  \"\" IGNORE_ITEM \"Python\")
 			execute_process(COMMAND codesign --force --deep --sign \"${CPACK_BUNDLE_APPLE_CERT_APP}\" \"$<TARGET_BUNDLE_DIR:JammerNetzClient>\" COMMENT \"Signing app bundle\")
-		" COMPONENT package)
+		" COMPONENT runtime)
 	ELSE()
 		INSTALL(CODE "include(BundleUtilities)
 			set(BU_CHMOD_BUNDLE_ITEMS TRUE)
 			message(STATUS \"Integrating dynlibs into app bundle $<TARGET_BUNDLE_DIR:JammerNetzClient>\")
 			fixup_bundle(\"$<TARGET_BUNDLE_DIR:JammerNetzClient>\"  \"\"  \"${DIRS}\" IGNORE_ITEM \"Python\")
-		" COMPONENT package)
+		" COMPONENT runtime)
 	ENDIF()
 
 	add_custom_command(TARGET JammerNetzClient
 		POST_BUILD COMMAND
-		${CMAKE_INSTALL_NAME_TOOL} -add_rpath "@executable_path/../../../lib/"
+		${CMAKE_INSTALL_NAME_TOOL} -add_rpath "@executable_path/../Frameworks/"
         $<TARGET_BUNDLE_DIR:JammerNetzClient>/Contents/MacOS/${EXECUTABLE_BASE_NAME}
 	)
 
