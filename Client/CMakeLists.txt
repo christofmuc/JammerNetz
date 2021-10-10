@@ -258,7 +258,7 @@ IF(APPLE)
 
 	add_custom_command(TARGET JammerNetzClient
 		POST_BUILD COMMAND
-		${CMAKE_INSTALL_NAME_TOOL} -add_rpath "@executable_path/../../../lib/"
+		${CMAKE_INSTALL_NAME_TOOL} -add_rpath "@executable_path/../Frameworks/"
         $<TARGET_BUNDLE_DIR:JammerNetzClient>/Contents/MacOS/${EXECUTABLE_BASE_NAME}
 	)
 
