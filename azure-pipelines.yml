@@ -172,7 +172,7 @@ jobs:
       artifact: MacInstaller
       condition: and(variables.isMac, not(variables.isDigitalStage))
 
-    - publish: $(System.DefaultWorkingDirectory)/Builds/macOS/digitalStagePC-2.2.0-Darwin.dmg
+    - publish: $(System.DefaultWorkingDirectory)/_CPack_Packages/Darwin/DragNDrop/digitalStagePC-2.2.0-Darwin.dmg
       displayName: Publish Mac Installer (Digital Stage)
       artifact: DigitalStage_MacInstaller
       condition: and(variables.isMac, variables.isDigitalStage)
