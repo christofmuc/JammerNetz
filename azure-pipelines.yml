@@ -162,8 +162,8 @@ jobs:
         cmake --build LinuxBuilds -- -j8
         cd ../..
         cmake -S . -B Builds/macOS -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DDIGITAL_STAGE_BRANDING=ON -DCMAKE_INSTALL_RPATH_USE_LINK_PATH="ON"
-        cmake --build Builds/macOS -- -j8
-        VERBOSE=1 cmake --build Builds/macOS --target package -- -j8
+        cmake --build Builds/macOS -j8
+        cpack --config Builds/macOS/CPackConfig.cmake -V
       displayName: Build with CMake for Mac
       condition: and(variables.isMac, variables.isDigitalStage)
 
