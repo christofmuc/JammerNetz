@@ -166,7 +166,7 @@ void ChannelController::bindControls()
 	volumeSlider_.getValueObject().referTo(channelSettings.getPropertyAsValue(VALUE_VOLUME, nullptr));
 
 	if (!channelSettings.hasProperty(VALUE_TARGET)) {
-		channelSettings.setProperty(VALUE_TARGET, 1, nullptr);
+		channelSettings.setProperty(VALUE_TARGET, static_cast<int>(JammerNetzChannelTarget::Mono) + 1, nullptr);
 	}
 	channelType_.getSelectedIdAsValue().referTo(channelSettings.getPropertyAsValue(VALUE_TARGET, nullptr));
 }
