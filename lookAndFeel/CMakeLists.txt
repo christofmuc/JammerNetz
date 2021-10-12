@@ -9,6 +9,9 @@ create_resources(Resources Resources.h)
 
 set(SOURCES
 	DSLookAndFeel.cpp DSLookAndFeel.h
+	Resources.h
+	"Resources/AppView BG_Gradient.svg"
+	"Resources/stage_web_white.png"
 )
 
 add_library(ds_look_and_feel ${SOURCES})
