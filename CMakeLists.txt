@@ -96,7 +96,7 @@ enable_testing()
 include(GoogleTest)
 set(gtest_force_shared_crt ON) # needed to build on Windows
 set(CMAKE_POLICY_DEFAULT_CMP0077 NEW) # otherwise the flag set above is ignored?
-add_subdirectory(third_party/googletest)
+add_subdirectory(third_party/googletest EXCLUDE_FROM_ALL)
 
 # See https://cmake.org/cmake/help/v3.10/module/GoogleTest.html
 # Keep cache clean
@@ -197,8 +197,8 @@ add_subdirectory("modules/juce-utils")
 add_subdirectory("modules/juce-widgets")
 message(${CMAKE_MODULE_PATH})
 if(DIGITAL_STAGE_BRANDING)
-add_subdirectory("third_party/keychain")
-add_subdirectory("modules/libds")
+add_subdirectory("third_party/keychain" EXCLUDE_FROM_ALL)
+add_subdirectory("modules/libds" EXCLUDE_FROM_ALL)
 endif()
 add_subdirectory("lookAndFeel")
 add_subdirectory("third_party/oneTBB" EXCLUDE_FROM_ALL)
