@@ -34,7 +34,7 @@ DeviceSelector::DeviceSelector(String const& title, bool showTitle, bool inputIn
 	});
 	// Make sure to execute the update at least once
 	listener->triggerOnChanged();
-	auto setupDefinition = Data::instance().get().getChildWithName(title);
+	auto setupDefinition = Data::instance().get().getOrCreateChildWithName(title, nullptr);
 	listeners_.push_back(std::make_unique<ValueListener>(Data::instance().get().getPropertyAsValue(VALUE_DEVICE_TYPE, nullptr), [this](Value& newValue) {
 		deviceDropdown_.clear();
 		String typeName = newValue.getValue();
