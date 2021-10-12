@@ -225,14 +225,6 @@ IF(APPLE)
 		MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/Info.plist
 		)
 
-	# This is supposed to build a relocatable macOS DMG installer when you specify
-    # --target package
-    SET(DIRS "${CMAKE_BINARY_DIR}")
-    INSTALL(TARGETS JammerNetzClient
-        BUNDLE DESTINATION .
-        #RUNTIME # This would be a regular install like for Unix
-        )
-
 	# Moving icon into application bundle here.
 	# See second answer from: https://stackoverflow.com/questions/22745728/cmake-set-icon-for-a-mac-os-x-app
 	SET(JAMMERNETZ_ICON ${CMAKE_CURRENT_SOURCE_DIR}/Resources/JammerNetzIcon.icns)
@@ -242,24 +234,32 @@ IF(APPLE)
 	message("Certifing!!!!!!")
     INSTALL(CODE "include(BundleUtilities)
 	set(BU_CHMOD_BUNDLE_ITEMS TRUE)
-			message(STATUS \"Integrating dynlibs and signing app bundle $<TARGET_BUNDLE_DIR:JammerNetzClient>\")
-			fixup_bundle(\"$<TARGET_BUNDLE_DIR:JammerNetzClient>\"  \"\"  \"\" IGNORE_ITEM \"Python\")
-			execute_process(COMMAND codesign --force --deep --sign \"${CPACK_BUNDLE_APPLE_CERT_APP}\" \"$<TARGET_BUNDLE_DIR:JammerNetzClient>\" COMMENT \"Signing app bundle\")
+			message(STATUS \"Integrating dynlibs and signing app bundle \$<TARGET_BUNDLE_DIR:JammerNetzClient>\")
+			fixup_bundle(\"\$<TARGET_BUNDLE_DIR:JammerNetzClient>\"  \"\"  \"\" IGNORE_ITEM \"Python\")
+			execute_process(COMMAND codesign --force --deep --sign \"${CPACK_BUNDLE_APPLE_CERT_APP}\" \"\$<TARGET_BUNDLE_DIR:JammerNetzClient>\" COMMENT \"Signing app bundle\")
 		")
 	ELSE()
 		INSTALL(CODE "include(InstallRequiredSystemLibraries)
 		    include(BundleUtilities)
 			set(BU_CHMOD_BUNDLE_ITEMS TRUE)
-			message(STATUS \"Integrating dynlibs into app bundle $<TARGET_BUNDLE_DIR:JammerNetzClient>\")
-			fixup_bundle(\"$<TARGET_BUNDLE_DIR:JammerNetzClient>\"  \"\"  \"${DIRS}\" IGNORE_ITEM \"Python\")
+			message(STATUS \"Integrating dynlibs into app bundle \$<TARGET_BUNDLE_DIR:JammerNetzClient>\")
+			fixup_bundle(\"\$<TARGET_BUNDLE_DIR:JammerNetzClient>\"  \"\"  \"${DIRS}\" IGNORE_ITEM \"Python\")
 		")
 	ENDIF()
 
-	add_custom_command(TARGET JammerNetzClient
-		POST_BUILD COMMAND
-		${CMAKE_INSTALL_NAME_TOOL} -add_rpath "@executable_path/../Frameworks/"
-        $<TARGET_BUNDLE_DIR:JammerNetzClient>/Contents/MacOS/${EXECUTABLE_BASE_NAME}
-	)
+	# This is supposed to build a relocatable macOS DMG installer when you specify
+    # --target package
+    SET(DIRS "${CMAKE_BINARY_DIR}")
+    INSTALL(TARGETS JammerNetzClient
+        BUNDLE DESTINATION .
+        #RUNTIME # This would be a regular install like for Unix
+        )
+
+	#add_custom_command(TARGET JammerNetzClient
+#		POST_BUILD COMMAND
+#		${CMAKE_INSTALL_NAME_TOOL} -add_rpath "@executable_path/../Frameworks/"
+#        $<TARGET_BUNDLE_DIR:JammerNetzClient>/Contents/MacOS/${EXECUTABLE_BASE_NAME}
+#	)
 
     # Setup CPack variables
 	set(CPACK_PACKAGE_NAME ${INSTALLER_BASE_NAME})
