@@ -253,7 +253,7 @@ IF(APPLE)
 			message(STATUS \"Integrating dynlibs into app bundle $<TARGET_BUNDLE_DIR:JammerNetzClient>\")
 			fixup_bundle(\"$<TARGET_BUNDLE_DIR:JammerNetzClient>\"  \"\"  \"${DIRS}\" IGNORE_ITEM \"Python\")
 		")
-ENDIF()
+	ENDIF()
 
 	add_custom_command(TARGET JammerNetzClient
 		POST_BUILD COMMAND
