@@ -48,6 +48,7 @@ source_group(Source\\Installer FILES ${INSTALLER_FILES})
 
 set(RESOURCE_FILES
 	Resources/JammerNetzIcon.icns
+	Resources/digitalStagePC.icns
 	Resources/about.txt
 	Resources/cloud.png
 	Resources/live.png
@@ -210,11 +211,22 @@ IF(WIN32)
 ENDIF()
 
 IF(APPLE)
+	# Moving icon into application bundle here.
+	# See second answer from: https://stackoverflow.com/questions/22745728/cmake-set-icon-for-a-mac-os-x-app
+	if(DIGITAL_STAGE_BRANDING)
+	SET(ICON_FILE_NAME digitalStagePC)
+	SET(JAMMERNETZ_ICON ${CMAKE_CURRENT_SOURCE_DIR}/Resources/${ICON_FILE_NAME}.icns)
+ELSE()
+	SET(ICON_FILE_NAME JammerNetzIcon)
+	SET(JAMMERNETZ_ICON ${CMAKE_CURRENT_SOURCE_DIR}/Resources/${ICON_FILE_NAME}.icns)
+ENDIF()
+	SET_SOURCE_FILES_PROPERTIES(${JAMMERNETZ_ICON} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
+
 	# For apple, set the properties file to be included in the link. This is important to allow Microphone access on macOS (you will get a dialog asking for permission)
 	SET_TARGET_PROPERTIES(JammerNetzClient PROPERTIES
 		MACOSX_BUNDLE TRUE
 		MACOSX_BUNDLE_BUNDLE_NAME "${EXECUTABLE_BASE_NAME} ${JammerNetzClient_VERSION}"
-		MACOSX_BUNDLE_ICON_FILE JammerNetzIcon
+		MACOSX_BUNDLE_ICON_FILE ${ICON_FILE_NAME}
 		MACOSX_BUNDLE_BUNDLE_NAME ${EXECUTABLE_BASE_NAME}
 		MACOSX_BUNDLE_BUNDLE_VERSION ${CMAKE_PROJECT_VERSION_MAJOR}.${CMAKE_PROJECT_VERSION_MINOR}.${CMAKE_PROJECT_VERSION_PATCH}
 		MACOSX_BUNDLE_GUI_IDENTIFIER com.christofmuc.jammernetz
@@ -224,11 +236,6 @@ IF(APPLE)
 		MACOSX_BUNDLE_COPYRIGHT "Copyright 2021 Christof Ruch"
 		MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/Info.plist
 		)
-
-	# Moving icon into application bundle here.
-	# See second answer from: https://stackoverflow.com/questions/22745728/cmake-set-icon-for-a-mac-os-x-app
-	SET(JAMMERNETZ_ICON ${CMAKE_CURRENT_SOURCE_DIR}/Resources/JammerNetzIcon.icns)
-	SET_SOURCE_FILES_PROPERTIES(${JAMMERNETZ_ICON} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
 
 	IF(CPACK_BUNDLE_APPLE_CERT_APP)
 	message("Certifing!!!!!!")
@@ -263,7 +270,7 @@ IF(APPLE)
 
     # Setup CPack variables
 	set(CPACK_PACKAGE_NAME ${INSTALLER_BASE_NAME})
-	set(CPACK_PACKAGE_ICON ${CMAKE_CURRENT_SOURCE_DIR}/Resources/JammerNetzIcon.icns)
+	set(CPACK_PACKAGE_ICON ${JAMMERNETZ_ICON})
     set(CPACK_PACKAGE_VERSION ${JammerNetzClient_VERSION})
     set(CPACK_PACKAGE_VENDOR "Christof Ruch Beratungs UG (haftungsbeschraenkt)")
     set(CPACK_RESOURCE_FILE_LICENSE ${CMAKE_CURRENT_SOURCE_DIR}/Redist/agpl-3.0.txt)

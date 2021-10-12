@@ -5,7 +5,7 @@
 # you can install create-dmg via brew: brew install create-dmg
 
 create-dmg --volname digitalStagePC-2.2.0 \
-	--volicon build-clean/installer/digitalStagePC.app/Contents/Resources/JammerNetzIcon.icns	\
+	--volicon build-clean/installer/digitalStagePC.app/Contents/Resources/digitalStagePC.icns	\
 	--app-drop-link 20 20 \
 	--eula LICENSE.md \
 	--hdiutil-verbose \
