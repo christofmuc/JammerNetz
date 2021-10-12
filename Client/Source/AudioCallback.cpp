@@ -315,13 +315,17 @@ void AudioCallback::audioDeviceIOCallback(const float** inputChannelData, int nu
 
 void AudioCallback::audioDeviceAboutToStart(AudioIODevice* device)
 {
-	SimpleLogger::instance()->postMessage("Audio device " + device->getName() + " starting with " + String(device->getCurrentSampleRate()) + "Hz, buffer size " + String(device->getCurrentBufferSizeSamples()));
+	MessageManager::callAsync([device]() {
+		SimpleLogger::instance()->postMessage("Audio device " + device->getName() + " starting with " + String(device->getCurrentSampleRate()) + "Hz, buffer size " + String(device->getCurrentBufferSizeSamples()));
+	});
 	lastPlayoutQualityInfo_ = PlayoutQualityInfo();
 }
 
 void AudioCallback::audioDeviceStopped()
 {
-	SimpleLogger::instance()->postMessage("Audio device stopped");
+	MessageManager::callAsync([]() {
+		SimpleLogger::instance()->postMessage("Audio device stopped");
+	});
 }
 
 void AudioCallback::setChannelSetup(JammerNetzChannelSetup const &channelSetup)
