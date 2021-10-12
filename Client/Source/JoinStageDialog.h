@@ -14,6 +14,9 @@
 
 #include "ServerInfo.h"
 
+#include "ApplicationState.h"
+
+
 #include <nlohmann/json.hpp>
 
 class JoinStageDialog : public Component
@@ -30,6 +33,8 @@ public:
 	static bool isCurrentlyOpen();
 	void setStages(std::vector<DigitalStage::Types::Stage> const& stages);
 
+	void updateSelectedStage();
+
 private:
 	std::shared_ptr<DataStore> store_;
 	std::vector<DigitalStage::Types::Stage> stagesInTable_;
@@ -38,4 +43,6 @@ private:
 	TextButton joinButton_;
 
 	DSLookAndFeel dsLookAndFeel_;
+
+	std::vector<std::unique_ptr<ValueListener>> listeners_;
 };

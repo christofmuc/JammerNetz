@@ -11,9 +11,12 @@
 
 #include "ServerInfo.h"
 #include "BuffersConfig.h"
+#include "Logger.h"
 
 #include "Data.h"
 #include "ApplicationState.h"
+
+#include <fmt/format.h>
 
 void printStage(const DigitalStage::Api::Store* s)
 {
@@ -64,6 +67,11 @@ bool DataStore::isOnStage() const
 	return joined_;
 }
 
+std::optional<std::string> DataStore::currentStageID() const
+{
+	return client_->getStore()->getStageId();
+}
+
 std::vector<DigitalStage::Types::Stage> DataStore::allStages() const
 {
 	return client_->getStore()->getStages();
@@ -99,7 +107,10 @@ void DataStore::registerClient(DigitalStage::Auth::string_t const& apiToken)
 		client->deviceRemoved.connect(handleDeviceRemoved);
 		client->localDeviceReady.connect(handleLocalDeviceReady);*/
 
-		client_->stageJoined.connect([this](const auto& stageID, const auto& groupID, const DigitalStage::Api::Store* s) {
+		client_->stageJoined.connect([this](const std::string& stageID, const auto& groupID, const DigitalStage::Api::Store* s) {
+			SimpleLogger::instance()->postMessage(fmt::format("Entering stage {}", stageID));
+			Data::instance().getEphemeral().setProperty(EPHEMERAL_DS_VALUE_STAGE_ID, String(stageID), nullptr);
+
 			// We joined a stage, make sure to issue an onJoin callback that will connect the client to the server
 			if (onJoin_) {
 				ServerInfo serverInfo;
@@ -128,10 +139,15 @@ void DataStore::registerClient(DigitalStage::Auth::string_t const& apiToken)
 			}
 		});
 		client_->stageLeft.connect([this](const DigitalStage::Api::Store* s) {
+			SimpleLogger::instance()->postMessage("Leaving current stage");
+			Data::instance().getEphemeral().setProperty(EPHEMERAL_DS_VALUE_STAGE_ID, "", nullptr);
 			joined_ = false;
 			if (onLeave_) {
 				onLeave_();
 			}
+		});
+		client_->stageChanged.connect([this](const std::string& stageID, nlohmann::json partialJson,const DigitalStage::Api::Store* s) {
+			SimpleLogger::instance()->postMessage("Got stage change message");
 		});
 
 		// Always print on stage changes

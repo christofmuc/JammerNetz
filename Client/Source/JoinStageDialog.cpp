@@ -10,6 +10,9 @@
 
 #include "BuffersConfig.h"
 
+#include "ApplicationState.h"
+#include "Data.h"
+
 static std::unique_ptr<JoinStageDialog> sJoinStageDialog;
 static juce::DialogWindow* sWindow_;
 
@@ -29,13 +32,9 @@ static void dialogClosed(int modalResult, JoinStageDialog* dialog)
 	if (modalResult == 1 && dialog != nullptr) { // (must check that dialog isn't null in case it was deleted..)
 		//dialog->triggerCallback();
 	}
-	else {
-		// Didn't join a stage - quit application?
-		JUCEApplication::quit();
-	}
 }
 
-JoinStageDialog::JoinStageDialog(std::shared_ptr<DataStore> store) :
+JoinStageDialog::JoinStageDialog(std::shared_ptr<DataStore> store) : store_(store),
 	stageTable_({ "Name", "Audio Type", "Description"}, {}, nullptr)
 {
 	setLookAndFeel(&dsLookAndFeel_);
@@ -45,9 +44,6 @@ JoinStageDialog::JoinStageDialog(std::shared_ptr<DataStore> store) :
 		if (row >= 0 && row < stagesInTable_.size()) {
 			selectedStage_ = stagesInTable_[row];
 			joinButton_.setEnabled(selectedStage_->audioType == "jammer");
-		}
-		else {
-			jassertfalse;
 		}
 	};
 
@@ -60,6 +56,14 @@ JoinStageDialog::JoinStageDialog(std::shared_ptr<DataStore> store) :
 			store->join(selectedStage_->_id);
 		}
 	};
+
+	listeners_.push_back(std::make_unique<ValueListener>(Data::getEphemeralPropertyAsValue(EPHEMERAL_DS_VALUE_STAGE_ID), [this](Value& newValue) {
+		updateSelectedStage();
+	}));
+	MessageManager::callAsync([this]() {
+		for_each(listeners_.begin(), listeners_.end(), [](std::unique_ptr<ValueListener>& ptr) { ptr->triggerOnChanged();  });
+	});
+
 	setSize(400, 300);
 }
 
@@ -85,6 +89,25 @@ void JoinStageDialog::setStages(std::vector<DigitalStage::Types::Stage> const& s
 	stagesInTable_ = stages; // We need to store this has those in the "DataStore" could be changed at any time via WebSockets
 	stageTable_.updateData(stages);
 	joinButton_.setEnabled(false);
+	updateSelectedStage();
+}
+
+void JoinStageDialog::updateSelectedStage()
+{
+	if (store_->isOnStage()) {
+		auto currentStageId = store_->currentStageID();
+		if (currentStageId.has_value()) {
+			std::string id = currentStageId.value();
+			for (int i = 0; i < stagesInTable_.size(); i++) {
+				if (stagesInTable_[i]._id == id) {
+					stageTable_.selectRow(i);
+					return;
+				}
+			}
+		}
+		jassertfalse;
+	}
+	stageTable_.clearSelection();
 }
 
 void JoinStageDialog::showDialog(std::shared_ptr<DataStore> store)

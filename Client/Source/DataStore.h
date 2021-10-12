@@ -19,6 +19,7 @@ public:
 
 	bool isReady() const;
 	bool isOnStage() const;
+	std::optional<std::string> currentStageID() const;
 
 	std::vector<DigitalStage::Types::Stage> allStages() const;
 
