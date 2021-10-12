@@ -110,6 +110,7 @@ public:
 
     void shutdown() override
     {
+		audioService_->shutdown();
 		StreamLogger::instance().flushBuffer();
 		Logger::setCurrentLogger(nullptr);
 
