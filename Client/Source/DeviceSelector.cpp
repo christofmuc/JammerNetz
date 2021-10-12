@@ -11,7 +11,6 @@
 #include "AudioDeviceDiscovery.h"
 #include "ServerInfo.h"
 #include "Data.h"
-#include "ApplicationState.h"
 #include "BuffersConfig.h"
 
 #include "LayoutConstants.h"
