@@ -9,7 +9,7 @@
 #include "LayoutConstants.h"
 #include "Resources.h"
 
-ServerStatus::ServerStatus(std::function<void()> notify) : serverSelector_(notify)
+ServerStatus::ServerStatus()
 {
 	addAndMakeVisible(serverSelector_);
 	PNGImageFormat reader;
@@ -26,16 +26,6 @@ void ServerStatus::resized()
 	auto area = getLocalBounds().reduced(kNormalInset);
 	serverSelector_.setBounds(area.removeFromTop((kLineHeight + kNormalInset) *3));
 	cloudImage_.setBounds(area.withSizeKeepingCentre(96, 96).withTrimmedTop(kNormalInset));
-}
-
-void ServerStatus::fromData()
-{
-	serverSelector_.fromData();
-}
-
-void ServerStatus::toData() const
-{
-	serverSelector_.toData();
 }
 
 void ServerStatus::setConnected(bool isReceiving)

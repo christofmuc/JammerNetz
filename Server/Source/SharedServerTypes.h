@@ -36,5 +36,3 @@ typedef tbb::concurrent_bounded_queue<int> TMessageQueue;
 #if WIN32
 #pragma warning( pop )
 #endif
-
-

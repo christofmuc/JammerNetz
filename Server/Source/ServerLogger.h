@@ -26,4 +26,3 @@ private:
 	static String lastMessage;
 	static long long counter;
 };
-

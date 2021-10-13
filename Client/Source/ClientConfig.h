@@ -8,22 +8,15 @@
 
 #include "JuceHeader.h"
 
-class ClientConfigurator : public Component,
-	private Slider::Listener {
+class ClientConfigurator : public Component {
 public:
-	typedef std::function<void(int, int, bool)> TUpdateHandler;
-	ClientConfigurator(TUpdateHandler updateHandler);
+	ClientConfigurator();
 
 	virtual void resized() override;
 
-	// Store to and load from settings
-	void fromData();
-	void toData() const;
-
 private:
-	virtual void sliderValueChanged(Slider* slider) override;
+	void bindControls();
 
-	TUpdateHandler updateHandler_;
 	Label bufferLabel_;
 	Slider bufferLength_;
 	Label maxLabel_;

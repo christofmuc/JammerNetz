@@ -8,50 +8,33 @@
 
 #include "JuceHeader.h"
 
-struct ChannelSetup {
-	std::string typeName;
-	std::string device;
-	bool isInputAndOutput; // Flag that this device is input and output and the same time -> if this is the case, the output can be bound to the input
-	std::vector<std::string> activeChannelNames;
-	std::vector<int> activeChannelIndices;
-};
+#include "ApplicationState.h"
 
-class DeviceSelector : public Component,
-	private ComboBox::Listener,
-	private ToggleButton::Listener
+class DeviceSelector : public Component
 {
 public:
-	DeviceSelector(String const &title, bool showTitle, String const &settingsKey, AudioDeviceManager &manager, bool inputInsteadOfOutputDevices, std::function<void(std::shared_ptr<ChannelSetup>)> updateHandler);
+	DeviceSelector(String const &title, bool showTitle, bool inputInsteadOfOutputDevices);
 	virtual ~DeviceSelector();
 
 	virtual void resized() override;
 
-	AudioIODeviceType *deviceType() const;
-
-	// Store to and load from settings
-	void fromData();
-	void toData() const;
-
-	// Implement UI logic
-	virtual void comboBoxChanged(ComboBox* comboBoxThatHasChanged) override;
-	virtual void buttonClicked(Button*) override;
-
 private:
-	std::function<void(std::shared_ptr<ChannelSetup>)> updateHandler_;
+	void bindControls();
 
 	Label titleLabel_;
 	bool showTitle_;
 	ComboBox typeDropdown_;
 	ComboBox deviceDropdown_;
-	AudioDeviceManager &manager_;
 	Viewport scrollList_;
 	Component scrollArea_;
-	OwnedArray<AudioIODeviceType> deviceTypes_;
+
 	std::unique_ptr<TextButton> controlPanelButton_;
 	OwnedArray<ToggleButton> channelSelectors_;
 	OwnedArray<Label> channelNames_;
 
 	String title_;
-	String settingsKey_;
 	bool inputDevices_;
+
+	// Generic listeners, required to maintain the lifetime of the Values and their listeners
+	std::vector<std::unique_ptr<ValueListener>> listeners_;
 };

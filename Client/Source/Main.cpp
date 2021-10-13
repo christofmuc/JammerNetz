@@ -6,9 +6,11 @@
 
 #include "JuceHeader.h"
 
+#include "AudioService.h"
 #include "MainComponent.h"
 #include "StreamLogger.h"
 #include "Settings.h"
+#include "Data.h"
 
 #include "version.cpp"
 
@@ -38,8 +40,20 @@ public:
 		}
 
 		// This method is where you should put your application's initialization code..
+#ifdef DIGITAL_STAGE
+		char* applicationDataDirName = "DigitalStage";
+#else
 		char *applicationDataDirName = "JammerNetz";
-		Settings::setSettingsID(applicationDataDirName);
+#endif
+		if (clientID.isNotEmpty()) {
+			Settings::setSettingsID(clientID);
+		}
+		else {
+			Settings::setSettingsID(applicationDataDirName);
+		}
+
+		// Load stored application state
+		Data::instance().initializeFromSettings();
 
 		// Create a file logger. Respect the fact that we might launch multiple clients at the same time, and then we should do collision avoidance with the filenames
 		/*Time now = Time::getCurrentTime();
@@ -55,12 +69,14 @@ public:
 		logger_ = std::make_unique<FileLogger>(wavFile, "Starting "+ getApplicationName() + " V" + getApplicationVersion());
 		Logger::setCurrentLogger(logger_.get());*/
 
-		String windowTitle = getApplicationName();
+		// Create the AudioService, which will contain all important client functionality except the UI
+		audioService_ = std::make_shared<AudioService>();
+
+		String windowTitle = getWindowTitle();
 		if (clientID.isNotEmpty()) {
 			windowTitle += ": " + clientID;
 		}
-        mainWindow = std::make_unique<MainWindow>(windowTitle, clientID);
-		mainWindow->setName(getWindowTitle());
+        mainWindow = std::make_unique<MainWindow>(new MainComponent(clientID, audioService_, audioService_->getMasterRecorder(), audioService_->getLocalRecorder()), windowTitle, clientID);
 
 #ifdef USE_SENTRY
 		// Initialize sentry for error crash reporting
@@ -94,6 +110,7 @@ public:
 
     void shutdown() override
     {
+		audioService_->shutdown();
 		StreamLogger::instance().flushBuffer();
 		Logger::setCurrentLogger(nullptr);
 
@@ -117,12 +134,12 @@ public:
     class MainWindow    : public DocumentWindow
     {
     public:
-        MainWindow (String name, String clientID)  : DocumentWindow (name,
+        MainWindow (Component *mainComponent, String name, String clientID)  : DocumentWindow (name,
                                                     Desktop::getInstance().getDefaultLookAndFeel()
                                                                           .findColour (ResizableWindow::backgroundColourId),
                                                     DocumentWindow::allButtons)
         {
-            setContentOwned (new MainComponent(clientID), true);
+            setContentOwned (mainComponent, true);
 
            #if JUCE_IOS || JUCE_ANDROID
             setFullScreen (true);
@@ -156,6 +173,7 @@ public:
 
 private:
 	std::unique_ptr<FileLogger> logger_;
+	std::shared_ptr<AudioService> audioService_;
     std::unique_ptr<MainWindow> mainWindow;
 };
 

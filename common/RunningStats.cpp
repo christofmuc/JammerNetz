@@ -93,6 +93,3 @@ RunningStats& RunningStats::operator+=(const RunningStats& rhs)
 	*this = combined;
 	return *this;
 }
-
-
-

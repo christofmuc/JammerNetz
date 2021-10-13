@@ -8,6 +8,9 @@ cmake_minimum_required(VERSION 3.14)
 
 project(JammerNetz)
 
+# For the digital stage branded build, provide an option
+OPTION(DIGITAL_STAGE_BRANDING OFF)
+
 # Since we also build MacOS, we need C++ 17. Which is not a bad thing.
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -17,7 +20,7 @@ add_compile_options(-Wno-unused-command-line-argument)
 ENDIF()
 
 # To avoid dependency on WebKit. This also came with MacOS, but as webkit is heavyweight, it is probably a good idea to turn it off for all
-option(JUCE_CONFIG_JUCE_WEB_BROWSER OFF) 
+option(JUCE_CONFIG_JUCE_WEB_BROWSER OFF)
 
 # Allow to turn on crash reporting via Sentry. This is turned on by default for the builds I upload to github
 OPTION(SENTRY_CRASH_REPORTING "Turn on crash reporting via Internet/Sentry")
@@ -65,7 +68,7 @@ elseif(UNIX)
 	ADD_DEFINITIONS(-DJUCE_JACK)
 
 	# Include useful scripts for CMake
-	find_package(PkgConfig REQUIRED) 
+	find_package(PkgConfig REQUIRED)
 	find_package(OpenGL)
 
 	# These calls create special `PkgConfig::<MODULE>` variables
@@ -90,10 +93,10 @@ IF (MSVC)
 endif()
 
 enable_testing()
-include(GoogleTest)    
+include(GoogleTest)
 set(gtest_force_shared_crt ON) # needed to build on Windows
 set(CMAKE_POLICY_DEFAULT_CMP0077 NEW) # otherwise the flag set above is ignored?
-add_subdirectory(third_party/googletest)
+add_subdirectory(third_party/googletest EXCLUDE_FROM_ALL)
 
 # See https://cmake.org/cmake/help/v3.10/module/GoogleTest.html
 # Keep cache clean
@@ -106,25 +109,26 @@ mark_as_advanced(
 # Define the list of link libraries required on Linux linking with JUCE, this must be used by any executable / module to run standalone
 if(UNIX AND NOT APPLE)
 	set(LINUX_JUCE_LINK_LIBRARIES
-		PkgConfig::WEBKIT 
-		PkgConfig::GTK 
-		PkgConfig::GLEW 
-		Xext 
-		X11 
-		pthread 
-		${CMAKE_DL_LIBS} 
-		freetype 
-		curl 
+		PkgConfig::WEBKIT
+		PkgConfig::GTK
+		PkgConfig::GLEW
+		Xext
+		X11
+		pthread
+		${CMAKE_DL_LIBS}
+		freetype
+		curl
 		asound)
 
 	# Also, as we will be building a shared module for Python, make sure GCC generates relocatable code suited for inclusion in a shared library
 	add_definitions(-fPIC)
 ENDIF()
 
-# Adding JUCE 6.0
-add_subdirectory("third_party/JUCE")
+# Adding JUCE 6.1.x
+ADD_DEFINITIONS(-DJUCE_MODAL_LOOPS_PERMITTED)
+add_subdirectory("third_party/JUCE" EXCLUDE_FROM_ALL)
 
-# Build a static library from juce 
+# Build a static library from juce
 add_library(juce-static STATIC)
 target_link_libraries(juce-static
 	PRIVATE
@@ -150,6 +154,7 @@ target_compile_definitions(juce-static
 		JUCE_QUICKTIME=0
 		JUCE_USE_DIRECTWRITE=1
 		JUCE_ASIO=1
+		JUCE_WASAPI_LOGGING=1
 		#JUCE_DIRECT2D=1  # That doesn't work, and the JUCE forum is full of confusing threads about Direct2D and font rendering
 		JUCE_CATCH_UNHANDLED_EXCEPTIONS=0
 		JUCE_COREGRAPHICS_DRAW_ASYNC=1
@@ -187,8 +192,16 @@ endif()
 
 # Add subdirectories
 add_subdirectory("third_party/JUCE-user-modules")
+add_subdirectory("third_party/fmt")
 add_subdirectory("modules/juce-utils")
-add_subdirectory("third_party/oneTBB")
+add_subdirectory("modules/juce-widgets")
+message(${CMAKE_MODULE_PATH})
+if(DIGITAL_STAGE_BRANDING)
+add_subdirectory("third_party/keychain" EXCLUDE_FROM_ALL)
+add_subdirectory("modules/libds" EXCLUDE_FROM_ALL)
+endif()
+add_subdirectory("lookAndFeel")
+add_subdirectory("third_party/oneTBB" EXCLUDE_FROM_ALL)
 add_subdirectory("common")
 add_subdirectory("Server")
 add_subdirectory("Client")

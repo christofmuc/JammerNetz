@@ -9,10 +9,10 @@
 #include <stdexcept>
 
 template<class T, bool grow_on_demand=true>
-class Pool 
+class Pool
 {
     public:
-    Pool(size_t n) 
+    Pool(size_t n)
         : mutex_m(), free_m(0), used_m(0)
     {
         for (size_t i=0; i<n; i++)
@@ -26,7 +26,7 @@ class Pool
         std::unique_lock<std::mutex> lock(mutex_m);
         if (free_m.empty() )
         {
-            if constexpr (grow_on_demand) 
+            if constexpr (grow_on_demand)
             {
                 free_m.push_front( std::make_unique<T>() );
             }
@@ -70,4 +70,3 @@ private:
     std::list<std::unique_ptr<T>> free_m;
     std::list<std::unique_ptr<T>> used_m;
 };
-

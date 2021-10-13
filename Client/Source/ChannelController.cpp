@@ -9,9 +9,11 @@
 #include "Data.h"
 #include "LayoutConstants.h"
 
-ChannelController::ChannelController(String const &name, String const &id, std::function<void(double, JammerNetzChannelTarget)> updateHandler, 
+#include "ApplicationState.h"
+
+ChannelController::ChannelController(String const &name, String const &id,
 	bool hasVolume /*= true*/, bool hasTarget /*= true*/, bool hasPitch /* = false */) :
-		id_(id), updateHandler_(updateHandler), levelMeter_(name == "Master" ? FFAU::LevelMeter::Default : FFAU::LevelMeter::SingleChannel), 
+		id_(id), levelMeter_(name == "Master" ? FFAU::LevelMeter::Default : FFAU::LevelMeter::SingleChannel),
 		hasVolume_(hasVolume), hasTarget_(hasTarget), hasPitch_(hasPitch), meterSource_(nullptr), channelNo_(0)
 {
 	channelName_.setText(name, dontSendNotification);
@@ -27,11 +29,13 @@ ChannelController::ChannelController(String const &name, String const &id, std::
 	}
 
 	if (hasTarget) {
-		channelType_.addItem("Off", JammerNetzChannelTarget::Unused + 1);
+		channelType_.addItem("Mute", JammerNetzChannelTarget::Mute + 1);
 		channelType_.addItem("Left", JammerNetzChannelTarget::Left + 1);
 		channelType_.addItem("Right", JammerNetzChannelTarget::Right + 1);
 		channelType_.addItem("Mono", JammerNetzChannelTarget::Mono + 1);
-		channelType_.addItem("Send", JammerNetzChannelTarget::SendOnly + 1);
+		channelType_.addItem("Send", JammerNetzChannelTarget::SendMono + 1);
+		channelType_.addItem("SendLeft", JammerNetzChannelTarget::SendLeft + 1);
+		channelType_.addItem("SendRight", JammerNetzChannelTarget::SendRight + 1);
 		channelType_.setText("Mono");
 		channelType_.addListener(this);
 		addAndMakeVisible(channelType_);
@@ -46,10 +50,14 @@ ChannelController::ChannelController(String const &name, String const &id, std::
 	lnf_->setColour(FFAU::LevelMeter::lmOutlineColour, juce::Colours::lightblue);
 	lnf_->setColour(FFAU::LevelMeter::lmTicksColour, juce::Colours::lightblue);
 	levelMeter_.setLookAndFeel(lnf_.get());
+	/*lnf_ = std::make_unique<DSLevelMeterLAF>();
+	levelMeter_.setLookAndFeel(lnf_.get());*/
 
 	addAndMakeVisible(channelName_);
 	addAndMakeVisible(levelMeter_);
 	//addAndMakeVisible(muteButton_);
+
+	bindControls();
 }
 
 void ChannelController::resized()
@@ -109,14 +117,16 @@ JammerNetzChannelTarget ChannelController::getCurrentTarget() const
 {
 	JammerNetzChannelTarget target;
 	switch (channelType_.getSelectedItemIndex()) {
-	case 0: target = Unused; break;
+	case 0: target = Mute; break;
 	case 1: target = Left; break;
 	case 2: target = Right; break;
 	case 3: target = Mono; break;
-	case 4: target = SendOnly; break;
+	case 4: target = SendMono; break;
+	case 5: target = SendLeft; break;
+	case 6: target = SendRight; break;
 	default:
 		jassert(false);
-		target = Unused;
+		target = Mute;
 	}
 	return target;
 }
@@ -145,33 +155,28 @@ void ChannelController::enableTargetSelector(bool enabled)
 	channelType_.setEnabled(enabled);
 }
 
-void ChannelController::fromData()
+void ChannelController::bindControls()
 {
 	ValueTree &data = Data::instance().get();
-	auto channelSettings = data.getChildWithName(id_);
-	if (channelSettings.isValid()) {
-		if (channelSettings.hasProperty("Volume")) {
-			volumeSlider_.setValue(channelSettings.getProperty("Volume").operator float() * 100.0f, dontSendNotification);
-		}
-		if (channelSettings.hasProperty("Target")) {
-			channelType_.setSelectedId(channelSettings.getProperty("Target"), dontSendNotification);
-		}
+	auto mixer = data.getOrCreateChildWithName(VALUE_MIXER, nullptr);
+	auto channelSettings = mixer.getOrCreateChildWithName(id_, nullptr);
+	if (!channelSettings.hasProperty(VALUE_VOLUME)) {
+		channelSettings.setProperty(VALUE_VOLUME, 100.0f, nullptr);
 	}
-}
+	volumeSlider_.getValueObject().referTo(channelSettings.getPropertyAsValue(VALUE_VOLUME, nullptr));
 
-void ChannelController::toData() const
-{
-	ValueTree &data = Data::instance().get();
-	auto channelSettings = data.getOrCreateChildWithName(id_, nullptr);
-	channelSettings.setProperty("Volume", volumeSlider_.getValue() / 100.0f, nullptr);
-	channelSettings.setProperty("Target", channelType_.getSelectedId(), nullptr);
+	if (!channelSettings.hasProperty(VALUE_TARGET)) {
+		channelSettings.setProperty(VALUE_TARGET, static_cast<int>(JammerNetzChannelTarget::Mono) + 1, nullptr);
+	}
+	channelType_.getSelectedIdAsValue().referTo(channelSettings.getPropertyAsValue(VALUE_TARGET, nullptr));
 }
 
 void ChannelController::comboBoxChanged(ComboBox* comboBoxThatHasChanged)
 {
 	jassert(hasTarget_);
 	if (comboBoxThatHasChanged == &channelType_) {
-		updateHandler_(volumeSlider_.getValue(), getCurrentTarget());
+		if (updateHandler_)
+			updateHandler_(volumeSlider_.getValue(), getCurrentTarget());
 	}
 }
 
@@ -179,6 +184,7 @@ void ChannelController::sliderValueChanged(Slider* slider)
 {
 	jassert(hasVolume_);
 	if (slider == &volumeSlider_) {
-		updateHandler_(slider->getValue(), getCurrentTarget());
+		if (updateHandler_)
+			updateHandler_(slider->getValue(), getCurrentTarget());
 	}
 }

@@ -22,4 +22,3 @@ private:
 	long long n;
 	double M1, M2, M3, M4;
 };
-

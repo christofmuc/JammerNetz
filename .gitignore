@@ -17,3 +17,9 @@ Client/Source/sentry-config.h
 upload_debug_info.bat
 common/sentry-config.h
 .sentry-native/
+lookAndFeel/Resources.h
+builds_ds/
+build/
+builds2019/
+venv/
+.vs/

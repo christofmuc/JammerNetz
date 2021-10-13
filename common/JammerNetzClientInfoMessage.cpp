@@ -122,5 +122,3 @@ JammerNetzClientInfo::JammerNetzClientInfo(IPAddress ip, int port, JammerNetzStr
 	std::copy(ip.address, ip.address + 16, ipAddress);
 	isIPV6 = ip.isIPv6;
 }
-
-

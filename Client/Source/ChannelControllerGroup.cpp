@@ -10,18 +10,14 @@ ChannelControllerGroup::ChannelControllerGroup()
 {
 }
 
-void ChannelControllerGroup::setup(std::shared_ptr<ChannelSetup> setup, FFAU::LevelMeterSource*meterSource, std::function<void(std::shared_ptr<ChannelSetup>)> callback)
+void ChannelControllerGroup::setup(std::shared_ptr<ChannelSetup> setup, FFAU::LevelMeterSource*meterSource)
 {
 	channelControllers_.clear(true);
 	int i = 0;
 	for (const auto& channelName : setup->activeChannelNames) {
-		auto controller = new ChannelController(channelName, "Input" + String(i), [this, callback, setup](double newVolume, JammerNetzChannelTarget newTarget) {
-			ignoreUnused(newVolume, newTarget);
-			callback(setup);
-		}, true, true, true);
+		auto controller = new ChannelController(channelName, "Input" + String(i), true, true, true);
 		addAndMakeVisible(controller);
 		channelControllers_.add(controller);
-		controller->fromData();
 		controller->setMeterSource(meterSource, i);
 		i++;
 	}
@@ -33,9 +29,7 @@ void ChannelControllerGroup::setup(std::shared_ptr<JammerNetzChannelSetup> sessi
 	channelControllers_.clear(true);
 	int i = 0;
 	for (const auto& channel : sessionChannels->channels) {
-		auto controller = new ChannelController(channel.name, "Session " + String(i), [](double newVolume, JammerNetzChannelTarget newTarget) {
-			ignoreUnused(newVolume, newTarget);
-		}, true, true, true);
+		auto controller = new ChannelController(channel.name, "Session" + String(i), true, true, true);
 		addAndMakeVisible(controller);
 		channelControllers_.add(controller);
 		controller->setVolume(channel.volume * 100.0f);
@@ -59,7 +53,7 @@ JammerNetzChannelTarget ChannelControllerGroup::getCurrentTarget(int channel) co
 	if (channel < channelControllers_.size())
 		return channelControllers_[channel]->getCurrentTarget();
 	jassertfalse;
-	return JammerNetzChannelTarget::Unused;
+	return JammerNetzChannelTarget::Mute;
 }
 
 float ChannelControllerGroup::getCurrentVolume(int channel) const
@@ -85,10 +79,7 @@ void ChannelControllerGroup::resized()
 	}
 }
 
-void ChannelControllerGroup::toData()
+int ChannelControllerGroup::numChannels() const
 {
-	// Save the position and the name of the sliders to the settings file
-	for (auto c : channelControllers_) {
-		c->toData();
-	}
+	return channelControllers_.size();
 }

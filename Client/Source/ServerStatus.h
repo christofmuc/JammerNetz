@@ -12,18 +12,13 @@
 
 class ServerStatus : public Component {
 public:
-	ServerStatus(std::function<void()> notify);
+	ServerStatus();
 
 	void setConnected(bool isReceivingData);
 
 	virtual void resized() override;
 
-	// Store to and load from settings
-	void fromData();
-	void toData() const;
-
 private:
 	ServerSelector serverSelector_;
 	ImageButton cloudImage_;
 };
-

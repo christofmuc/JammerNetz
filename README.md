@@ -15,7 +15,7 @@ Of course be aware that the main influence on the quality has your internet prov
 JammerNetz is quite feature rich, the following are the main items:
 
   * It allows you to host a jam session on a server, allowing a configurable number of clients to participate.
-  * It allows for channel configuration to send mono or stereo channels, and also a "send-only" channel type for using microphones without hearing your own voice. This makes for great communication during the session. 
+  * It allows for channel configuration to send mono or stereo channels, and also a "send-only" channel type for using microphones without hearing your own voice. This makes for great communication during the session.
   * Send multiple audio channels per client to the server, e.g. your synthesist can send the keyboards and his voice separately.
   * Does automatic hard-disk recording of your session to local disk on each client in a lossless compressed FLAC file. After the session, everybody has a record to revisit.
   * Does automatic MIDI recording in case it detects any incoming MIDI notes, thereby logging all keys played into a MIDI file for later revisit ("what did I play? Sounds great!")
@@ -24,7 +24,7 @@ JammerNetz is quite feature rich, the following are the main items:
 
 ## Screenshot
 
-Here is a screenshot 
+Here is a screenshot
 
 [![](client-screenshot.PNG)](https://raw.githubusercontent.com/christofmuc/JammerNetz/master/client-screenshot.PNG)
 
@@ -38,7 +38,7 @@ It should be noted that due to the design of the system, we have a few limitatio
 
 ## Usage
 
-As of today, the system is still in a build-and-run-yourself state. You will need some experience in compiling a C++ application and starting an AWS (or Azure or self-hosted or...) instance and deploying the Linux build of the server there to run it. Depending on the interest in this system, we might be able to provide more help. 
+As of today, the system is still in a build-and-run-yourself state. You will need some experience in compiling a C++ application and starting an AWS (or Azure or self-hosted or...) instance and deploying the Linux build of the server there to run it. Depending on the interest in this system, we might be able to provide more help.
 
 # Building the software
 
@@ -54,7 +54,7 @@ Clone with submodules from github
 
 The recursive clone with  submodules is required to retrieve the following additional modules already into the right spot inside the source tree:
 
-1. We use the magnificent [JUCE library](https://juce.com/) to immensly reduce the amount of work we have to do. 
+1. We use the magnificent [JUCE library](https://juce.com/) to immensly reduce the amount of work we have to do.
 2. the nice JUCE module [ff_meters](https://github.com/ffAudio/ff_meters) from ffAudio to display the level meters for each channel.
 3. [Q](https://github.com/cycfi/Q), a highly interesting modern C++ DSP library we use for the instrument tuning/pitch detection. Go check it out, it's really cool!
 4. [Infra](https://github.com/cycfi/infra), a little helper library required by Q.
@@ -104,7 +104,7 @@ Known issues for those who might try building differently:
 ## Building the server for Linux on Windows
 
 Most likely, you're not going to run your server on a Windows machine but prefer a Linux cloud machine located at some strategic position in the Internet.
- 
+
 ### Cross-platform building Linux server on Windows 10 using Docker
 
 Thanks to Docker, it has never been easier to do cross-platform development on Windows. If you don't have it, get yourself [Docker Desktop](https://www.docker.com/products/docker-desktop) and experience the power!
@@ -133,7 +133,7 @@ The build above produced a Linux executable. If you have an Ubuntu server runnin
 
 Then dial into your server, using ssh or putty, and make sure to have all runtime prequisites installed. With that done, you can just launch the server:
 
-    apt-get install -y libtbb-dev libasound2-dev libjack-dev 
+    apt-get install -y libtbb-dev libasound2-dev libjack-dev
     ./JammerNetzServer -k [nameOfSecretsFile]
 
 (I haven't tested the number of installs, refer to the native Linux builds section below should you encounter problems).
@@ -180,11 +180,11 @@ To launch the server, just type
 
 and it shall listen on port 7777.
 
-The gcc version seems to matter, I am testing with a vanilla Ubuntu 18.04 LTS installation which comes with gcc 7.5.0 out of the box. 
+The gcc version seems to matter, I am testing with a vanilla Ubuntu 18.04 LTS installation which comes with gcc 7.5.0 out of the box.
 
 ## The encryption secrets
 
-Earlier versions had the 72 random bytes required for the Blowfish encryption compiled into the executable. But now the secrets are read from the command line by the server, and the client has a browse to... feature to select a file with the secret key. The encryption is symmetric, so both the server and all clients need to have the same secrets file, and the secure distribution of the key is left to the user. 
+Earlier versions had the 72 random bytes required for the Blowfish encryption compiled into the executable. But now the secrets are read from the command line by the server, and the client has a browse to... feature to select a file with the secret key. The encryption is symmetric, so both the server and all clients need to have the same secrets file, and the secure distribution of the key is left to the user.
 
 To generate the shared secret, create a file e.g. named RandomNumbers.bin and specify this in the command line when launching the server, and distribute to the clients for selecting in the UI.
 
@@ -192,7 +192,7 @@ For example, you can use an external source like https://www.random.org/bytes/ t
 
 ## Similar systems
 
-We had used the great [Jamulus](http://llcon.sourceforge.net/) system before developing our own system, and JammerNetz certainly has been inspired by this great piece of software. We also made some substantial design and architecture changes over Jamulus, justifying a new development instead of contributing to the Jamulus codebase. Most importantly, while Jamulus is using Qt as a cross-platform library, JammerNetz uses JUCE, massively reducing the lines of code required. 
+We had used the great [Jamulus](http://llcon.sourceforge.net/) system before developing our own system, and JammerNetz certainly has been inspired by this great piece of software. We also made some substantial design and architecture changes over Jamulus, justifying a new development instead of contributing to the Jamulus codebase. Most importantly, while Jamulus is using Qt as a cross-platform library, JammerNetz uses JUCE, massively reducing the lines of code required.
 
 ## Licensing
 
@@ -200,7 +200,7 @@ As some substantial work has gone into the development of this, I decided to off
 
 ## Contributing
 
-All pull requests and issues welcome, I will try to get back to you as soon as I can. Due to the dual licensing please be aware that I will need to request transfer of copyright on accepting a PR. 
+All pull requests and issues welcome, I will try to get back to you as soon as I can. Due to the dual licensing please be aware that I will need to request transfer of copyright on accepting a PR.
 
 ## Special thanks
 
@@ -208,4 +208,4 @@ Special thanks go to our contributors, namely Viktor for providing the build for
 
 ## About the author
 
-Christof is a lifelong software developer having worked in various industries, and can't stop his programming hobby anyway. 
+Christof is a lifelong software developer having worked in various industries, and can't stop his programming hobby anyway.

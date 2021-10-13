@@ -17,6 +17,6 @@ public:
 	virtual void resized() override;
 
 private:
-	std::unique_ptr<Timer> timer_;	
+	std::unique_ptr<Timer> timer_;
 	Label bpmText_;
 };

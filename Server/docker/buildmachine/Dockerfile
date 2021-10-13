@@ -31,8 +31,8 @@ ENTRYPOINT /root/run_make.sh
 # Build the container via
 #
 # docker build .
-# 
-# and then run it with 
+#
+# and then run it with
 #
 # docker run --volume=//d/development/jammernetz:/src -it -p 7777:7777/udp --entrypoint=/bin/bash --rm <containerID>
 #

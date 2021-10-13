@@ -23,7 +23,7 @@ private:
 	void sendWriteBuffer(String ipAddress, int port, size_t size);
 	void sendClientInfoPackage(std::string const &targetAddress);
 	void sendAudioBlock(std::string const &targetAddress, AudioBlock &audioBlock);
-	
+
 	TOutgoingQueue& sendQueue_;
 	TPacketStreamBundle &incomingData_;
 	DatagramSocket& sendSocket_;
@@ -33,5 +33,3 @@ private:
 	std::map<std::string, uint64_t> packageCounters_;
 	std::unique_ptr<BlowFish> blowFish_;
 };
-
-

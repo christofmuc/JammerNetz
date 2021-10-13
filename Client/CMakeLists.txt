@@ -22,24 +22,25 @@ include_directories("${INTEL_TBB_DIRECTORY}/include/"
 create_resources(Resources Source/Resources.h)
 
 # Setup definition for ASIO support
+if(WIN32)
 add_definitions(-DJUCE_ASIO)
+endif()
 
 set(SOURCES
+	Source/ApplicationState.cpp Source/ApplicationState.h
 	Source/AudioDeviceDiscovery.cpp
 	Source/AudioDeviceDiscovery.h
 	Source/LayoutConstants.h
 	Source/Main.cpp
 	Source/MainComponent.cpp
 	Source/MainComponent.h
-	Source/MidiPlayAlong.cpp Source/MidiPlayAlong.h
-	Source/PlayalongDisplay.cpp Source/PlayalongDisplay.h
 	Source/Resources.h
 	Source/version.cpp.in
 )
 source_group(Source FILES ${SOURCES})
 
 set(INSTALLER_FILES
-	setup_client.iss
+	setup_client.iss.in
 	info.plist
 	Redist/agpl-3.0.txt
 )
@@ -47,6 +48,7 @@ source_group(Source\\Installer FILES ${INSTALLER_FILES})
 
 set(RESOURCE_FILES
 	Resources/JammerNetzIcon.icns
+	Resources/digitalStagePC.icns
 	Resources/about.txt
 	Resources/cloud.png
 	Resources/live.png
@@ -56,14 +58,22 @@ source_group(Source\\Resources FILES ${RESOURCE_FILES})
 set(AUDIO_PROCESSING_FILES
 	Source/AudioCallback.cpp
 	Source/AudioCallback.h
+	Source/AudioService.cpp
+	Source/AudioService.h
 	Source/Tuner.cpp
 	Source/Tuner.h
+)
+source_group(Source\\AudioProcessing FILES ${AUDIO_PROCESSING_FILES})
+
+set(NETWORK_FILES
+	Source/JammerService.cpp
+	Source/JammerService.h
 	Source/Client.cpp
 	Source/Client.h
 	Source/DataReceiveThread.cpp
 	Source/DataReceiveThread.h
 )
-source_group(Source\\AudioProcessing FILES ${AUDIO_PROCESSING_FILES})
+source_group(Source\\Networking FILES ${NETWORK_FILES})
 
 set(UICOMPONENT_FILES
 	Source/BPMDisplay.cpp
@@ -85,7 +95,48 @@ set(UICOMPONENT_FILES
 )
 source_group(Source\\UIComponents FILES ${UICOMPONENT_FILES})
 
-add_executable(JammerNetzClient MACOSX_BUNDLE WIN32 ${SOURCES} ${UICOMPONENT_FILES} ${AUDIO_PROCESSING_FILES} ${MIDI_FILES} ${RESOURCE_FILES} ${INSTALLER_FILES})
+set(PLAYALONG_FILES
+	Source/MidiPlayAlong.cpp Source/MidiPlayAlong.h
+	Source/PlayalongDisplay.cpp Source/PlayalongDisplay.h
+)
+source_group(Source\\PlayAlong FILES ${PLAYALONG_FILES})
+
+set(DSBRANCH_FILES
+	Source/DataStore.cpp Source/DataStore.h
+	Source/DSConfig.h
+	Source/JoinStageDialog.cpp Source/JoinStageDialog.h
+	Source/Login.cpp Source/Login.h
+)
+source_group(Source\\DigitalStage FILES ${DSBRANCH_FILES})
+
+set(EXECUTABLE_BASE_NAME "JammerNetzClient")
+set(INSTALLER_BASE_NAME "JammerNetz")
+if(DIGITAL_STAGE_BRANDING)
+set(DS_LIBRARIES
+		keychain
+		DigitalStageAuth
+        DigitalStageApi)
+set(DS_SOURCES ${DSBRANCH_FILES})
+set(EXECUTABLE_BASE_NAME "digitalStagePC")
+set(INSTALLER_BASE_NAME "digitalStagePC")
+endif()
+
+add_executable(JammerNetzClient MACOSX_BUNDLE WIN32 ${SOURCES} ${DS_SOURCES} ${UICOMPONENT_FILES} ${PLAYALONG_FILES} ${AUDIO_PROCESSING_FILES} ${NETWORK_FILES} ${MIDI_FILES} ${RESOURCE_FILES} ${INSTALLER_FILES})
+if(DIGITAL_STAGE_BRANDING)
+# Use new DigitalStage branded versions
+set_target_properties(JammerNetzClient PROPERTIES OUTPUT_NAME "digitalStagePC")
+set(JammerNetz_VersionedName "digitalStagePC by JammerNetz")
+set(JammerNetz_ApplicationName "digitalStagePC")
+set(JammerNetz_AppId "{{9E315D5B-AF22-42B0-9735-8A7B058EAEF3}")
+set(JammerNetz_InstallerBaseName "digitalStagePC_setup")
+target_compile_options(JammerNetzClient PRIVATE -DDIGITAL_STAGE)
+else()
+# Use the standard historical values
+set(JammerNetz_VersionedName "JammerNetz 2")
+set(JammerNetz_ApplicationName "JammerNetzClient")
+set(JammerNetz_AppId "{{704C397B-E756-47B0-AB7A-5C52A62E0A3F}")
+set(JammerNetz_InstallerBaseName "jammernetz_setup")
+endif()
 
 message("Crash reporting: ${SENTRY_CRASH_REPORTING} at ${SENTRY_INSTALL_PATH}")
 if(SENTRY_CRASH_REPORTING)
@@ -96,13 +147,14 @@ endif()
 
 target_include_directories(JammerNetzClient PRIVATE "${SENTRY_INCLUDE_DIR}"  "${CMAKE_CURRENT_BINARY_DIR}/Source")
 IF(WIN32)
-	target_link_libraries(JammerNetzClient ${JUCE_LIBRARIES} JammerCommon juce-utils ff_meters ${SENTRY_LIB})
+	target_link_libraries(JammerNetzClient ${JUCE_LIBRARIES} ${DS_LIBRARIES} JammerCommon juce-utils juce-widgets ds_look_and_feel ff_meters ${SENTRY_LIB})
 elseif(APPLE)
-	target_link_libraries(JammerNetzClient ${JUCE_LIBRARIES} JammerCommon juce-utils ff_meters tbb)
+	target_link_libraries(JammerNetzClient ${JUCE_LIBRARIES} ${DS_LIBRARIES} JammerCommon juce-utils juce-widgets ds_look_and_feel ff_meters tbb)
 	# ${SENTRY_LIB})
 ELSE()
 	target_link_libraries(JammerNetzClient
 		${JUCE_LIBRARIES}
+		${DS_LIBRARIES}
 		PkgConfig::WEBKIT
 		PkgConfig::GTK
 		PkgConfig::GLEW
@@ -115,7 +167,7 @@ ELSE()
 		asound
 		tbb
 		${SENTRY_LIB}
-		JammerCommon juce-utils ff_meters)
+		JammerCommon juce-utils juce-widgets ds_look_and_feel ff_meters)
 ENDIF()
 
 # Pedantic about warnings
@@ -148,7 +200,7 @@ ENDIF()
 
 IF(WIN32)
 	 # Parse Inno Setup config file
-	configure_file("${CMAKE_CURRENT_LIST_DIR}/setup_client.iss"
+	configure_file("${CMAKE_CURRENT_LIST_DIR}/setup_client.iss.in"
 				   "${CMAKE_CURRENT_BINARY_DIR}/setup_client.iss")
 	set(no_copy $<NOT:$<CONFIG:RelWithDebInfo>>)
 	add_custom_command(
@@ -159,12 +211,23 @@ IF(WIN32)
 ENDIF()
 
 IF(APPLE)
+	# Moving icon into application bundle here.
+	# See second answer from: https://stackoverflow.com/questions/22745728/cmake-set-icon-for-a-mac-os-x-app
+	if(DIGITAL_STAGE_BRANDING)
+	SET(ICON_FILE_NAME digitalStagePC)
+	SET(JAMMERNETZ_ICON ${CMAKE_CURRENT_SOURCE_DIR}/Resources/${ICON_FILE_NAME}.icns)
+ELSE()
+	SET(ICON_FILE_NAME JammerNetzIcon)
+	SET(JAMMERNETZ_ICON ${CMAKE_CURRENT_SOURCE_DIR}/Resources/${ICON_FILE_NAME}.icns)
+ENDIF()
+	SET_SOURCE_FILES_PROPERTIES(${JAMMERNETZ_ICON} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
+
 	# For apple, set the properties file to be included in the link. This is important to allow Microphone access on macOS (you will get a dialog asking for permission)
 	SET_TARGET_PROPERTIES(JammerNetzClient PROPERTIES
 		MACOSX_BUNDLE TRUE
-		MACOSX_BUNDLE_BUNDLE_NAME "JammerNetz ${JammerNetzClient_VERSION}"
-		MACOSX_BUNDLE_ICON_FILE JammerNetzIcon
-		MACOSX_BUNDLE_BUNDLE_NAME JammerNetzClient
+		MACOSX_BUNDLE_BUNDLE_NAME "${EXECUTABLE_BASE_NAME} ${JammerNetzClient_VERSION}"
+		MACOSX_BUNDLE_ICON_FILE ${ICON_FILE_NAME}
+		MACOSX_BUNDLE_BUNDLE_NAME ${EXECUTABLE_BASE_NAME}
 		MACOSX_BUNDLE_BUNDLE_VERSION ${CMAKE_PROJECT_VERSION_MAJOR}.${CMAKE_PROJECT_VERSION_MINOR}.${CMAKE_PROJECT_VERSION_PATCH}
 		MACOSX_BUNDLE_GUI_IDENTIFIER com.christofmuc.jammernetz
 		MACOSX_BUNDLE_SIGNATURE jmrn
@@ -172,54 +235,52 @@ IF(APPLE)
 		MACOSX_BUNDLE_BUNDLE_VERSION ${JammerNetzClient_VERSION}
 		MACOSX_BUNDLE_COPYRIGHT "Copyright 2021 Christof Ruch"
 		MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/Info.plist
-	)
-ENDIF()
-
-IF(APPLE)
-	# This is supposed to build a relocatable macOS DMG installer when you specify the
-	# --target package
-	SET(MY_RELEASE_DIR ${CMAKE_BINARY_DIR}/macInstaller)
-	SET(DIRS "${CMAKE_BINARY_DIR}")
-	INSTALL(TARGETS JammerNetzClient
-		BUNDLE DESTINATION . COMPONENT Runtime
-		RUNTIME DESTINATION bin COMPONENT Runtime
-	)
-
-	# Moving icon into application bundle here.
-	# See second answer from: https://stackoverflow.com/questions/22745728/cmake-set-icon-for-a-mac-os-x-app
-	SET(JAMMERNETZ_ICON ${CMAKE_CURRENT_SOURCE_DIR}/Resources/JammerNetzIcon.icns)
-	SET_SOURCE_FILES_PROPERTIES(${JAMMERNETZ_ICON} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
+		)
 
 	IF(CPACK_BUNDLE_APPLE_CERT_APP)
-		INSTALL(CODE "include(BundleUtilities)
-			set(BU_CHMOD_BUNDLE_ITEMS TRUE)
-			message(STATUS \"Integrating dynlibs and signing app bundle $<TARGET_BUNDLE_DIR:JammerNetzClient>\")
-			fixup_bundle(\"$<TARGET_BUNDLE_DIR:JammerNetzClient>\"  \"\"  \"\" IGNORE_ITEM \"Python\")
-			execute_process(COMMAND codesign --force --deep --sign \"${CPACK_BUNDLE_APPLE_CERT_APP}\" \"$<TARGET_BUNDLE_DIR:JammerNetzClient>\" COMMENT \"Signing app bundle\")
-		" COMPONENT package)
+	message("Certifing!!!!!!")
+    INSTALL(CODE "include(BundleUtilities)
+	set(BU_CHMOD_BUNDLE_ITEMS TRUE)
+			message(STATUS \"Integrating dynlibs and signing app bundle \$<TARGET_BUNDLE_DIR:JammerNetzClient>\")
+			fixup_bundle(\"\$<TARGET_BUNDLE_DIR:JammerNetzClient>\"  \"\"  \"\" IGNORE_ITEM \"Python\")
+			execute_process(COMMAND codesign --force --deep --sign \"${CPACK_BUNDLE_APPLE_CERT_APP}\" \"\$<TARGET_BUNDLE_DIR:JammerNetzClient>\" COMMENT \"Signing app bundle\")
+		")
 	ELSE()
-		INSTALL(CODE "include(BundleUtilities)
+		INSTALL(CODE "include(InstallRequiredSystemLibraries)
+		    include(BundleUtilities)
 			set(BU_CHMOD_BUNDLE_ITEMS TRUE)
-			message(STATUS \"Integrating dynlibs into app bundle $<TARGET_BUNDLE_DIR:JammerNetzClient>\")
-			fixup_bundle(\"$<TARGET_BUNDLE_DIR:JammerNetzClient>\"  \"\"  \"${DIRS}\" IGNORE_ITEM \"Python\")
-		" COMPONENT package)
+			message(STATUS \"Integrating dynlibs into app bundle \$<TARGET_BUNDLE_DIR:JammerNetzClient>\")
+			fixup_bundle(\"\$<TARGET_BUNDLE_DIR:JammerNetzClient>\"  \"\"  \"${DIRS}\" IGNORE_ITEM \"Python\")
+		")
 	ENDIF()
 
-	add_custom_command(TARGET JammerNetzClient 
-		POST_BUILD COMMAND 
-		${CMAKE_INSTALL_NAME_TOOL} -add_rpath "@executable_path/../Frameworks/"
-        $<TARGET_BUNDLE_DIR:JammerNetzClient>/Contents/MacOS/JammerNetzClient
-	)
+	# This is supposed to build a relocatable macOS DMG installer when you specify
+    # --target package
+    SET(DIRS "${CMAKE_BINARY_DIR}")
+    INSTALL(TARGETS JammerNetzClient
+        BUNDLE DESTINATION .
+        #RUNTIME # This would be a regular install like for Unix
+        )
 
-  # Setup CPack variables
-	set(CPACK_PACKAGE_ICON ${CMAKE_CURRENT_SOURCE_DIR}/Resources/JammerNetzIcon.icns)
-	set(CPACK_PACKAGE_VERSION ${JammerNetzClient_VERSION})
-	set(CPACK_PACKAGE_VENDOR "Christof Ruch Beratungs UG (haftungsbeschraenkt)")
-	set(CPACK_RESOURCE_FILE_LICENSE ${CMAKE_CURRENT_SOURCE_DIR}/Redist/agpl-3.0.txt)
+	#add_custom_command(TARGET JammerNetzClient
+#		POST_BUILD COMMAND
+#		${CMAKE_INSTALL_NAME_TOOL} -add_rpath "@executable_path/../Frameworks/"
+#        $<TARGET_BUNDLE_DIR:JammerNetzClient>/Contents/MacOS/${EXECUTABLE_BASE_NAME}
+#	)
 
-	# Select only the dmg generator for now
-	SET(CPACK_BINARY_DRAGNDROP ON)
-	SET(CPACK_BINARY_TGZ OFF)
-	SET(CPACK_BINARY_STGZ OFF)
-	INCLUDE(CPack)
+    # Setup CPack variables
+	set(CPACK_PACKAGE_NAME ${INSTALLER_BASE_NAME})
+	set(CPACK_PACKAGE_ICON ${JAMMERNETZ_ICON})
+    set(CPACK_PACKAGE_VERSION ${JammerNetzClient_VERSION})
+    set(CPACK_PACKAGE_VENDOR "Christof Ruch Beratungs UG (haftungsbeschraenkt)")
+    set(CPACK_RESOURCE_FILE_LICENSE ${CMAKE_CURRENT_SOURCE_DIR}/Redist/agpl-3.0.txt)
+
+	# Debugging options
+	#SET(CPACK_PACKAGE_DIRECTORY /tmp/cpack-test)
+
+    # Select only the dmg generator for now
+    SET(CPACK_BINARY_DRAGNDROP ON)
+    SET(CPACK_BINARY_TGZ OFF)
+    SET(CPACK_BINARY_STGZ OFF)
+    INCLUDE(CPack)
 ENDIF()

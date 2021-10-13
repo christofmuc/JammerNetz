@@ -17,7 +17,7 @@ enum class RecordingType {
 };
 
 class Recorder {
-public: 
+public:
 	Recorder(File directory, std::string const &baseFileName, RecordingType recordingType);
 	~Recorder();
 
@@ -29,7 +29,7 @@ public:
 	File getFile() const;
 
 	void setChannelInfo(int sampleRate, JammerNetzChannelSetup const &channelSetup);
-	
+
 	void saveBlock(const float* const* data, int numSamples);
 
 	File getDirectory() const;

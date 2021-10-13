@@ -14,7 +14,7 @@ table JammerNetzPNPChannelSetup {
 }
 
 table JammerNetzPNPAudioSamples {
-	audioSamples :[uint16]; 
+	audioSamples :[uint16];
 }
 
 table JammerNetzPNPAudioBlock {
@@ -26,6 +26,7 @@ table JammerNetzPNPAudioBlock {
 	channelSetup :[JammerNetzPNPChannelSetup];
 	channels :[JammerNetzPNPAudioSamples];
 	allChannels :[JammerNetzPNPChannelSetup];
+	wantEcho: bool = true; // True is the old behavior where the client did not have any local monitoring!
 }
 
 table JammerNetzPNPAudioData {
@@ -33,4 +34,3 @@ table JammerNetzPNPAudioData {
 }
 
 root_type JammerNetzPNPAudioData;
-

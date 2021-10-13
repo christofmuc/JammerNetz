@@ -12,5 +12,3 @@ class UDPEncryption {
 public:
 	static bool loadKeyfile(const char *filename, std::shared_ptr<MemoryBlock> *outBlock);
 };
-
-

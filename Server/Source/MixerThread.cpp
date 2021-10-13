@@ -59,8 +59,9 @@ void MixerThread::run() {
 		}
 
 		// All clients who have not delivered by now are to be gone!
+		// While doing this, sort all session infos into a multimap with sender -> session info
+		std::multimap<std::string, JammerNetzChannelSetup> allSessionChannels;
 		std::vector<std::string> toBeRemoved;
-		sessionSetup_.channels.clear();
 		for (auto inClient = incoming_.cbegin(); inClient != incoming_.cend(); inClient++) {
 			if (inClient->second) {
 				if (incomingData.find(inClient->first) == incomingData.end()) {
@@ -70,8 +71,7 @@ void MixerThread::run() {
 				else {
 					// TODO- do we need to do this every packet?
 					// Is part of mix, list in session info
-					auto client_channels = incomingData[inClient->first]->channelSetup().channels;
-					std::copy(client_channels.begin(), client_channels.end(), std::back_inserter(sessionSetup_.channels));
+					allSessionChannels.emplace(inClient->first, incomingData[inClient->first]->channelSetup());
 				}
 			}
 		}
@@ -93,22 +93,30 @@ void MixerThread::run() {
 				outBuffer->clear();
 
 				// We now produce one mix for each client, specific, because you might not want to hear your own voice microphone
+				JammerNetzChannelSetup sessionSetup(false);
 				for (auto &client : incomingData) {
 					//recorder_.saveBlock(client.second->audioBuffer()->getArrayOfReadPointers(), outBuffer->getNumSamples());
 					bufferMixdown(outBuffer, client.second, client.first == receiver.first);
+					// Build the client specific session data structure - this is basically all channels except your own
+					if (client.first != receiver.first) {
+						auto range = allSessionChannels.equal_range(client.first);
+						for_each(range.first, range.second, [&](std::pair<const std::string, JammerNetzChannelSetup> setup) {
+							std::copy(setup.second.channels.cbegin(), setup.second.channels.cend(), std::back_inserter(sessionSetup.channels));
+						});
+					}
 				}
 
 				// The outgoing queue takes packages for all clients, they will be sent out to different addresses
 				OutgoingPackage package(receiver.first, AudioBlock(
 					receiver.second->timestamp(),
-					receiver.second->messageCounter(), 
+					receiver.second->messageCounter(),
 					48000,
 					mixdownSetup_,
 					outBuffer,
-					sessionSetup_
+					sessionSetup
 					));
 				if (!outgoing_.try_push(package)) {
-					// That's a bad sign - I would assume the sender thread died and that's possibly because the network is down. 
+					// That's a bad sign - I would assume the sender thread died and that's possibly because the network is down.
 					// Abort
 					std::cerr << "send queue length overflow at " << outgoing_.size() << " packets - network down? FATAL!" << std::endl;
 					exit(-1);
@@ -129,7 +137,7 @@ void MixerThread::run() {
 }
 
 void MixerThread::bufferMixdown(std::shared_ptr<AudioBuffer<float>> &outBuffer, std::shared_ptr<JammerNetzAudioData> const &audioData, bool isForSender) {
-	if (audioData->audioBuffer()->getNumChannels() == 0) { 
+	if (audioData->audioBuffer()->getNumChannels() == 0) {
 		ServerLogger::errorln("Got audio block with no channels, somebody needs to setup his interface");
 	}
 	if (audioData->audioBuffer()->getNumSamples() != outBuffer->getNumSamples()) {
@@ -137,27 +145,53 @@ void MixerThread::bufferMixdown(std::shared_ptr<AudioBuffer<float>> &outBuffer, 
 		return;
 	}
 	// Loop over the input channels, and add them to either the left or right or both channels!
+	auto channelSetup = audioData->channelSetup();
+	bool wantsEcho = !channelSetup.isLocalMonitoringDontSendEcho;
 	for (int channel = 0; channel < audioData->audioBuffer()->getNumChannels(); channel++) {
-		JammerNetzSingleChannelSetup setup = audioData->channelSetup().channels[channel];
+		JammerNetzSingleChannelSetup setup = channelSetup.channels[channel];
 		switch (setup.target) {
-		case Unused:
-			// Nothing to be done, ignore this channel; This is the same as Mute
+		case Mute:
+			// Nothing to be done
 			break;
+		case SendLeft:
+			if (isForSender) {
+				// Never send this back
+				break;
+			}
+			// Fall-though
 		case Left:
-			// This is a left channel, going into the left. 
+			if (isForSender && !wantsEcho) {
+				// Don't send this back if it is not requested
+				break;
+			}
+			// This is a left channel, going into the left.
 			outBuffer->addFrom(0, 0, *audioData->audioBuffer(), channel, 0, audioData->audioBuffer()->getNumSamples(), setup.volume);
 			break;
+		case SendRight:
+			if (isForSender) {
+				// Never send this back
+				break;
+			}
+			// Fall-though
 		case Right:
+			if (isForSender && !wantsEcho) {
+				// Don't send this back if it is not requested
+				break;
+			}
 			// And the same for the right channel
 			outBuffer->addFrom(1, 0, *audioData->audioBuffer(), channel, 0, audioData->audioBuffer()->getNumSamples(), setup.volume);
 			break;
-		case SendOnly:
+		case SendMono:
 			if (isForSender) {
-				// Don't send this back, we don't want to hear our own voice talking
+				// Never send this back
 				break;
 			}
 			// Fall-through on purpose, treat it as Mono
 		case Mono:
+			if (isForSender && !wantsEcho) {
+				// Don't send this back if it is not requested
+				break;
+			}
 			outBuffer->addFrom(0, 0, *audioData->audioBuffer(), channel, 0, audioData->audioBuffer()->getNumSamples(), setup.volume);
 			outBuffer->addFrom(1, 0, *audioData->audioBuffer(), channel, 0, audioData->audioBuffer()->getNumSamples(), setup.volume);
 			break;

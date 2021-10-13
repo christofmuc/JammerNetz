@@ -66,4 +66,3 @@ public:
 private:
 	std::vector<JammerNetzClientInfo> clientInfos_;
 };
-

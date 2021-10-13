@@ -72,7 +72,7 @@ bool PacketStreamQueue::try_pop(std::shared_ptr<JammerNetzAudioData> &element, b
 		outIsFillIn = false;
 		qualityData_.packagesPopped++;
 		return true;
-	} 
+	}
 	else {
 		// Ok, as we are at the bottom of the buffer, we give up hope that the packet we were looking for still arrives
 		// Consider it MIA and use the one we popped to create a fill in package, maybe FEC can help. And it needs to go back into the priority queue
@@ -163,7 +163,7 @@ std::string StreamQualityData::qualityStatement() const {
 		<< droppedPacketCounter << " drop ("
 		<< std::setprecision(2) << droppedPacketCounter / (float)packagesPopped * 100.0f <<"%), "
 		<< maxLengthOfGap << " gap";
-		
+
 	return text.str();
 }
 

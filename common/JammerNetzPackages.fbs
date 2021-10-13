@@ -23,7 +23,7 @@ table JammerNetzPNPStreamQualityInfo {
 
 table JammerNetzPNPClientInfo {
 	ipAddress :[uint8];  // The whole V6 IP address data. IP V4 would only use the first 4 bytes, V6 needs 16 bytes
-	isIPV6 :bool; 
+	isIPV6 :bool;
 	portNumber :int;
 	qualityInfo :JammerNetzPNPStreamQualityInfo;
 }
@@ -33,4 +33,3 @@ table JammerNetzPNPClientInfoPackage {
 }
 
 root_type JammerNetzPNPClientInfoPackage;
-

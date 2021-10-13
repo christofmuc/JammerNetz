@@ -8,17 +8,27 @@ jobs:
         mac:
           imageName: 'macos-10.14'
           isMac: True
-        win2017:
-          imageName: 'vs2017-win2016'
-          isWindows2017: True
-          isWindows: True
+        mac_DS:
+          imageName: 'macos-10.14'
+          isMac: True
+          isDigitalStage: True
         win2019:
           imageName: 'windows-2019'
           isWindows2019: True
           isWindows: True
+        win2019_DS:
+          imageName: 'windows-2019'
+          isWindows2019: True
+          isWindows: True
+          isDigitalStage: True
         linux:
-          imageName: 'ubuntu-18.04'
+          imageName: 'ubuntu-20.04'
           isLinux: True
+        linux_DS:
+          imageName: 'ubuntu-20.04'
+          isLinux: True
+          isDigitalStage: True
+
     pool:
       vmImage: $(imageName)
     steps:
@@ -28,7 +38,7 @@ jobs:
       displayName: "Disable git automatic line ending conversion"
     - bash: |
         sudo apt-get update
-        sudo apt-get install -y libcurl4-openssl-dev pkg-config libasound2-dev libgtk-3-dev libwebkit2gtk-4.0-dev libglew-dev libjack-dev libncurses5-dev
+        sudo apt-get install -y libcurl4-openssl-dev pkg-config libasound2-dev libgtk-3-dev libwebkit2gtk-4.0-dev libglew-dev libjack-dev libncurses5-dev nlohmann-json3-dev libcpprest-dev libsecret-1-dev
         apt list --installed
       displayName: Prepare Linux Host
       condition: variables.isLinux
@@ -44,15 +54,11 @@ jobs:
         restoreDirectory: third_party
       condition: variables.isWindows
     - script: |
-        pip install conan --upgrade
+        pip3 install wheel setuptools
+        pip3 install conan
+        conan --version
         conan install -if Builds\Windows -s build_type=RelWithDebInfo --build missing .
       condition: variables.isWindows
-    - task: CMake@1
-      displayName: Configuring CMake for Flatbuffers
-      inputs:
-        workingDirectory: 'third_party/flatbuffers'
-        cmakeArgs: '-S . -B Builds -G "Visual Studio 15 2017 Win64"'
-      condition: variables.isWindows2017
     - task: CMake@1
       displayName: Configuring CMake for Flatbuffers
       inputs:
@@ -67,16 +73,16 @@ jobs:
       condition: variables.isWindows
     - task: CMake@1
       displayName: Configuring CMake for Windows
-      inputs:        
-        workingDirectory: $(Build.SourcesDirectory)
-        cmakeArgs: '-S . -B Builds\Windows -G "Visual Studio 15 2017 Win64"'
-      condition: variables.isWindows2017
-    - task: CMake@1
-      displayName: Configuring CMake for Windows
-      inputs:        
+      inputs:
         workingDirectory: $(Build.SourcesDirectory)
         cmakeArgs: '-S . -B Builds\Windows -G "Visual Studio 16 2019" -A x64'
-      condition: variables.isWindows2019
+      condition: and(variables.isWindows2019, not(variables.isDigitalStage))
+    - task: CMake@1
+      displayName: Configuring CMake for Windows (DigitalStage)
+      inputs:
+        workingDirectory: $(Build.SourcesDirectory)
+        cmakeArgs: '-S . -B Builds\Windows -G "Visual Studio 16 2019" -A x64 -DDIGITAL_STAGE_BRANDING=ON'
+      condition: and(variables.isWindows2019, variables.isDigitalStage)
     - task: CMake@1
       displayName: Running CMake build for Windows
       inputs:
@@ -87,39 +93,84 @@ jobs:
     - publish: $(System.DefaultWorkingDirectory)/Builds/Windows/Client/jammernetz_setup_2.2.0.exe
       displayName: Publish Windows Installer
       artifact: WindowsInstaller
-      condition: variables.isWindows2019
+      condition: and(variables.isWindows2019, not(variables.isDigitalStage))
+
+    - publish: $(System.DefaultWorkingDirectory)/Builds/Windows/Client/digitalStagePC_setup_2.2.0.exe
+      displayName: Publish Windows Installer (Digital Stage)
+      artifact: DigitalStage_WindowsInstaller
+      condition: and(variables.isWindows2019, variables.isDigitalStage)
 
     # Linux uses bash to run CMake directly
+    - script: |
+        pip3 install wheel setuptools
+        pip3 install conan
+        conan --version
+        conan profile new default --detect
+        conan profile update settings.compiler.libcxx=libstdc++11 default
+        conan install -if builds -s build_type=Release --build missing .
+      condition: and(variables.isLinux, variables.isDigitalStage)
+
     - bash: |
-        cd third_party/flatbuffers 
+        cd third_party/flatbuffers
         cmake -S . -B LinuxBuilds
         cmake --build LinuxBuilds
-        cd ../.. 
+        cd ../..
         cd third_party/sentry-native
         cmake -S . -B builds -DSENTRY_BACKEND=crashpad
-        cmake -DCMAKE_INSTALL_PREFIX=./install --build builds --target install 
+        cmake -DCMAKE_INSTALL_PREFIX=./install --build builds --target install
         cd ../..
-        cmake -S . -B builds 
-        cmake --build builds
       displayName: Build with CMake for Linux
       condition: variables.isLinux
-      
+
+    - bash: |
+        cmake -S . -B builds
+        cmake --build builds
+      displayName: Build with CMake for Linux
+      condition: and(variables.isLinux, not(variables.isDigitalStage))
+
+    - bash: |
+        cmake -S . -B builds -DDIGITAL_STAGE_BRANDING=ON
+        cmake --build builds
+      displayName: Build with CMake for Linux (Digital Stage)
+      condition: and(variables.isLinux, variables.isDigitalStage)
+
     # Mac build uses bash as well
     # No need to brew icu4c cmake as they are already present on Azure mac
+    - script: |
+        pip3 install wheel setuptools
+        pip3 install conan
+        conan --version
+        conan install -if build -s build_type=Release --build missing .
+      condition: and(variables.isMac, variables.isDigitalStage)
+
     - bash: |
         brew install cmake gtk+3 glew
         cd third_party/flatbuffers
         cmake -S . -B LinuxBuilds -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release
         cmake --build LinuxBuilds -- -j8
         cd ../..
-        cmake -S . -B Builds/macOS -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release
-        cmake --build Builds/macOS -- -j8
-        VERBOSE=1 cmake --build Builds/macOS --target package -- -j8 
+        cmake -S . -B build -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_RPATH_USE_LINK_PATH="ON"
+        cmake --build build --target package -j8
       displayName: Build with CMake for Mac
-      condition: variables.isMac
-      
-    - publish: $(System.DefaultWorkingDirectory)/Builds/macOS/JammerNetz-2.2.0-Darwin.dmg 
+      condition: and(variables.isMac, not(variables.isDigitalStage))
+
+    - bash: |
+        brew install cmake gtk+3 glew
+        cd third_party/flatbuffers
+        cmake -S . -B LinuxBuilds -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release
+        cmake --build LinuxBuilds -- -j8
+        cd ../..
+        cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DDIGITAL_STAGE_BRANDING=ON -DCMAKE_INSTALL_PREFIX=$(System.DefaultWorkingDirectory)/install-test
+        cmake --build build --target package -j8
+      displayName: Build with CMake for Mac
+      condition: and(variables.isMac, variables.isDigitalStage)
+
+    - publish: $(System.DefaultWorkingDirectory)/build/JammerNetz-2.2.0-Darwin.dmg
       displayName: Publish Mac Installer
       artifact: MacInstaller
-      condition: variables.isMac
-        
+      condition: and(variables.isMac, not(variables.isDigitalStage))
+
+    - publish: $(System.DefaultWorkingDirectory)/build/digitalStagePC-2.2.0-Darwin.dmg
+      displayName: Publish Mac Installer (Digital Stage)
+      artifact: DigitalStage_MacInstaller
+      condition: and(variables.isMac, variables.isDigitalStage)

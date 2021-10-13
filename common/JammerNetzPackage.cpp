@@ -11,7 +11,7 @@
 #include "JammerNetzClientInfoMessage.h"
 
 JammerNetzSingleChannelSetup::JammerNetzSingleChannelSetup() :
-	target(JammerNetzChannelTarget::Unused), volume(1.0f), mag(0.0f), rms(0.0f), pitch(0.0f)
+	target(JammerNetzChannelTarget::Mono), volume(1.0f), mag(0.0f), rms(0.0f), pitch(0.0f)
 {
 }
 
@@ -31,17 +31,18 @@ bool JammerNetzSingleChannelSetup::isEqualEnough(const JammerNetzSingleChannelSe
 	return target == other.target && volume == other.volume;
 }*/
 
-JammerNetzChannelSetup::JammerNetzChannelSetup()
+JammerNetzChannelSetup::JammerNetzChannelSetup(bool localMonitoring) : isLocalMonitoringDontSendEcho(localMonitoring)
 {
 }
 
-JammerNetzChannelSetup::JammerNetzChannelSetup(std::vector<JammerNetzSingleChannelSetup> const &channelInfo)
+JammerNetzChannelSetup::JammerNetzChannelSetup(bool localMonitoring, std::vector<JammerNetzSingleChannelSetup> const &channelInfo) : isLocalMonitoringDontSendEcho(localMonitoring)
 {
 	channels = channelInfo;
 }
 
 bool JammerNetzChannelSetup::isEqualEnough(const JammerNetzChannelSetup &other) const
 {
+	if (isLocalMonitoringDontSendEcho != other.isLocalMonitoringDontSendEcho) return false;
 	if (channels.size() != other.channels.size()) return false;
 	for (int i = 0; i < channels.size(); i++) {
 		if (!(channels[i].isEqualEnough(other.channels[i]))) return false;
@@ -69,7 +70,7 @@ std::shared_ptr<JammerNetzMessage> JammerNetzMessage::deserialize(uint8 *data, s
 		JammerNetzHeader *header = reinterpret_cast<JammerNetzHeader*>(data);
 
 		try {
-			// Check the magic 
+			// Check the magic
 			if (header->magic0 == '1' && header->magic1 == '2' && header->magic2 == '3') {
 				switch (header->messageType) {
 				case AUDIODATA:
@@ -220,6 +221,7 @@ flatbuffers::Offset<JammerNetzPNPAudioBlock> JammerNetzAudioData::serializeAudio
 	audioBlock.add_channelSetup(channelSetupVector);
 	audioBlock.add_channels(audioSamples);
 	audioBlock.add_allChannels(sessionSetupVector);
+	audioBlock.add_wantEcho(!src->channelSetup.isLocalMonitoringDontSendEcho);
 
 	return audioBlock.Finish();
 }
@@ -295,6 +297,7 @@ std::shared_ptr<AudioBlock> JammerNetzAudioData::readAudioHeaderAndBytes(JammerN
 		result->channelSetup.channels.push_back(setup);
 	};
 
+	result->sessionSetup.isLocalMonitoringDontSendEcho = !block->wantEcho();
 	for (auto channel = block->allChannels()->cbegin(); channel != block->allChannels()->cend(); channel++) {
 		JammerNetzSingleChannelSetup setup(channel->target());
 		setup.volume = channel->volume();
@@ -318,7 +321,7 @@ void JammerNetzAudioData::readAudioBytes(flatbuffers::Vector<flatbuffers::Offset
 	for (auto channel = samples->cbegin(); channel != samples->cend(); channel++) {
 		//TODO we might not have enough bytes in the package for this operation
 		if (upsampleRate == 1) {
-			
+
 			AudioData::Pointer <AudioData::Int16,
 				AudioData::LittleEndian,
 				AudioData::NonInterleaved,
@@ -351,4 +354,3 @@ void JammerNetzAudioData::readAudioBytes(flatbuffers::Vector<flatbuffers::Offset
 		c++;
 	}
 }
-

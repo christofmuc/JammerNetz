@@ -1,6 +1,0 @@
-[requires]
-pdcurses/3.9
-
-[generators]
-cmake
-cmake_find_package

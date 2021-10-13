@@ -139,5 +139,5 @@ void RecordingInfo::updateData()
 		recordingFileName_.setText(recorder_.lock()->getFilename(), dontSendNotification);
 		recordingFileName_.setVisible(isLive);
 	}
-	
+
 }

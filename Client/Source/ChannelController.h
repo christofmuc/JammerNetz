@@ -18,7 +18,7 @@ class ChannelController : public Component,
 	private ComboBox::Listener
 {
 public:
-	ChannelController(String const &name, String const &id, std::function<void(double, JammerNetzChannelTarget)> updateHandler, bool hasVolume = true, bool hasTarget = true, bool hasPitch = false);
+	ChannelController(String const &name, String const &id, bool hasVolume = true, bool hasTarget = true, bool hasPitch = false);
 
 	virtual void resized() override;
 
@@ -35,11 +35,9 @@ public:
 	void enableVolumeSlider(bool enabled);
 	void enableTargetSelector(bool enabled);
 
-	// Store to and load from settings
-	void fromData();
-	void toData() const;
-
 private:
+	void bindControls();
+
 	virtual void sliderValueChanged(Slider* slider) override;
 	virtual void comboBoxChanged(ComboBox* comboBoxThatHasChanged) override;
 

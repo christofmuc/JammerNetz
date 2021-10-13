@@ -31,5 +31,3 @@ IF (WIN32)
 	# Suppress warnings while compiling ff_meters because I nearly get a heart attack when that many warnings pop up on my screen
 	target_compile_options(ff_meters PRIVATE /wd4244)
 ENDIF()
-
-

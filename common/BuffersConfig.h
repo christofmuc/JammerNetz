@@ -36,6 +36,10 @@ const int FEC_RINGBUFFER_SIZE = 16;
 // By how much should we reduce the sample count for the FEC data?
 const int FEC_SAMPLERATE_REDUCTION = 2;
 
+// This just needs to be larger than, say, two very large buffer sizes from the audio device. My Motu M2 doesn't allow larger buffer sizes than 1024
+const int INGEST_RINGBUFFER_SIZE = 16384 * 8;
+const int PLAYOUT_RINGBUFFER_SIZE = INGEST_RINGBUFFER_SIZE;
+
 // To transport this information easily
 struct ServerBufferConfig {
 	int serverIncomingJitterBuffer;
