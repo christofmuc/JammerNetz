@@ -6,6 +6,10 @@
 
 cmake_minimum_required(VERSION 3.14)
 
+# Target a specific macOS version to allow older hardware to run the client
+set(CMAKE_OSX_DEPLOYMENT_TARGET "10.13" CACHE STRING "Minimum OS X version to target for deployment")
+
+
 project(JammerNetz)
 
 # For the digital stage branded build, provide an option
