@@ -97,7 +97,7 @@ void JoinStageDialog::updateSelectedStage()
 	if (store_->isOnStage()) {
 		auto currentStageId = store_->currentStageID();
 		if (currentStageId.has_value()) {
-			std::string id = currentStageId.value();
+			std::string id = *currentStageId;
 			for (int i = 0; i < stagesInTable_.size(); i++) {
 				if (stagesInTable_[i]._id == id) {
 					stageTable_.selectRow(i);
