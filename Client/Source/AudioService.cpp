@@ -231,7 +231,7 @@ void AudioService::restartAudio(std::shared_ptr<ChannelSetup> inputSetup, std::s
 			if (buffers.size() == 0) {
 				SimpleLogger::instance()->postMessage("Device reports no buffer sizes are available!");
 			}
-			int minBufferSize = buffers[0];
+			int minBufferSize = std::max(buffers[0], VALUE_MIN_BUFFER_SIZE_BYTES);
 
 			String error = audioDevice_->open(inputChannelMask, outputChannelMask, SAMPLE_RATE, minBufferSize);
 			if (error.isNotEmpty()) {

@@ -32,6 +32,7 @@ constexpr const char* VALUE_CHANNELS = "Channels";
 constexpr const char* VALUE_CHANNEL_COUNT = "ChannelCount";
 constexpr const char* VALUE_CHANNEL_ACTIVE = "ChannelActive";
 constexpr const char* VALUE_CHANNEL_NAME = "ChannelName";
+constexpr const int  VALUE_MIN_BUFFER_SIZE_BYTES = 128;
 
 constexpr const char* EPHEMERAL_VALUE_DEVICE_TYPES_AVAILABLE = "AudioDeviceTypes";
 #ifdef DIGITAL_STAGE
