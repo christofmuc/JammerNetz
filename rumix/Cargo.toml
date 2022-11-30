@@ -6,4 +6,6 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+blowfish = "0.9.1"
+flatbuffers = "22.10.26"
 tokio = { version="1.22.0", features=["net","rt", "macros", "rt-multi-thread"] }
