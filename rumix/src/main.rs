@@ -2,20 +2,15 @@ extern crate flatbuffers;
 
 #[allow(dead_code, unused_imports)]
 #[path = "JammerNetzAudioData_generated.rs"]
-#[path = "JammerNetzPackages_generated.rs"]
 mod JammerNetzAudioData_generated;
-mod JammerNetzPackages_generated;
 
 pub use JammerNetzAudioData_generated::{JammerNetzPNPAudioData, root_as_jammer_netz_pnpaudio_data };
-pub use JammerNetzPackages_generated::JammerNetzPNPClientInfo;
-use tokio::sync::mpsc;
 
 use tokio::net::UdpSocket;
 use std::io;
 use flume;
-use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
-async fn accept_thread(incoming_channel: UnboundedSender<Vec<u8>>) -> io::Result<()> {
+async fn accept_thread(incoming_channel: flume::Sender<Vec<u8>>) -> io::Result<()> {
     let sock = UdpSocket::bind("0.0.0.0:7778").await?;
     let mut buf = [0; 1024];
     let mut count = 0;
@@ -53,11 +48,12 @@ async fn accept_thread(incoming_channel: UnboundedSender<Vec<u8>>) -> io::Result
     }
 }
 
-async fn mixer_thread(mut rx : UnboundedReceiver<Vec<u8>>)
+async fn mixer_thread(rx : flume::Receiver<Vec<u8>>)
 {
     loop {
-        let packet = rx.recv().await;
-        if packet.is_some()
+        let packet = rx.recv_async().await;
+        // better: time::timeout(TIMEOUT, self.incoming.recv_async()).await;
+        if packet.is_ok()
         {
             let audio_data = packet.unwrap();
             let audio_packet = root_as_jammer_netz_pnpaudio_data(&audio_data);
@@ -79,12 +75,13 @@ async fn mixer_thread(mut rx : UnboundedReceiver<Vec<u8>>)
 #[tokio::main]
 async fn main()
 {
-    let (tx, mut rx) = mpsc::unbounded_channel::<Vec::<u8>>();
+    let (tx, rx) = flume::unbounded::<Vec::<u8>>();
     let accept_join = tokio::spawn(accept_thread(tx));
     println!("Accept thread launched");
     let mixer_join = tokio::spawn(mixer_thread(rx));
     println!("Mixer thread launched");
     let accept_result = accept_join.await;
+    let mixer_result = mixer_join.await;
     println!("Accept thread exit {:?}", accept_result);
 }
 
