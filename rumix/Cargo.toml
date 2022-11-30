@@ -8,4 +8,5 @@ edition = "2021"
 [dependencies]
 blowfish = "0.9.1"
 flatbuffers = "22.10.26"
-tokio = { version="1.22.0", features=["net","rt", "macros", "rt-multi-thread"] }
+tokio = { version="1.22.0", features=["net","rt", "macros", "rt-multi-thread", "sync"] }
+flume = "0.10.14"
