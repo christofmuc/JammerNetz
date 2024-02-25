@@ -26,9 +26,6 @@
 [submodule "third_party/sentry-native"]
 	path = third_party/sentry-native
 	url = https://github.com/getsentry/sentry-native.git
-[submodule "modules/libds"]
-	path = modules/libds
-	url = https://github.com/christofmuc/libds.git
 [submodule "third_party/fmt"]
 	path = third_party/fmt
 	url = https://github.com/fmtlib/fmt.git
@@ -38,3 +35,6 @@
 [submodule "third_party/keychain"]
 	path = third_party/keychain
 	url = https://github.com/hrantzsch/keychain.git
+[submodule "third_party/spdlog"]
+	path = third_party/spdlog
+	url = https://github.com/gabime/spdlog.git

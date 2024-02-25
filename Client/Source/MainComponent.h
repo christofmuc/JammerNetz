@@ -18,8 +18,6 @@
 #include "LogView.h"
 #include "TwoLabelSlider.h"
 
-#include "DSLookAndFeel.h"
-
 #include "ApplicationState.h"
 
 class MainComponent   : public Component, private Timer, public ValueTree::Listener
@@ -39,10 +37,6 @@ private:
 	void numConnectedClientsChanged();
 	void fillConnectedClientsStatistics();
 
-#ifdef DIGITAL_STAGE
-	void showJoinStage();
-#endif
-
 	std::shared_ptr<AudioService> audioService_;
 
 	// DEFINE ALL OUR WIDGETS
@@ -60,9 +54,6 @@ private:
 	Label nameLabel_;
 	TextEditor nameEntry_;
 	TextButton nameChange_;
-#ifdef DIGITAL_STAGE
-	TextButton joinStage_;
-#endif
 	ClientConfigurator clientConfigurator_;
 	ServerStatus serverStatus_;
 	GroupComponent serverGroup_;
@@ -91,7 +82,6 @@ private:
 	// Probably should go away
 	std::shared_ptr<JammerNetzChannelSetup> currentSessionSetup_;
 
-	DSLookAndFeel dsLookAndFeel_;
 	juce::int64 stageLeftWhenInMillis_;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MainComponent)

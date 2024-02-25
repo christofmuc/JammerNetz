@@ -50,7 +50,7 @@ void AudioService::refreshChannelSetup(std::shared_ptr<ChannelSetup> setup)
 			auto controllerData = mixer.getChildWithName(inputController);
 			jassert(controllerData.isValid());
 			JammerNetzChannelTarget target = static_cast<JammerNetzChannelTarget>(((int)  controllerData.getProperty(VALUE_TARGET, JammerNetzChannelTarget::Mono)) - 1);
-			JammerNetzSingleChannelSetup channel(target);
+			JammerNetzSingleChannelSetup channel((uint8) target);
 			double volume = controllerData.getProperty(VALUE_VOLUME, 100.0);
 			channel.volume = (float)volume/100.0f;
 			auto username = Data::instance().get().getProperty(VALUE_USER_NAME).toString().toStdString();

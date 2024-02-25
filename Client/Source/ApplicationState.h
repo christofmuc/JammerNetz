@@ -34,9 +34,6 @@ constexpr const char* VALUE_CHANNEL_ACTIVE = "ChannelActive";
 constexpr const char* VALUE_CHANNEL_NAME = "ChannelName";
 
 constexpr const char* EPHEMERAL_VALUE_DEVICE_TYPES_AVAILABLE = "AudioDeviceTypes";
-#ifdef DIGITAL_STAGE
-constexpr const char* EPHEMERAL_DS_VALUE_STAGE_ID = "dsStageId";
-#endif
 
 class ValueListener : public juce::Value::Listener {
 public:

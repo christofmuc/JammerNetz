@@ -20,14 +20,6 @@
 
 #include "BuffersConfig.h"
 
-#ifdef DIGITAL_STAGE
-#include "Login.h"
-#include "DataStore.h"
-#include "JoinStageDialog.h"
-
-std::shared_ptr<DataStore> globalDataStore_;
-#endif
-
 MainComponent::MainComponent(String clientID, std::shared_ptr<AudioService> audioService, std::shared_ptr<Recorder> masterRecorder, std::shared_ptr<Recorder> localRecorder) :
 	audioService_(audioService),
 	inputSelector_(VALUE_INPUT_SETUP, false, true),
@@ -37,17 +29,6 @@ MainComponent::MainComponent(String clientID, std::shared_ptr<AudioService> audi
 	logView_(false), // Turn off line numbers
 	stageLeftWhenInMillis_(Time::currentTimeMillis())
 {
-#ifdef DIGITAL_STAGE
-	setLookAndFeel(&dsLookAndFeel_);
-	addAndMakeVisible(dsLookAndFeel_.backgroundGradient());
-
-	joinStage_.setButtonText("Change stage");
-	joinStage_.onClick = [this] {
-		showJoinStage();
-	};
-	addAndMakeVisible(joinStage_);
-#endif
-
 	// Create an a Logger for the JammerNetz client
 	logViewLogger_ = std::make_unique<LogViewLogger>(logView_);
 	SimpleLogger::instance()->postMessage("Welcome!");
@@ -64,6 +45,7 @@ MainComponent::MainComponent(String clientID, std::shared_ptr<AudioService> audi
 	monitorLocal_.setClickingTogglesState(true);
 	auto mixer = Data::instance().get().getOrCreateChildWithName(VALUE_MIXER, nullptr);
 	listeners_.push_back(std::make_unique<ValueListener>(mixer.getPropertyAsValue(VALUE_USE_LOCAL_MONITOR, nullptr), [this](Value& value) {
+		ignoreUnused(value);
 		monitorLocal_.setButtonText(monitorLocal_.getToggleState() ? "Local" : "Remote");
 	}));
 	monitorLocal_.getToggleStateValue().referTo(mixer.getPropertyAsValue(VALUE_USE_LOCAL_MONITOR, nullptr));
@@ -122,66 +104,15 @@ MainComponent::MainComponent(String clientID, std::shared_ptr<AudioService> audi
 	addAndMakeVisible(logGroup_);
 	addAndMakeVisible(logView_);
 
-#ifdef DIGITAL_STAGE
-	// Add logo
-	logo_.setClickingTogglesState(false);
-	logo_.setEnabled(false);
-	logo_.setImages(false, true, true, dsLookAndFeel_.logo(), 1.0f, Colours::white, dsLookAndFeel_.logo(), 1.0f, Colours::white, dsLookAndFeel_.logo(), 0.8f, Colours::white);
-	addAndMakeVisible(logo_);
-#endif
-
 	startTimer(100);
 
 	// Make sure you set the size of the component after
 	// you add any child components.
 	setSize(1536, 800);
-
-#ifdef DIGITAL_STAGE
-	MessageManager::callAsync([this]() {
-		LoginDialog::showDialog([this](LoginData loginData) {
-			globalDataStore_ = std::make_shared<DataStore>(loginData.apiToken);
-
-			// Register callbacks
-			globalDataStore_->onJoin_ = [this](ServerInfo serverInfo) {
-				// Call on UI Thread
-				MessageManager::callAsync([serverInfo, this]() {
-					// Update the global stored data
-					ValueTree& data = Data::instance().getEphemeral();
-					data.setProperty(VALUE_SERVER_NAME, serverInfo.serverName.c_str(), nullptr);
-					data.setProperty(VALUE_SERVER_PORT, atoi(serverInfo.serverPort.c_str()), nullptr); // Need better parsing of int
-					data.setProperty(VALUE_USE_LOCALHOST, false, nullptr);
-					data.setProperty(VALUE_CRYPTOPATH, serverInfo.cryptoKeyfilePath.c_str(), nullptr);
-				});
-			};
-			globalDataStore_->onLeave_ = [this]() {
-				MessageManager::callAsync([this]() {
-					ValueTree& data = Data::instance().getEphemeral();
-					data.setProperty(VALUE_SERVER_NAME, "", nullptr);
-					data.setProperty(VALUE_SERVER_PORT, 7777, nullptr);
-					data.setProperty(VALUE_USE_LOCALHOST, false, nullptr);
-					data.setProperty(VALUE_CRYPTOPATH, "", nullptr);
-				});
-				stageLeftWhenInMillis_ = Time::currentTimeMillis();
-			};
-
-			// Busy wait until ready
-			while (!globalDataStore_->isReady());
-
-			// If not on a stage, show the join stage dialog
-			if (!globalDataStore_->isOnStage()) {
-				showJoinStage();
-			}
-		});
-	});
-#endif
 }
 
 MainComponent::~MainComponent()
 {
-#ifdef DIGITAL_STAGE
-	LoginDialog::release();
-	JoinStageDialog::release();
-#endif
 	Data::instance().saveToSettings();
 	Settings::instance().saveAndClose();
 	audioService_->shutdown();
@@ -191,10 +122,6 @@ MainComponent::~MainComponent()
 void MainComponent::resized()
 {
 	auto area = getLocalBounds();
-#ifdef DIGITAL_STAGE
-	dsLookAndFeel_.backgroundGradient()->setBounds(area);
-	dsLookAndFeel_.backgroundGradient()->setTransformToFit(area.toFloat(), RectanglePlacement::stretchToFit);
-#endif
 	area = area.reduced(kSmallInset);
 
 	int settingsHeight = 400;
@@ -215,13 +142,9 @@ void MainComponent::resized()
 	serverGroup_.setBounds(clientConfigArea);
 	clientConfigArea.reduce(kNormalInset, kNormalInset);
 	auto nameRow = clientConfigArea.removeFromTop(kLineSpacing).withTrimmedTop(kNormalInset).withTrimmedLeft(kNormalInset).withTrimmedRight(kNormalInset);
-#ifdef DIGITAL_STAGE
-	joinStage_.setBounds(nameRow.withSizeKeepingCentre(kButtonWidth, kLineHeight));
-#else
 	nameLabel_.setBounds(nameRow.removeFromLeft(kLabelWidth));
 	nameEntry_.setBounds(nameRow.removeFromLeft(kEntryBoxWidth));
 	nameChange_.setBounds(nameRow.removeFromLeft(kLabelWidth / 2).withTrimmedLeft(kNormalInset));
-#endif
 
 	clientConfigurator_.setBounds(clientConfigArea.removeFromBottom(kLineSpacing * 2));
 	connectionInfo_.setBounds(clientConfigArea.removeFromBottom(kLineSpacing));
@@ -236,9 +159,6 @@ void MainComponent::resized()
 		clientInfo->setBounds(qualityArea.removeFromTop(kLineHeight * 2));
 	}
 	downstreamInfo_.setBounds(qualityArea);
-#ifdef DIGITAL_STAGE
-	logo_.setBounds(qualityArea.reduced(kNormalInset).removeFromRight(151).removeFromBottom(81));
-#endif
 
 	// Lower right - everything with recording!
 	auto recordingArea = settingsArea.removeFromLeft(settingsSectionWidth);
@@ -340,15 +260,6 @@ void MainComponent::fillConnectedClientsStatistics() {
 	}
 }
 
-#ifdef DIGITAL_STAGE
-void MainComponent::showJoinStage()
-{
-	if (!JoinStageDialog::isCurrentlyOpen()) {
-		JoinStageDialog::showDialog(globalDataStore_);
-	}
-}
-#endif
-
 void MainComponent::timerCallback()
 {
 	// Refresh the UI with info from the Audio callback
@@ -402,19 +313,6 @@ void MainComponent::timerCallback()
 		// Setup changed, need to re-init UI
 		allChannels_.setup(currentSessionSetup_, audioService_->getSessionMeterSource());
 	}
-
-#ifdef DIGITAL_STAGE
-	// Special magic - check how long ago we have left a stage. If this is more than, say, 1000ms and we did not get a rejoin, open the join dialog
-	// but open it only once!
-	if (globalDataStore_ && !globalDataStore_->isOnStage() && Time::currentTimeMillis() > stageLeftWhenInMillis_ + 1000) {
-		if (!JoinStageDialog::isCurrentlyOpen()) {
-			stageLeftWhenInMillis_ = Time::currentTimeMillis(); // Give me a second to open the dialog, please
-			MessageManager::callAsync([this] {
-				showJoinStage();
-			});
-		}
-	}
-#endif
 }
 
 void MainComponent::inputSetupChanged() {

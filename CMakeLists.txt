@@ -12,9 +12,6 @@ set(CMAKE_OSX_DEPLOYMENT_TARGET "10.11" CACHE STRING "Minimum OS X version to ta
 
 project(JammerNetz)
 
-# For the digital stage branded build, provide an option
-OPTION(DIGITAL_STAGE_BRANDING OFF)
-
 # Since we also build MacOS, we need C++ 17. Which is not a bad thing.
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -198,14 +195,10 @@ endif()
 # Add subdirectories
 add_subdirectory("third_party/JUCE-user-modules")
 add_subdirectory("third_party/fmt")
+add_subdirectory("third_party/spdlog")
 add_subdirectory("modules/juce-utils")
 add_subdirectory("modules/juce-widgets")
 message(${CMAKE_MODULE_PATH})
-if(DIGITAL_STAGE_BRANDING)
-add_subdirectory("third_party/keychain" EXCLUDE_FROM_ALL)
-add_subdirectory("modules/libds" EXCLUDE_FROM_ALL)
-endif()
-add_subdirectory("lookAndFeel")
 add_subdirectory("third_party/oneTBB" EXCLUDE_FROM_ALL)
 add_subdirectory("common")
 add_subdirectory("Server")

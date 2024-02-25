@@ -4,7 +4,7 @@
 #  Dual licensed: Distributed under Affero GPL license by default, an MIT license is available for purchase
 #
 
-project("JammerNetzClient" VERSION 2.2.0)
+project("JammerNetzClient" VERSION 2.3.0)
 
 configure_file("Source/version.cpp.in" "Source/version.cpp")
 
@@ -48,7 +48,6 @@ source_group(Source\\Installer FILES ${INSTALLER_FILES})
 
 set(RESOURCE_FILES
 	Resources/JammerNetzIcon.icns
-	Resources/digitalStagePC.icns
 	Resources/about.txt
 	Resources/cloud.png
 	Resources/live.png
@@ -111,32 +110,12 @@ source_group(Source\\DigitalStage FILES ${DSBRANCH_FILES})
 
 set(EXECUTABLE_BASE_NAME "JammerNetzClient")
 set(INSTALLER_BASE_NAME "JammerNetz")
-if(DIGITAL_STAGE_BRANDING)
-set(DS_LIBRARIES
-		keychain
-		DigitalStageAuth
-        DigitalStageApi)
-set(DS_SOURCES ${DSBRANCH_FILES})
-set(EXECUTABLE_BASE_NAME "digitalStagePC")
-set(INSTALLER_BASE_NAME "digitalStagePC")
-endif()
 
 add_executable(JammerNetzClient MACOSX_BUNDLE WIN32 ${SOURCES} ${DS_SOURCES} ${UICOMPONENT_FILES} ${PLAYALONG_FILES} ${AUDIO_PROCESSING_FILES} ${NETWORK_FILES} ${MIDI_FILES} ${RESOURCE_FILES} ${INSTALLER_FILES})
-if(DIGITAL_STAGE_BRANDING)
-# Use new DigitalStage branded versions
-set_target_properties(JammerNetzClient PROPERTIES OUTPUT_NAME "digitalStagePC")
-set(JammerNetz_VersionedName "digitalStagePC by JammerNetz")
-set(JammerNetz_ApplicationName "digitalStagePC")
-set(JammerNetz_AppId "{{9E315D5B-AF22-42B0-9735-8A7B058EAEF3}")
-set(JammerNetz_InstallerBaseName "digitalStagePC_setup")
-target_compile_options(JammerNetzClient PRIVATE -DDIGITAL_STAGE)
-else()
-# Use the standard historical values
 set(JammerNetz_VersionedName "JammerNetz 2")
 set(JammerNetz_ApplicationName "JammerNetzClient")
 set(JammerNetz_AppId "{{704C397B-E756-47B0-AB7A-5C52A62E0A3F}")
 set(JammerNetz_InstallerBaseName "jammernetz_setup")
-endif()
 
 message("Crash reporting: ${SENTRY_CRASH_REPORTING} at ${SENTRY_INSTALL_PATH}")
 if(SENTRY_CRASH_REPORTING)
@@ -147,9 +126,9 @@ endif()
 
 target_include_directories(JammerNetzClient PRIVATE "${SENTRY_INCLUDE_DIR}"  "${CMAKE_CURRENT_BINARY_DIR}/Source")
 IF(WIN32)
-	target_link_libraries(JammerNetzClient ${JUCE_LIBRARIES} ${DS_LIBRARIES} JammerCommon juce-utils juce-widgets ds_look_and_feel ff_meters ${SENTRY_LIB})
+	target_link_libraries(JammerNetzClient ${JUCE_LIBRARIES} ${DS_LIBRARIES} JammerCommon juce-utils juce-widgets ff_meters ${SENTRY_LIB})
 elseif(APPLE)
-	target_link_libraries(JammerNetzClient ${JUCE_LIBRARIES} ${DS_LIBRARIES} JammerCommon juce-utils juce-widgets ds_look_and_feel ff_meters tbb)
+	target_link_libraries(JammerNetzClient ${JUCE_LIBRARIES} ${DS_LIBRARIES} JammerCommon juce-utils juce-widgets ff_meters tbb)
 	# ${SENTRY_LIB})
 ELSE()
 	target_link_libraries(JammerNetzClient
@@ -167,7 +146,7 @@ ELSE()
 		asound
 		tbb
 		${SENTRY_LIB}
-		JammerCommon juce-utils juce-widgets ds_look_and_feel ff_meters)
+		JammerCommon juce-utils juce-widgets ff_meters)
 ENDIF()
 
 # Pedantic about warnings
@@ -213,13 +192,8 @@ ENDIF()
 IF(APPLE)
 	# Moving icon into application bundle here.
 	# See second answer from: https://stackoverflow.com/questions/22745728/cmake-set-icon-for-a-mac-os-x-app
-	if(DIGITAL_STAGE_BRANDING)
-	SET(ICON_FILE_NAME digitalStagePC)
-	SET(JAMMERNETZ_ICON ${CMAKE_CURRENT_SOURCE_DIR}/Resources/${ICON_FILE_NAME}.icns)
-ELSE()
 	SET(ICON_FILE_NAME JammerNetzIcon)
 	SET(JAMMERNETZ_ICON ${CMAKE_CURRENT_SOURCE_DIR}/Resources/${ICON_FILE_NAME}.icns)
-ENDIF()
 	SET_SOURCE_FILES_PROPERTIES(${JAMMERNETZ_ICON} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
 
 	# For apple, set the properties file to be included in the link. This is important to allow Microphone access on macOS (you will get a dialog asking for permission)
@@ -233,7 +207,7 @@ ENDIF()
 		MACOSX_BUNDLE_SIGNATURE jmrn
 		CPACK_BUNDLE_STARTUP_COMMAND $<TARGET_FILE:JammerNetzClient>
 		MACOSX_BUNDLE_BUNDLE_VERSION ${JammerNetzClient_VERSION}
-		MACOSX_BUNDLE_COPYRIGHT "Copyright 2021 Christof Ruch"
+		MACOSX_BUNDLE_COPYRIGHT "Copyright 2021-2024 Christof Ruch"
 		MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/Info.plist
 		)
 

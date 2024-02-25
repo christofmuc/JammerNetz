@@ -16,11 +16,7 @@ DataReceiveThread::DataReceiveThread(DatagramSocket &socket, std::function<void(
 	: Thread("ReceiveDataFromServer"), socket_(socket), newDataHandler_(newDataHandler), currentRTT_(0.0), isReceiving_(false), currentSession_(false)
 {
 	// Create listeners to get notified if the application state we depend on changes
-#ifdef DIGITAL_STAGE
-	listeners_.push_back(std::make_unique<ValueListener>(Data::getEphemeralPropertyAsValue(VALUE_CRYPTOPATH), [this](Value& value) {
-#else
 	listeners_.push_back(std::make_unique<ValueListener>(Data::getPropertyAsValue(VALUE_CRYPTOPATH), [this](Value& value) {
-#endif
 		std::shared_ptr<MemoryBlock> cryptokey;
 		String newCryptopath = value.getValue();
 		if (newCryptopath.isNotEmpty()) {

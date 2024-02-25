@@ -30,6 +30,7 @@ set(Sources
 	JammerNetzPackage.cpp JammerNetzPackage.h
 	JammerNetzPackages.fbs
 	JammerNetzAudioData.fbs
+	JuceHeader.h
 	${FlatJammer_OUTPUTS}
 	PacketStreamQueue.cpp PacketStreamQueue.h
 	Pool.h

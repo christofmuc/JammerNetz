@@ -125,7 +125,7 @@ void AudioCallback::calcLocalMonitoring(std::shared_ptr<AudioBuffer<float>> inpu
 		jassert(inputBuffer->getNumSamples() == outputBuffer.getNumSamples());
 		for (int channel = 0; channel < inputBuffer->getNumChannels(); channel++) {
 			const JammerNetzSingleChannelSetup& setup = channelSetup_.channels[channel];
-			double input_volume = setup.volume * monitorVolume * masterVolume_;
+			float input_volume = (float) (setup.volume * monitorVolume * masterVolume_);
 			switch (setup.target) {
 			case Mute:
 				// Nothing to be done, ignore this channel
@@ -286,7 +286,7 @@ void AudioCallback::audioDeviceIOCallback(const float** inputChannelData, int nu
 			playoutBuffer_->read(sessionAudio.getArrayOfWritePointers(), 2, numSamples);
 
 			auto [_, remoteVolume] = calcMonitorGain();
-			double volume = remoteVolume * masterVolume_;
+			float volume = (float) (remoteVolume * masterVolume_);
 			for (int c = 0; c < std::min(2, outputBuffer.getNumChannels()); c++) {
 				outputBuffer.addFrom(c, 0, sessionAudio.getReadPointer(c), numSamples, volume);
 			}

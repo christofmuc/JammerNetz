@@ -4,7 +4,7 @@
 #  Dual licensed: Distributed under Affero GPL license by default, an MIT license is available for purchase
 #
 
-project("JammerNetzServer" VERSION 2.2.0)
+project("JammerNetzServer" VERSION 2.3.0)
 
 include_directories("${INTEL_TBB_DIRECTORY}/include/")
 
@@ -12,9 +12,7 @@ configure_file("Source/version.cpp.in" "Source/version.cpp")
 
 if(WIN32)
 	# Need PDCurses for nicer statistics output
-	set(CMAKE_MODULE_PATH "${CMAKE_BINARY_DIR}")
-	message(STATUS "CMAKE module path is ${CMAKE_MODULE_PATH}")
-	find_package(pdcurses REQUIRED)
+	find_package(pdcurses REQUIRED PATHS ${CMAKE_BINARY_DIR} NO_DEFAULT_PATH)
 endif()
 
 set(SOURCES

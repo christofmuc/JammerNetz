@@ -40,11 +40,7 @@ public:
 		}
 
 		// This method is where you should put your application's initialization code..
-#ifdef DIGITAL_STAGE
-		char* applicationDataDirName = "DigitalStage";
-#else
 		char *applicationDataDirName = "JammerNetz";
-#endif
 		if (clientID.isNotEmpty()) {
 			Settings::setSettingsID(clientID);
 		}

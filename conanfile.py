@@ -1,11 +1,8 @@
-from conans import ConanFile, CMake
+from conan import ConanFile
+from conan.tools.cmake import CMake
 
 
 class JammerNetzConan(ConanFile):
     settings = ["os", "compiler", "build_type", "arch"]
-    requires = ["nlohmann_json/3.9.1", "cpprestsdk/2.10.18"]
-    generators = "cmake", "cmake_find_package"
-
-    def configure(self):
-        if self.settings.os == "Windows":
-            self.requires.add("pdcurses/3.9")
+    requires = ["pdcurses/3.9", "nlohmann_json/3.11.3"]
+    generators = "CMakeDeps", "CMakeToolchain"
