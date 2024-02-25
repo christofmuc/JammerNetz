@@ -6,10 +6,10 @@ jobs:
     strategy:
       matrix:
         mac:
-          imageName: 'macos-10.14'
+          imageName: 'macos-latest'
           isMac: True
         mac_DS:
-          imageName: 'macos-10.14'
+          imageName: 'macos-latest'
           isMac: True
           isDigitalStage: True
         win2019:
