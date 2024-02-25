@@ -23,3 +23,5 @@ build/
 builds2019/
 venv/
 .vs/
+builds2024/
+.conan_venv/
