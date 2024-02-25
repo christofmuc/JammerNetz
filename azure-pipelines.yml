@@ -57,6 +57,9 @@ jobs:
         pip3 install wheel setuptools
         pip3 install conan
         conan --version
+        conan profile new default --detect
+        conan profile update settings.compiler.cppstd=17 default
+        conan profile update settings.compiler.runtime=dynamic default
         conan install -of Builds\Windows -s build_type=RelWithDebInfo --build missing .
       condition: variables.isWindows
     - task: CMake@1
@@ -140,6 +143,7 @@ jobs:
         pip3 install wheel setuptools
         pip3 install conan
         conan --version
+        conan profile new default --detect
         conan install -of build -s build_type=Release --build missing .
       condition: and(variables.isMac, variables.isDigitalStage)
 
