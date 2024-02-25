@@ -194,6 +194,7 @@ endif()
 
 # Add subdirectories
 add_subdirectory("third_party/JUCE-user-modules")
+add_subdirectory("third_party/json")
 add_subdirectory("third_party/fmt")
 add_subdirectory("third_party/spdlog")
 add_subdirectory("modules/juce-utils")
