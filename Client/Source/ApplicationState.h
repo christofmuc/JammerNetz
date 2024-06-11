@@ -34,6 +34,8 @@ constexpr const char* VALUE_CHANNEL_ACTIVE = "ChannelActive";
 constexpr const char* VALUE_CHANNEL_NAME = "ChannelName";
 
 constexpr const char* EPHEMERAL_VALUE_DEVICE_TYPES_AVAILABLE = "AudioDeviceTypes";
+constexpr const char* EPHEMERAL_VALUE_AUDIO_RUNNING = "AudioIsRunning";
+constexpr const char* EPHEMERAL_VALUE_AUDIO_SHOULD_RUN = "AudioShouldRun";
 
 class ValueListener : public juce::Value::Listener {
 public:

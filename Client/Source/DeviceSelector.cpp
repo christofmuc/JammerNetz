@@ -45,12 +45,16 @@ DeviceSelector::DeviceSelector(String const& title, bool showTitle, bool inputIn
 			//TODO When we allow other sample rates or buffer sizes, enable more devices
 			StringArray items;
 			for (auto device : selectedType->getDeviceNames(inputDevices_)) {
+#ifdef CHECK_SAMPLE_RATES
 				if (AudioDeviceDiscovery::canDeviceDoSampleRate(selectedType, device, inputDevices_, SAMPLE_RATE)) {
+#endif
 					items.add(device);
+#ifdef CHECK_SAMPLE_RATES
 				}
 				else {
 					items.add(device + " (unsupported)");
 				}
+#endif
 			}
 			deviceDropdown_.addItemList(items, 1);
 		}
@@ -129,6 +133,22 @@ DeviceSelector::DeviceSelector(String const& title, bool showTitle, bool inputIn
 	scrollList_.setScrollBarsShown(true, false);
 	addAndMakeVisible(scrollList_);
 
+	startStopButton_.setClickingTogglesState(true);
+	addAndMakeVisible(startStopButton_);
+	Data::instance().getEphemeral().getOrCreateChildWithName(EPHEMERAL_VALUE_AUDIO_RUNNING, nullptr);
+	listeners_.push_back(std::make_unique<ValueListener>(Data::instance().getEphemeral().getPropertyAsValue(EPHEMERAL_VALUE_AUDIO_RUNNING, nullptr),
+		[this](Value& newValue) {
+			bool audioRunning = newValue.getValue().operator bool();
+			startStopButton_.setToggleState(audioRunning, dontSendNotification);
+		    startStopButton_.setButtonText(audioRunning ? "Stop audio" : "Start audio");
+
+	}));
+	startStopButton_.onClick = []() {
+		// Flip the switch
+		bool isRunning = Data::instance().getEphemeral().getProperty(EPHEMERAL_VALUE_AUDIO_RUNNING);
+		Data::instance().getEphemeral().setProperty(EPHEMERAL_VALUE_AUDIO_SHOULD_RUN, !isRunning, nullptr);
+	};
+
 	bindControls();
 
 	// After construction, we need to fire each update trigger to make sure the combo boxes are filled
@@ -152,6 +172,8 @@ void DeviceSelector::resized()
 	if (controlPanelButton_) {
 		controlPanelButton_->setBounds(area.removeFromTop(kLineSpacing).withTrimmedTop(kNormalInset).withSizeKeepingCentre(80, kLineHeight));
 	}
+	auto bottomRow = area.removeFromBottom(kLineHeight);
+	startStopButton_.setBounds(bottomRow.withSizeKeepingCentre(80, kLineHeight));
 	scrollList_.setBounds(area.withTrimmedTop(kNormalInset));
 
 	scrollArea_.setSize(area.getWidth(), channelSelectors_.size() * kLineHeight);

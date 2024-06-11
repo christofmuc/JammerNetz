@@ -18,13 +18,16 @@ AudioService::AudioService()
 	// Put the list into the ephemeral app data (not stored across runs of the software)
 	auto& data = Data::instance().getEphemeral();
 	data.setProperty(EPHEMERAL_VALUE_DEVICE_TYPES_AVAILABLE, AudioDeviceDiscovery::allDeviceTypeNames(), nullptr);
+	data.setProperty(EPHEMERAL_VALUE_AUDIO_RUNNING, false, nullptr);
 
 	Data::instance().get().addListener(this);
+	Data::instance().getEphemeral().addListener(this);
 }
 
 AudioService::~AudioService()
 {
 	Data::instance().get().removeListener(this);
+	Data::instance().getEphemeral().removeListener(this);
 	AudioDeviceDiscovery::shutdown();
 }
 
@@ -44,6 +47,7 @@ void AudioService::refreshChannelSetup(std::shared_ptr<ChannelSetup> setup)
 	auto mixer = Data::instance().get().getChildWithName(VALUE_MIXER);
 	bool isLocalMonitoring = mixer.getProperty(VALUE_USE_LOCAL_MONITOR);
 	JammerNetzChannelSetup channelSetup(isLocalMonitoring);
+
 	if (setup) {
 		for (int i = 0; i < setup->activeChannelIndices.size(); i++) {
 			String inputController = "Input" + String(i);
@@ -76,6 +80,7 @@ void AudioService::stopAudioIfRunning()
 				while (audioDevice_->isOpen()) {
 					Thread::sleep(10);
 				}
+				Data::instance().getEphemeral().setProperty(EPHEMERAL_VALUE_AUDIO_RUNNING, false, nullptr);
 			}
 		}
 	}
@@ -158,10 +163,22 @@ FFAU::LevelMeterSource* AudioService::getSessionMeterSource()
 
 void AudioService::valueTreePropertyChanged(ValueTree& treeWhosePropertyHasChanged, const Identifier& property)
 {
-	if (ValueTreeUtils::isChildOf(VALUE_INPUT_SETUP, treeWhosePropertyHasChanged) ||
-		ValueTreeUtils::isChildOf(VALUE_OUTPUT_SETUP, treeWhosePropertyHasChanged)) {
-		debouncer_.callDebounced([this]() {
-			restartAudio();
+	if (//ValueTreeUtils::isChildOf(VALUE_INPUT_SETUP, treeWhosePropertyHasChanged) ||
+		//ValueTreeUtils::isChildOf(VALUE_OUTPUT_SETUP, treeWhosePropertyHasChanged) ||
+		property == Identifier(EPHEMERAL_VALUE_AUDIO_SHOULD_RUN)) {
+		debouncer_.callDebounced(
+		    [this]() {
+			    bool shouldRun = Data::getEphemeralProperty(EPHEMERAL_VALUE_AUDIO_SHOULD_RUN);
+			    if (shouldRun) {
+				    restartAudio();
+				    if (!Data::getEphemeralProperty(EPHEMERAL_VALUE_AUDIO_RUNNING)) {
+						// That failed, turn it off again without notifying us.
+					    Data::instance().getEphemeral().setPropertyExcludingListener(this, EPHEMERAL_VALUE_AUDIO_SHOULD_RUN, false, nullptr);
+				    }
+			    } else {
+				    stopAudioIfRunning();
+				}
+
 		}, 250);
 	}
 	else if (ValueTreeUtils::isChildOf(VALUE_MIXER, treeWhosePropertyHasChanged) || property.toString() == VALUE_USER_NAME) {
@@ -246,8 +263,12 @@ void AudioService::restartAudio(std::shared_ptr<ChannelSetup> inputSetup, std::s
 				Data::instance().get().setProperty(VALUE_OUTPUT_LATENCY, outputLatencyInMS, nullptr);
 
 				refreshChannelSetup(inputSetup);
-				// We can actually start recording and playing
-				audioDevice_->start(&callback_);
+
+				if (!inputChannelMask.isZero() && !outputChannelMask.isZero()) {
+					// We can actually start recording and playing
+					audioDevice_->start(&callback_);
+					Data::instance().getEphemeral().setProperty(EPHEMERAL_VALUE_AUDIO_RUNNING, true, nullptr);
+				}
 			}
 		}
 	}
