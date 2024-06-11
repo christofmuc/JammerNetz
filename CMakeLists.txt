@@ -208,3 +208,6 @@ add_subdirectory("Client")
 
 # The client installer now contains the server as well for local testing - make sure to always build the server
 add_dependencies(JammerNetzClient JammerNetzServer)
+
+add_executable(test_asio test/test_asio.cpp)
+target_link_libraries(test_asio juce-static)
