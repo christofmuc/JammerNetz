@@ -71,11 +71,19 @@ DeviceSelector::DeviceSelector(String const& title, bool showTitle, bool inputIn
 			String name = newValue.getValue();
 			if (name.isNotEmpty()) {
 				std::shared_ptr<AudioIODevice> selectedDevice;
-				if (inputDevices_) {
-					selectedDevice.reset(selectedType->createDevice("", name));
-				}
-				else {
-					selectedDevice.reset(selectedType->createDevice(name, ""));
+				if (selectedType->hasSeparateInputsAndOutputs()) {
+					if (inputDevices_) {
+						selectedDevice.reset(selectedType->createDevice("", name));
+					} else {
+						selectedDevice.reset(selectedType->createDevice(name, ""));
+					}
+				} else {
+					if (inputDevices_) {
+						ValueTree outputSelector = Data::instance().get().getOrCreateChildWithName(VALUE_OUTPUT_SETUP, nullptr);
+						outputSelector.setProperty(VALUE_DEVICE_TYPE, typeName, nullptr);
+						outputSelector.setProperty(VALUE_DEVICE_NAME, name, nullptr);
+					}
+					selectedDevice.reset(selectedType->createDevice(name, name));
 				}
 				if (selectedDevice) {
 					// Does it have a control panel?
