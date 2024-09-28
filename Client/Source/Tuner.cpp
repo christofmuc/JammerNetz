@@ -9,9 +9,8 @@
 #include "BuffersConfig.h"
 
 #pragma warning( push )
-#pragma warning( disable: 4244 4267 4305)
+#pragma warning( disable: 4244 4267 4305 4456)
 #include <q/pitch/pitch_detector.hpp>
-#include <q/support/frequency.hpp>
 #pragma warning ( pop )
 
 namespace q = cycfi::q;
@@ -26,7 +25,7 @@ public:
 			for (int channel = 0; channel < audioData->getNumChannels(); channel++) {
 				// Do we already create a detector for this channel?
 				if (detectors.size() <= channel) {
-					detectors.push_back(std::make_unique<q::pitch_detector>(50.0_Hz, 2000.0_Hz, SAMPLE_RATE, 0.0));
+					detectors.push_back(std::make_unique<q::pitch_detector>(50.0_Hz, 2000.0_Hz, (float) SAMPLE_RATE, q::lin_to_db(0.0)));
 				}
 
 				// Feed the samples of this channel into the pitch detector

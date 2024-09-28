@@ -13,7 +13,7 @@ set(CMAKE_OSX_DEPLOYMENT_TARGET "10.11" CACHE STRING "Minimum OS X version to ta
 project(JammerNetz)
 
 # Since we also build MacOS, we need C++ 17. Which is not a bad thing.
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 IF(APPLE)
