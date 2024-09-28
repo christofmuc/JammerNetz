@@ -141,8 +141,7 @@ JammerNetzChannelSetup DataReceiveThread::sessionSetup() const
 
 std::shared_ptr<JammerNetzClientInfoMessage> DataReceiveThread::getClientInfo() const
 {
-	// Atomic read access to the shared ptr - the receive method might just now update it
-	return std::atomic_load_explicit(&lastClientInfoMessage_, std::memory_order_acquire);
+	return lastClientInfoMessage_;
 }
 
 bool DataReceiveThread::isReceivingData() const

@@ -41,7 +41,7 @@ private:
 	// For the session UI
 	JammerNetzChannelSetup currentSession_;
 	CriticalSection sessionDataLock_;
-	std::shared_ptr<JammerNetzClientInfoMessage> lastClientInfoMessage_;
+	std::atomic<std::shared_ptr<JammerNetzClientInfoMessage>> lastClientInfoMessage_;
 
 	// Generic listeners, required to maintain the lifetime of the Values and their listeners
 	std::vector<std::unique_ptr<ValueListener>> listeners_;
