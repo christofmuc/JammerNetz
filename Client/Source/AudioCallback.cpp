@@ -160,8 +160,10 @@ void AudioCallback::calcLocalMonitoring(std::shared_ptr<AudioBuffer<float>> inpu
 	}
 }
 
-void AudioCallback::audioDeviceIOCallback(const float** inputChannelData, int numInputChannels, float** outputChannelData, int numOutputChannels, int numSamples)
+void AudioCallback::audioDeviceIOCallbackWithContext(const float* const* inputChannelData, int numInputChannels, float* const* outputChannelData,
+    int numOutputChannels, int numSamples, const AudioIODeviceCallbackContext& context)
 {
+	ignoreUnused(context);
 	float* const* constnessCorrection = const_cast<float* const*>(inputChannelData);
 	PlayoutQualityInfo qualityInfo = lastPlayoutQualityInfo_;
 
