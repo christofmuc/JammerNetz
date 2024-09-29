@@ -2,9 +2,11 @@
 
 #include "MidiController.h"
 
+#include <spdlog/spdlog.h>
+
 MidiSendThread::MidiSendThread() : Thread("MIDI Clock")
 {
-	startThread(Thread::Priority::high);
+	startThread(Thread::Priority::highest);
 }
 
 MidiSendThread::~MidiSendThread()
@@ -15,12 +17,13 @@ MidiSendThread::~MidiSendThread()
 void MidiSendThread::setMidiOutputByName(std::string const &name)
 {
 	midiOutput_ = midikraft::MidiController::instance()->getMidiOutputByName(name);
+	midikraft::MidiController::instance()->enableMidiOutput(midiOutput_);
 }
 
 void MidiSendThread::enqueue(std::chrono::high_resolution_clock::duration fromNow, MidiMessage const &message)
 {
 	ignoreUnused(fromNow);
-	auto now = std::chrono::high_resolution_clock::now();// fromNow;
+	auto now = std::chrono::high_resolution_clock::now() + fromNow;
 	midiMessages.push({ now, message });
 }
 
@@ -34,12 +37,15 @@ void MidiSendThread::run()
 	// Just send a clock every 20 milliseconds
 	std::chrono::high_resolution_clock::time_point last = std::chrono::high_resolution_clock::now();
 	std::chrono::high_resolution_clock::time_point now;
-	while (threadShouldExit()) {
+	double bpm = 150.0;
+	double secondsPerPulse = 60.0 / (bpm * 24);
+	uint64 wait_nanos = (uint64)round(secondsPerPulse * 1e9);
+	while (!threadShouldExit()) {
 		// Wait until the time has come
 		do {
 			now = std::chrono::high_resolution_clock::now();
 		}
-		while (now < last + std::chrono::milliseconds(20));
+		while (now < last + std::chrono::nanoseconds(wait_nanos));
 		last = now;
 		// Send the F8 MIDI Clock message
 		midikraft::MidiController::instance()->getMidiOutput(midiOutput_)->sendMessageNow(MidiMessage::midiClock());
@@ -48,8 +54,14 @@ void MidiSendThread::run()
 		MessageQueueItem item;
 		while (midiMessages.try_pop(item) && !threadShouldExit()) {
 			// Wait until the time has come
-			while (std::chrono::high_resolution_clock::now() < item.whenToSend);
+			uint64 waiting = 0;
+			while (std::chrono::high_resolution_clock::now() < item.whenToSend) {
+				waiting += 1;
+			}
 			// Send the F8 MIDI Clock message
+			if (waiting > 0) {
+				spdlog::error("Waited for {}", waiting);
+			}
 			midikraft::MidiController::instance()->getMidiOutput(midiOutput_)->sendMessageNow(item.whatToSend);
 		}
 	}
