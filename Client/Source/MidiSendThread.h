@@ -12,7 +12,7 @@ public:
 	MidiSendThread();
 	virtual ~MidiSendThread();
 
-	void setMidiOutput(std::string const &name);
+	void setMidiOutputByName(std::string const &name);
 	void enqueue(std::chrono::high_resolution_clock::duration fromNow, MidiMessage const &message);
 
 	void run() override;
@@ -25,5 +25,5 @@ private:
 		MidiMessage whatToSend;
 	};
 	tbb::concurrent_queue<MessageQueueItem> midiMessages;
-	std::string midiOutput_;
+	MidiDeviceInfo midiOutput_;
 };

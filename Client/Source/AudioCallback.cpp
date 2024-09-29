@@ -29,6 +29,9 @@ AudioCallback::AudioCallback() : jammerService_([this](std::shared_ptr < JammerN
 	masterRecorder_->setChannelInfo(SAMPLE_RATE, JammerNetzChannelSetup(false, { JammerNetzChannelTarget::Left, JammerNetzChannelTarget::Right }));
 	//midiRecorder_ = std::make_unique<MidiRecorder>(deviceManager);
 
+    // Where to send the Midi Clock signals
+	midiSendThread_.setMidiOutputByName("2- MXPXT: Sync In - Out All");
+
 	// We might want to share a score sheet or similar
 	//midiPlayalong_ = std::make_unique<MidiPlayAlong>("D:\\Development\\JammerNetz-OS\\Led Zeppelin - Stairway to heaven (1).kar");
 
@@ -286,7 +289,7 @@ void AudioCallback::audioDeviceIOCallbackWithContext(const float* const* inputCh
 				// A Pulse must be sent!
 				uint64 subPrecision = (uint64)(serverEndBeat * samplesPerPulse) - serverTime;
 				jassert(subPrecision < SAMPLE_BUFFER_SIZE);
-
+				midiSendThread_.enqueue(std::chrono::nanoseconds(1000000000 * subPrecision / SAMPLE_RATE), MidiMessage::midiClock());
 			}
 		}
 		else {

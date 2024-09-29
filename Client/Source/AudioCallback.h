@@ -19,6 +19,7 @@
 #include "Tuner.h"
 #include "MidiRecorder.h"
 #include "MidiPlayAlong.h"
+#include "MidiSendThread.h"
 
 #include "ApplicationState.h"
 
@@ -107,6 +108,7 @@ private:
 	std::shared_ptr<Recorder> masterRecorder_;
 	std::unique_ptr<MidiRecorder> midiRecorder_;
 	std::unique_ptr<MidiPlayAlong> midiPlayalong_;
+	MidiSendThread midiSendThread_;
 
 	std::unique_ptr<Tuner> tuner_;
 
