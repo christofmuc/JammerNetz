@@ -86,6 +86,8 @@ set(UICOMPONENT_FILES
 	Source/ClientConfig.h
 	Source/DeviceSelector.cpp
 	Source/DeviceSelector.h
+	Source/MidiDeviceSelector.cpp
+	Source/MidiDeviceSelector.h
 	Source/RecordingInfo.cpp
 	Source/RecordingInfo.h
 	Source/ServerSelector.cpp

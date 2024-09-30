@@ -17,6 +17,7 @@
 #include "PlayalongDisplay.h"
 #include "LogView.h"
 #include "TwoLabelSlider.h"
+#include "MidiDeviceSelector.h"
 
 #include "ApplicationState.h"
 
@@ -51,6 +52,9 @@ private:
 	TextButton monitorLocal_;
 	GroupComponent monitorGroup_;
 	GroupComponent outputGroup_;
+	GroupComponent clockGroup_;
+	MidiDeviceSelector clockSelector_;
+	Slider bpmSlider_;
 	Label nameLabel_;
 	TextEditor nameEntry_;
 	TextButton nameChange_;

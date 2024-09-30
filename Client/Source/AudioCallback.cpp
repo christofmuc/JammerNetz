@@ -274,8 +274,8 @@ void AudioCallback::audioDeviceIOCallbackWithContext(const float* const* inputCh
 				break;
 			}
 
-			// Play a MIDI clock at 120 bpm
-			uint64 bpm = 107;
+			// Play a MIDI clock at the speed given
+			double bpm = toPlay->bpm();
 			uint64 pulsesPerQuarterNote = 24; // This is fairly standard
 			double pulsesPerSecond = bpm * pulsesPerQuarterNote / 60.0;
 			double samplesPerSecond = SAMPLE_RATE;

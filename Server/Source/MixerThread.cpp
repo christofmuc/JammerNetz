@@ -9,8 +9,10 @@
 #include "BuffersConfig.h"
 #include "ServerLogger.h"
 
-MixerThread::MixerThread(TPacketStreamBundle &incoming, JammerNetzChannelSetup mixdownSetup, TOutgoingQueue &outgoing, TMessageQueue &wakeUpQueue, Recorder &recorder, ServerBufferConfig bufferConfig)
-	: Thread("MixerThread"), incoming_(incoming), mixdownSetup_(mixdownSetup), outgoing_(outgoing), wakeUpQueue_(wakeUpQueue), recorder_(recorder), bufferConfig_(bufferConfig), serverTime_(0)
+MixerThread::MixerThread(TPacketStreamBundle &incoming, JammerNetzChannelSetup mixdownSetup, TOutgoingQueue &outgoing, TMessageQueue &wakeUpQueue, Recorder &recorder, ServerBufferConfig bufferConfig) :
+    Thread("MixerThread"),
+    incoming_(incoming), mixdownSetup_(mixdownSetup), outgoing_(outgoing), wakeUpQueue_(wakeUpQueue), recorder_(recorder), bufferConfig_(bufferConfig), serverTime_(0),
+    lastBpm_(120.0f)
 {
 }
 
@@ -95,6 +97,7 @@ void MixerThread::run() {
 
 				// We now produce one mix for each client, specific, because you might not want to hear your own voice microphone
 				JammerNetzChannelSetup sessionSetup(false);
+				float maxBpmSet = 0.0f;
 				for (auto &client : incomingData) {
 					//recorder_.saveBlock(client.second->audioBuffer()->getArrayOfReadPointers(), outBuffer->getNumSamples());
 					bufferMixdown(outBuffer, client.second, client.first == receiver.first);
@@ -105,6 +108,12 @@ void MixerThread::run() {
 							std::copy(setup.second.channels.cbegin(), setup.second.channels.cend(), std::back_inserter(sessionSetup.channels));
 						});
 					}
+					// Check if any client requests a new bpm (larger than 0.0 value)
+					maxBpmSet = std::max(maxBpmSet, client.second->bpm());
+				}
+				if (maxBpmSet > 0.0f) {
+					// This is new information, let's use this
+					lastBpm_ = maxBpmSet;
 				}
 
 				// The outgoing queue takes packages for all clients, they will be sent out to different addresses
@@ -112,6 +121,7 @@ void MixerThread::run() {
 					receiver.second->timestamp(),
 					receiver.second->messageCounter(),
 					serverTime_,
+					lastBpm_,
 					48000,
 					mixdownSetup_,
 					outBuffer,

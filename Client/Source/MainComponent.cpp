@@ -27,7 +27,8 @@ MainComponent::MainComponent(String clientID, std::shared_ptr<AudioService> audi
 	outputController_("Master", VALUE_MASTER_OUTPUT, true, false),
 	monitorBalance_("Local", "Remote", 50),
 	logView_(false), // Turn off line numbers
-	stageLeftWhenInMillis_(Time::currentTimeMillis())
+    stageLeftWhenInMillis_(Time::currentTimeMillis()),
+	bpmSlider_(juce::Slider::SliderStyle::LinearHorizontal, juce::Slider::TextBoxRight)
 {
 	// Create an a Logger for the JammerNetz client
 	logViewLogger_ = std::make_unique<LogViewLogger>(logView_);
@@ -36,10 +37,14 @@ MainComponent::MainComponent(String clientID, std::shared_ptr<AudioService> audi
 	// We want data updates for our log window
 	Data::instance().get().addListener(this);
 
-	//bpmDisplay_ = std::make_unique<BPMDisplay>(callback_.getClocker());
 	recordingInfo_ = std::make_unique<RecordingInfo>(masterRecorder, "Press to record master mix");
 	//playalongDisplay_ = std::make_unique<PlayalongDisplay>(callback_.getPlayalong());
 	localRecordingInfo_ = std::make_unique<RecordingInfo>(localRecorder, "Press to record yourself only");
+
+	// MidiClock
+	addAndMakeVisible(bpmSlider_);
+	bpmSlider_.setRange(Range(10.0, 250.0), 0.1);
+	bpmSlider_.setTitle("bpm");
 
 	// Setup output and monitoring
 	monitorLocal_.setClickingTogglesState(true);
@@ -69,6 +74,7 @@ MainComponent::MainComponent(String clientID, std::shared_ptr<AudioService> audi
 	inputGroup_.setText("Input");
 	sessionGroup_.setText("Session participants");
 	outputGroup_.setText("Output");
+	clockGroup_.setText("MIDI Clock");
 	serverGroup_.setText("Settings");
 	qualityGroup_.setText("Quality Info");
 	recordingGroup_.setText("Recording");
@@ -84,6 +90,7 @@ MainComponent::MainComponent(String clientID, std::shared_ptr<AudioService> audi
 	addAndMakeVisible(statusInfo_);
 	addAndMakeVisible(downstreamInfo_);
 	addAndMakeVisible(outputGroup_);
+	addAndMakeVisible(clockGroup_);
 	addAndMakeVisible(outputSelector_);
 	addAndMakeVisible(monitorBalance_);
 	addAndMakeVisible(monitorLocal_);
@@ -103,12 +110,15 @@ MainComponent::MainComponent(String clientID, std::shared_ptr<AudioService> audi
 	addAndMakeVisible(*localRecordingInfo_);
 	addAndMakeVisible(logGroup_);
 	addAndMakeVisible(logView_);
+	addAndMakeVisible(clockSelector_);
 
 	startTimer(100);
 
 	// Make sure you set the size of the component after
 	// you add any child components.
 	setSize(1536, 800);
+
+	MessageManager::callAsync([this]() { clockSelector_.refreshList(); });
 }
 
 MainComponent::~MainComponent()
@@ -125,7 +135,7 @@ void MainComponent::resized()
 	area = area.reduced(kSmallInset);
 
 	int settingsHeight = 400;
-	int deviceSelectorWidth = std::min(area.getWidth() / 4, 250);
+	int deviceSelectorWidth = std::min(area.getWidth() / 5, 250);
 	int masterMixerWidth = 180; // Stereo mixer
 	int singleMixerWidth = 100;
 
@@ -183,6 +193,7 @@ void MainComponent::resized()
 	ownChannels_.setBounds(inputArea);
 
 	// To the right, the output selector
+	auto clockArea = area.removeFromRight(deviceSelectorWidth /* + playalongArea.getWidth()*/);
 	auto outputArea = area.removeFromRight(masterMixerWidth + deviceSelectorWidth /* + playalongArea.getWidth()*/);
 
 	// Upper middle, other session participants
@@ -193,6 +204,10 @@ void MainComponent::resized()
 	// Upper middle, play-along display (prominently)
 //	auto playalongArea = area.removeFromLeft(100);
 //	playalongDisplay_->setBounds(playalongArea);
+	clockGroup_.setBounds(clockArea);
+	clockArea.reduce(kNormalInset, kNormalInset);
+	bpmSlider_.setBounds(clockArea.removeFromTop(kLineSpacing));
+	clockSelector_.setBounds(clockArea.withTrimmedTop(kNormalInset));
 
 	outputGroup_.setBounds(outputArea);
 	outputArea.reduce(kNormalInset, kNormalInset);

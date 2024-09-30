@@ -20,7 +20,6 @@ table JammerNetzPNPAudioSamples {
 table JammerNetzPNPAudioBlock {
 	timestamp :double;
 	messageCounter :uint64;
-	serverTime :uint64;
 	numChannels :uint8;
 	numberOfSamples :uint16;
 	sampleRate :uint16;
@@ -28,6 +27,8 @@ table JammerNetzPNPAudioBlock {
 	channels :[JammerNetzPNPAudioSamples];
 	allChannels :[JammerNetzPNPChannelSetup];
 	wantEcho: bool = true; // True is the old behavior where the client did not have any local monitoring!
+	serverTime :uint64 = 0;
+	bpm :float = 0.0;
 }
 
 table JammerNetzPNPAudioData {

@@ -59,8 +59,9 @@ bool JammerNetzChannelSetup::isEqualEnough(const JammerNetzChannelSetup &other) 
 	return true;
 }*/
 
-AudioBlock::AudioBlock(double timestamp, uint64 messageCounter, uint64 serverTime, uint16 sampleRate, JammerNetzChannelSetup const &channelSetup, std::shared_ptr<AudioBuffer<float>> audioBuffer, JammerNetzChannelSetup const &sessionSetup) :
-	timestamp(timestamp), messageCounter(messageCounter), serverTime(serverTime), sampleRate(sampleRate), channelSetup(channelSetup), audioBuffer(audioBuffer), sessionSetup(sessionSetup)
+AudioBlock::AudioBlock(double timestamp, uint64 messageCounter, uint64 serverTime, float bpm, uint16 sampleRate, JammerNetzChannelSetup const &channelSetup,
+                       std::shared_ptr<AudioBuffer<float>> audioBuffer, JammerNetzChannelSetup const &sessionSetup) :
+	timestamp(timestamp), messageCounter(messageCounter), serverTime(serverTime), bpm(bpm), sampleRate(sampleRate), channelSetup(channelSetup), audioBuffer(audioBuffer), sessionSetup(sessionSetup)
 {
 }
 
@@ -216,6 +217,7 @@ flatbuffers::Offset<JammerNetzPNPAudioBlock> JammerNetzAudioData::serializeAudio
 	audioBlock.add_timestamp(src->timestamp);
 	audioBlock.add_messageCounter(src->messageCounter);
 	audioBlock.add_serverTime(src->serverTime);
+	audioBlock.add_bpm(src->bpm);
 	audioBlock.add_numberOfSamples((uint16)src->audioBuffer->getNumSamples() / reductionFactor);
 	audioBlock.add_numChannels((uint8)src->audioBuffer->getNumChannels());
 	audioBlock.add_sampleRate(sampleRate / reductionFactor);
@@ -278,6 +280,11 @@ juce::uint64 JammerNetzAudioData::serverTime() const
 	return activeBlock_->serverTime;
 }
 
+float JammerNetzAudioData::bpm() const
+{
+	return activeBlock_->bpm;
+}
+
 JammerNetzChannelSetup JammerNetzAudioData::channelSetup() const
 {
 	return activeBlock_->channelSetup;
@@ -293,6 +300,7 @@ std::shared_ptr<AudioBlock> JammerNetzAudioData::readAudioHeaderAndBytes(JammerN
 
 	result->messageCounter = block->messageCounter();
 	result->serverTime = block->serverTime();
+	result->bpm = block->bpm();
 	result->timestamp = block->timestamp();
 	for (auto channel = block->channelSetup()->cbegin(); channel != block->channelSetup()->cend(); channel++) {
 		JammerNetzSingleChannelSetup setup(channel->target());
