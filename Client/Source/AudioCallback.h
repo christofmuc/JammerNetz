@@ -42,6 +42,39 @@ struct PlayoutQualityInfo {
 	double measuredSampleRate; // in Hz
 };
 
+class ReadOnceLatch
+{
+public:
+	ReadOnceLatch() : value(0.0f), is_value_set(false)
+	{
+	}
+
+	void setValue(float newValue)
+	{
+		// Store the new value and mark it as set
+		value.store(newValue, std::memory_order_release);
+		is_value_set.store(true, std::memory_order_release);
+	}
+
+	std::optional<float> readOnce()
+	{
+		// Check if the value has been set
+		if (is_value_set.load(std::memory_order_acquire)) {
+			// Read the value
+			float result = value.load(std::memory_order_relaxed);
+			// Reset the latch
+			is_value_set.store(false, std::memory_order_release);
+			return result;
+		}
+		return {};
+	}
+
+private:
+	std::atomic<float> value;
+	std::atomic<bool> is_value_set;
+};
+
+
 class AudioCallback : public AudioIODeviceCallback {
 public:
 	AudioCallback();
@@ -99,6 +132,8 @@ private:
 	std::atomic<double> masterVolume_;
 	std::atomic<double> monitorBalance_;
 	std::atomic<bool> monitorIsLocal_;
+	ReadOnceLatch clientBpm_;
+	std::atomic<double> serverBpm_;
 	std::string currentText_;
 
 	JammerNetzChannelSetup channelSetup_;

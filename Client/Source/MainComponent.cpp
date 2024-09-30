@@ -45,6 +45,8 @@ MainComponent::MainComponent(String clientID, std::shared_ptr<AudioService> audi
 	addAndMakeVisible(bpmSlider_);
 	bpmSlider_.setRange(Range(10.0, 250.0), 0.1);
 	bpmSlider_.setTitle("bpm");
+	Data::ensurePropertyExists(VALUE_SERVER_BPM, 0.0);
+	bpmSlider_.getValueObject().referTo(Data::getPropertyAsValue(VALUE_SERVER_BPM));
 
 	// Setup output and monitoring
 	monitorLocal_.setClickingTogglesState(true);

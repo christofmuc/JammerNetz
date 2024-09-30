@@ -32,6 +32,7 @@ constexpr const char* VALUE_CHANNELS = "Channels";
 constexpr const char* VALUE_CHANNEL_COUNT = "ChannelCount";
 constexpr const char* VALUE_CHANNEL_ACTIVE = "ChannelActive";
 constexpr const char* VALUE_CHANNEL_NAME = "ChannelName";
+constexpr const char* VALUE_SERVER_BPM = "ServerBPM";
 
 constexpr const char* EPHEMERAL_VALUE_DEVICE_TYPES_AVAILABLE = "AudioDeviceTypes";
 constexpr const char* EPHEMERAL_VALUE_AUDIO_RUNNING = "AudioIsRunning";

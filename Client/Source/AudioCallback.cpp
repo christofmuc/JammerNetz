@@ -67,6 +67,11 @@ AudioCallback::AudioCallback() : jammerService_([this](std::shared_ptr < JammerN
 	listeners_.push_back(std::make_unique<ValueListener>(Data::instance().get().getPropertyAsValue(VALUE_USE_LOCALHOST, nullptr), [this](Value&) {
 		newServer();
 	}));
+	Data::instance().ensurePropertyExists(VALUE_SERVER_BPM, 0.0);
+	listeners_.push_back(
+	    std::make_unique<ValueListener>(Data::instance().get().getPropertyAsValue(VALUE_SERVER_BPM, nullptr), [this](Value& newValue) {
+			clientBpm_.setValue(newValue.getValue().operator float());
+	}));
 }
 
 AudioCallback::~AudioCallback()
@@ -228,7 +233,9 @@ void AudioCallback::audioDeviceIOCallbackWithContext(const float* const* inputCh
 				}
 			}*/
 
-			jammerService_.sender()->sendData(channelSetup_, audioBuffer); //TODO offload the real sending to a different thread
+			ControlData controllers;
+			controllers.bpm = clientBpm_.readOnce();
+			jammerService_.sender()->sendData(channelSetup_, audioBuffer, controllers); //TODO offload the real sending to a different thread
 		}
 	}
 
@@ -280,6 +287,7 @@ void AudioCallback::audioDeviceIOCallbackWithContext(const float* const* inputCh
 			if (midiSendThread_) {
 				// Play a MIDI clock at the speed given
 				double bpm = toPlay->bpm();
+				serverBpm_ = bpm;
 				uint64 pulsesPerQuarterNote = 24; // This is fairly standard
 				double pulsesPerSecond = bpm * pulsesPerQuarterNote / 60.0;
 				double samplesPerSecond = SAMPLE_RATE;
