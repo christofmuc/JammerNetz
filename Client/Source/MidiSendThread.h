@@ -2,17 +2,19 @@
 
 #include "JuceHeader.h"
 
+#include "MidiController.h"
+
 #include "tbb/concurrent_queue.h"
 
 #include <chrono>
 #include <deque>
 
+
 class MidiSendThread : juce::Thread {
 public:
-	MidiSendThread();
+	MidiSendThread(std::vector<std::string> const names);
 	virtual ~MidiSendThread();
 
-	void setMidiOutputByName(std::string const &name);
 	void enqueue(std::chrono::high_resolution_clock::duration fromNow, MidiMessage const &message);
 
 	void run() override;
@@ -25,5 +27,5 @@ private:
 		MidiMessage whatToSend;
 	};
 	tbb::concurrent_queue<MessageQueueItem> midiMessages;
-	MidiDeviceInfo midiOutput_;
+	std::vector<std::shared_ptr<midikraft::SafeMidiOutput>> f8_outputs;
 };

@@ -30,7 +30,7 @@ AudioCallback::AudioCallback() : jammerService_([this](std::shared_ptr < JammerN
 	//midiRecorder_ = std::make_unique<MidiRecorder>(deviceManager);
 
     // Where to send the Midi Clock signals
-	midiSendThread_.setMidiOutputByName("loopMIDI Port");
+	midiSendThread_.reset(new MidiSendThread({ "loopMIDI Port" }));
 
 	// We might want to share a score sheet or similar
 	//midiPlayalong_ = std::make_unique<MidiPlayAlong>("D:\\Development\\JammerNetz-OS\\Led Zeppelin - Stairway to heaven (1).kar");
@@ -253,6 +253,7 @@ void AudioCallback::audioDeviceIOCallbackWithContext(const float* const* inputCh
 
 	// For playout, we have to have enough bytes in the out ringbuffer to fill the output audio block.
 	// Let's see if we have enough data from the network!
+
 	while (isPlaying_ && playoutBuffer_->getNumReady() < numSamples) {
 		// We need to produce a network package to fill up the playout ring buffer
 		std::shared_ptr<JammerNetzAudioData> toPlay;
@@ -274,7 +275,7 @@ void AudioCallback::audioDeviceIOCallbackWithContext(const float* const* inputCh
 			}
 
 			// Play a MIDI clock at 120 bpm
-			uint64 bpm = 120;
+			uint64 bpm = 107;
 			uint64 pulsesPerQuarterNote = 24; // This is fairly standard
 			double pulsesPerSecond = bpm * pulsesPerQuarterNote / 60.0;
 			double samplesPerSecond = SAMPLE_RATE;
@@ -282,14 +283,14 @@ void AudioCallback::audioDeviceIOCallbackWithContext(const float* const* inputCh
 			jassert(samplesPerPulse > SAMPLE_BUFFER_SIZE); // Else it gets jitery
 
 			// Determine the server time for the first sample of this package
-			uint64 serverTime = toPlay->serverTime();
-			uint64 serverStartBeat = (uint64) floor(serverTime / samplesPerPulse);
-			uint64 serverEndBeat = (uint64)floor((serverTime + SAMPLE_BUFFER_SIZE - 1) / samplesPerPulse);
-			if (serverStartBeat != serverEndBeat) {
-				// A Pulse must be sent!
-				uint64 subPrecision = (uint64)(serverEndBeat * samplesPerPulse) - serverTime;
-				jassert(subPrecision < SAMPLE_BUFFER_SIZE);
-				midiSendThread_.enqueue(std::chrono::nanoseconds(1000000000 * subPrecision / SAMPLE_RATE), MidiMessage::midiClock());
+			uint64 serverTimeinSamples = toPlay->serverTime();
+			double bufferStartPulseNumber = floor(serverTimeinSamples / samplesPerPulse);
+			double bufferEndPulseNumber = floor((serverTimeinSamples + SAMPLE_BUFFER_SIZE) / samplesPerPulse);
+			if (bufferEndPulseNumber - bufferStartPulseNumber > 1e-6) {
+				// A Pulse must be sent! When in this buffer is the pulse due?
+				double pulseFractionInSamples = bufferEndPulseNumber * samplesPerPulse - serverTimeinSamples;
+				jassert(pulseFractionInSamples < SAMPLE_BUFFER_SIZE);
+				midiSendThread_->enqueue(std::chrono::nanoseconds(int(1e9 * pulseFractionInSamples / SAMPLE_RATE)), MidiMessage::midiClock());
 			}
 		}
 		else {
