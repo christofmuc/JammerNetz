@@ -15,12 +15,35 @@ MidiDeviceSelector::MidiDeviceSelector()
 void MidiDeviceSelector::refreshList()
 {
 	deviceSelectors_.clear();
+	buttonToDevice_.clear();
 	for (auto device : midikraft::MidiController::instance()->currentOutputs(false)) {
 		auto button = new ToggleButton(device.name);
 		scrollArea_.addAndMakeVisible(button);
 		deviceSelectors_.add(button);
+		buttonToDevice_[button] = device;
+		button->onClick = [this]() {
+			if (onSelectionChanged) {
+				onSelectionChanged(selectedOutputDevices());
+			}
+		};
 	}
 	resized();
+}
+
+std::vector<juce::MidiDeviceInfo> MidiDeviceSelector::selectedOutputDevices() const
+{
+	std::vector<juce::MidiDeviceInfo> result;
+	for (auto selector : deviceSelectors_) {
+		if (selector->getToggleState()) {
+			auto found = buttonToDevice_.find(selector);
+			if (found != buttonToDevice_.end()) {
+				result.push_back(found->second);
+			} else {
+				jassertfalse;
+			}
+		}
+	}
+	return result;
 }
 
 

@@ -31,6 +31,8 @@ public:
 
 	void stopAudioIfRunning();
 
+	void setClockOutputs(std::vector<juce::MidiDeviceInfo> outputs);
+
 	std::shared_ptr<Recorder> getMasterRecorder() const;
 	std::shared_ptr<Recorder> getLocalRecorder() const;
 

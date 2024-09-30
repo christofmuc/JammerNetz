@@ -4,19 +4,18 @@
 
 #include <spdlog/spdlog.h>
 
-MidiSendThread::MidiSendThread(std::vector<std::string> const names) : Thread("MIDI Clock")
+MidiSendThread::MidiSendThread(std::vector<juce::MidiDeviceInfo> const outputs) : Thread("MIDI Clock")
 {
 	// Check if we can find the Midi Outputs requested in the MidiController
-	for (auto const &name : names) {
-		auto device = midikraft::MidiController::instance()->getMidiOutputByName(name);
+	for (auto const &device : outputs) {
 		if (device.identifier.isEmpty()) {
-			spdlog::error("Failed to find Midi output with the name {}, not sending clock", name);
+			spdlog::error("Failed to find Midi output with the name {}, not sending clock", device.name.toStdString());
 		} else {
 			auto output = midikraft::MidiController::instance()->getMidiOutput(device);
 			if (output->isValid()) {
 				f8_outputs.push_back(output);
 			} else {
-				spdlog::error("Could not open MIDI output device, not sending clock: {}", name);
+				spdlog::error("Could not open MIDI output device, not sending clock: {}", device.name.toStdString());
 			}
 		}
 	}

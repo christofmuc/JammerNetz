@@ -12,7 +12,7 @@
 
 class MidiSendThread : juce::Thread {
 public:
-	MidiSendThread(std::vector<std::string> const names);
+	MidiSendThread(std::vector<juce::MidiDeviceInfo> const outputs);
 	virtual ~MidiSendThread();
 
 	void enqueue(std::chrono::high_resolution_clock::duration fromNow, MidiMessage const &message);

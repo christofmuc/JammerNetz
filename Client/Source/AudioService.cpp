@@ -86,6 +86,11 @@ void AudioService::stopAudioIfRunning()
 	}
 }
 
+void AudioService::setClockOutputs(std::vector<juce::MidiDeviceInfo> outputs)
+{
+	callback_.restartClock(outputs);
+}
+
 std::shared_ptr<Recorder> AudioService::getMasterRecorder() const
 {
 	return callback_.getMasterRecorder();

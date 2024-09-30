@@ -29,9 +29,6 @@ AudioCallback::AudioCallback() : jammerService_([this](std::shared_ptr < JammerN
 	masterRecorder_->setChannelInfo(SAMPLE_RATE, JammerNetzChannelSetup(false, { JammerNetzChannelTarget::Left, JammerNetzChannelTarget::Right }));
 	//midiRecorder_ = std::make_unique<MidiRecorder>(deviceManager);
 
-    // Where to send the Midi Clock signals
-	midiSendThread_.reset(new MidiSendThread({ "loopMIDI Port" }));
-
 	// We might want to share a score sheet or similar
 	//midiPlayalong_ = std::make_unique<MidiPlayAlong>("D:\\Development\\JammerNetz-OS\\Led Zeppelin - Stairway to heaven (1).kar");
 
@@ -79,6 +76,12 @@ AudioCallback::~AudioCallback()
 void AudioCallback::shutdown()
 {
 	jammerService_.shutdown();
+}
+
+void AudioCallback::restartClock(std::vector<MidiDeviceInfo> outputs)
+{
+	// Where to send the Midi Clock signals
+	midiSendThread_.reset(new MidiSendThread(outputs));
 }
 
 void AudioCallback::newServer()
@@ -274,23 +277,25 @@ void AudioCallback::audioDeviceIOCallbackWithContext(const float* const* inputCh
 				break;
 			}
 
-			// Play a MIDI clock at the speed given
-			double bpm = toPlay->bpm();
-			uint64 pulsesPerQuarterNote = 24; // This is fairly standard
-			double pulsesPerSecond = bpm * pulsesPerQuarterNote / 60.0;
-			double samplesPerSecond = SAMPLE_RATE;
-			double samplesPerPulse = samplesPerSecond / pulsesPerSecond;
-			jassert(samplesPerPulse > SAMPLE_BUFFER_SIZE); // Else it gets jitery
+			if (midiSendThread_) {
+				// Play a MIDI clock at the speed given
+				double bpm = toPlay->bpm();
+				uint64 pulsesPerQuarterNote = 24; // This is fairly standard
+				double pulsesPerSecond = bpm * pulsesPerQuarterNote / 60.0;
+				double samplesPerSecond = SAMPLE_RATE;
+				double samplesPerPulse = samplesPerSecond / pulsesPerSecond;
+				jassert(samplesPerPulse > SAMPLE_BUFFER_SIZE); // Else it gets jitery
 
-			// Determine the server time for the first sample of this package
-			uint64 serverTimeinSamples = toPlay->serverTime();
-			double bufferStartPulseNumber = floor(serverTimeinSamples / samplesPerPulse);
-			double bufferEndPulseNumber = floor((serverTimeinSamples + SAMPLE_BUFFER_SIZE) / samplesPerPulse);
-			if (bufferEndPulseNumber - bufferStartPulseNumber > 1e-6) {
-				// A Pulse must be sent! When in this buffer is the pulse due?
-				double pulseFractionInSamples = bufferEndPulseNumber * samplesPerPulse - serverTimeinSamples;
-				jassert(pulseFractionInSamples < SAMPLE_BUFFER_SIZE);
-				midiSendThread_->enqueue(std::chrono::nanoseconds(int(1e9 * pulseFractionInSamples / SAMPLE_RATE)), MidiMessage::midiClock());
+				// Determine the server time for the first sample of this package
+				uint64 serverTimeinSamples = toPlay->serverTime();
+				double bufferStartPulseNumber = floor(serverTimeinSamples / samplesPerPulse);
+				double bufferEndPulseNumber = floor((serverTimeinSamples + SAMPLE_BUFFER_SIZE - 1) / samplesPerPulse);
+				if (bufferEndPulseNumber - bufferStartPulseNumber > 1e-6) {
+					// A Pulse must be sent! When in this buffer is the pulse due?
+					double pulseFractionInSamples = bufferEndPulseNumber * samplesPerPulse - serverTimeinSamples;
+					jassert(pulseFractionInSamples < SAMPLE_BUFFER_SIZE);
+					midiSendThread_->enqueue(std::chrono::nanoseconds(int(1e9 * pulseFractionInSamples / SAMPLE_RATE)), MidiMessage::midiClock());
+				}
 			}
 		}
 		else {

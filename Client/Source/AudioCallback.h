@@ -49,6 +49,8 @@ public:
 
 	void shutdown();
 
+	void restartClock(std::vector<MidiDeviceInfo> outputs);
+
 	virtual void audioDeviceIOCallbackWithContext(const float* const* inputChannelData, int numInputChannels, float* const* outputChannelData, int numOutputChannels,
 	    int numSamples, const AudioIODeviceCallbackContext& context);
 	virtual void audioDeviceAboutToStart(AudioIODevice* device) override;

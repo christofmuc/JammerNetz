@@ -12,8 +12,13 @@ public:
 
 	virtual void resized() override;
 
+	std::function<void(std::vector<juce::MidiDeviceInfo>)> onSelectionChanged;
+
 private:
+	std::vector<juce::MidiDeviceInfo> selectedOutputDevices() const;
+
 	Viewport scrollList_;
 	Component scrollArea_;
 	OwnedArray<ToggleButton> deviceSelectors_;
+	std::map<ToggleButton *, juce::MidiDeviceInfo> buttonToDevice_;
 };

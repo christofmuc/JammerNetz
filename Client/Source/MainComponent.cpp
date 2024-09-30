@@ -118,6 +118,11 @@ MainComponent::MainComponent(String clientID, std::shared_ptr<AudioService> audi
 	// you add any child components.
 	setSize(1536, 800);
 
+	clockSelector_.onSelectionChanged = [this](std::vector<juce::MidiDeviceInfo> activeOutputs) {
+		if (audioService_) {
+			audioService_->setClockOutputs(activeOutputs);
+		}
+	};
 	MessageManager::callAsync([this]() { clockSelector_.refreshList(); });
 }
 
