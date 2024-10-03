@@ -17,6 +17,8 @@ table JammerNetzPNPAudioSamples {
 	audioSamples :[uint16];
 }
 
+enum MidiSignal: byte { None = 1, Start, Stop }
+
 table JammerNetzPNPAudioBlock {
 	timestamp :double;
 	messageCounter :uint64;
@@ -29,6 +31,7 @@ table JammerNetzPNPAudioBlock {
 	wantEcho: bool = true; // True is the old behavior where the client did not have any local monitoring!
 	serverTime :uint64 = 0;
 	bpm :float = 0.0;
+	midiSignal: MidiSignal = None;
 }
 
 table JammerNetzPNPAudioData {

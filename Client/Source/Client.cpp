@@ -94,9 +94,13 @@ bool Client::sendData(JammerNetzChannelSetup const& channelSetup, std::shared_pt
 	if (useFEC_ && !fecBuffer_.isEmpty()) {
 		fecBlock = fecBuffer_.getLast();
 	}
+	MidiSignal toSend = MidiSignal_None;
+	if (controllers.midiSignal.has_value()) {
+		toSend = controllers.midiSignal.value();
+	}
 
 	// Create a message
-	JammerNetzAudioData audioMessage(messageCounter_, Time::getMillisecondCounterHiRes(), channelSetup, SAMPLE_RATE, controllers.bpm, audioBuffer, fecBlock);
+	JammerNetzAudioData audioMessage(messageCounter_, Time::getMillisecondCounterHiRes(), channelSetup, SAMPLE_RATE, controllers.bpm, toSend, audioBuffer, fecBlock);
 
 	messageCounter_++;
 	size_t totalBytes;

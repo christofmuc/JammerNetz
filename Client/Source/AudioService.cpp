@@ -91,6 +91,11 @@ void AudioService::setClockOutputs(std::vector<juce::MidiDeviceInfo> outputs)
 	callback_.restartClock(outputs);
 }
 
+void AudioService::setMidiSignal(MidiSignal signal)
+{
+	callback_.setMidiSignalToSend(signal);
+}
+
 std::shared_ptr<Recorder> AudioService::getMasterRecorder() const
 {
 	return callback_.getMasterRecorder();

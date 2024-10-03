@@ -55,6 +55,8 @@ private:
 	GroupComponent clockGroup_;
 	MidiDeviceSelector clockSelector_;
 	Slider bpmSlider_;
+	TextButton midiStart_;
+	TextButton midiStop_;
 	Label nameLabel_;
 	TextEditor nameEntry_;
 	TextButton nameChange_;

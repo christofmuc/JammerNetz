@@ -42,26 +42,27 @@ struct PlayoutQualityInfo {
 	double measuredSampleRate; // in Hz
 };
 
+template <typename T>
 class ReadOnceLatch
 {
 public:
-	ReadOnceLatch() : value(0.0f), is_value_set(false)
+	ReadOnceLatch(T default_value) : value(default_value), is_value_set(false)
 	{
 	}
 
-	void setValue(float newValue)
+	void setValue(T newValue)
 	{
 		// Store the new value and mark it as set
 		value.store(newValue, std::memory_order_release);
 		is_value_set.store(true, std::memory_order_release);
 	}
 
-	std::optional<float> readOnce()
+	std::optional<T> readOnce()
 	{
 		// Check if the value has been set
 		if (is_value_set.load(std::memory_order_acquire)) {
 			// Read the value
-			float result = value.load(std::memory_order_relaxed);
+			T result = value.load(std::memory_order_relaxed);
 			// Reset the latch
 			is_value_set.store(false, std::memory_order_release);
 			return result;
@@ -70,7 +71,7 @@ public:
 	}
 
 private:
-	std::atomic<float> value;
+	std::atomic<T> value;
 	std::atomic<bool> is_value_set;
 };
 
@@ -83,6 +84,7 @@ public:
 	void shutdown();
 
 	void restartClock(std::vector<MidiDeviceInfo> outputs);
+	void setMidiSignalToSend(MidiSignal signal);
 
 	virtual void audioDeviceIOCallbackWithContext(const float* const* inputChannelData, int numInputChannels, float* const* outputChannelData, int numOutputChannels,
 	    int numSamples, const AudioIODeviceCallbackContext& context);
@@ -132,7 +134,7 @@ private:
 	std::atomic<double> masterVolume_;
 	std::atomic<double> monitorBalance_;
 	std::atomic<bool> monitorIsLocal_;
-	ReadOnceLatch clientBpm_;
+	ReadOnceLatch<float> clientBpm_;
 	std::atomic<double> serverBpm_;
 	std::optional<std::chrono::steady_clock::time_point> bpmSliderLastMoved_;
 	std::string currentText_;
@@ -147,6 +149,9 @@ private:
 	std::unique_ptr<MidiRecorder> midiRecorder_;
 	std::unique_ptr<MidiPlayAlong> midiPlayalong_;
 	std::unique_ptr<MidiSendThread> midiSendThread_;
+
+	ReadOnceLatch<MidiSignal> midiSignalToSend_;
+	ReadOnceLatch<MidiSignal> midiSignalToGenerate_;
 
 	std::unique_ptr<Tuner> tuner_;
 

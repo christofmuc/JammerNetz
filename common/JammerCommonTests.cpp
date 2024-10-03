@@ -18,7 +18,7 @@ TEST(TestSerialization, TestAudioData) {
 	JammerNetzChannelSetup setup(false);
 	setup.channels.push_back(JammerNetzSingleChannelSetup(JammerNetzChannelTarget::Left));
 
-	JammerNetzAudioData  message(0, 1234.0, setup, SAMPLE_RATE, 0.0f, buffer, nullptr);
+	JammerNetzAudioData  message(0, 1234.0, setup, SAMPLE_RATE, 0.0f, MidiSignal_None, buffer, nullptr);
 	ASSERT_EQ(message.messageCounter(), 0);
 	ASSERT_EQ(message.timestamp(), 1234.0);
 

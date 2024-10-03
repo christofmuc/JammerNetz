@@ -15,8 +15,8 @@
 
 #include "Logger.h"
 
-AudioCallback::AudioCallback() : jammerService_([this](std::shared_ptr < JammerNetzAudioData> buffer) { playBuffer_.push(buffer); }),
-	playBuffer_("server"), masterVolume_(1.0), monitorBalance_(0.0), channelSetup_(false)
+AudioCallback::AudioCallback() : jammerService_([this](std::shared_ptr < JammerNetzAudioData> buffer) { playBuffer_.push(buffer); }), playBuffer_("server"), masterVolume_(1.0), monitorBalance_(0.0),
+    channelSetup_(false), clientBpm_(0.0f), midiSignalToGenerate_(MidiSignal_None), midiSignalToSend_(MidiSignal_None)
 {
 	isPlaying_ = false;
 	minPlayoutBufferLength_ = CLIENT_PLAYOUT_JITTER_BUFFER;
@@ -88,6 +88,11 @@ void AudioCallback::restartClock(std::vector<MidiDeviceInfo> outputs)
 {
 	// Where to send the Midi Clock signals
 	midiSendThread_.reset(new MidiSendThread(outputs));
+}
+
+void AudioCallback::setMidiSignalToSend(MidiSignal signal)
+{
+	midiSignalToSend_.setValue(signal);
 }
 
 void AudioCallback::newServer()
@@ -236,6 +241,7 @@ void AudioCallback::audioDeviceIOCallbackWithContext(const float* const* inputCh
 
 			ControlData controllers;
 			controllers.bpm = clientBpm_.readOnce();
+			controllers.midiSignal = midiSignalToSend_.readOnce();
 			jammerService_.sender()->sendData(channelSetup_, audioBuffer, controllers); //TODO offload the real sending to a different thread
 		}
 	}
@@ -285,6 +291,12 @@ void AudioCallback::audioDeviceIOCallbackWithContext(const float* const* inputCh
 				break;
 			}
 
+			// Check if we are tasked to generate a MIDI signal
+			if (toPlay->midiSignal() != MidiSignal_None) {
+				// This might overwrite a signal not yet generated, because the next F8 clock has not been generated
+				midiSignalToGenerate_.setValue(toPlay->midiSignal());
+			}
+
 			double bpm = toPlay->bpm();
 			serverBpm_ = bpm;
 			if (midiSendThread_) {
@@ -302,8 +314,22 @@ void AudioCallback::audioDeviceIOCallbackWithContext(const float* const* inputCh
 				if (bufferEndPulseNumber - bufferStartPulseNumber > 1e-6) {
 					// A Pulse must be sent! When in this buffer is the pulse due?
 					double pulseFractionInSamples = bufferEndPulseNumber * samplesPerPulse - serverTimeinSamples;
-					jassert(pulseFractionInSamples < SAMPLE_BUFFER_SIZE);
+					jassert(pulseFractionInSamples <= SAMPLE_BUFFER_SIZE);
 					midiSendThread_->enqueue(std::chrono::nanoseconds(int(1e9 * pulseFractionInSamples / SAMPLE_RATE)), MidiMessage::midiClock());
+					auto signalToGenerate = midiSignalToGenerate_.readOnce();
+					if (signalToGenerate.has_value()) {
+						switch (signalToGenerate.value()) {
+						case MidiSignal_Start:
+							midiSendThread_->enqueue(std::chrono::nanoseconds(int(1e9 * pulseFractionInSamples / SAMPLE_RATE)), MidiMessage::midiStart());
+							break;
+						case MidiSignal_Stop:
+							midiSendThread_->enqueue(std::chrono::nanoseconds(int(1e9 * pulseFractionInSamples / SAMPLE_RATE)), MidiMessage::midiStop());
+							break;
+						default:
+							// Ignore
+							break;
+						}
+					}
 				}
 			}
 

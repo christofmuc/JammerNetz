@@ -59,9 +59,9 @@ bool JammerNetzChannelSetup::isEqualEnough(const JammerNetzChannelSetup &other) 
 	return true;
 }*/
 
-AudioBlock::AudioBlock(double timestamp, uint64 messageCounter, uint64 serverTime, float bpm, uint16 sampleRate, JammerNetzChannelSetup const &channelSetup,
+AudioBlock::AudioBlock(double timestamp, uint64 messageCounter, uint64 serverTime, float bpm, MidiSignal midiSignal, uint16 sampleRate, JammerNetzChannelSetup const &channelSetup,
                        std::shared_ptr<AudioBuffer<float>> audioBuffer, JammerNetzChannelSetup const &sessionSetup) :
-	timestamp(timestamp), messageCounter(messageCounter), serverTime(serverTime), bpm(bpm), sampleRate(sampleRate), channelSetup(channelSetup), audioBuffer(audioBuffer), sessionSetup(sessionSetup)
+	timestamp(timestamp), messageCounter(messageCounter), serverTime(serverTime), bpm(bpm), midiSignal(midiSignal), sampleRate(sampleRate), channelSetup(channelSetup), audioBuffer(audioBuffer), sessionSetup(sessionSetup)
 {
 }
 
@@ -133,6 +133,7 @@ JammerNetzAudioData::JammerNetzAudioData(uint8 *data, size_t bytes) {
 }
 
 JammerNetzAudioData::JammerNetzAudioData(uint64 messageCounter, double timestamp, JammerNetzChannelSetup const &channelSetup, int sampleRate, std::optional<float> bpm,
+	MidiSignal midiSignal,
     std::shared_ptr<AudioBuffer<float>> audioBuffer, std::shared_ptr<AudioBlock> fecBlock) :
 	fecBlock_(fecBlock)
 {
@@ -143,6 +144,7 @@ JammerNetzAudioData::JammerNetzAudioData(uint64 messageCounter, double timestamp
 	if (bpm.has_value()) {
 		audioBlock_->bpm = *bpm;
 	}
+	audioBlock_->midiSignal = midiSignal;
 	audioBlock_->channelSetup = channelSetup;
 	audioBlock_->audioBuffer = audioBuffer;
 	activeBlock_ = audioBlock_;
@@ -158,12 +160,12 @@ std::shared_ptr<JammerNetzAudioData> JammerNetzAudioData::createFillInPackage(ui
 {
 	if (fecBlock_) {
 		outHadFEC = true;
-		return std::make_shared<JammerNetzAudioData>(messageNumber, fecBlock_->timestamp, fecBlock_->channelSetup, SAMPLE_RATE, fecBlock_->bpm, fecBlock_->audioBuffer, nullptr);
+		return std::make_shared<JammerNetzAudioData>(messageNumber, fecBlock_->timestamp, fecBlock_->channelSetup, SAMPLE_RATE, fecBlock_->bpm, fecBlock_->midiSignal, fecBlock_->audioBuffer, nullptr);
 	}
 	// No FEC data available, fall back to "repeat last package"
 	//TODO - fake timestamp?
 	outHadFEC = false;
-	return std::make_shared<JammerNetzAudioData>(messageNumber, audioBlock_->timestamp, audioBlock_->channelSetup, SAMPLE_RATE, audioBlock_->bpm, audioBlock_->audioBuffer, nullptr);
+	return std::make_shared<JammerNetzAudioData>(messageNumber, audioBlock_->timestamp, audioBlock_->channelSetup, SAMPLE_RATE, audioBlock_->bpm, audioBlock_->midiSignal, audioBlock_->audioBuffer, nullptr);
 }
 
 std::shared_ptr<JammerNetzAudioData> JammerNetzAudioData::createPrePaddingPackage() const
@@ -173,6 +175,7 @@ std::shared_ptr<JammerNetzAudioData> JammerNetzAudioData::createPrePaddingPackag
 	*silence = *audioBlock_->audioBuffer; // Deep copy
 	silence->clear();
 	return std::make_shared<JammerNetzAudioData>(audioBlock_->messageCounter - 1, audioBlock_->timestamp, audioBlock_->channelSetup, SAMPLE_RATE, std::optional<float>(),
+		MidiSignal_None,
 	    silence, nullptr);
 }
 
@@ -223,6 +226,7 @@ flatbuffers::Offset<JammerNetzPNPAudioBlock> JammerNetzAudioData::serializeAudio
 	audioBlock.add_messageCounter(src->messageCounter);
 	audioBlock.add_serverTime(src->serverTime);
 	audioBlock.add_bpm(src->bpm);
+	audioBlock.add_midiSignal(src->midiSignal);
 	audioBlock.add_numberOfSamples((uint16)src->audioBuffer->getNumSamples() / reductionFactor);
 	audioBlock.add_numChannels((uint8)src->audioBuffer->getNumChannels());
 	audioBlock.add_sampleRate(sampleRate / reductionFactor);
@@ -290,6 +294,11 @@ float JammerNetzAudioData::bpm() const
 	return activeBlock_->bpm;
 }
 
+MidiSignal JammerNetzAudioData::midiSignal() const
+{
+	return activeBlock_->midiSignal;
+}
+
 JammerNetzChannelSetup JammerNetzAudioData::channelSetup() const
 {
 	return activeBlock_->channelSetup;
@@ -306,6 +315,7 @@ std::shared_ptr<AudioBlock> JammerNetzAudioData::readAudioHeaderAndBytes(JammerN
 	result->messageCounter = block->messageCounter();
 	result->serverTime = block->serverTime();
 	result->bpm = block->bpm();
+	result->midiSignal = block->midiSignal();
 	result->timestamp = block->timestamp();
 	for (auto channel = block->channelSetup()->cbegin(); channel != block->channelSetup()->cend(); channel++) {
 		JammerNetzSingleChannelSetup setup(channel->target());

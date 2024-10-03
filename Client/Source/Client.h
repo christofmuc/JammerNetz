@@ -16,6 +16,7 @@
 struct ControlData
 {
 	std::optional<float> bpm;
+	std::optional<MidiSignal> midiSignal;
 };
 
 class Client {

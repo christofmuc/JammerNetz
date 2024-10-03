@@ -47,6 +47,12 @@ MainComponent::MainComponent(String clientID, std::shared_ptr<AudioService> audi
 	bpmSlider_.setTitle("bpm");
 	Data::ensurePropertyExists(VALUE_SERVER_BPM, 0.0);
 	bpmSlider_.getValueObject().referTo(Data::getPropertyAsValue(VALUE_SERVER_BPM));
+	midiStart_.setButtonText("Start");
+	midiStart_.onClick = [this]() { audioService_->setMidiSignal(MidiSignal_Start); };
+	midiStop_.setButtonText("Stop");
+	midiStop_.onClick = [this]() { audioService_->setMidiSignal(MidiSignal_Stop); };
+	addAndMakeVisible(midiStart_);
+	addAndMakeVisible(midiStop_);
 
 	// Setup output and monitoring
 	monitorLocal_.setClickingTogglesState(true);
@@ -214,6 +220,9 @@ void MainComponent::resized()
 	clockGroup_.setBounds(clockArea);
 	clockArea.reduce(kNormalInset, kNormalInset);
 	bpmSlider_.setBounds(clockArea.removeFromTop(kLineSpacing));
+	auto transportRow = clockArea.removeFromTop(kLineSpacing);
+	midiStart_.setBounds(transportRow.removeFromLeft(kButtonWidth).reduced(kSmallInset));
+	midiStop_.setBounds(transportRow.removeFromLeft(kButtonWidth).reduced(kSmallInset));
 	clockSelector_.setBounds(clockArea.withTrimmedTop(kNormalInset));
 
 	outputGroup_.setBounds(outputArea);
