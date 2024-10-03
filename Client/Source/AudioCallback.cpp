@@ -71,6 +71,7 @@ AudioCallback::AudioCallback() : jammerService_([this](std::shared_ptr < JammerN
 	listeners_.push_back(
 	    std::make_unique<ValueListener>(Data::instance().get().getPropertyAsValue(VALUE_SERVER_BPM, nullptr), [this](Value& newValue) {
 			clientBpm_.setValue(newValue.getValue().operator float());
+		bpmSliderLastMoved_ = std::chrono::steady_clock::now();
 	}));
 }
 
@@ -284,10 +285,10 @@ void AudioCallback::audioDeviceIOCallbackWithContext(const float* const* inputCh
 				break;
 			}
 
+			double bpm = toPlay->bpm();
+			serverBpm_ = bpm;
 			if (midiSendThread_) {
 				// Play a MIDI clock at the speed given
-				double bpm = toPlay->bpm();
-				serverBpm_ = bpm;
 				uint64 pulsesPerQuarterNote = 24; // This is fairly standard
 				double pulsesPerSecond = bpm * pulsesPerQuarterNote / 60.0;
 				double samplesPerSecond = SAMPLE_RATE;
@@ -304,6 +305,12 @@ void AudioCallback::audioDeviceIOCallbackWithContext(const float* const* inputCh
 					jassert(pulseFractionInSamples < SAMPLE_BUFFER_SIZE);
 					midiSendThread_->enqueue(std::chrono::nanoseconds(int(1e9 * pulseFractionInSamples / SAMPLE_RATE)), MidiMessage::midiClock());
 				}
+			}
+
+			// Check if the slider wasn't updated for a while, then take the server value and update the slider
+			if (!bpmSliderLastMoved_.has_value() || (std::chrono::steady_clock::now() - bpmSliderLastMoved_.value()) > std::chrono::seconds(1)) {
+				Data::getPropertyAsValue(VALUE_SERVER_BPM).setValue(bpm);
+				bpmSliderLastMoved_ = std::chrono::steady_clock::now();
 			}
 		}
 		else {

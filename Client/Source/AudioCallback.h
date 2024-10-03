@@ -134,6 +134,7 @@ private:
 	std::atomic<bool> monitorIsLocal_;
 	ReadOnceLatch clientBpm_;
 	std::atomic<double> serverBpm_;
+	std::optional<std::chrono::steady_clock::time_point> bpmSliderLastMoved_;
 	std::string currentText_;
 
 	JammerNetzChannelSetup channelSetup_;
