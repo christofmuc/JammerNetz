@@ -298,7 +298,7 @@ void AudioCallback::audioDeviceIOCallbackWithContext(const float* const* inputCh
 				// Determine the server time for the first sample of this package
 				uint64 serverTimeinSamples = toPlay->serverTime();
 				double bufferStartPulseNumber = floor(serverTimeinSamples / samplesPerPulse);
-				double bufferEndPulseNumber = floor((serverTimeinSamples + SAMPLE_BUFFER_SIZE - 1) / samplesPerPulse);
+				double bufferEndPulseNumber = floor((serverTimeinSamples + SAMPLE_BUFFER_SIZE) / samplesPerPulse);
 				if (bufferEndPulseNumber - bufferStartPulseNumber > 1e-6) {
 					// A Pulse must be sent! When in this buffer is the pulse due?
 					double pulseFractionInSamples = bufferEndPulseNumber * samplesPerPulse - serverTimeinSamples;
