@@ -3,7 +3,9 @@
 #include "LayoutConstants.h"
 
 #include "MidiController.h"
+#include "Data.h"
 
+#include "ApplicationState.h"
 
 MidiDeviceSelector::MidiDeviceSelector()
 {
@@ -23,10 +25,13 @@ void MidiDeviceSelector::refreshList()
 		buttonToDevice_[button] = device;
 		button->onClick = [this]() {
 			if (onSelectionChanged) {
+				// Persist in settings structure!
+				storeInSettings();
 				onSelectionChanged(selectedOutputDevices());
 			}
 		};
 	}
+	loadFromSettings();
 	resized();
 }
 
@@ -44,6 +49,39 @@ std::vector<juce::MidiDeviceInfo> MidiDeviceSelector::selectedOutputDevices() co
 		}
 	}
 	return result;
+}
+
+void MidiDeviceSelector::storeInSettings()
+{
+	auto settings = Data::instance().get().getOrCreateChildWithName(VALUE_MIDI_CLOCK_DEVICES, nullptr);
+	//settings.removeAllChildren(nullptr);
+	for (auto selector : deviceSelectors_) {
+		if (selector->getToggleState()) {
+			auto found = buttonToDevice_.find(selector);
+			if (found != buttonToDevice_.end()) {
+				auto device = settings.getOrCreateChildWithName(VALUE_ENTRY, nullptr);
+				device.setProperty(VALUE_DEVICE_NAME, found->second.name, nullptr);
+				device.setProperty(VALUE_DEVICE_ID, found->second.identifier, nullptr); // Not used yet during load
+			} else {
+				jassertfalse;
+			}
+		}
+	}
+}
+
+void MidiDeviceSelector::loadFromSettings()
+{
+	auto settings = Data::instance().get().getOrCreateChildWithName(VALUE_MIDI_CLOCK_DEVICES, nullptr);
+	for (int i = 0; i < settings.getNumChildren(); i++) {
+		auto child = settings.getChild(i);
+		auto deviceName = child.getProperty(VALUE_DEVICE_NAME).toString();
+		// Search for the device
+		for (auto buttonEntry : buttonToDevice_) {
+			if (buttonEntry.second.name == deviceName) {
+				buttonEntry.first->setToggleState(true, dontSendNotification);
+			}
+		}
+	}
 }
 
 

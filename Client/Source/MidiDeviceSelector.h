@@ -16,6 +16,8 @@ public:
 
 private:
 	std::vector<juce::MidiDeviceInfo> selectedOutputDevices() const;
+	void loadFromSettings();
+	void storeInSettings();
 
 	Viewport scrollList_;
 	Component scrollArea_;
