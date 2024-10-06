@@ -193,13 +193,14 @@ MidiMessage createBossRC300ClockMessage(double bpm, MidiSignal additionalSignal)
 	// See https://www.vguitarforums.com/smf/index.php?topic=7678.50 "RC300- Here's how to slave the RC-300's Tempo to (some) external sources"
 	uint16 length = 0x00;
 	switch (additionalSignal) {
-	case MidiSignal_Start:
+	case MidiSignal_Start: {
 		// We need to calculate the length, which effectively is the bar signature
 		// The RC-300 seems to work with 24 pulses per 16th note, or 24*4=96 pulses per quarter note. That is faster than the 24 ppqn we use for the
 		// MIDI clock. Anyway, let's just send it a 4 bar of 4/4 signature, which makes 16 quarter notes.
 		uint16 quarterNotesLength = 8;
 		uint16 pulsesPerQuarterNote = 96;
 		length = quarterNotesLength * pulsesPerQuarterNote;
+	}
 		break;
 	case MidiSignal_Stop:
 		// The Stop signal just uses the length 0x00 already set above
