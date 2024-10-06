@@ -27,11 +27,11 @@ MidiSendThread::~MidiSendThread()
 	stopThread(1000);
 }
 
-void MidiSendThread::enqueue(std::chrono::high_resolution_clock::duration fromNow, MidiMessage const &message)
+void MidiSendThread::enqueue(std::chrono::high_resolution_clock::duration fromNow, std::vector<MidiMessage> const &messages)
 {
 	ignoreUnused(fromNow);
 	auto now = std::chrono::high_resolution_clock::now() + fromNow;
-	midiMessages.push({ now, message });
+	midiMessages.push({ now, messages });
 }
 
 void MidiSendThread::run()
@@ -51,7 +51,7 @@ void MidiSendThread::run()
 				}
 				// Send the F8 MIDI Clock message to all devices registered
 				for (auto &out : f8_outputs) {
-					out->sendMessageNow(item.whatToSend);
+					out->sendBlockOfMessagesFullSpeed(item.whatToSend);
 				}
 			}
 		} catch (std::exception &e) {

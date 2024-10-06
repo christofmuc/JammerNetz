@@ -15,7 +15,7 @@ public:
 	MidiSendThread(std::vector<juce::MidiDeviceInfo> const outputs);
 	virtual ~MidiSendThread();
 
-	void enqueue(std::chrono::high_resolution_clock::duration fromNow, MidiMessage const &message);
+	void enqueue(std::chrono::high_resolution_clock::duration fromNow, std::vector<MidiMessage> const &messages);
 
 	void run() override;
 
@@ -24,7 +24,7 @@ private:
 
 	struct MessageQueueItem {
 		std::chrono::high_resolution_clock::time_point whenToSend;
-		MidiMessage whatToSend;
+		std::vector<MidiMessage> whatToSend;
 	};
 	tbb::concurrent_queue<MessageQueueItem> midiMessages;
 	std::vector<std::shared_ptr<midikraft::SafeMidiOutput>> f8_outputs;
