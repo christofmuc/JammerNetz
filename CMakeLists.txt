@@ -76,7 +76,7 @@ elseif(UNIX)
 	# These calls create special `PkgConfig::<MODULE>` variables
 	pkg_check_modules(GTK REQUIRED IMPORTED_TARGET gtk+-3.0)
 	pkg_check_modules(GLEW REQUIRED IMPORTED_TARGET glew)
-	pkg_check_modules(WEBKIT REQUIRED IMPORTED_TARGET webkit2gtk-4.0)  # TODO Test that this is really no longer required
+	pkg_check_modules(WEBKIT REQUIRED IMPORTED_TARGET webkit2gtk-4.1)
 endif()
 
 
@@ -209,5 +209,8 @@ add_subdirectory("Client")
 # The client installer now contains the server as well for local testing - make sure to always build the server
 add_dependencies(JammerNetzClient JammerNetzServer)
 
-add_executable(test_asio test/test_asio.cpp)
-target_link_libraries(test_asio juce-static)
+# For Windows, we additionally build a little test program to check if ASIO initialization works.
+if(WIN32)
+	add_executable(test_asio test/test_asio.cpp)
+	target_link_libraries(test_asio juce-static)
+endif()

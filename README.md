@@ -159,16 +159,31 @@ All clients should be able to connect to the server via its IP address.
 
 If you are working on Linux, make sure to have all development prerequisites installed!
 
+The JUCE documentation has this somewhat hidden at https://github.com/juce-framework/JUCE/blob/master/docs/Linux%20Dependencies.md.
+
 ### Debian/Ubuntu
 
 On a fresh Debian 9 machine, that would e.g. require the following installs:
 
-    sudo apt-get -y install g++ libasound2-dev libcurl4-openssl-dev libfreetype6-dev libncurses-dev libjack-dev libx11-dev libglew-dev mesa-common-dev webkit2gtk-4.0
+    sudo apt-get -y install g++ libasound2-dev libcurl4-openssl-dev libfreetype6-dev libncurses-dev libjack-dev libx11-dev libglew-dev mesa-common-dev webkit2gtk-4.1 libwebkit2gtk-4.1-dev cmake webkit2gtk3-devel.x86_64
+
+	sudo apt update
+	# This is what we need extra:
+	sudo apt install g++ cmake libncurses-dev libglew-dev
+	# This is what the JUCE documentation specifies:
+	sudo apt install libasound2-dev libjack-jackd2-dev \
+		ladspa-sdk \
+		libcurl4-openssl-dev  \
+		libfreetype-dev libfontconfig1-dev \
+		libx11-dev libxcomposite-dev libxcursor-dev libxext-dev libxinerama-dev libxrandr-dev libxrender-dev \
+		libwebkit2gtk-4.1-dev \
+		libglu1-mesa-dev mesa-common-dev
 
 ### Fedora
 
 For a Fedora-based distribution like Amazon Linux 2, you would use `yum` to install the dependencies:
 
+	# TODO - this needs updating for JUCE8
     sudo yum install alsa-lib-devel libcurl-devel freetype-devel ncurses-devel jack-audio-connection-kit-devel libX11-devel  mesa-libGL-devel webkitgtk4-devel glew-devel
 
 
