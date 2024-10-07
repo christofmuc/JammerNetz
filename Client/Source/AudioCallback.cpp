@@ -398,7 +398,7 @@ void AudioCallback::audioDeviceIOCallbackWithContext(const float* const* inputCh
 			}
 
 			// Check if the slider wasn't updated for a while, then take the server value and update the slider
-			if (!bpmSliderLastMoved_.has_value() || (std::chrono::steady_clock::now() - bpmSliderLastMoved_.value()) > std::chrono::seconds(1)) {
+			if (!bpmSliderLastMoved_.has_value() || (std::chrono::steady_clock::now() - *bpmSliderLastMoved_) > std::chrono::seconds(1)) {
 				Data::getPropertyAsValue(VALUE_SERVER_BPM).setValue(bpm);
 				bpmSliderLastMoved_ = std::chrono::steady_clock::now();
 			}

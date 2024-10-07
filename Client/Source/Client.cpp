@@ -96,7 +96,7 @@ bool Client::sendData(JammerNetzChannelSetup const& channelSetup, std::shared_pt
 	}
 	MidiSignal toSend = MidiSignal_None;
 	if (controllers.midiSignal.has_value()) {
-		toSend = controllers.midiSignal.value();
+		toSend = *controllers.midiSignal;
 	}
 
 	// Create a message
