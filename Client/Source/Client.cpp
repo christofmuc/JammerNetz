@@ -87,16 +87,20 @@ bool Client::sendData(String const &remoteHostname, int remotePort, void *data, 
 	return true;
 }
 
-bool Client::sendData(JammerNetzChannelSetup const &channelSetup, std::shared_ptr<AudioBuffer<float>> audioBuffer)
+bool Client::sendData(JammerNetzChannelSetup const& channelSetup, std::shared_ptr<AudioBuffer<float>> audioBuffer, ControlData controllers)
 {
 	// If we have FEC data, and the user enabled it, append the last block sent
 	std::shared_ptr<AudioBlock> fecBlock;
 	if (useFEC_ && !fecBuffer_.isEmpty()) {
 		fecBlock = fecBuffer_.getLast();
 	}
+	MidiSignal toSend = MidiSignal_None;
+	if (controllers.midiSignal.has_value()) {
+		toSend = *controllers.midiSignal;
+	}
 
 	// Create a message
-	JammerNetzAudioData audioMessage(messageCounter_, Time::getMillisecondCounterHiRes(), channelSetup, SAMPLE_RATE, audioBuffer, fecBlock);
+	JammerNetzAudioData audioMessage(messageCounter_, Time::getMillisecondCounterHiRes(), channelSetup, SAMPLE_RATE, controllers.bpm, toSend, audioBuffer, fecBlock);
 
 	messageCounter_++;
 	size_t totalBytes;

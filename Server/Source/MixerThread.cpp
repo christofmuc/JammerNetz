@@ -9,8 +9,10 @@
 #include "BuffersConfig.h"
 #include "ServerLogger.h"
 
-MixerThread::MixerThread(TPacketStreamBundle &incoming, JammerNetzChannelSetup mixdownSetup, TOutgoingQueue &outgoing, TMessageQueue &wakeUpQueue, Recorder &recorder, ServerBufferConfig bufferConfig)
-	: Thread("MixerThread"), incoming_(incoming), mixdownSetup_(mixdownSetup), outgoing_(outgoing), wakeUpQueue_(wakeUpQueue), recorder_(recorder), bufferConfig_(bufferConfig)
+MixerThread::MixerThread(TPacketStreamBundle &incoming, JammerNetzChannelSetup mixdownSetup, TOutgoingQueue &outgoing, TMessageQueue &wakeUpQueue, Recorder &recorder, ServerBufferConfig bufferConfig) :
+    Thread("MixerThread"),
+    incoming_(incoming), mixdownSetup_(mixdownSetup), outgoing_(outgoing), wakeUpQueue_(wakeUpQueue), recorder_(recorder), bufferConfig_(bufferConfig), serverTime_(0),
+    lastBpm_(120.0f)
 {
 }
 
@@ -85,6 +87,7 @@ void MixerThread::run() {
 		if (incomingData.size() > 0) {
 			//TODO - current assumption: all clients provide buffers of the same size. Therefore, take the length of the first client as the output size
 			int bufferLength = (*incomingData.begin()).second->audioBuffer()->getNumSamples();
+			serverTime_ += bufferLength; // Server time counts time of mixing thread in samples mixed since launch
 
 			// For each client that has delivered data, produce a mix down package and send it back
 			//TODO - also the clients that have not provided data should get a package with a note that they are not contained within - they could do a local fill in.
@@ -94,6 +97,8 @@ void MixerThread::run() {
 
 				// We now produce one mix for each client, specific, because you might not want to hear your own voice microphone
 				JammerNetzChannelSetup sessionSetup(false);
+				float maxBpmSet = 0.0f;
+				MidiSignal midiSignal = MidiSignal_None;
 				for (auto &client : incomingData) {
 					//recorder_.saveBlock(client.second->audioBuffer()->getArrayOfReadPointers(), outBuffer->getNumSamples());
 					bufferMixdown(outBuffer, client.second, client.first == receiver.first);
@@ -104,12 +109,27 @@ void MixerThread::run() {
 							std::copy(setup.second.channels.cbegin(), setup.second.channels.cend(), std::back_inserter(sessionSetup.channels));
 						});
 					}
+					// Check if any client requests a new bpm (larger than 0.0 value). Check if a start or stop signal should be sent
+					maxBpmSet = std::max(maxBpmSet, client.second->bpm());
+					if (client.second->midiSignal() == MidiSignal_Start && midiSignal == MidiSignal_None) {
+						midiSignal = MidiSignal_Start;
+					}
+					if (client.second->midiSignal() == MidiSignal_Stop) {
+						midiSignal = MidiSignal_Stop;
+					}
+				}
+				if (maxBpmSet > 0.0f) {
+					// This is new information, let's use this
+					lastBpm_ = maxBpmSet;
 				}
 
 				// The outgoing queue takes packages for all clients, they will be sent out to different addresses
 				OutgoingPackage package(receiver.first, AudioBlock(
 					receiver.second->timestamp(),
 					receiver.second->messageCounter(),
+					serverTime_,
+					lastBpm_,
+					midiSignal,
 					48000,
 					mixdownSetup_,
 					outBuffer,

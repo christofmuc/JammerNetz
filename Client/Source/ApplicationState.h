@@ -28,12 +28,18 @@ constexpr const char* VALUE_USE_LOCALHOST = "UseLocalhost";
 constexpr const char* VALUE_CRYPTOPATH = "CryptoFilePath";
 constexpr const char* VALUE_DEVICE_TYPE = "Type";
 constexpr const char* VALUE_DEVICE_NAME = "Device";
+constexpr const char* VALUE_ENTRY = "Entry";
+constexpr const char* VALUE_DEVICE_ID = "DeviceIdentity";
 constexpr const char* VALUE_CHANNELS = "Channels";
 constexpr const char* VALUE_CHANNEL_COUNT = "ChannelCount";
 constexpr const char* VALUE_CHANNEL_ACTIVE = "ChannelActive";
 constexpr const char* VALUE_CHANNEL_NAME = "ChannelName";
+constexpr const char* VALUE_SERVER_BPM = "ServerBPM";
+constexpr const char* VALUE_MIDI_CLOCK_DEVICES = "MidiClockDevices";
 
 constexpr const char* EPHEMERAL_VALUE_DEVICE_TYPES_AVAILABLE = "AudioDeviceTypes";
+constexpr const char* EPHEMERAL_VALUE_AUDIO_RUNNING = "AudioIsRunning";
+constexpr const char* EPHEMERAL_VALUE_AUDIO_SHOULD_RUN = "AudioShouldRun";
 
 class ValueListener : public juce::Value::Listener {
 public:

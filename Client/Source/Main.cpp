@@ -40,7 +40,7 @@ public:
 		}
 
 		// This method is where you should put your application's initialization code..
-		char *applicationDataDirName = "JammerNetz";
+		const char *applicationDataDirName = "JammerNetz";
 		if (clientID.isNotEmpty()) {
 			Settings::setSettingsID(clientID);
 		}

@@ -59,6 +59,7 @@ set(AUDIO_PROCESSING_FILES
 	Source/AudioCallback.h
 	Source/AudioService.cpp
 	Source/AudioService.h
+	Source/MidiSendThread.cpp Source/MidiSendThread.h
 	Source/Tuner.cpp
 	Source/Tuner.h
 )
@@ -85,6 +86,8 @@ set(UICOMPONENT_FILES
 	Source/ClientConfig.h
 	Source/DeviceSelector.cpp
 	Source/DeviceSelector.h
+	Source/MidiDeviceSelector.cpp
+	Source/MidiDeviceSelector.h
 	Source/RecordingInfo.cpp
 	Source/RecordingInfo.h
 	Source/ServerSelector.cpp
@@ -126,9 +129,9 @@ endif()
 
 target_include_directories(JammerNetzClient PRIVATE "${SENTRY_INCLUDE_DIR}"  "${CMAKE_CURRENT_BINARY_DIR}/Source")
 IF(WIN32)
-	target_link_libraries(JammerNetzClient ${JUCE_LIBRARIES} ${DS_LIBRARIES} JammerCommon juce-utils juce-widgets ff_meters ${SENTRY_LIB})
+	target_link_libraries(JammerNetzClient ${JUCE_LIBRARIES} ${DS_LIBRARIES} JammerCommon juce-utils juce-widgets midikraft-base ff_meters ${SENTRY_LIB})
 elseif(APPLE)
-	target_link_libraries(JammerNetzClient ${JUCE_LIBRARIES} ${DS_LIBRARIES} JammerCommon juce-utils juce-widgets ff_meters tbb)
+	target_link_libraries(JammerNetzClient ${JUCE_LIBRARIES} ${DS_LIBRARIES} JammerCommon juce-utils juce-widgets midikraft-base ff_meters tbb)
 	# ${SENTRY_LIB})
 ELSE()
 	target_link_libraries(JammerNetzClient
@@ -146,7 +149,7 @@ ELSE()
 		asound
 		tbb
 		${SENTRY_LIB}
-		JammerCommon juce-utils juce-widgets ff_meters)
+		JammerCommon juce-utils juce-widgets midikraft-base ff_meters)
 ENDIF()
 
 # Pedantic about warnings

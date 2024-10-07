@@ -66,25 +66,25 @@ As we don't want to send any unencrypted audio data through the internet, we use
 
 ## Installing more dependencies with Conan
 
-We are moving towards Conan for dependency management, and in order to include the pdcurses library on Windows, just run the following conan install command before building from within the JammerNetz top-level-directory:
+We are moving towards Conan 2.1 for dependency management, and in order to include the pdcurses library on Windows, just run the following conan install command before building from within the JammerNetz top-level-directory:
 
-    conan install -if Builds\Windows -s build_type=Release --build missing .
+    conan install -of Builds\Windows -s build_type=Release --build missing .
 
 In case you do not have conan installed, have a look at their documentation and [download page](https://conan.io/downloads.html). It is a great tool!
 
 ## Building on Windows
 
-We use modern [CMake 3.14](https://cmake.org/) and Visual Studio 2019 for C++. Make sure to have both of these installed. Newer Visual Studios might work as well, you can select them as generators in CMake.
+We use modern [CMake 3.14](https://cmake.org/) and Visual Studio 2022 for C++. Make sure to have both of these installed. Newer Visual Studios might work as well, you can select them as generators in CMake.
 
 Optionally, if you want to produce a Windows-style installer for your band members: We always recommend the [InnoSetup](http://www.jrsoftware.org/isinfo.php) tool, really one of these golden tools that despite its age shines on and on. Download it and install it, it will automatically be picked up and used by the build process.
 
 Using CMake and building JammerNetz client and server is a multi-step build:
 
     cd third_party\flatbuffers
-    cmake -S . -B Builds -G "Visual Studio 16 2019" -A x64
+    cmake -S . -B Builds -G "Visual Studio 17 2022" -A x64
     cmake --build Builds --config Release
     cd ..\..
-    cmake -S . -B Builds\Windows -G "Visual Studio 16 2019" -A x64
+    cmake -S . -B Builds\Windows -G "Visual Studio 17 2022" -A x64
     cmake --build Builds\Windows  --config Release
 
 The build will take a few minutes, and produce Release versions of Client and Server software, as well as a client installer in case you have InnoSetup installed before kicking off. The installer executable is created as `<JammerNetzDir>\Builds\Client\jammernetz_setup_x.x.x.exe`
@@ -159,16 +159,31 @@ All clients should be able to connect to the server via its IP address.
 
 If you are working on Linux, make sure to have all development prerequisites installed!
 
+The JUCE documentation has this somewhat hidden at https://github.com/juce-framework/JUCE/blob/master/docs/Linux%20Dependencies.md.
+
 ### Debian/Ubuntu
 
 On a fresh Debian 9 machine, that would e.g. require the following installs:
 
-    sudo apt-get -y install g++ libasound2-dev libcurl4-openssl-dev libfreetype6-dev libncurses-dev libjack-dev libx11-dev libglew-dev mesa-common-dev webkit2gtk-4.0
+    sudo apt-get -y install g++ libasound2-dev libcurl4-openssl-dev libfreetype6-dev libncurses-dev libjack-dev libx11-dev libglew-dev mesa-common-dev webkit2gtk-4.1 libwebkit2gtk-4.1-dev cmake webkit2gtk3-devel.x86_64
+
+	sudo apt update
+	# This is what we need extra:
+	sudo apt install g++ cmake libncurses-dev libglew-dev
+	# This is what the JUCE documentation specifies:
+	sudo apt install libasound2-dev libjack-jackd2-dev \
+		ladspa-sdk \
+		libcurl4-openssl-dev  \
+		libfreetype-dev libfontconfig1-dev \
+		libx11-dev libxcomposite-dev libxcursor-dev libxext-dev libxinerama-dev libxrandr-dev libxrender-dev \
+		libwebkit2gtk-4.1-dev \
+		libglu1-mesa-dev mesa-common-dev
 
 ### Fedora
 
 For a Fedora-based distribution like Amazon Linux 2, you would use `yum` to install the dependencies:
 
+	# TODO - this needs updating for JUCE8
     sudo yum install alsa-lib-devel libcurl-devel freetype-devel ncurses-devel jack-audio-connection-kit-devel libX11-devel  mesa-libGL-devel webkitgtk4-devel glew-devel
 
 

@@ -15,8 +15,8 @@
 
 #include "Logger.h"
 
-AudioCallback::AudioCallback() : jammerService_([this](std::shared_ptr < JammerNetzAudioData> buffer) { playBuffer_.push(buffer); }),
-	playBuffer_("server"), masterVolume_(1.0), monitorBalance_(0.0), channelSetup_(false)
+AudioCallback::AudioCallback() : jammerService_([this](std::shared_ptr < JammerNetzAudioData> buffer) { playBuffer_.push(buffer); }), playBuffer_("server"), masterVolume_(1.0), monitorBalance_(0.0),
+    channelSetup_(false), clientBpm_(0.0f), midiSignalToGenerate_(MidiSignal_None), midiSignalToSend_(MidiSignal_None)
 {
 	isPlaying_ = false;
 	minPlayoutBufferLength_ = CLIENT_PLAYOUT_JITTER_BUFFER;
@@ -67,6 +67,12 @@ AudioCallback::AudioCallback() : jammerService_([this](std::shared_ptr < JammerN
 	listeners_.push_back(std::make_unique<ValueListener>(Data::instance().get().getPropertyAsValue(VALUE_USE_LOCALHOST, nullptr), [this](Value&) {
 		newServer();
 	}));
+	Data::instance().ensurePropertyExists(VALUE_SERVER_BPM, 0.0);
+	listeners_.push_back(
+	    std::make_unique<ValueListener>(Data::instance().get().getPropertyAsValue(VALUE_SERVER_BPM, nullptr), [this](Value& newValue) {
+			clientBpm_.setValue(newValue.getValue().operator float());
+		bpmSliderLastMoved_ = std::chrono::steady_clock::now();
+	}));
 }
 
 AudioCallback::~AudioCallback()
@@ -76,6 +82,17 @@ AudioCallback::~AudioCallback()
 void AudioCallback::shutdown()
 {
 	jammerService_.shutdown();
+}
+
+void AudioCallback::restartClock(std::vector<MidiDeviceInfo> outputs)
+{
+	// Where to send the Midi Clock signals
+	midiSendThread_.reset(new MidiSendThread(outputs));
+}
+
+void AudioCallback::setMidiSignalToSend(MidiSignal signal)
+{
+	midiSignalToSend_.setValue(signal);
 }
 
 void AudioCallback::newServer()
@@ -160,8 +177,87 @@ void AudioCallback::calcLocalMonitoring(std::shared_ptr<AudioBuffer<float>> inpu
 	}
 }
 
-void AudioCallback::audioDeviceIOCallback(const float** inputChannelData, int numInputChannels, float** outputChannelData, int numOutputChannels, int numSamples)
+uint8 sysexMsb(uint16 in)
 {
+	return (uint8)(in >> 7);
+}
+
+uint8 sysexLsb(uint16 in)
+{
+	return (uint8)(in & 0x7f);
+}
+
+MidiMessage createBossRC300ClockMessage(double bpm, MidiSignal additionalSignal)
+{
+	// Boss RC-300 loop pedal is infamous for not being able to slave to MIDI clock. Let's try with tailored sysex messages then
+	// See https://www.vguitarforums.com/smf/index.php?topic=7678.50 "RC300- Here's how to slave the RC-300's Tempo to (some) external sources"
+	uint16 length = 0x00;
+	switch (additionalSignal) {
+	case MidiSignal_Start: {
+		// We need to calculate the length, which effectively is the bar signature
+		// The RC-300 seems to work with 24 pulses per 16th note, or 24*4=96 pulses per quarter note. That is faster than the 24 ppqn we use for the
+		// MIDI clock. Anyway, let's just send it a 4 bar of 4/4 signature, which makes 16 quarter notes.
+		uint16 quarterNotesLength = 8;
+		uint16 pulsesPerQuarterNote = 96;
+		length = quarterNotesLength * pulsesPerQuarterNote;
+	}
+		break;
+	case MidiSignal_Stop:
+		// The Stop signal just uses the length 0x00 already set above
+		break;
+	default:
+		SimpleLogger::instance()->postMessageOncePerRun("Program error - got unknown MidiSignal to generate in createBossRC300ClockMessage!");
+		// fall through
+	case MidiSignal_None:
+		// Nothing to generate, return empty MidiMessage
+		return MidiMessage();
+	}
+
+	uint16 tempo = (uint16) round(bpm * 10.0f);
+	std::vector<uint8> rc300 { 0x41, 0x10, 0x00, 0x00, 0x5C, 0x12, 0x00, 0x01, 0x00, 0x00, sysexMsb(length), sysexLsb(length), sysexMsb(tempo), sysexLsb(tempo), 0x00,
+		0x00, 0x00, 0x00 };
+	uint16 checksum = 0;
+	for (size_t i = 6; i < rc300.size(); i++) {
+		checksum += rc300[i];
+	}
+	uint8 checksumByte = static_cast<uint8>((0x80 - checksum) & 0x7f);
+	rc300.push_back(checksumByte);
+	return MidiMessage::createSysExMessage(rc300.data(), (int) rc300.size());
+}
+
+std::vector<MidiMessage> createMidiBeatMessage(double bpm, std::optional<MidiSignal> additionalSignal, bool includeBossRC300)
+{
+	// For every Midi "Beat" we create a clock message (0xf8)
+	std::vector<MidiMessage> result;
+	result.push_back(MidiMessage::midiClock());
+
+	// Send a synchronized start/stop additionally
+	if (additionalSignal.has_value()) {
+		switch (*additionalSignal) {
+		case MidiSignal_Start:
+			result.push_back(MidiMessage::midiStart());
+			break;
+		case MidiSignal_Stop:
+			result.push_back(MidiMessage::midiStop());
+			break;
+		case MidiSignal_None:
+			// No additional signal requested
+			break;
+		default:
+			jassertfalse;
+			SimpleLogger::instance()->postMessageOncePerRun("Program error: Unknown MIDI signal requested for createMidiBeatMessage");
+		}
+		if (includeBossRC300) {
+			result.push_back(createBossRC300ClockMessage(bpm, *additionalSignal));
+		}
+	}
+	return result;
+}
+
+void AudioCallback::audioDeviceIOCallbackWithContext(const float* const* inputChannelData, int numInputChannels, float* const* outputChannelData,
+    int numOutputChannels, int numSamples, const AudioIODeviceCallbackContext& context)
+{
+	ignoreUnused(context);
 	float* const* constnessCorrection = const_cast<float* const*>(inputChannelData);
 	PlayoutQualityInfo qualityInfo = lastPlayoutQualityInfo_;
 
@@ -220,7 +316,10 @@ void AudioCallback::audioDeviceIOCallback(const float** inputChannelData, int nu
 				}
 			}*/
 
-			jammerService_.sender()->sendData(channelSetup_, audioBuffer); //TODO offload the real sending to a different thread
+			ControlData controllers;
+			controllers.bpm = clientBpm_.readOnce();
+			controllers.midiSignal = midiSignalToSend_.readOnce();
+			jammerService_.sender()->sendData(channelSetup_, audioBuffer, controllers); //TODO offload the real sending to a different thread
 		}
 	}
 
@@ -248,6 +347,7 @@ void AudioCallback::audioDeviceIOCallback(const float** inputChannelData, int nu
 
 	// For playout, we have to have enough bytes in the out ringbuffer to fill the output audio block.
 	// Let's see if we have enough data from the network!
+
 	while (isPlaying_ && playoutBuffer_->getNumReady() < numSamples) {
 		// We need to produce a network package to fill up the playout ring buffer
 		std::shared_ptr<JammerNetzAudioData> toPlay;
@@ -266,6 +366,41 @@ void AudioCallback::audioDeviceIOCallback(const float** inputChannelData, int nu
 				// That would be considered a programming error, I shall not enqueue nullptr
 				jassert(false);
 				break;
+			}
+
+			// Check if we are tasked to generate a MIDI signal
+			if (toPlay->midiSignal() != MidiSignal_None) {
+				// This might overwrite a signal not yet generated, because the next F8 clock has not been generated
+				midiSignalToGenerate_.setValue(toPlay->midiSignal());
+			}
+
+			double bpm = toPlay->bpm();
+			serverBpm_ = bpm;
+			if (midiSendThread_) {
+				// Play a MIDI clock at the speed given
+				uint64 pulsesPerQuarterNote = 24; // This is fairly standard
+				double pulsesPerSecond = bpm * pulsesPerQuarterNote / 60.0;
+				double samplesPerSecond = SAMPLE_RATE;
+				double samplesPerPulse = samplesPerSecond / pulsesPerSecond;
+				jassert(samplesPerPulse > SAMPLE_BUFFER_SIZE); // Else it gets jitery
+
+				// Determine the server time for the first sample of this package
+				uint64 serverTimeinSamples = toPlay->serverTime();
+				double bufferStartPulseNumber = floor(serverTimeinSamples / samplesPerPulse);
+				double bufferEndPulseNumber = floor((serverTimeinSamples + SAMPLE_BUFFER_SIZE) / samplesPerPulse);
+				if (bufferEndPulseNumber - bufferStartPulseNumber > 1e-6) {
+					// A Pulse must be sent! When in this buffer is the pulse due?
+					double pulseFractionInSamples = bufferEndPulseNumber * samplesPerPulse - serverTimeinSamples;
+					jassert(pulseFractionInSamples <= SAMPLE_BUFFER_SIZE);
+					auto signalToGenerate = midiSignalToGenerate_.readOnce();
+					midiSendThread_->enqueue(std::chrono::nanoseconds(int(1e9 * pulseFractionInSamples / SAMPLE_RATE)), createMidiBeatMessage(bpm, signalToGenerate, true));
+				}
+			}
+
+			// Check if the slider wasn't updated for a while, then take the server value and update the slider
+			if (!bpmSliderLastMoved_.has_value() || (std::chrono::steady_clock::now() - *bpmSliderLastMoved_) > std::chrono::seconds(1)) {
+				Data::getPropertyAsValue(VALUE_SERVER_BPM).setValue(bpm);
+				bpmSliderLastMoved_ = std::chrono::steady_clock::now();
 			}
 		}
 		else {

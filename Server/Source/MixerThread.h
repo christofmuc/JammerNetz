@@ -23,6 +23,8 @@ public:
 private:
 	void bufferMixdown(std::shared_ptr<AudioBuffer<float>> &outBuffer, std::shared_ptr<JammerNetzAudioData> const &audioData, bool isForSender);
 
+	uint64 serverTime_;
+	float lastBpm_;
 	TPacketStreamBundle &incoming_;
 	TOutgoingQueue &outgoing_;
 	TMessageQueue &wakeUpQueue_;

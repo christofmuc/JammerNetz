@@ -86,9 +86,13 @@ struct AudioBlock {
 	}
 
 	AudioBlock(AudioBlock const &other) = default;
-	AudioBlock(double timestamp, uint64 messageCounter, uint16 sampleRate, JammerNetzChannelSetup const &channelSetup, std::shared_ptr<AudioBuffer<float>> audioBuffer, JammerNetzChannelSetup const &sessionSetup);
+	AudioBlock(double timestamp, uint64 messageCounter, uint64 serverTime, float bpm, MidiSignal midiSignal, uint16 sampleRate, JammerNetzChannelSetup const &channelSetup, std::shared_ptr<AudioBuffer<float>> audioBuffer, JammerNetzChannelSetup const &sessionSetup);
 	double timestamp; // Using JUCE's high resolution timer
 	juce::uint64 messageCounter;
+	juce::uint64 serverTime;
+	juce::uint64 serverTimeSampleBased;
+	float bpm;
+	MidiSignal midiSignal;
 	uint16 sampleRate;
 	JammerNetzChannelSetup channelSetup;
 	std::shared_ptr<AudioBuffer<float>> audioBuffer;
@@ -121,7 +125,7 @@ protected:
 class JammerNetzAudioData : public JammerNetzMessage {
 public:
 	JammerNetzAudioData(uint8 *data, size_t bytes);
-	JammerNetzAudioData(uint64 messageCounter, double timestamp, JammerNetzChannelSetup const &channelSetup, int sampleRate, std::shared_ptr<AudioBuffer<float>> audioBuffer, std::shared_ptr<AudioBlock> fecBlock);
+	JammerNetzAudioData(uint64 messageCounter, double timestamp, JammerNetzChannelSetup const &channelSetup, int sampleRate, std::optional<float> bpm, MidiSignal midiSignal, std::shared_ptr<AudioBuffer<float>> audioBuffer, std::shared_ptr<AudioBlock> fecBlock);
 	JammerNetzAudioData(AudioBlock const &audioBlock, std::shared_ptr<AudioBlock> fecBlock);
 
 	std::shared_ptr<JammerNetzAudioData> createFillInPackage(uint64 messageNumber, bool &outHadFEC) const;
@@ -135,6 +139,9 @@ public:
 	std::shared_ptr<AudioBuffer<float>> audioBuffer() const;
 	uint64 messageCounter() const;
 	double timestamp() const;
+	uint64 serverTime() const;
+	float bpm() const;
+	MidiSignal midiSignal() const;
 	JammerNetzChannelSetup channelSetup() const;
 	JammerNetzChannelSetup sessionSetup() const;
 

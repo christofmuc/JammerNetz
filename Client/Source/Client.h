@@ -13,12 +13,18 @@
 #include "RingOfAudioBuffers.h"
 #include "ApplicationState.h"
 
+struct ControlData
+{
+	std::optional<float> bpm;
+	std::optional<MidiSignal> midiSignal;
+};
+
 class Client {
 public:
 	Client(DatagramSocket& socket);
 	~Client();
 
-	bool sendData(JammerNetzChannelSetup const &channelSetup, std::shared_ptr<AudioBuffer<float>> audioBuffer);
+	bool sendData(JammerNetzChannelSetup const &channelSetup, std::shared_ptr<AudioBuffer<float>> audioBuffer, ControlData controllers);
 
 	// Statistics info
 	int getCurrentBlockSize() const;

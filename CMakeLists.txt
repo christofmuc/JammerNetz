@@ -13,7 +13,8 @@ set(CMAKE_OSX_DEPLOYMENT_TARGET "10.11" CACHE STRING "Minimum OS X version to ta
 project(JammerNetz)
 
 # Since we also build MacOS, we need C++ 17. Which is not a bad thing.
-set(CMAKE_CXX_STANDARD 17)
+# JUCE 8 seems to force us to C++ 20 now!
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 IF(APPLE)
@@ -76,7 +77,7 @@ elseif(UNIX)
 	# These calls create special `PkgConfig::<MODULE>` variables
 	pkg_check_modules(GTK REQUIRED IMPORTED_TARGET gtk+-3.0)
 	pkg_check_modules(GLEW REQUIRED IMPORTED_TARGET glew)
-	pkg_check_modules(WEBKIT REQUIRED IMPORTED_TARGET webkit2gtk-4.0)  # TODO Test that this is really no longer required
+	pkg_check_modules(WEBKIT REQUIRED IMPORTED_TARGET webkit2gtk-4.1)
 endif()
 
 
@@ -150,13 +151,13 @@ target_compile_definitions(juce-static
 		JUCE_PLUGINHOST_VST=0
 		JUCE_PLUGINHOST_AU=0
 		DONT_SET_USING_JUCE_NAMESPACE=1
-		JUCE_DISPLAY_SPLASH_SCREEN=0
 		JUCE_REPORT_APP_USAGE=0
 		JUCE_CHECK_MEMORY_LEAKS=0
 		JUCE_QUICKTIME=0
 		JUCE_USE_DIRECTWRITE=1
 		JUCE_ASIO=1
 		JUCE_WASAPI_LOGGING=1
+		JUCE_ASIO_DEBUGGING=1
 		#JUCE_DIRECT2D=1  # That doesn't work, and the JUCE forum is full of confusing threads about Direct2D and font rendering
 		JUCE_CATCH_UNHANDLED_EXCEPTIONS=0
 		JUCE_COREGRAPHICS_DRAW_ASYNC=1
@@ -188,7 +189,7 @@ if(WIN32)
 	string(REPLACE "." ";" VERSION_LIST ${CMAKE_CXX_COMPILER_VERSION})
 	list(GET VERSION_LIST 0 MSVC_VERSION_MAJOR)
 	list(GET VERSION_LIST 1 MSVC_VERSION_MINOR)
-	SET(MY_TBB_BINARY_DIR_BASE msvc_${MSVC_VERSION_MAJOR}.${MSVC_VERSION_MINOR}_cxx17_64_md)
+	SET(MY_TBB_BINARY_DIR_BASE msvc_${MSVC_VERSION_MAJOR}.${MSVC_VERSION_MINOR}_cxx20_64_md)
 	message("Determined TBB binary directory base as ${MY_TBB_BINARY_DIR_BASE}")
 endif()
 
@@ -199,6 +200,7 @@ add_subdirectory("third_party/fmt")
 add_subdirectory("third_party/spdlog")
 add_subdirectory("modules/juce-utils")
 add_subdirectory("modules/juce-widgets")
+add_subdirectory("modules/MidiKraft")
 message(${CMAKE_MODULE_PATH})
 add_subdirectory("third_party/oneTBB" EXCLUDE_FROM_ALL)
 add_subdirectory("common")
@@ -207,3 +209,9 @@ add_subdirectory("Client")
 
 # The client installer now contains the server as well for local testing - make sure to always build the server
 add_dependencies(JammerNetzClient JammerNetzServer)
+
+# For Windows, we additionally build a little test program to check if ASIO initialization works.
+if(WIN32)
+	add_executable(test_asio test/test_asio.cpp)
+	target_link_libraries(test_asio juce-static)
+endif()

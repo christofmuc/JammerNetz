@@ -31,6 +31,7 @@ private:
 	std::unique_ptr<TextButton> controlPanelButton_;
 	OwnedArray<ToggleButton> channelSelectors_;
 	OwnedArray<Label> channelNames_;
+	TextButton startStopButton_;
 
 	String title_;
 	bool inputDevices_;

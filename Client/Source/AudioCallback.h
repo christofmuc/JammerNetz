@@ -19,6 +19,7 @@
 #include "Tuner.h"
 #include "MidiRecorder.h"
 #include "MidiPlayAlong.h"
+#include "MidiSendThread.h"
 
 #include "ApplicationState.h"
 
@@ -41,6 +42,40 @@ struct PlayoutQualityInfo {
 	double measuredSampleRate; // in Hz
 };
 
+template <typename T>
+class ReadOnceLatch
+{
+public:
+	ReadOnceLatch(T default_value) : value(default_value), is_value_set(false)
+	{
+	}
+
+	void setValue(T newValue)
+	{
+		// Store the new value and mark it as set
+		value.store(newValue, std::memory_order_release);
+		is_value_set.store(true, std::memory_order_release);
+	}
+
+	std::optional<T> readOnce()
+	{
+		// Check if the value has been set
+		if (is_value_set.load(std::memory_order_acquire)) {
+			// Read the value
+			T result = value.load(std::memory_order_relaxed);
+			// Reset the latch
+			is_value_set.store(false, std::memory_order_release);
+			return result;
+		}
+		return {};
+	}
+
+private:
+	std::atomic<T> value;
+	std::atomic<bool> is_value_set;
+};
+
+
 class AudioCallback : public AudioIODeviceCallback {
 public:
 	AudioCallback();
@@ -48,7 +83,11 @@ public:
 
 	void shutdown();
 
-	virtual void audioDeviceIOCallback(const float** inputChannelData, int numInputChannels, float** outputChannelData, int numOutputChannels, int numSamples) override;
+	void restartClock(std::vector<MidiDeviceInfo> outputs);
+	void setMidiSignalToSend(MidiSignal signal);
+
+	virtual void audioDeviceIOCallbackWithContext(const float* const* inputChannelData, int numInputChannels, float* const* outputChannelData, int numOutputChannels,
+	    int numSamples, const AudioIODeviceCallbackContext& context);
 	virtual void audioDeviceAboutToStart(AudioIODevice* device) override;
 	virtual void audioDeviceStopped() override;
 
@@ -95,6 +134,9 @@ private:
 	std::atomic<double> masterVolume_;
 	std::atomic<double> monitorBalance_;
 	std::atomic<bool> monitorIsLocal_;
+	ReadOnceLatch<float> clientBpm_;
+	std::atomic<double> serverBpm_;
+	std::optional<std::chrono::steady_clock::time_point> bpmSliderLastMoved_;
 	std::string currentText_;
 
 	JammerNetzChannelSetup channelSetup_;
@@ -106,6 +148,10 @@ private:
 	std::shared_ptr<Recorder> masterRecorder_;
 	std::unique_ptr<MidiRecorder> midiRecorder_;
 	std::unique_ptr<MidiPlayAlong> midiPlayalong_;
+	std::unique_ptr<MidiSendThread> midiSendThread_;
+
+	ReadOnceLatch<MidiSignal> midiSignalToSend_;
+	ReadOnceLatch<MidiSignal> midiSignalToGenerate_;
 
 	std::unique_ptr<Tuner> tuner_;
 
