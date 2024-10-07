@@ -13,6 +13,7 @@ set(CMAKE_OSX_DEPLOYMENT_TARGET "10.11" CACHE STRING "Minimum OS X version to ta
 project(JammerNetz)
 
 # Since we also build MacOS, we need C++ 17. Which is not a bad thing.
+# JUCE 8 seems to force us to C++ 20 now!
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -188,7 +189,7 @@ if(WIN32)
 	string(REPLACE "." ";" VERSION_LIST ${CMAKE_CXX_COMPILER_VERSION})
 	list(GET VERSION_LIST 0 MSVC_VERSION_MAJOR)
 	list(GET VERSION_LIST 1 MSVC_VERSION_MINOR)
-	SET(MY_TBB_BINARY_DIR_BASE msvc_${MSVC_VERSION_MAJOR}.${MSVC_VERSION_MINOR}_cxx17_64_md)
+	SET(MY_TBB_BINARY_DIR_BASE msvc_${MSVC_VERSION_MAJOR}.${MSVC_VERSION_MINOR}_cxx20_64_md)
 	message("Determined TBB binary directory base as ${MY_TBB_BINARY_DIR_BASE}")
 endif()
 
