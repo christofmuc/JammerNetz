@@ -1,4 +1,5 @@
 extern crate flatbuffers;
+extern crate core;
 
 #[allow(dead_code, unused_imports)]
 #[path = "JammerNetzAudioData_generated.rs"]
@@ -8,10 +9,16 @@ pub use JammerNetzAudioData_generated::{JammerNetzPNPAudioData, root_as_jammer_n
 
 use tokio::net::UdpSocket;
 use std::io;
+use std::net::SocketAddr;
 use flume;
+use std::sync::Arc;
 
-async fn accept_thread(incoming_channel: flume::Sender<Vec<u8>>) -> io::Result<()> {
-    let sock = UdpSocket::bind("0.0.0.0:7778").await?;
+struct MixerPackage {
+    peer  : SocketAddr,
+    audio : Vec<u8>
+}
+
+async fn accept_thread(sock: Arc<UdpSocket>, incoming_channel: flume::Sender<MixerPackage>) -> io::Result<()> {
     let mut buf = [0; 1024];
     let mut count = 0;
     loop {
@@ -21,6 +28,7 @@ async fn accept_thread(incoming_channel: flume::Sender<Vec<u8>>) -> io::Result<(
             println!("{:?} bytes received from {:?}", len, addr);
         }
         count += 1;
+        println!("Received data from {:?} {:?}", addr, buf);
         // The first three bytes are a magic header and the message type
         if buf[0] as char == '1' && buf[1] as char == '2' && buf[2] as char == '3'
         {
@@ -32,7 +40,8 @@ async fn accept_thread(incoming_channel: flume::Sender<Vec<u8>>) -> io::Result<(
                     let audio_packet = root_as_jammer_netz_pnpaudio_data(&audio_message);
                     if audio_packet.is_ok()
                     {
-                        let posted_result = incoming_channel.send(audio_message);
+                        let incoming = MixerPackage { peer: addr, audio: audio_message};
+                        let posted_result = incoming_channel.send(incoming);
                     }
                     else {
                         println!("Ignoring corrupted package that can not be decoded by Flatbuffers");
@@ -48,7 +57,7 @@ async fn accept_thread(incoming_channel: flume::Sender<Vec<u8>>) -> io::Result<(
     }
 }
 
-async fn mixer_thread(rx : flume::Receiver<Vec<u8>>)
+async fn mixer_thread(rx : flume::Receiver<MixerPackage>, send_queue: flume::Sender<MixerPackage>)
 {
     loop {
         let packet = rx.recv_async().await;
@@ -56,11 +65,12 @@ async fn mixer_thread(rx : flume::Receiver<Vec<u8>>)
         if packet.is_ok()
         {
             let audio_data = packet.unwrap();
-            let audio_packet = root_as_jammer_netz_pnpaudio_data(&audio_data);
+            let audio_packet = root_as_jammer_netz_pnpaudio_data(&audio_data.audio);
             if audio_packet.is_ok()
             {
-                let audio_data = audio_packet.unwrap();
-                println!("{:?}", audio_data);
+                let jammer_data = audio_packet.unwrap();
+                //println!("{:?}", jammer_data);
+                send_queue.send(audio_data);
             } else {
                 println!("Mixer thread got invalid audio packet, program error!");
             }
@@ -72,16 +82,45 @@ async fn mixer_thread(rx : flume::Receiver<Vec<u8>>)
     }
 }
 
+async fn sender_thread(socket: Arc<UdpSocket>, send_queue: flume::Receiver<MixerPackage>)
+{
+    let mut buf = [0; 1024];
+    buf[0] = '1' as u8;
+    buf[1] = '2' as u8;
+    buf[2] = '3' as u8;
+    buf[3] = 1 as u8;
+    loop {
+        let outgoing = send_queue.recv_async().await;
+        if outgoing.is_ok()
+        {
+            let message = outgoing.unwrap();
+            for (dst, src) in buf[4..].iter_mut().zip(message.audio) {
+                *dst = src;
+            }
+            println!("Sending data to {:?} {:?}", message.peer, buf);
+            //socket.send_to(&buf, message.peer);
+        }
+    }
+}
+
 #[tokio::main]
 async fn main()
 {
-    let (tx, rx) = flume::unbounded::<Vec::<u8>>();
-    let accept_join = tokio::spawn(accept_thread(tx));
+    let sock = UdpSocket::bind("0.0.0.0:7778").await.unwrap();
+    let sockarc = Arc::new(sock);
+    let (tx, rx) = flume::unbounded::<MixerPackage>();
+    let (sender_input, sender_queue) = flume::unbounded::<MixerPackage>();
+    let accept_join = tokio::spawn(accept_thread(sockarc.clone(), tx));
     println!("Accept thread launched");
-    let mixer_join = tokio::spawn(mixer_thread(rx));
+    let mixer_join = tokio::spawn(mixer_thread(rx, sender_input));
     println!("Mixer thread launched");
+    let sender_join = tokio::spawn(sender_thread(sockarc, sender_queue));
+    println!("Sender thread launched");
     let accept_result = accept_join.await;
     let mixer_result = mixer_join.await;
+    let sender_result = sender_join.await;
     println!("Accept thread exit {:?}", accept_result);
+    println!("Mixer thread exit {:?}", mixer_result);
+    println!("Sender thread exit {:?}", sender_result);
 }
 
