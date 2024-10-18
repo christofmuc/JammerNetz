@@ -132,9 +132,9 @@ void MixerThread::run() {
 					midiSignal,
 					48000,
 					mixdownSetup_,
-					outBuffer,
-					sessionSetup
-					));
+					outBuffer),
+                    sessionSetup
+					);
 				if (!outgoing_.try_push(package)) {
 					// That's a bad sign - I would assume the sender thread died and that's possibly because the network is down.
 					// Abort

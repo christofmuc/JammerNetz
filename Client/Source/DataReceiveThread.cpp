@@ -99,7 +99,6 @@ void DataReceiveThread::run()
 							ScopedLock sessionLock(sessionDataLock_);
 							// Hand off to player
 							currentRTT_ = Time::getMillisecondCounterHiRes() - audioData->timestamp();
-							currentSession_ = audioData->sessionSetup(); //TODO - this is not thread safe, I trust
 							newDataHandler_(audioData);
 						}
 						break;
@@ -112,6 +111,13 @@ void DataReceiveThread::run()
 						}
 						break;
 					}
+                    case JammerNetzMessage::SESSIONSETUP: {
+                        auto sessionInfo = std::dynamic_pointer_cast<JammerNetzSessionInfoMessage>(message);
+                        if (sessionInfo) {
+                            currentSession_ = sessionInfo->channels_; //TODO - this is not thread safe, I trust
+                        }
+                        break;
+                    }
 					default:
 						// What's this?
 						jassert(false);

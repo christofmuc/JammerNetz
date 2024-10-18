@@ -8,6 +8,8 @@
 
 #include "JammerNetzPackage.h"
 
+#include <vector>
+
 /*
   | CLIENTINFO type message - these are sent only by the server to the clients
   | JammerNetzClientInfoMessage

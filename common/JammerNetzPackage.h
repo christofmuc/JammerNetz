@@ -10,6 +10,7 @@
 
 #include "flatbuffers/flatbuffers.h"
 #include "JammerNetzAudioData_generated.h"
+#include "JammerNetzSessionInfo_generated.h"
 
 
 const size_t MAXFRAMESIZE = 65536;
@@ -82,11 +83,11 @@ struct JammerNetzAudioHeader {
 };
 
 struct AudioBlock {
-	AudioBlock() : channelSetup(false), sessionSetup(false) {
+	AudioBlock() : channelSetup(false) {
 	}
 
-	AudioBlock(AudioBlock const &other) = default;
-	AudioBlock(double timestamp, uint64 messageCounter, uint64 serverTime, float bpm, MidiSignal midiSignal, uint16 sampleRate, JammerNetzChannelSetup const &channelSetup, std::shared_ptr<AudioBuffer<float>> audioBuffer, JammerNetzChannelSetup const &sessionSetup);
+	//AudioBlock(AudioBlock const &other) = default;
+	AudioBlock(double timestamp, uint64 messageCounter, uint64 serverTime, float bpm, MidiSignal midiSignal, uint16 sampleRate, JammerNetzChannelSetup const &channelSetup, std::shared_ptr<AudioBuffer<float>> audioBuffer);
 	double timestamp; // Using JUCE's high resolution timer
 	juce::uint64 messageCounter;
 	juce::uint64 serverTime;
@@ -96,11 +97,10 @@ struct AudioBlock {
 	uint16 sampleRate;
 	JammerNetzChannelSetup channelSetup;
 	std::shared_ptr<AudioBuffer<float>> audioBuffer;
-	JammerNetzChannelSetup sessionSetup;
 };
 
 struct JammerNetzMessageParseException : public std::exception {
-	const char *what() const throw ()
+	const char *what() const noexcept
 	{
 		return "JammerNetz Message Parse Error";
 	}
@@ -111,6 +111,7 @@ public:
 	enum MessageType {
 		AUDIODATA = 1,
 		CLIENTINFO = 8,
+        SESSIONSETUP = 16,
 	};
 
 	virtual MessageType getType() const = 0;
@@ -119,8 +120,65 @@ public:
 	static std::shared_ptr<JammerNetzMessage> deserialize(uint8 *data, size_t bytes);
 
 protected:
-	int writeHeader(uint8 *output, uint8 messageType) const;
+	size_t writeHeader(uint8 *output, uint8 messageType) const;
 };
+
+template<typename T, JammerNetzMessage::MessageType ID>
+class JammerNetzFlatbufferMessage : public JammerNetzMessage {
+public:
+    JammerNetzFlatbufferMessage() : channels_(false) {
+    }
+
+    // Generic deserialization constructor
+    JammerNetzFlatbufferMessage(uint8 *data, size_t size) : channels_(false) {
+        if (size < sizeof(JammerNetzAudioHeader)) {
+            throw JammerNetzMessageParseException();
+        }
+
+        uint8* dataStart = data + sizeof(JammerNetzHeader);
+        flatbuffers::Verifier verifier(dataStart, size - sizeof(JammerNetzHeader));
+        if (VerifyJammerNetzSessionInfoBuffer(verifier)) {
+            auto package = GetJammerNetzSessionInfo(dataStart);
+            channels_.channels.clear();
+            for (auto channel = package->allChannels()->cbegin(); channel != package->allChannels()->cend(); channel++) {
+                JammerNetzSingleChannelSetup setup(channel->target());
+                setup.volume = channel->volume();
+                setup.mag = channel->mag();
+                setup.rms = channel->rms();
+                setup.pitch = channel->pitch();
+                setup.name = channel->name()->str();
+                channels_.channels.push_back(setup);
+            }
+        }
+    }
+
+    void serialize(uint8 *output, size_t &byteswritten) const override
+    {
+        byteswritten = writeHeader(output, getType());
+
+        flatbuffers::FlatBufferBuilder fbb;
+
+        std::vector<flatbuffers::Offset<JammerNetzPNPChannelSetup>> allChannels;
+        for (const auto& channel : channels_.channels) {
+            auto fb_name = fbb.CreateString(channel.name);
+            allChannels.push_back(CreateJammerNetzPNPChannelSetup(fbb, channel.target, channel.volume, channel.mag, channel.rms, channel.pitch, fb_name));
+        }
+        auto channelSetupVector = fbb.CreateVector(allChannels);
+        fbb.Finish(CreateJammerNetzSessionInfo(fbb, channelSetupVector));
+        memcpy(output + byteswritten, fbb.GetBufferPointer(), fbb.GetSize());
+        byteswritten += fbb.GetSize();
+    }
+
+    [[nodiscard]] MessageType getType() const override
+    {
+        return ID;
+    }
+
+    JammerNetzChannelSetup channels_;
+};
+
+using JammerNetzSessionInfoMessage = JammerNetzFlatbufferMessage<JammerNetzSessionInfo,
+        JammerNetzMessage::MessageType::SESSIONSETUP>;
 
 class JammerNetzAudioData : public JammerNetzMessage {
 public:
@@ -143,7 +201,6 @@ public:
 	float bpm() const;
 	MidiSignal midiSignal() const;
 	JammerNetzChannelSetup channelSetup() const;
-	JammerNetzChannelSetup sessionSetup() const;
 
 private:
 	flatbuffers::Offset<JammerNetzPNPAudioBlock> serializeAudioBlock(flatbuffers::FlatBufferBuilder &fbb, std::shared_ptr<AudioBlock> src, uint16 sampleRate, uint16 reductionFactor) const;

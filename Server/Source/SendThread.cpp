@@ -77,6 +77,21 @@ void SendThread::sendClientInfoPackage(std::string const &targetAddress)
 	sendWriteBuffer(ipAddress, port, bytesWritten);
 }
 
+void SendThread::sendSessionInfoPackage(std::string const &targetAddress, JammerNetzChannelSetup &sessionSetup)
+{
+    // Loop over the incoming data streams and add them to our statistics package we are going to send to the client
+    JammerNetzSessionInfoMessage sessionInfoMessage;
+    sessionInfoMessage.channels_.channels = sessionSetup.channels;
+
+    size_t bytesWritten = 0;
+    sessionInfoMessage.serialize(writebuffer_, bytesWritten);
+
+    String ipAddress;
+    int port;
+    determineTargetIP(targetAddress, ipAddress, port);
+    sendWriteBuffer(ipAddress, port, bytesWritten);
+}
+
 void SendThread::sendWriteBuffer(String ipAddress, int port, size_t size) {
 	if (sizet_is_safe_as_int(size)) {
 		int cipherLength = static_cast<int>(size);
@@ -118,6 +133,7 @@ void SendThread::run()
 		}
 		if (packageCounters_[nextBlock.targetAddress] % 100 == 0) {
 			sendClientInfoPackage(nextBlock.targetAddress);
+            sendSessionInfoPackage(nextBlock.targetAddress, nextBlock.sessionSetup);
 		}
 		packageCounters_[nextBlock.targetAddress]++;
 	}

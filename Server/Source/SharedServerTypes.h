@@ -14,16 +14,20 @@
 #include "tbb/concurrent_queue.h"
 #include "tbb/concurrent_unordered_map.h"
 
+#include <string>
 #include <set>
 
-struct OutgoingPackage {
-	OutgoingPackage() = default;
-	OutgoingPackage(std::string const &targetAddress, AudioBlock const &audioBlock) :
-		targetAddress(targetAddress), audioBlock(audioBlock) {
+class OutgoingPackage {
+public:
+	OutgoingPackage() : targetAddress(""), audioBlock(), sessionSetup(false) {}
+
+	OutgoingPackage(std::string const &targetAddress_, AudioBlock const &audioBlock_, JammerNetzChannelSetup sessionSetup_) :
+		targetAddress(targetAddress_), audioBlock(audioBlock_), sessionSetup(sessionSetup_) {
 	}
 
 	std::string targetAddress;
 	AudioBlock audioBlock;
+    JammerNetzChannelSetup sessionSetup;
 };
 
 #if WIN32

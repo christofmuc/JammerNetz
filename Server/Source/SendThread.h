@@ -21,7 +21,8 @@ public:
 private:
 	void determineTargetIP(std::string const &targetAddress, String &ipAddress, int &portNumber);
 	void sendWriteBuffer(String ipAddress, int port, size_t size);
-	void sendClientInfoPackage(std::string const &targetAddress);
+    void sendSessionInfoPackage(std::string const &targetAddress, JammerNetzChannelSetup &sessionSetup);
+    void sendClientInfoPackage(std::string const &targetAddress);
 	void sendAudioBlock(std::string const &targetAddress, AudioBlock &audioBlock);
 
 	TOutgoingQueue& sendQueue_;
