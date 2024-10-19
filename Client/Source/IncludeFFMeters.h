@@ -25,4 +25,4 @@
 #pragma warning (pop )
 #ifdef __clang__
 #pragma clang diagnostic pop
-#endifs
+#endif
