@@ -11,6 +11,7 @@
 #include "flatbuffers/flatbuffers.h"
 #include "JammerNetzAudioData_generated.h"
 #include "JammerNetzSessionInfo_generated.h"
+#include "JammerNetzControlMessage_generated.h"
 
 
 const size_t MAXFRAMESIZE = 65536;
@@ -114,6 +115,10 @@ public:
         SESSIONSETUP = 16,
 	};
 
+    JammerNetzMessage() = default;
+    JammerNetzMessage(JammerNetzMessage const&) = default;
+    virtual ~JammerNetzMessage() = default;
+
 	virtual MessageType getType() const = 0;
 
 	virtual void serialize(uint8 *output, size_t &byteswritten) const = 0;
@@ -123,18 +128,43 @@ protected:
 	size_t writeHeader(uint8 *output, uint8 messageType) const;
 };
 
-template<typename T, JammerNetzMessage::MessageType ID>
+template<JammerNetzMessage::MessageType ID>
 class JammerNetzFlatbufferMessage : public JammerNetzMessage {
 public:
-    JammerNetzFlatbufferMessage() : channels_(false) {
-    }
+    JammerNetzFlatbufferMessage() = default;
 
     // Generic deserialization constructor
-    JammerNetzFlatbufferMessage(uint8 *data, size_t size) : channels_(false) {
+    JammerNetzFlatbufferMessage(size_t size) {
         if (size < sizeof(JammerNetzAudioHeader)) {
             throw JammerNetzMessageParseException();
         }
+    }
 
+    void serialize(uint8 *output, size_t &byteswritten) const override
+    {
+        byteswritten = writeHeader(output, getType());
+        flatbuffers::FlatBufferBuilder fbb;
+        serializeToFlatbuffer(fbb);
+        memcpy(output + byteswritten, fbb.GetBufferPointer(), fbb.GetSize());
+        byteswritten += fbb.GetSize();
+    }
+
+    virtual void serializeToFlatbuffer(flatbuffers::FlatBufferBuilder &fbb) const = 0;
+
+    [[nodiscard]] MessageType getType() const override
+    {
+        return ID;
+    }
+};
+
+class JammerNetzSessionInfoMessage : public JammerNetzFlatbufferMessage<JammerNetzMessage::MessageType::SESSIONSETUP>
+{
+public:
+    JammerNetzSessionInfoMessage() : channels_(false)
+    {
+    }
+
+    JammerNetzSessionInfoMessage(uint8 *data, size_t size) : JammerNetzFlatbufferMessage<JammerNetzMessage::MessageType::SESSIONSETUP>(size), channels_(false) {
         uint8* dataStart = data + sizeof(JammerNetzHeader);
         flatbuffers::Verifier verifier(dataStart, size - sizeof(JammerNetzHeader));
         if (VerifyJammerNetzSessionInfoBuffer(verifier)) {
@@ -152,12 +182,8 @@ public:
         }
     }
 
-    void serialize(uint8 *output, size_t &byteswritten) const override
+    void serializeToFlatbuffer(flatbuffers::FlatBufferBuilder &fbb) const override
     {
-        byteswritten = writeHeader(output, getType());
-
-        flatbuffers::FlatBufferBuilder fbb;
-
         std::vector<flatbuffers::Offset<JammerNetzPNPChannelSetup>> allChannels;
         for (const auto& channel : channels_.channels) {
             auto fb_name = fbb.CreateString(channel.name);
@@ -165,20 +191,10 @@ public:
         }
         auto channelSetupVector = fbb.CreateVector(allChannels);
         fbb.Finish(CreateJammerNetzSessionInfo(fbb, channelSetupVector));
-        memcpy(output + byteswritten, fbb.GetBufferPointer(), fbb.GetSize());
-        byteswritten += fbb.GetSize();
-    }
-
-    [[nodiscard]] MessageType getType() const override
-    {
-        return ID;
     }
 
     JammerNetzChannelSetup channels_;
 };
-
-using JammerNetzSessionInfoMessage = JammerNetzFlatbufferMessage<JammerNetzSessionInfo,
-        JammerNetzMessage::MessageType::SESSIONSETUP>;
 
 class JammerNetzAudioData : public JammerNetzMessage {
 public:

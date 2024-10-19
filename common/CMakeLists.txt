@@ -24,6 +24,7 @@ set(FLATBUFFER_INPUT
 		JammerNetzAudioData.fbs
 		JammerNetzChannelSetup.fbs
 		JammerNetzSessionInfo.fbs
+		JammerNetzControlMessage.fbs
 		)
 FLATBUFFERS_GENERATE_C_HEADERS(FlatJammer ${FLATBUFFER_INPUT})
 
