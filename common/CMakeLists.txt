@@ -36,7 +36,6 @@ set(Sources
 	JammerNetzPackage.cpp JammerNetzPackage.h
 	JuceHeader.h
 	${FLATBUFFER_INPUT}
-	${FlatJammer_OUTPUTS}
 	PacketStreamQueue.cpp PacketStreamQueue.h
 	Pool.h
 	Recorder.cpp Recorder.h
@@ -46,9 +45,13 @@ set(Sources
 	ServerInfo.cpp ServerInfo.h
 	XPlatformUtils.h
 )
-
 # Setup library
 add_library(JammerCommon ${Sources})
+foreach(OPT ${FlatJammer_OUTPUTS})
+	message("Adding source file ${OPT}")
+target_sources(JammerCommon PRIVATE ${OPT})
+endforeach()
+
 target_include_directories(JammerCommon
 	PUBLIC "${INTEL_TBB_DIRECTORY}/include/" "${CMAKE_CURRENT_LIST_DIR}/../third_party/flatbuffers/include" "${CMAKE_CURRENT_BINARY_DIR}"
 	INTERFACE ${CMAKE_CURRENT_LIST_DIR}
