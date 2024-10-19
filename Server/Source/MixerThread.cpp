@@ -9,10 +9,16 @@
 #include "BuffersConfig.h"
 #include "ServerLogger.h"
 
-MixerThread::MixerThread(TPacketStreamBundle &incoming, JammerNetzChannelSetup mixdownSetup, TOutgoingQueue &outgoing, TMessageQueue &wakeUpQueue, Recorder &recorder, ServerBufferConfig bufferConfig) :
-    Thread("MixerThread"),
-    incoming_(incoming), mixdownSetup_(mixdownSetup), outgoing_(outgoing), wakeUpQueue_(wakeUpQueue), recorder_(recorder), bufferConfig_(bufferConfig), serverTime_(0),
-    lastBpm_(120.0f)
+MixerThread::MixerThread(TPacketStreamBundle &incoming, JammerNetzChannelSetup mixdownSetup, TOutgoingQueue &outgoing, TMessageQueue &wakeUpQueue/*, Recorder &recorder*/, ServerBufferConfig bufferConfig) :
+    Thread("MixerThread")
+        , serverTime_(0)
+        , lastBpm_(120.0f)
+        , incoming_(incoming)
+        , outgoing_(outgoing)
+        , wakeUpQueue_(wakeUpQueue)
+        , mixdownSetup_(mixdownSetup)
+        /*, recorder_(recorder) */
+        , bufferConfig_(bufferConfig)
 {
 }
 
@@ -33,8 +39,8 @@ void MixerThread::run() {
 		for (auto &inqueue : incoming_) {
 			if (inqueue.second) {
 				clientCount++;
-				if (inqueue.second->size() > bufferConfig_.serverIncomingJitterBuffer) available++;
-				if (inqueue.second->size() > bufferConfig_.serverIncomingMaximumBuffer) queueOverrun = true; // This is one client much faster than the others
+				if ((int)inqueue.second->size() > bufferConfig_.serverIncomingJitterBuffer) available++;
+				if ((int)inqueue.second->size() > bufferConfig_.serverIncomingMaximumBuffer) queueOverrun = true; // This is one client much faster than the others
 			}
 		}
 		if (clientCount == available) allHaveDelivered = true;
@@ -87,7 +93,7 @@ void MixerThread::run() {
 		if (incomingData.size() > 0) {
 			//TODO - current assumption: all clients provide buffers of the same size. Therefore, take the length of the first client as the output size
 			int bufferLength = (*incomingData.begin()).second->audioBuffer()->getNumSamples();
-			serverTime_ += bufferLength; // Server time counts time of mixing thread in samples mixed since launch
+			serverTime_ += (size_t) bufferLength; // Server time counts time of mixing thread in samples mixed since launch
 
 			// For each client that has delivered data, produce a mix down package and send it back
 			//TODO - also the clients that have not provided data should get a package with a note that they are not contained within - they could do a local fill in.
@@ -168,7 +174,7 @@ void MixerThread::bufferMixdown(std::shared_ptr<AudioBuffer<float>> &outBuffer, 
 	auto channelSetup = audioData->channelSetup();
 	bool wantsEcho = !channelSetup.isLocalMonitoringDontSendEcho;
 	for (int channel = 0; channel < audioData->audioBuffer()->getNumChannels(); channel++) {
-		JammerNetzSingleChannelSetup setup = channelSetup.channels[channel];
+		JammerNetzSingleChannelSetup setup = channelSetup.channels[(size_t)channel];
 		switch (setup.target) {
 		case Mute:
 			// Nothing to be done

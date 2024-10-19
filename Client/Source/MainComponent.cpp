@@ -20,7 +20,7 @@
 
 #include "BuffersConfig.h"
 
-MainComponent::MainComponent(String clientID, std::shared_ptr<AudioService> audioService, std::shared_ptr<Recorder> masterRecorder, std::shared_ptr<Recorder> localRecorder) :
+MainComponent::MainComponent(std::shared_ptr<AudioService> audioService, std::shared_ptr<Recorder> masterRecorder, std::shared_ptr<Recorder> localRecorder) :
 	audioService_(audioService),
 	inputSelector_(VALUE_INPUT_SETUP, false, true),
 	outputSelector_(VALUE_OUTPUT_SETUP, false, false),
@@ -210,7 +210,6 @@ void MainComponent::resized()
 	auto outputArea = area.removeFromRight(masterMixerWidth + deviceSelectorWidth /* + playalongArea.getWidth()*/);
 
 	// Upper middle, other session participants
-	auto sessionArea = area;
 	sessionGroup_.setBounds(area);
 	allChannels_.setBounds(area.reduced(kNormalInset, kNormalInset));
 
@@ -332,7 +331,7 @@ void MainComponent::timerCallback()
 	}
 	// and for the session channels
 	if (currentSessionSetup_) {
-		for (int i = 0; i < currentSessionSetup_->channels.size(); i++) {
+		for (int i = 0; i < (int) currentSessionSetup_->channels.size(); i++) {
 			allChannels_.setPitchDisplayed(i, MidiNote(audioService_->sessionPitch(i)));
 		}
 	}

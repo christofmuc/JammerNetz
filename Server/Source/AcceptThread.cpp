@@ -51,6 +51,52 @@ AcceptThread::~AcceptThread()
 	qualityTimer_->stopTimer();
 }
 
+void AcceptThread::processControlMessage(std::shared_ptr<JammerNetzControlMessage> message)
+{
+    if (message)
+    {
+
+    }
+}
+
+void AcceptThread::processAudioMessage(std::shared_ptr<JammerNetzAudioData> audioData, std::string const& clientName)
+{
+    if (audioData) {
+        // Insert this package into the right priority audio queue
+        bool prefill = false;
+        if (incomingData_.find(clientName) == incomingData_.end()) {
+            // This is from a new client!
+            ServerLogger::printClientStatus(4, clientName,
+                                            "New client connected, first package received");
+            incomingData_[clientName] = std::make_unique<PacketStreamQueue>(clientName);
+            prefill = true;
+        } else if (!incomingData_[clientName]) {
+            ServerLogger::printClientStatus(4, clientName,
+                                            "Reconnected successfully and starts sending again");
+            incomingData_[clientName] = std::make_unique<PacketStreamQueue>(clientName);
+            prefill = false;
+        }
+        if (prefill) {
+            auto lastInserted = audioData;
+            std::stack<std::shared_ptr<JammerNetzAudioData>> reverse;
+            for (int i = 0; i < bufferConfig_.serverBufferPrefillOnConnect; i++) {
+                lastInserted = lastInserted->createPrePaddingPackage();
+                reverse.push(lastInserted);
+            }
+            while (!reverse.empty()) {
+                incomingData_[clientName]->push(reverse.top());
+                reverse.pop();
+            }
+        }
+
+        if (incomingData_[clientName]->push(audioData)) {
+            // Only if this was not a duplicate package do give the mixer thread a tick, else duplicates will cause queue drain
+            wakeUpQueue_.push(
+                    1); // The value pushed is irrelevant, we just want to wake up the mixer thread which is in a blocking read on this queue
+        }
+    }
+}
+
 void AcceptThread::run()
 {
 	// Start the timer that will frequently output quality data for each of the clients' connections
@@ -78,8 +124,8 @@ void AcceptThread::run()
 				continue;
 			}
 			int messageLength = -1;
-			if (blowFish_) {
-				messageLength = blowFish_->decrypt(readbuffer, dataRead);
+			if (blowFish_ && dataRead > 0) {
+				messageLength = blowFish_->decrypt(readbuffer, (size_t) dataRead);
 				if (messageLength == -1) {
 					ServerLogger::printClientStatus(4, clientName, "Using wrong encryption key, can't connect");
 					continue;
@@ -90,50 +136,34 @@ void AcceptThread::run()
 				messageLength = dataRead;
 			}
 
-			auto message = JammerNetzMessage::deserialize(readbuffer, messageLength);
-			if (message) {
-				auto audioData = std::dynamic_pointer_cast<JammerNetzAudioData>(message);
-				if (audioData) {
-					// Insert this package into the right priority audio queue
-					bool prefill = false;
-					if (incomingData_.find(clientName) == incomingData_.end()) {
-						// This is from a new client!
-						ServerLogger::printClientStatus(4, clientName, "New client connected, first package received");
-						incomingData_[clientName] = std::make_unique<PacketStreamQueue>(clientName);
-						prefill = true;
-					}
-					else if (!incomingData_[clientName]) {
-						ServerLogger::printClientStatus(4, clientName, "Reconnected successfully and starts sending again");
-						incomingData_[clientName] = std::make_unique<PacketStreamQueue>(clientName);
-						prefill = false;
-					}
-					if (prefill) {
-						auto lastInserted = audioData;
-						std::stack<std::shared_ptr<JammerNetzAudioData>> reverse;
-						for (int i = 0; i < bufferConfig_.serverBufferPrefillOnConnect; i++) {
-							lastInserted = lastInserted->createPrePaddingPackage();
-							reverse.push(lastInserted);
-						}
-						while (!reverse.empty()) {
-							incomingData_[clientName]->push(reverse.top());
-							reverse.pop();
-						}
-					}
-
-					if (incomingData_[clientName]->push(audioData)) {
-						// Only if this was not a duplicate package do give the mixer thread a tick, else duplicates will cause queue drain
-						wakeUpQueue_.push(1); // The value pushed is irrelevant, we just want to wake up the mixer thread which is in a blocking read on this queue
-					}
-				}
-			}
+            if (messageLength > 0) {
+                auto message = JammerNetzMessage::deserialize(readbuffer, (size_t) messageLength);
+                if (message) {
+                    switch (message->getType()) {
+                        case JammerNetzMessage::MessageType::AUDIODATA:
+                            processAudioMessage(std::dynamic_pointer_cast<JammerNetzAudioData>(message), clientName);
+                            break;
+                        case JammerNetzMessage::MessageType::GENERIC_JSON:
+                            processControlMessage(std::dynamic_pointer_cast<JammerNetzControlMessage>(message));
+                            break;
+                        case JammerNetzMessage::MessageType::CLIENTINFO:
+                            // fall through
+                        case JammerNetzMessage::MessageType::SESSIONSETUP:
+                            // fall through
+                        default:
+                            // Ignoring Message
+                            break;
+                    }
+                }
 #ifdef ALLOW_HELO
-			// Useful for debugging firewall problems, use ncat and send some bytes to this port to get the message back
-			else {
-				// HELO
-				std::string helo("HELO");
-				receiveSocket_.write(senderIPAdress, senderPortNumber, helo.data(), (int)helo.size());
-			}
+                // Useful for debugging firewall problems, use ncat and send some bytes to this port to get the message back
+                else {
+                    // HELO
+                    std::string helo("HELO");
+                    receiveSocket_.write(senderIPAdress, senderPortNumber, helo.data(), (int)helo.size());
+                }
 #endif
+            }
 			break;
 		}
 		case -1:

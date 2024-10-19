@@ -60,4 +60,5 @@ if (MSVC)
 else()
     # lots of warnings and all warnings as errors
     #target_compile_options(JammerNetzServer PRIVATE -Wall -Wextra -pedantic -Werror)
+    target_compile_options(JammerNetzServer PRIVATE -Werror)
 endif()

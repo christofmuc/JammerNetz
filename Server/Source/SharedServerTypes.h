@@ -11,8 +11,14 @@
 #include "JammerNetzPackage.h"
 #include "PacketStreamQueue.h"
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wextra-semi"
+#pragma clang diagnostic ignored "-Wsign-conversion"
+
 #include "tbb/concurrent_queue.h"
 #include "tbb/concurrent_unordered_map.h"
+
+#pragma clang diagnostic pop
 
 #include <string>
 #include <set>

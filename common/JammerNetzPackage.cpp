@@ -11,12 +11,12 @@
 #include "JammerNetzClientInfoMessage.h"
 
 JammerNetzSingleChannelSetup::JammerNetzSingleChannelSetup() :
-	target(JammerNetzChannelTarget::Mono), volume(1.0f), mag(0.0f), rms(0.0f), pitch(0.0f)
+	target(JammerNetzChannelTarget::Mono), volume(1.0f), mag(0.0f), rms(0.0f), pitch(0.0f), name("")
 {
 }
 
 JammerNetzSingleChannelSetup::JammerNetzSingleChannelSetup(uint8 target_) :
-	target(target_), volume(1.0f), mag(0.0f), rms(0.0f), pitch(0.0f)
+	target(target_), volume(1.0f), mag(0.0f), rms(0.0f), pitch(0.0f), name("")
 {
 }
 
@@ -59,7 +59,7 @@ AudioBlock::AudioBlock(double timestamp_, uint64 messageCounter_, uint64 serverT
 std::shared_ptr<JammerNetzMessage> JammerNetzMessage::deserialize(uint8 *data, size_t bytes)
 {
 	if (bytes >= sizeof(JammerNetzHeader)) {
-		JammerNetzHeader *header = reinterpret_cast<JammerNetzHeader*>(data);
+		auto header = reinterpret_cast<JammerNetzHeader*>(data);
 
 		try {
 			// Check the magic
@@ -71,6 +71,8 @@ std::shared_ptr<JammerNetzMessage> JammerNetzMessage::deserialize(uint8 *data, s
 					return std::make_shared<JammerNetzClientInfoMessage>(data, bytes);
                 case SESSIONSETUP:
                     return std::make_shared<JammerNetzSessionInfoMessage>(data, bytes);
+                case GENERIC_JSON:
+                    return std::make_shared<JammerNetzControlMessage>(data, bytes);
 				default:
 					std::cerr << "Unknown message type received, ignoring it" << std::endl;
 				}

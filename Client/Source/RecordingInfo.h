@@ -13,7 +13,7 @@
 class RecordingInfo : public Component, private TextButton::Listener {
 public:
 	RecordingInfo(std::weak_ptr<Recorder> recorder, String explanation);
-	~RecordingInfo();
+	virtual ~RecordingInfo() override;
 
 	virtual void resized() override;
 

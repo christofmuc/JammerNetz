@@ -8,13 +8,23 @@
 
 #include "JuceHeader.h"
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wfloat-equal"
+
 #include "flatbuffers/flatbuffers.h"
+
+#pragma clang diagnostic pop
+
+
 #include "JammerNetzAudioData_generated.h"
 #include "JammerNetzSessionInfo_generated.h"
 #include "JammerNetzControlMessage_generated.h"
 
+#include "nlohmann/json.hpp"
+
 #include <string>
 #include <vector>
+#include <memory>
 
 const size_t MAXFRAMESIZE = 65536;
 
@@ -101,7 +111,7 @@ struct AudioBlock {
 };
 
 struct JammerNetzMessageParseException : public std::exception {
-	const char *what() const noexcept
+	[[nodiscard]] const char *what() const noexcept
 	{
 		return "JammerNetz Message Parse Error";
 	}
@@ -113,13 +123,14 @@ public:
 		AUDIODATA = 1,
 		CLIENTINFO = 8,
         SESSIONSETUP = 16,
+        GENERIC_JSON = 32,
 	};
 
     JammerNetzMessage() = default;
     JammerNetzMessage(JammerNetzMessage const&) = default;
     virtual ~JammerNetzMessage() = default;
 
-	virtual MessageType getType() const = 0;
+    [[nodiscard]] virtual MessageType getType() const = 0;
 
 	virtual void serialize(uint8 *output, size_t &byteswritten) const = 0;
 	static std::shared_ptr<JammerNetzMessage> deserialize(uint8 *data, size_t bytes);
@@ -155,6 +166,35 @@ public:
     {
         return ID;
     }
+};
+
+class JammerNetzControlMessage : public JammerNetzFlatbufferMessage<JammerNetzMessage::MessageType::GENERIC_JSON>
+{
+public:
+    JammerNetzControlMessage(nlohmann::json &json) : json_(json)
+    {
+    }
+
+    JammerNetzControlMessage(uint8 *data, size_t size) : JammerNetzFlatbufferMessage<JammerNetzMessage::MessageType::GENERIC_JSON>(size) {
+        uint8* dataStart = data + sizeof(JammerNetzHeader);
+        flatbuffers::Verifier verifier(dataStart, size - sizeof(JammerNetzHeader));
+        if (VerifyJammerNetzControlInfoBuffer(verifier)) {
+            auto buffer = GetJammerNetzControlInfo(dataStart);
+            try {
+                json_ = nlohmann::json::parse(buffer->control_message_json()->str());
+            }
+            catch (nlohmann::json::parse_error &e) {
+                throw JammerNetzMessageParseException();
+            }
+        }
+    }
+
+    void serializeToFlatbuffer(flatbuffers::FlatBufferBuilder &fbb) const override {
+        auto fb_json = fbb.CreateString(json_.dump());
+        fbb.Finish(CreateJammerNetzControlInfo(fbb, fb_json));
+    }
+
+    nlohmann::json json_;
 };
 
 class JammerNetzSessionInfoMessage : public JammerNetzFlatbufferMessage<JammerNetzMessage::MessageType::SESSIONSETUP>

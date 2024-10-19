@@ -11,7 +11,11 @@
 #include "ServerLogger.h"
 
 SendThread::SendThread(DatagramSocket& socket, TOutgoingQueue &sendQueue, TPacketStreamBundle &incomingData, void *keydata, int keysize, bool useFEC)
-	: Thread("SenderThread"), sendSocket_(socket), sendQueue_(sendQueue), incomingData_(incomingData), useFEC_(useFEC)
+	: Thread("SenderThread")
+    , sendQueue_(sendQueue)
+    , incomingData_(incomingData)
+    , sendSocket_(socket)
+    , useFEC_(useFEC)
 {
 	if (keydata) {
 		blowFish_ = std::make_unique<BlowFish>(keydata, keysize);

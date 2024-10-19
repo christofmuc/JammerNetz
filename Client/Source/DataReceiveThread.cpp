@@ -118,6 +118,9 @@ void DataReceiveThread::run()
                         }
                         break;
                     }
+                    case JammerNetzMessage::MessageType::GENERIC_JSON:
+                        // Ignore for now
+                        break;
 					default:
 						// What's this?
 						jassert(false);
