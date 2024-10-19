@@ -29,8 +29,13 @@ private:
 	TPacketStreamBundle &data_;
 };
 
-AcceptThread::AcceptThread(int serverPort, DatagramSocket &socket, TPacketStreamBundle &incomingData, TMessageQueue &wakeUpQueue, ServerBufferConfig bufferConfig, void *keydata, int keysize)
-	: Thread("ReceiverThread"), receiveSocket_(socket), incomingData_(incomingData), wakeUpQueue_(wakeUpQueue), bufferConfig_(bufferConfig)
+AcceptThread::AcceptThread(int serverPort, DatagramSocket &socket, TPacketStreamBundle &incomingData, TMessageQueue &wakeUpQueue, ServerBufferConfig bufferConfig, void *keydata, int keysize, ValueTree serverConfiguration)
+	: Thread("ReceiverThread")
+    , receiveSocket_(socket)
+    , incomingData_(incomingData)
+    , wakeUpQueue_(wakeUpQueue)
+    , serverConfiguration_(serverConfiguration)
+    , bufferConfig_(bufferConfig)
 {
 	if (keydata) {
 		blowFish_ = std::make_unique<BlowFish>(keydata, keysize);
@@ -55,7 +60,9 @@ void AcceptThread::processControlMessage(std::shared_ptr<JammerNetzControlMessag
 {
     if (message)
     {
-
+        if (message->json_.contains("FEC")) {
+            serverConfiguration_.setProperty("FEC", message->json_["FEC"].operator bool(), nullptr);
+        }
     }
 }
 

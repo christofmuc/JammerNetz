@@ -10,12 +10,12 @@
 #include "XPlatformUtils.h"
 #include "ServerLogger.h"
 
-SendThread::SendThread(DatagramSocket& socket, TOutgoingQueue &sendQueue, TPacketStreamBundle &incomingData, void *keydata, int keysize, bool useFEC)
+SendThread::SendThread(DatagramSocket& socket, TOutgoingQueue &sendQueue, TPacketStreamBundle &incomingData, void *keydata, int keysize, ValueTree serverConfiguration)
 	: Thread("SenderThread")
     , sendQueue_(sendQueue)
     , incomingData_(incomingData)
     , sendSocket_(socket)
-    , useFEC_(useFEC)
+    , serverConfiguration_(serverConfiguration)
 {
 	if (keydata) {
 		blowFish_ = std::make_unique<BlowFish>(keydata, keysize);
@@ -34,7 +34,8 @@ void SendThread::sendAudioBlock(std::string const &targetAddress, AudioBlock &au
 	}
 
 	std::shared_ptr<AudioBlock> fecBlock;
-	if (useFEC_ && !fecData_.find(targetAddress)->second.isEmpty()) {
+    bool useFEC = serverConfiguration_.getProperty("FEC").operator bool();
+	if (useFEC && !fecData_.find(targetAddress)->second.isEmpty()) {
 		// Send FEC data
 		fecBlock = fecData_.find(targetAddress)->second.getLast();
 		//dataForClient.serialize(writebuffer_, bytesWritten, fecData_.find(targetAddress)->second.getLast(), SAMPLE_RATE, FEC_SAMPLERATE_REDUCTION);
@@ -84,7 +85,7 @@ void SendThread::sendClientInfoPackage(std::string const &targetAddress)
 void SendThread::sendSessionInfoPackage(std::string const &targetAddress, JammerNetzChannelSetup &sessionSetup)
 {
     // Loop over the incoming data streams and add them to our statistics package we are going to send to the client
-    JammerNetzSessionInfoMessage sessionInfoMessage;
+        JammerNetzSessionInfoMessage sessionInfoMessage;
     sessionInfoMessage.channels_.channels = sessionSetup.channels;
 
     size_t bytesWritten = 0;

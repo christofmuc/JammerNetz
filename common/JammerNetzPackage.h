@@ -147,7 +147,7 @@ public:
 
     // Generic deserialization constructor
     JammerNetzFlatbufferMessage(size_t size) {
-        if (size < sizeof(JammerNetzAudioHeader)) {
+        if (size < sizeof(JammerNetzHeader)) {
             throw JammerNetzMessageParseException();
         }
     }
