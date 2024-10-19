@@ -23,7 +23,7 @@ JammerNetzSingleChannelSetup::JammerNetzSingleChannelSetup(uint8 target_) :
 
 bool JammerNetzSingleChannelSetup::isEqualEnough(const JammerNetzSingleChannelSetup &other) const
 {
-	return target == other.target && volume == other.volume && name == other.name;
+	return target == other.target && fabs(volume-other.volume) < 1e-6f && name == other.name;
 }
 
 /*bool JammerNetzSingleChannelSetup::operator==(const JammerNetzSingleChannelSetup &other) const
@@ -241,7 +241,7 @@ flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<JammerNetzPNPAudioSa
 			float tempBuffer[MAXFRAMESIZE];
 			const float* read = buffer.getReadPointer(inputChannel);
 
-			long outputSamples = buffer.getNumSamples() / 2;
+			int outputSamples = buffer.getNumSamples() / 2;
 			for (int i = 0; i < buffer.getNumSamples(); i += reductionFactor) {
 				tempBuffer[i / reductionFactor] = read[i];
 			}
@@ -311,14 +311,14 @@ std::shared_ptr<AudioBlock> JammerNetzAudioData::readAudioHeaderAndBytes(JammerN
 	}
 
 	result->sampleRate = 48000;
-	int upsampleRate = block->sampleRate() != 0 ? 48000 / block->sampleRate() : 48000;
+	size_t upsampleRate = block->sampleRate() != 0 ? 48000 / block->sampleRate() : 48000;
 	jassert(block->numberOfSamples() * upsampleRate == SAMPLE_BUFFER_SIZE);
 	result->audioBuffer = std::make_shared<AudioBuffer<float>>(block->numChannels(), block->numberOfSamples() * upsampleRate);
 	readAudioBytes(block->channels(), result->audioBuffer, upsampleRate);
 	return result;
 }
 
-void JammerNetzAudioData::readAudioBytes(flatbuffers::Vector<flatbuffers::Offset<JammerNetzPNPAudioSamples>> const *samples, std::shared_ptr<AudioBuffer<float>> destBuffer, int upsampleRate) {
+void JammerNetzAudioData::readAudioBytes(flatbuffers::Vector<flatbuffers::Offset<JammerNetzPNPAudioSamples>> const *samples, std::shared_ptr<AudioBuffer<float>> destBuffer, size_t upsampleRate) {
 	int c = 0;
 	for (auto channel = samples->cbegin(); channel != samples->cend(); channel++) {
 		//TODO we might not have enough bytes in the package for this operation
@@ -332,7 +332,7 @@ void JammerNetzAudioData::readAudioBytes(flatbuffers::Vector<flatbuffers::Offset
 				AudioData::LittleEndian,
 				AudioData::NonInterleaved,
 				AudioData::NonConst> dst_pointer(destBuffer->getWritePointer(c));
-			dst_pointer.convertSamples(src_pointer, channel->audioSamples()->size());
+			dst_pointer.convertSamples(src_pointer, (int) channel->audioSamples()->size());
 		}
 		else {
 			float tempBuffer[MAXFRAMESIZE];
@@ -344,11 +344,11 @@ void JammerNetzAudioData::readAudioBytes(flatbuffers::Vector<flatbuffers::Offset
 				AudioData::LittleEndian,
 				AudioData::NonInterleaved,
 				AudioData::NonConst> dst_pointer(tempBuffer);
-			dst_pointer.convertSamples(src_pointer, channel->audioSamples()->size());
+			dst_pointer.convertSamples(src_pointer, (int) channel->audioSamples()->size());
 
 			auto write = destBuffer->getWritePointer(c);
 			for (size_t i = 0; i < channel->audioSamples()->size(); i++) {
-				for (int j = 0; j < upsampleRate; j++) {
+				for (size_t j = 0; j < upsampleRate; j++) {
 					write[i * upsampleRate + j] = tempBuffer[i];
 				}
 			}

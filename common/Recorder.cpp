@@ -7,7 +7,13 @@
 #include "Recorder.h"
 
 Recorder::Recorder(File directory, std::string const &baseFileName, RecordingType recordingType)
-	: directory_(directory), baseFileName_(baseFileName), writer_(nullptr), recordingType_(recordingType), samplesWritten_(0), lastChannelSetup_(false)
+	:
+     samplesWritten_(0)
+    , directory_(directory)
+    , baseFileName_(baseFileName)
+    , recordingType_(recordingType)
+    , writer_(nullptr)
+    , lastChannelSetup_(false)
 {
 	thread_ = std::make_unique<TimeSliceThread>("RecorderDiskWriter");
 	thread_->startThread();
@@ -95,7 +101,7 @@ void Recorder::updateChannelInfo(int sampleRate, JammerNetzChannelSetup const &c
 
 	// Setup the channel layout
 	AudioChannelSet channels;
-	int numChannels = 0;
+	unsigned numChannels = 0;
 	for (auto channel : channelSetup.channels) {
 		switch (channel.target) {
 		case Mute:
@@ -152,12 +158,12 @@ void Recorder::launchWriter() {
 
 void Recorder::saveBlock(const float* const* data, int numSamples) {
 	// Don't crash on me when there is surprisingly no data in the package
-	if (data && data[0]) {
+	if (data && data[0] && numSamples > 0) {
 		if (!writeThread_->write(data, numSamples)) {
 			//TODO - need a smarter strategy than that
 			std::cerr << "Ups, FIFO full and can't write block to disk, lost it!" << std::endl;
 		}
-		samplesWritten_ += numSamples;
+		samplesWritten_ += (size_t) numSamples;
 	}
 }
 

@@ -19,23 +19,23 @@
 
 struct JammerNetzStreamQualityInfo {
 	// Unhealed problems
-	uint64_t tooLateOrDuplicate;
-	int64_t droppedPacketCounter;
+	uint64_t tooLateOrDuplicate{};
+	int64_t droppedPacketCounter{};
 
 	// Healed problems
-	int64_t outOfOrderPacketCounter;
-	int64_t duplicatePacketCounter;
-	uint64_t dropsHealed;
+	int64_t outOfOrderPacketCounter{};
+	int64_t duplicatePacketCounter{};
+	uint64_t dropsHealed{};
 
 	// Pure statistics
-	uint64_t packagesPushed;
-	uint64_t packagesPopped;
-	uint64_t maxLengthOfGap;
-	uint64_t maxWrongOrderSpan;
+	uint64_t packagesPushed{};
+	uint64_t packagesPopped{};
+	uint64_t maxLengthOfGap{};
+	uint64_t maxWrongOrderSpan{};
 
-	double wallClockDelta;
-	double jitterMeanMillis;
-	double jitterSDMillis;
+	double wallClockDelta{};
+	double jitterMeanMillis{};
+	double jitterSDMillis{};
 };
 
 struct JammerNetzClientInfo {

@@ -67,6 +67,7 @@ if (MSVC)
 else()
     # lots of warnings and all warnings as errors
     #target_compile_options(JammerCommon PRIVATE -Wall -Wextra -pedantic -Werror)
+    target_compile_options(JammerCommon PRIVATE -Werror)
 endif()
 
 # Define tests
