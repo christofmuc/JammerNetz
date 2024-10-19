@@ -36,7 +36,7 @@
 class Server {
 public:
 	Server(std::shared_ptr<MemoryBlock> cryptoKey, ServerBufferConfig bufferConfig, int serverPort, bool useFEC) : mixdownRecorder_(File::getCurrentWorkingDirectory(), "mixdown", RecordingType::FLAC), clientRecorder_(File(), "input", RecordingType::AIFF),
-		mixdownSetup_(false, { JammerNetzChannelTarget::Left, JammerNetzChannelTarget::Right }) // Setup standard mix down setup - two channels only in stereo
+		mixdownSetup_(false, { JammerNetzSingleChannelSetup(JammerNetzChannelTarget::Left), JammerNetzSingleChannelSetup(JammerNetzChannelTarget::Right) }) // Setup standard mix down setup - two channels only in stereo
 	{
 		// Start the recorder of the mix down
 		//mixdownRecorder_.updateChannelInfo(48000, mixdownSetup_);

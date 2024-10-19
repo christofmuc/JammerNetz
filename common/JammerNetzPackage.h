@@ -13,6 +13,8 @@
 #include "JammerNetzSessionInfo_generated.h"
 #include "JammerNetzControlMessage_generated.h"
 
+#include <string>
+#include <vector>
 
 const size_t MAXFRAMESIZE = 65536;
 
@@ -47,7 +49,7 @@ enum JammerNetzChannelTarget {
 
 struct JammerNetzSingleChannelSetup {
 	JammerNetzSingleChannelSetup();
-	JammerNetzSingleChannelSetup(uint8 target);
+	explicit JammerNetzSingleChannelSetup(uint8 target);
 	uint8 target;
 	float volume;
 	float mag;
@@ -55,27 +57,25 @@ struct JammerNetzSingleChannelSetup {
 	float pitch;
 	std::string name;
 
-	bool isEqualEnough(const JammerNetzSingleChannelSetup &other) const;
-	//bool operator ==(const JammerNetzSingleChannelSetup &other) const;
+	[[nodiscard]] bool isEqualEnough(const JammerNetzSingleChannelSetup &other) const;
 };
 
 struct JammerNetzChannelSetup {
-	JammerNetzChannelSetup(bool localMonitoring);
+	explicit JammerNetzChannelSetup(bool localMonitoring);
 	JammerNetzChannelSetup(bool localMonitoring, std::vector<JammerNetzSingleChannelSetup> const &channelInfo);
 	bool isLocalMonitoringDontSendEcho;
 	std::vector<JammerNetzSingleChannelSetup> channels;
 
-	bool isEqualEnough(const JammerNetzChannelSetup &other) const;
-	//bool operator ==(const JammerNetzChannelSetup &other) const;
+	[[nodiscard]] bool isEqualEnough(const JammerNetzChannelSetup &other) const;
 };
 
 struct JammerNetzAudioBlock {
-	double timestamp; // Using JUCE's high resolution timer
-	juce::uint64 messageCounter;
+	double timestamp{}; // Using JUCE's high resolution timer
+	juce::uint64 messageCounter{};
 	JammerNetzChannelSetup channelSetup;
-	uint8 numchannels;
-	uint16 numberOfSamples;
-	uint16 sampleRate;
+	uint8 numchannels{};
+	uint16 numberOfSamples{};
+	uint16 sampleRate{};
 };
 
 struct JammerNetzAudioHeader {

@@ -26,7 +26,7 @@ AudioCallback::AudioCallback() : jammerService_([this](std::shared_ptr < JammerN
 	// Where to record to?
 	uploadRecorder_ = std::make_shared<Recorder>(Settings::instance().getSessionStorageDir(), "LocalRecording", RecordingType::WAV);
 	masterRecorder_ = std::make_shared<Recorder>(Settings::instance().getSessionStorageDir(), "MasterRecording", RecordingType::FLAC);
-	masterRecorder_->setChannelInfo(SAMPLE_RATE, JammerNetzChannelSetup(false, { JammerNetzChannelTarget::Left, JammerNetzChannelTarget::Right }));
+	masterRecorder_->setChannelInfo(SAMPLE_RATE, JammerNetzChannelSetup(false, { JammerNetzSingleChannelSetup(JammerNetzChannelTarget::Left), JammerNetzSingleChannelSetup(JammerNetzChannelTarget::Right) }));
 	//midiRecorder_ = std::make_unique<MidiRecorder>(deviceManager);
 
 	// We might want to share a score sheet or similar
