@@ -25,6 +25,7 @@
 #pragma clang diagnostic ignored "-Wimplicit-int-conversion"
 #pragma clang diagnostic ignored "-Wfloat-equal"
 #pragma clang diagnostic ignored "-Wmissing-field-initializers"
+#pragma clang diagnostic ignored "-Wc99-extensions"
 #endif
 #include <q/pitch/pitch_detector.hpp>
 #ifdef __clang__
