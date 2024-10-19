@@ -8,7 +8,7 @@
 
 class BPMTimer : public Timer {
 public:
-	BPMTimer(Label &label, std::weak_ptr<MidiClocker> clocker) : label_(label), clocker_(clocker) {};
+	BPMTimer(Label &label, std::weak_ptr<MidiClocker> clocker) : label_(label), clocker_(clocker) {}
 
 	virtual void timerCallback() override
 	{

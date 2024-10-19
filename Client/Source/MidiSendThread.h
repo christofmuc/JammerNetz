@@ -4,7 +4,10 @@
 
 #include "MidiController.h"
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wextra-semi"
 #include "tbb/concurrent_queue.h"
+#pragma clang diagnostic pop
 
 #include <chrono>
 #include <deque>
@@ -13,7 +16,7 @@
 class MidiSendThread : juce::Thread {
 public:
 	MidiSendThread(std::vector<juce::MidiDeviceInfo> const outputs);
-	virtual ~MidiSendThread();
+	virtual ~MidiSendThread() override;
 
 	void enqueue(std::chrono::high_resolution_clock::duration fromNow, std::vector<MidiMessage> const &messages);
 

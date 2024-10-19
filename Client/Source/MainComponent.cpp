@@ -26,9 +26,9 @@ MainComponent::MainComponent(std::shared_ptr<AudioService> audioService, std::sh
 	outputSelector_(VALUE_OUTPUT_SETUP, false, false),
 	outputController_("Master", VALUE_MASTER_OUTPUT, true, false),
 	monitorBalance_("Local", "Remote", 50),
-	logView_(false), // Turn off line numbers
-    stageLeftWhenInMillis_(Time::currentTimeMillis()),
-	bpmSlider_(juce::Slider::SliderStyle::LinearHorizontal, juce::Slider::TextBoxRight)
+	bpmSlider_(juce::Slider::SliderStyle::LinearHorizontal, juce::Slider::TextBoxRight),
+    logView_(false), // Turn off line numbers
+    stageLeftWhenInMillis_(Time::currentTimeMillis())
 {
 	// Create an a Logger for the JammerNetz client
 	logViewLogger_ = std::make_unique<LogViewLogger>(logView_);
@@ -327,12 +327,12 @@ void MainComponent::timerCallback()
 
 	// Refresh tuning info for my own channels
 	for (int i = 0; i < ownChannels_.numChannels(); i++) {
-		ownChannels_.setPitchDisplayed(i, MidiNote(audioService_->channelPitch(i)));
+		ownChannels_.setPitchDisplayed(i, MidiNote(audioService_->channelPitch((size_t) i)));
 	}
 	// and for the session channels
 	if (currentSessionSetup_) {
 		for (int i = 0; i < (int) currentSessionSetup_->channels.size(); i++) {
-			allChannels_.setPitchDisplayed(i, MidiNote(audioService_->sessionPitch(i)));
+			allChannels_.setPitchDisplayed(i, MidiNote(audioService_->sessionPitch((size_t) i)));
 		}
 	}
 

@@ -49,7 +49,7 @@ void AudioService::refreshChannelSetup(std::shared_ptr<ChannelSetup> setup)
 	JammerNetzChannelSetup channelSetup(isLocalMonitoring);
 
 	if (setup) {
-		for (int i = 0; i < setup->activeChannelIndices.size(); i++) {
+		for (size_t i = 0; i < setup->activeChannelIndices.size(); i++) {
 			String inputController = "Input" + String(i);
 			auto controllerData = mixer.getChildWithName(inputController);
 			jassert(controllerData.isValid());
@@ -146,12 +146,12 @@ int AudioService::currentPacketSize()
 	return callback_.currentPacketSize();
 }
 
-float AudioService::channelPitch(int channel) const
+float AudioService::channelPitch(size_t channel) const
 {
 	return callback_.channelPitch(channel);
 }
 
-float AudioService::sessionPitch(int channel)
+float AudioService::sessionPitch(size_t channel)
 {
 	return callback_.sessionPitch(channel);
 }
@@ -225,7 +225,7 @@ std::shared_ptr<ChannelSetup> AudioService::getSetup(ValueTree data) const
 	return channelSetup;
 }
 
-BigInteger makeChannelMask(std::vector<int> const& indices) {
+static BigInteger makeChannelMask(std::vector<int> const& indices) {
 	BigInteger inputChannelMask;
 	for (int activeChannelIndex : indices) {
 		inputChannelMask.setBit(activeChannelIndex);
