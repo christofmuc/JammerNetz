@@ -7,6 +7,7 @@
 #pragma once
 
 
+#ifdef __clang__
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wimplicit-float-conversion"
 #pragma clang diagnostic ignored "-Wfloat-conversion"
@@ -17,8 +18,11 @@
 #pragma clang diagnostic ignored "-Wunknown-pragmas"
 #pragma clang diagnostic ignored "-Wunused-parameter"
 #pragma clang diagnostic ignored "-Winconsistent-missing-destructor-override"
+#endif
 #pragma warning( push )
 #pragma warning( disable: 4244 4100 4456 4702)
 #include "ff_meters/ff_meters.h"
 #pragma warning (pop )
+#ifdef __clang__
 #pragma clang diagnostic pop
+#endifs

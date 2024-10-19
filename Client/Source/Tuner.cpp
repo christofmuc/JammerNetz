@@ -12,6 +12,7 @@
 #pragma warning( push )
 #pragma warning( disable: 4244 4267 4305 4456)
 #endif
+#ifdef __clang__
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wfloat-conversion"
 #pragma clang diagnostic ignored "-Wimplicit-float-conversion"
@@ -24,8 +25,11 @@
 #pragma clang diagnostic ignored "-Wimplicit-int-conversion"
 #pragma clang diagnostic ignored "-Wfloat-equal"
 #pragma clang diagnostic ignored "-Wmissing-field-initializers"
+#endif
 #include <q/pitch/pitch_detector.hpp>
+#ifdef __clang__
 #pragma clang diagnostic pop
+#endif
 #ifndef __GNUC__
 #pragma warning ( pop )
 #endif

@@ -8,13 +8,14 @@
 
 #include "JuceHeader.h"
 
+#ifdef __clang__
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wfloat-equal"
-
+#endif
 #include "flatbuffers/flatbuffers.h"
-
+#ifdef __clang__
 #pragma clang diagnostic pop
-
+#endif
 
 #include "JammerNetzAudioData_generated.h"
 #include "JammerNetzSessionInfo_generated.h"

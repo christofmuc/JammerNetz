@@ -11,14 +11,15 @@
 #include "JammerNetzPackage.h"
 #include "JammerNetzClientInfoMessage.h"
 
+#ifdef __clang__
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wsign-conversion"
-
+#endif
 #include "tbb/concurrent_hash_map.h"
 #include "tbb/concurrent_priority_queue.h"
-
+#ifdef __clang__
 #pragma clang diagnostic pop
-
+#endif
 #include "RunningStats.h"
 
 
