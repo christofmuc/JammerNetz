@@ -26,7 +26,8 @@
 #pragma clang diagnostic ignored "-Wfloat-equal"
 #pragma clang diagnostic ignored "-Wmissing-field-initializers"
 #pragma clang diagnostic ignored "-Wc99-extensions"
-#pragma clang diagnostic ignored "-Wno-gnu-statement-expression"
+#pragma clang diagnostic ignored "-Wgnu-statement-expression"
+#pragma clang diagnostic ignored "-Wgnu-statement-expression-from-macro-expansion"
 #endif
 #include <q/pitch/pitch_detector.hpp>
 #ifdef __clang__
