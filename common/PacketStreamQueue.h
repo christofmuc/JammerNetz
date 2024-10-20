@@ -14,6 +14,7 @@
 #ifdef __GNUC__
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wsign-conversion"
+#pragma GCC diagnostic ignored "-Wzero-as-null-pointer-constant"
 #endif
 #include "tbb/concurrent_hash_map.h"
 #include "tbb/concurrent_priority_queue.h"
