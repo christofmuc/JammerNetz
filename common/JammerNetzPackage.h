@@ -154,7 +154,7 @@ public:
 
     void serialize(uint8 *output, size_t &byteswritten) const override
     {
-        byteswritten = writeHeader(output, getType());
+        byteswritten = writeHeader(output, static_cast<uint8>(getType()));
         flatbuffers::FlatBufferBuilder fbb;
         serializeToFlatbuffer(fbb);
         memcpy(output + byteswritten, fbb.GetBufferPointer(), fbb.GetSize());
@@ -184,7 +184,7 @@ public:
             try {
                 json_ = nlohmann::json::parse(buffer->control_message_json()->str());
             }
-            catch (nlohmann::json::parse_error &e) {
+            catch (nlohmann::json::parse_error &) {
                 throw JammerNetzMessageParseException();
             }
         }
