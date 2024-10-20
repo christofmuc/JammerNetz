@@ -163,7 +163,7 @@ void Recorder::saveBlock(const float* const* data, int numSamples) {
 			//TODO - need a smarter strategy than that
 			std::cerr << "Ups, FIFO full and can't write block to disk, lost it!" << std::endl;
 		}
-		samplesWritten_ += (size_t) numSamples;
+		samplesWritten_ += (juce::uint64) numSamples;
 	}
 }
 
