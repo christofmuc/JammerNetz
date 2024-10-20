@@ -11,30 +11,28 @@
 #ifndef __GNUC__
 #pragma warning( push )
 #pragma warning( disable: 4244 4267 4305 4456)
-#endif
-#ifdef __clang__
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wfloat-conversion"
-#pragma clang diagnostic ignored "-Wimplicit-float-conversion"
-#pragma clang diagnostic ignored "-Wsign-conversion"
-#pragma clang diagnostic ignored "-Wshorten-64-to-32"
-#pragma clang diagnostic ignored "-Wc++98-compat-extra-semi"
-#pragma clang diagnostic ignored "-Wextra-semi"
-#pragma clang diagnostic ignored "-Wshadow"
-#pragma clang diagnostic ignored "-Wshadow-field-in-constructor"
-#pragma clang diagnostic ignored "-Wimplicit-int-conversion"
-#pragma clang diagnostic ignored "-Wfloat-equal"
-#pragma clang diagnostic ignored "-Wmissing-field-initializers"
-#pragma clang diagnostic ignored "-Wc99-extensions"
-#pragma clang diagnostic ignored "-Wgnu-statement-expression"
-#pragma clang diagnostic ignored "-Wgnu-statement-expression-from-macro-expansion"
+#else
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wfloat-conversion"
+#pragma GCC diagnostic ignored "-Wimplicit-float-conversion"
+#pragma GCC diagnostic ignored "-Wsign-conversion"
+#pragma GCC diagnostic ignored "-Wshorten-64-to-32"
+#pragma GCC diagnostic ignored "-Wc++98-compat-extra-semi"
+#pragma GCC diagnostic ignored "-Wextra-semi"
+#pragma GCC diagnostic ignored "-Wshadow"
+#pragma GCC diagnostic ignored "-Wshadow-field-in-constructor"
+#pragma GCC diagnostic ignored "-Wimplicit-int-conversion"
+#pragma GCC diagnostic ignored "-Wfloat-equal"
+#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
+#pragma GCC diagnostic ignored "-Wc99-extensions"
+#pragma GCC diagnostic ignored "-Wgnu-statement-expression"
+#pragma GCC diagnostic ignored "-Wgnu-statement-expression-from-macro-expansion"
 #endif
 #include <q/pitch/pitch_detector.hpp>
-#ifdef __clang__
-#pragma clang diagnostic pop
-#endif
 #ifndef __GNUC__
-#pragma warning ( pop )
+#pragma warning(pop)
+#else
+#pragma GCC diagnostic pop
 #endif
 
 
