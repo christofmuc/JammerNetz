@@ -93,7 +93,7 @@ void MixerThread::run() {
 		if (incomingData.size() > 0) {
 			//TODO - current assumption: all clients provide buffers of the same size. Therefore, take the length of the first client as the output size
 			int bufferLength = (*incomingData.begin()).second->audioBuffer()->getNumSamples();
-			serverTime_ += (size_t) bufferLength; // Server time counts time of mixing thread in samples mixed since launch
+			serverTime_ += (juce::uint64) bufferLength; // Server time counts time of mixing thread in samples mixed since launch
 
 			// For each client that has delivered data, produce a mix down package and send it back
 			//TODO - also the clients that have not provided data should get a package with a note that they are not contained within - they could do a local fill in.
