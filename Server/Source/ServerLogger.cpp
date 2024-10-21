@@ -41,7 +41,14 @@ void ServerLogger::printAtPosition(int x, int y, std::string text)
 {
 	if (terminal) {
 		move(x, y);
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-security"
+#endif
 		printw(text.c_str());
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
 		refresh();
 	}
 	else {
@@ -91,6 +98,9 @@ void ServerLogger::printStatistics(int row, std::string const &clientID, JammerN
 #ifndef __GNUC__
 #pragma warning( push )
 #pragma warning( disable : 4996 )
+#else
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-security"
 #endif
 		snprintf(buffer, 200, "%*d", 6, (int)(quality.packagesPushed - quality.packagesPopped));	mvprintw(y, kColumnHeaders[1].first, buffer);
 		snprintf(buffer, 200, "%*d", 6, (int)quality.outOfOrderPacketCounter);	mvprintw(y, kColumnHeaders[2].first, buffer);
@@ -104,6 +114,8 @@ void ServerLogger::printStatistics(int row, std::string const &clientID, JammerN
 		snprintf(buffer, 200, "%2.1f", quality.jitterSDMillis);	mvprintw(y, kColumnHeaders[10].first, buffer);
 #ifndef __GNUC__
 #pragma warning( pop )
+#else
+#pragma GCC diagnostic pop
 #endif
 		refresh();
 	}
