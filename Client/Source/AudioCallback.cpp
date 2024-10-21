@@ -15,8 +15,15 @@
 
 #include "Logger.h"
 
-AudioCallback::AudioCallback() : jammerService_([this](std::shared_ptr < JammerNetzAudioData> buffer) { playBuffer_.push(buffer); }), playBuffer_("server"), masterVolume_(1.0), monitorBalance_(0.0),
-    channelSetup_(false), clientBpm_(0.0f), midiSignalToGenerate_(MidiSignal_None), midiSignalToSend_(MidiSignal_None)
+AudioCallback::AudioCallback() :
+    jammerService_([this](std::shared_ptr < JammerNetzAudioData> buffer) { playBuffer_.push(buffer); })
+    , playBuffer_("server")
+    , masterVolume_(1.0)
+    , monitorBalance_(0.0)
+    , clientBpm_(0.0f)
+    , channelSetup_(false)
+    , midiSignalToSend_(MidiSignal_None)
+    , midiSignalToGenerate_(MidiSignal_None)
 {
 	isPlaying_ = false;
 	minPlayoutBufferLength_ = CLIENT_PLAYOUT_JITTER_BUFFER;
@@ -26,7 +33,7 @@ AudioCallback::AudioCallback() : jammerService_([this](std::shared_ptr < JammerN
 	// Where to record to?
 	uploadRecorder_ = std::make_shared<Recorder>(Settings::instance().getSessionStorageDir(), "LocalRecording", RecordingType::WAV);
 	masterRecorder_ = std::make_shared<Recorder>(Settings::instance().getSessionStorageDir(), "MasterRecording", RecordingType::FLAC);
-	masterRecorder_->setChannelInfo(SAMPLE_RATE, JammerNetzChannelSetup(false, { JammerNetzChannelTarget::Left, JammerNetzChannelTarget::Right }));
+	masterRecorder_->setChannelInfo(SAMPLE_RATE, JammerNetzChannelSetup(false, { JammerNetzSingleChannelSetup(JammerNetzChannelTarget::Left), JammerNetzSingleChannelSetup(JammerNetzChannelTarget::Right) }));
 	//midiRecorder_ = std::make_unique<MidiRecorder>(deviceManager);
 
 	// We might want to share a score sheet or similar
@@ -37,10 +44,10 @@ AudioCallback::AudioCallback() : jammerService_([this](std::shared_ptr < JammerN
 
 	// Setup listeners
 	listeners_.push_back(std::make_unique<ValueListener>(Data::instance().get().getPropertyAsValue(VALUE_MIN_PLAYOUT_BUFFER, nullptr), [this](Value& newValue) {
-		minPlayoutBufferLength_ = (int) newValue.getValue();
+		minPlayoutBufferLength_ = (uint64) newValue.getValue().operator long long();
 	}));
 	listeners_.push_back(std::make_unique<ValueListener>(Data::instance().get().getPropertyAsValue(VALUE_MAX_PLAYOUT_BUFFER, nullptr), [this](Value& newValue) {
-		maxPlayoutBufferLength_ = (int)newValue.getValue();
+		maxPlayoutBufferLength_ = (uint64)newValue.getValue().operator long long();
 	}));
 	auto mixer = Data::instance().get().getOrCreateChildWithName(VALUE_MIXER, nullptr);
 	auto outputController = mixer.getOrCreateChildWithName(VALUE_MASTER_OUTPUT, nullptr);
@@ -123,7 +130,7 @@ void AudioCallback::measureSamplesPerTime(PlayoutQualityInfo &qualityInfo, int n
 }
 
 // https://dsp.stackexchange.com/questions/14754/equal-power-crossfade
-std::pair<double, double> calcMonitorGain() {
+static std::pair<double, double> calcMonitorGain() {
 	auto mixer = Data::instance().get().getChildWithName(VALUE_MIXER);
 	double t = mixer.getProperty(VALUE_MONITOR_BALANCE);
 
@@ -140,7 +147,7 @@ void AudioCallback::calcLocalMonitoring(std::shared_ptr<AudioBuffer<float>> inpu
 		auto [monitorVolume, _] = calcMonitorGain();
 		// Apply gain to our channels and do a stereo mixdown
 		jassert(inputBuffer->getNumSamples() == outputBuffer.getNumSamples());
-		for (int channel = 0; channel < inputBuffer->getNumChannels(); channel++) {
+		for (size_t channel = 0; channel < (size_t) inputBuffer->getNumChannels(); channel++) {
 			const JammerNetzSingleChannelSetup& setup = channelSetup_.channels[channel];
 			float input_volume = (float) (setup.volume * monitorVolume * masterVolume_);
 			switch (setup.target) {
@@ -150,13 +157,13 @@ void AudioCallback::calcLocalMonitoring(std::shared_ptr<AudioBuffer<float>> inpu
 			case Left:
 				// This is a left channel, going into the left.
 				if (outputBuffer.getNumChannels() > 0) {
-					outputBuffer.addFrom(0, 0, *inputBuffer, channel, 0, inputBuffer->getNumSamples(), input_volume);
+					outputBuffer.addFrom(0, 0, *inputBuffer, (int) channel, 0, inputBuffer->getNumSamples(), input_volume);
 				}
 				break;
 			case Right:
 				// And the same for the right channel
 				if (outputBuffer.getNumChannels() > 1) {
-					outputBuffer.addFrom(1, 0, *inputBuffer, channel, 0, inputBuffer->getNumSamples(), input_volume);
+					outputBuffer.addFrom(1, 0, *inputBuffer, (int) channel, 0, inputBuffer->getNumSamples(), input_volume);
 				}
 				break;
 			case SendLeft:
@@ -166,10 +173,10 @@ void AudioCallback::calcLocalMonitoring(std::shared_ptr<AudioBuffer<float>> inpu
 				break;
 			case Mono:
 				if (outputBuffer.getNumChannels() > 0) {
-					outputBuffer.addFrom(0, 0, *inputBuffer, channel, 0, inputBuffer->getNumSamples(), input_volume);
+					outputBuffer.addFrom(0, 0, *inputBuffer, (int) channel, 0, inputBuffer->getNumSamples(), input_volume);
 				}
 				if (outputBuffer.getNumChannels() > 1) {
-					outputBuffer.addFrom(1, 0, *inputBuffer, channel, 0, inputBuffer->getNumSamples(), input_volume);
+					outputBuffer.addFrom(1, 0, *inputBuffer, (int) channel, 0, inputBuffer->getNumSamples(), input_volume);
 				}
 				break;
 			}
@@ -177,17 +184,17 @@ void AudioCallback::calcLocalMonitoring(std::shared_ptr<AudioBuffer<float>> inpu
 	}
 }
 
-uint8 sysexMsb(uint16 in)
+static uint8 sysexMsb(uint16 in)
 {
 	return (uint8)(in >> 7);
 }
 
-uint8 sysexLsb(uint16 in)
+static uint8 sysexLsb(uint16 in)
 {
 	return (uint8)(in & 0x7f);
 }
 
-MidiMessage createBossRC300ClockMessage(double bpm, MidiSignal additionalSignal)
+static MidiMessage createBossRC300ClockMessage(double bpm, MidiSignal additionalSignal)
 {
 	// Boss RC-300 loop pedal is infamous for not being able to slave to MIDI clock. Let's try with tailored sysex messages then
 	// See https://www.vguitarforums.com/smf/index.php?topic=7678.50 "RC300- Here's how to slave the RC-300's Tempo to (some) external sources"
@@ -225,7 +232,7 @@ MidiMessage createBossRC300ClockMessage(double bpm, MidiSignal additionalSignal)
 	return MidiMessage::createSysExMessage(rc300.data(), (int) rc300.size());
 }
 
-std::vector<MidiMessage> createMidiBeatMessage(double bpm, std::optional<MidiSignal> additionalSignal, bool includeBossRC300)
+static std::vector<MidiMessage> createMidiBeatMessage(double bpm, std::optional<MidiSignal> additionalSignal, bool includeBossRC300)
 {
 	// For every Midi "Beat" we create a clock message (0xf8)
 	std::vector<MidiMessage> result;
@@ -292,10 +299,10 @@ void AudioCallback::audioDeviceIOCallbackWithContext(const float* const* inputCh
 			meterSource_.measureBlock(*audioBuffer);
 
 			// Send the MAG, RMS values and the pitch to the server, which will forward it to the other clients so they can show my levels even if they have only the mixed audio
-			for (int c = 0; c < numInputChannels; c++) {
+			for (size_t c = 0; c < (size_t) numInputChannels; c++) {
 				if (c < channelSetup_.channels.size()) {
-					channelSetup_.channels[c].mag = meterSource_.getMaxLevel(c);
-					channelSetup_.channels[c].rms = meterSource_.getRMSLevel(c);
+					channelSetup_.channels[c].mag = meterSource_.getMaxLevel((int) c);
+					channelSetup_.channels[c].rms = meterSource_.getRMSLevel((int) c);
 					channelSetup_.channels[c].pitch = tuner_->getPitch(c);
 				}
 				else {
@@ -535,12 +542,12 @@ double AudioCallback::currentRTT()
 	return jammerService_.receiver()->currentRTT();
 }
 
-float AudioCallback::channelPitch(int channel) const
+float AudioCallback::channelPitch(size_t channel) const
 {
 	return tuner_->getPitch(channel);
 }
 
-float AudioCallback::sessionPitch(int channel) {
+float AudioCallback::sessionPitch(size_t channel) {
 	auto setup = getSessionSetup();
 	if (channel < setup.channels.size())
 		return setup.channels[channel].pitch;

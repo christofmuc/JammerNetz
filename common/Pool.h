@@ -36,7 +36,7 @@ class Pool
             }
         }
         auto it = free_m.begin();
-        std::shared_ptr<T> sptr( it->get(), [=](T* ptr){ this->free(ptr); } );
+        std::shared_ptr<T> sptr( it->get(), [this](T* ptr){ this->free(ptr); } );
         used_m.push_front(std::move(*it));
         free_m.erase(it);
         return sptr;

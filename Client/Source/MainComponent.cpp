@@ -20,15 +20,15 @@
 
 #include "BuffersConfig.h"
 
-MainComponent::MainComponent(String clientID, std::shared_ptr<AudioService> audioService, std::shared_ptr<Recorder> masterRecorder, std::shared_ptr<Recorder> localRecorder) :
+MainComponent::MainComponent(std::shared_ptr<AudioService> audioService, std::shared_ptr<Recorder> masterRecorder, std::shared_ptr<Recorder> localRecorder) :
 	audioService_(audioService),
 	inputSelector_(VALUE_INPUT_SETUP, false, true),
 	outputSelector_(VALUE_OUTPUT_SETUP, false, false),
 	outputController_("Master", VALUE_MASTER_OUTPUT, true, false),
 	monitorBalance_("Local", "Remote", 50),
-	logView_(false), // Turn off line numbers
-    stageLeftWhenInMillis_(Time::currentTimeMillis()),
-	bpmSlider_(juce::Slider::SliderStyle::LinearHorizontal, juce::Slider::TextBoxRight)
+	bpmSlider_(juce::Slider::SliderStyle::LinearHorizontal, juce::Slider::TextBoxRight),
+    logView_(false), // Turn off line numbers
+    stageLeftWhenInMillis_(Time::currentTimeMillis())
 {
 	// Create an a Logger for the JammerNetz client
 	logViewLogger_ = std::make_unique<LogViewLogger>(logView_);
@@ -210,7 +210,6 @@ void MainComponent::resized()
 	auto outputArea = area.removeFromRight(masterMixerWidth + deviceSelectorWidth /* + playalongArea.getWidth()*/);
 
 	// Upper middle, other session participants
-	auto sessionArea = area;
 	sessionGroup_.setBounds(area);
 	allChannels_.setBounds(area.reduced(kNormalInset, kNormalInset));
 
@@ -328,12 +327,12 @@ void MainComponent::timerCallback()
 
 	// Refresh tuning info for my own channels
 	for (int i = 0; i < ownChannels_.numChannels(); i++) {
-		ownChannels_.setPitchDisplayed(i, MidiNote(audioService_->channelPitch(i)));
+		ownChannels_.setPitchDisplayed(i, MidiNote(audioService_->channelPitch((size_t) i)));
 	}
 	// and for the session channels
 	if (currentSessionSetup_) {
-		for (int i = 0; i < currentSessionSetup_->channels.size(); i++) {
-			allChannels_.setPitchDisplayed(i, MidiNote(audioService_->sessionPitch(i)));
+		for (int i = 0; i < (int) currentSessionSetup_->channels.size(); i++) {
+			allChannels_.setPitchDisplayed(i, MidiNote(audioService_->sessionPitch((size_t) i)));
 		}
 	}
 

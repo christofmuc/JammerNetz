@@ -41,7 +41,14 @@ void ServerLogger::printAtPosition(int x, int y, std::string text)
 {
 	if (terminal) {
 		move(x, y);
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-security"
+#endif
 		printw(text.c_str());
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
 		refresh();
 	}
 	else {
@@ -55,7 +62,7 @@ std::vector<std::pair<int, std::string>> kColumnHeaders = { {0, "Client"}, {20, 
 std::map<std::string, int> sClientRows;
 int kRowsInTable = 0;
 
-int yForClient(std::string const &clientID) {
+static int yForClient(std::string const &clientID) {
 	if (sClientRows.find(clientID) == sClientRows.end()) {
 		sClientRows[clientID] = kRowsInTable++;
 	}
@@ -88,19 +95,28 @@ void ServerLogger::printStatistics(int row, std::string const &clientID, JammerN
 		char buffer[200];
 		//snprintf(buffer, 200, "%6d", (int)quality.packagesPushed);	mvprintw(y, 20, buffer);
 		//snprintf(buffer, 200, "%6d", (int)quality.packagesPopped);	mvprintw(y, 28, buffer);
+#ifndef __GNUC__
 #pragma warning( push )
 #pragma warning( disable : 4996 )
-		sprintf(buffer, "%*d", 6, (int)(quality.packagesPushed - quality.packagesPopped));	mvprintw(y, kColumnHeaders[1].first, buffer);
-		sprintf(buffer, "%*d", 6, (int)quality.outOfOrderPacketCounter);	mvprintw(y, kColumnHeaders[2].first, buffer);
-		sprintf(buffer, "%*d", 6, (int)quality.maxWrongOrderSpan);	mvprintw(y, kColumnHeaders[3].first, buffer);
-		sprintf(buffer, "%*d", 6, (int)quality.duplicatePacketCounter);	mvprintw(y, kColumnHeaders[4].first, buffer);
-		sprintf(buffer, "%*d", 6, (int)quality.dropsHealed);	mvprintw(y, kColumnHeaders[5].first, buffer);
-		sprintf(buffer, "%*d", 6, (int)quality.tooLateOrDuplicate);	mvprintw(y, kColumnHeaders[6].first, buffer);
-		sprintf(buffer, "%*d", 6, (int)quality.droppedPacketCounter);	mvprintw(y, kColumnHeaders[7].first, buffer);
-		sprintf(buffer, "%*d", 6, (int)quality.maxLengthOfGap);	mvprintw(y, kColumnHeaders[8].first, buffer);
-		sprintf(buffer, "%2.1f", quality.jitterMeanMillis);	mvprintw(y, kColumnHeaders[9].first, buffer);
-		sprintf(buffer, "%2.1f", quality.jitterSDMillis);	mvprintw(y, kColumnHeaders[10].first, buffer);
+#else
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-security"
+#endif
+		snprintf(buffer, 200, "%*d", 6, (int)(quality.packagesPushed - quality.packagesPopped));	mvprintw(y, kColumnHeaders[1].first, buffer);
+		snprintf(buffer, 200, "%*d", 6, (int)quality.outOfOrderPacketCounter);	mvprintw(y, kColumnHeaders[2].first, buffer);
+		snprintf(buffer, 200, "%*d", 6, (int)quality.maxWrongOrderSpan);	mvprintw(y, kColumnHeaders[3].first, buffer);
+		snprintf(buffer, 200, "%*d", 6, (int)quality.duplicatePacketCounter);	mvprintw(y, kColumnHeaders[4].first, buffer);
+		snprintf(buffer, 200, "%*d", 6, (int)quality.dropsHealed);	mvprintw(y, kColumnHeaders[5].first, buffer);
+		snprintf(buffer, 200, "%*d", 6, (int)quality.tooLateOrDuplicate);	mvprintw(y, kColumnHeaders[6].first, buffer);
+		snprintf(buffer, 200, "%*d", 6, (int)quality.droppedPacketCounter);	mvprintw(y, kColumnHeaders[7].first, buffer);
+		snprintf(buffer, 200, "%*d", 6, (int)quality.maxLengthOfGap);	mvprintw(y, kColumnHeaders[8].first, buffer);
+		snprintf(buffer, 200, "%2.1f", quality.jitterMeanMillis);	mvprintw(y, kColumnHeaders[9].first, buffer);
+		snprintf(buffer, 200, "%2.1f", quality.jitterSDMillis);	mvprintw(y, kColumnHeaders[10].first, buffer);
+#ifndef __GNUC__
 #pragma warning( pop )
+#else
+#pragma GCC diagnostic pop
+#endif
 		refresh();
 	}
 }

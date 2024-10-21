@@ -14,7 +14,7 @@ class DeviceSelector : public Component
 {
 public:
 	DeviceSelector(String const &title, bool showTitle, bool inputInsteadOfOutputDevices);
-	virtual ~DeviceSelector();
+	virtual ~DeviceSelector() override;
 
 	virtual void resized() override;
 

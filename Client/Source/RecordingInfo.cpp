@@ -13,7 +13,7 @@
 
 // https://stackoverflow.com/questions/3758606/how-to-convert-byte-size-into-human-readable-format-in-java
 //
-String humanReadableByteCount(size_t bytes, bool si) {
+static String humanReadableByteCount(size_t bytes, bool si) {
 	size_t unit = si ? 1000 : 1024;
 	if (bytes < unit) {
 		return String(bytes) + " B";
@@ -31,7 +31,7 @@ String humanReadableByteCount(size_t bytes, bool si) {
 
 class RecordingInfo::UpdateTimer : public Timer {
 public:
-	UpdateTimer(RecordingInfo *info) : info_(info) {};
+	UpdateTimer(RecordingInfo *info) : info_(info) {}
 
 	virtual void timerCallback() override
 	{
@@ -128,7 +128,7 @@ void RecordingInfo::updateData()
 		auto dir = recorder_.lock()->getDirectory();
 		recordingPath_.setText(dir.getFullPathName(), dontSendNotification);
 		diskSpacePercentage_ =  1.0 - dir.getBytesFreeOnVolume() / (double)dir.getVolumeTotalSize();
-		diskSpace_.setTextToDisplay(humanReadableByteCount(dir.getBytesFreeOnVolume(), false));
+		diskSpace_.setTextToDisplay(humanReadableByteCount((size_t) dir.getBytesFreeOnVolume(), false));
 		bool isLive = recorder_.lock()->isRecording();
 		recording_.setToggleState(!isLive, dontSendNotification);
 

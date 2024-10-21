@@ -6,7 +6,10 @@
 
 #include "PacketStreamQueue.h"
 
-PacketStreamQueue::PacketStreamQueue(std::string const &streamName) : lastPoppedMessage_(0), lastPushedMessage_(0), currentGap_(0)
+PacketStreamQueue::PacketStreamQueue(std::string const &streamName) :
+    lastPushedMessage_(0)
+    , lastPoppedMessage_(0)
+    , currentGap_(0)
 {
 	qualityData_.streamName = streamName;
 }

@@ -23,7 +23,7 @@ struct ChannelSetup {
 class AudioService : private ValueTree::Listener {
 public:
 	AudioService();
-	~AudioService();
+	virtual ~AudioService() override;
 
 	void shutdown(); // Controlled stop
 
@@ -48,8 +48,8 @@ public:
 	std::string currentReceptionQuality() const;
 	int currentPacketSize();
 
-	float channelPitch(int channel) const;
-	float sessionPitch(int channel);
+	float channelPitch(size_t channel) const;
+	float sessionPitch(size_t channel);
 
 	FFAU::LevelMeterSource* getInputMeterSource();
 	FFAU::LevelMeterSource* getOutputMeterSource();
