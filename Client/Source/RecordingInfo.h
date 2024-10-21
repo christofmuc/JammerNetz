@@ -34,6 +34,6 @@ private:
 	ImageButton recording_;
 	Label recordingTime_;
 	Label freeDiskSpace_;
-	ProgressBar diskSpace_;
 	double diskSpacePercentage_;
+	ProgressBar diskSpace_;
 };
