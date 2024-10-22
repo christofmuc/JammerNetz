@@ -86,6 +86,7 @@ set(UICOMPONENT_FILES
 	Source/ClientConfig.h
 	Source/DeviceSelector.cpp
 	Source/DeviceSelector.h
+	Source/IncludeFFMeters.h
 	Source/MidiDeviceSelector.cpp
 	Source/MidiDeviceSelector.h
 	Source/RecordingInfo.cpp
