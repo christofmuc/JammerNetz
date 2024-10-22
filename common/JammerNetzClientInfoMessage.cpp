@@ -109,7 +109,7 @@ String JammerNetzClientInfoMessage::getIPAddress(uint8 clientNo) const
 
 JammerNetzStreamQualityInfo JammerNetzClientInfoMessage::getStreamQuality(uint8 clientNo) const
 {
-	JammerNetzStreamQualityInfo result{ 0 };
+	JammerNetzStreamQualityInfo result{};
 	if (clientNo < getNumClients()) {
 		return clientInfos_[clientNo].qualityInfo;
 	}

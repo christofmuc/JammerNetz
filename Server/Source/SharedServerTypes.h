@@ -11,19 +11,31 @@
 #include "JammerNetzPackage.h"
 #include "PacketStreamQueue.h"
 
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wextra-semi"
+#pragma GCC diagnostic ignored "-Wsign-conversion"
+#pragma GCC diagnostic ignored "-Wfloat-equal"
+#endif
 #include "tbb/concurrent_queue.h"
 #include "tbb/concurrent_unordered_map.h"
-
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
+#include <string>
 #include <set>
 
-struct OutgoingPackage {
-	OutgoingPackage() = default;
-	OutgoingPackage(std::string const &targetAddress, AudioBlock const &audioBlock) :
-		targetAddress(targetAddress), audioBlock(audioBlock) {
+class OutgoingPackage {
+public:
+	OutgoingPackage() : targetAddress(""), audioBlock(), sessionSetup(false) {}
+
+	OutgoingPackage(std::string const &targetAddress_, AudioBlock const &audioBlock_, JammerNetzChannelSetup sessionSetup_) :
+		targetAddress(targetAddress_), audioBlock(audioBlock_), sessionSetup(sessionSetup_) {
 	}
 
 	std::string targetAddress;
 	AudioBlock audioBlock;
+    JammerNetzChannelSetup sessionSetup;
 };
 
 #if WIN32

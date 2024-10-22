@@ -40,6 +40,9 @@ Client::Client(DatagramSocket& socket) : socket_(socket), messageCounter_(10) /*
 	}));
 	listeners_.push_back(std::make_unique<ValueListener>(Data::instance().get().getPropertyAsValue(VALUE_USE_FEC, nullptr), [this](Value& value) {
 		useFEC_ = value.getValue();
+        nlohmann::json fecControl;
+        fecControl["FEC"] = value.getValue().operator bool();
+        sendControl(fecControl);
 	}));
 	listeners_.push_back(std::make_unique<ValueListener>(Data::getPropertyAsValue(VALUE_SERVER_NAME), [this](Value& value) {
 		ScopedLock lock(serverLock_);
@@ -87,34 +90,40 @@ bool Client::sendData(String const &remoteHostname, int remotePort, void *data, 
 	return true;
 }
 
-bool Client::sendData(JammerNetzChannelSetup const& channelSetup, std::shared_ptr<AudioBuffer<float>> audioBuffer, ControlData controllers)
+bool Client::sendData(JammerNetzChannelSetup const& channelSetup, std::shared_ptr<AudioBuffer<float>> audioBuffer, ControlData controllers) {
+    ScopedLock lockSocket(socketLock_);
+
+    // If we have FEC data, and the user enabled it, append the last block sent
+    std::shared_ptr<AudioBlock> fecBlock;
+    if (useFEC_ && !fecBuffer_.isEmpty()) {
+        fecBlock = fecBuffer_.getLast();
+    }
+    MidiSignal toSend = MidiSignal_None;
+    if (controllers.midiSignal.has_value()) {
+        toSend = *controllers.midiSignal;
+    }
+
+    // Create a message
+    JammerNetzAudioData audioMessage(messageCounter_, Time::getMillisecondCounterHiRes(), channelSetup, SAMPLE_RATE,
+                                     controllers.bpm, toSend, audioBuffer, fecBlock);
+
+    messageCounter_++;
+    size_t totalBytes;
+    audioMessage.serialize(sendBuffer_, totalBytes);
+
+    // Store the audio data somewhere else because we need it for forward error correction
+    std::shared_ptr<AudioBlock> redundencyData = std::make_shared<AudioBlock>();
+    redundencyData->messageCounter = audioMessage.messageCounter();
+    redundencyData->timestamp = audioMessage.timestamp();
+    redundencyData->channelSetup = channelSetup;
+    redundencyData->audioBuffer = std::make_shared<AudioBuffer<float>>();
+    *redundencyData->audioBuffer = *audioBuffer; // Deep copy
+    fecBuffer_.push(redundencyData);
+    return sendBufferToServer(totalBytes);
+}
+
+bool Client::sendBufferToServer(size_t totalBytes)
 {
-	// If we have FEC data, and the user enabled it, append the last block sent
-	std::shared_ptr<AudioBlock> fecBlock;
-	if (useFEC_ && !fecBuffer_.isEmpty()) {
-		fecBlock = fecBuffer_.getLast();
-	}
-	MidiSignal toSend = MidiSignal_None;
-	if (controllers.midiSignal.has_value()) {
-		toSend = *controllers.midiSignal;
-	}
-
-	// Create a message
-	JammerNetzAudioData audioMessage(messageCounter_, Time::getMillisecondCounterHiRes(), channelSetup, SAMPLE_RATE, controllers.bpm, toSend, audioBuffer, fecBlock);
-
-	messageCounter_++;
-	size_t totalBytes;
-	audioMessage.serialize(sendBuffer_, totalBytes);
-
-	// Store the audio data somewhere else because we need it for forward error correction
-	std::shared_ptr<AudioBlock> redundencyData = std::make_shared<AudioBlock>();
-	redundencyData->messageCounter = audioMessage.messageCounter();
-	redundencyData->timestamp = audioMessage.timestamp();
-	redundencyData->channelSetup = channelSetup;
-	redundencyData->audioBuffer = std::make_shared<AudioBuffer<float>>();
-	*redundencyData->audioBuffer = *audioBuffer; // Deep copy
-	fecBuffer_.push(redundencyData);
-
 	// Send off to server
 	String servername;
 	{
@@ -146,6 +155,22 @@ bool Client::sendData(JammerNetzChannelSetup const& channelSetup, std::shared_pt
 	}
 
 	return true;
+}
+
+bool Client::sendControl(nlohmann::json &json)
+{
+    ScopedLock lockSocket(socketLock_);
+
+    JammerNetzControlMessage controlMessage(json);
+    size_t totalBytes;
+    controlMessage.serialize(sendBuffer_, totalBytes);
+    if (totalBytes > 0) {
+        return sendBufferToServer(totalBytes);
+    }
+    else
+    {
+        return false;
+    }
 }
 
 int Client::getCurrentBlockSize() const

@@ -8,10 +8,35 @@
 
 #include "BuffersConfig.h"
 
+#ifndef __GNUC__
 #pragma warning( push )
 #pragma warning( disable: 4244 4267 4305 4456)
+#else
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wfloat-conversion"
+#pragma GCC diagnostic ignored "-Wsign-conversion"
+#pragma GCC diagnostic ignored "-Wextra-semi"
+#pragma GCC diagnostic ignored "-Wshadow"
+#pragma GCC diagnostic ignored "-Wfloat-equal"
+#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
+#endif
+#ifdef __clang__
+#pragma clang diagnostic ignored "-Wimplicit-float-conversion"
+#pragma clang diagnostic ignored "-Wshorten-64-to-32"
+#pragma clang diagnostic ignored "-Wc++98-compat-extra-semi"
+#pragma clang diagnostic ignored "-Wshadow-field-in-constructor"
+#pragma clang diagnostic ignored "-Wimplicit-int-conversion"
+#pragma clang diagnostic ignored "-Wc99-extensions"
+#pragma clang diagnostic ignored "-Wgnu-statement-expression"
+#pragma clang diagnostic ignored "-Wgnu-statement-expression-from-macro-expansion"
+#endif
 #include <q/pitch/pitch_detector.hpp>
-#pragma warning ( pop )
+#ifndef __GNUC__
+#pragma warning(pop)
+#else
+#pragma GCC diagnostic pop
+#endif
+
 
 namespace q = cycfi::q;
 using namespace q::literals;
@@ -22,21 +47,21 @@ public:
 		if (audioData) {
 
 			auto readPointers = audioData->getArrayOfReadPointers();
-			for (int channel = 0; channel < audioData->getNumChannels(); channel++) {
+			for (size_t channel = 0; channel < (size_t) audioData->getNumChannels(); channel++) {
 				// Do we already create a detector for this channel?
 				if (detectors.size() <= channel) {
 					detectors.push_back(std::make_unique<q::pitch_detector>(50.0_Hz, 2000.0_Hz, (float) SAMPLE_RATE, q::lin_to_db(0.0)));
 				}
 
 				// Feed the samples of this channel into the pitch detector
-				for (int s = 0; s < audioData->getNumSamples(); s++) {
+				for (size_t s = 0; s < (size_t) audioData->getNumSamples(); s++) {
 					(*detectors[channel])(readPointers[channel][s]);
 				}
 			}
 		}
 	}
 
-	float getPitch(int channel) const {
+	float getPitch(size_t channel) const {
 		if (channel < detectors.size()) {
 			return detectors[channel]->predict_frequency();
 		}
@@ -61,7 +86,7 @@ void Tuner::detectPitch(std::shared_ptr<AudioBuffer<float>> audioBuffer)
 	impl->detectPitch(audioBuffer);
 }
 
-float Tuner::getPitch(int channel) const
+float Tuner::getPitch(size_t channel) const
 {
 	return impl->getPitch(channel);
 }

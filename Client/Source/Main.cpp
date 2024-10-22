@@ -72,7 +72,7 @@ public:
 		if (clientID.isNotEmpty()) {
 			windowTitle += ": " + clientID;
 		}
-        mainWindow = std::make_unique<MainWindow>(new MainComponent(clientID, audioService_, audioService_->getMasterRecorder(), audioService_->getLocalRecorder()), windowTitle, clientID);
+        mainWindow = std::make_unique<MainWindow>(new MainComponent(audioService_, audioService_->getMasterRecorder(), audioService_->getLocalRecorder()), windowTitle);
 
 #ifdef USE_SENTRY
 		// Initialize sentry for error crash reporting
@@ -130,7 +130,7 @@ public:
     class MainWindow    : public DocumentWindow
     {
     public:
-        MainWindow (Component *mainComponent, String name, String clientID)  : DocumentWindow (name,
+        MainWindow (Component *mainComponent, String name)  : DocumentWindow (name,
                                                     Desktop::getInstance().getDefaultLookAndFeel()
                                                                           .findColour (ResizableWindow::backgroundColourId),
                                                     DocumentWindow::allButtons)

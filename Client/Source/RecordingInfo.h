@@ -13,7 +13,7 @@
 class RecordingInfo : public Component, private TextButton::Listener {
 public:
 	RecordingInfo(std::weak_ptr<Recorder> recorder, String explanation);
-	~RecordingInfo();
+	virtual ~RecordingInfo() override;
 
 	virtual void resized() override;
 
@@ -34,6 +34,6 @@ private:
 	ImageButton recording_;
 	Label recordingTime_;
 	Label freeDiskSpace_;
-	ProgressBar diskSpace_;
 	double diskSpacePercentage_;
+	ProgressBar diskSpace_;
 };

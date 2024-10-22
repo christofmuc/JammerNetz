@@ -24,8 +24,8 @@
 class MainComponent   : public Component, private Timer, public ValueTree::Listener
 {
 public:
-    MainComponent(String clientID, std::shared_ptr<AudioService> audioService, std::shared_ptr<Recorder> masterRecorder, std::shared_ptr<Recorder> localRecorder);
-    ~MainComponent();
+    MainComponent(std::shared_ptr<AudioService> audioService, std::shared_ptr<Recorder> masterRecorder, std::shared_ptr<Recorder> localRecorder);
+    virtual ~MainComponent() override;
 
     void resized() override;
 

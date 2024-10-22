@@ -79,7 +79,7 @@ private:
 class AudioCallback : public AudioIODeviceCallback {
 public:
 	AudioCallback();
-	virtual ~AudioCallback();
+	virtual ~AudioCallback() override;
 
 	void shutdown();
 
@@ -87,7 +87,7 @@ public:
 	void setMidiSignalToSend(MidiSignal signal);
 
 	virtual void audioDeviceIOCallbackWithContext(const float* const* inputChannelData, int numInputChannels, float* const* outputChannelData, int numOutputChannels,
-	    int numSamples, const AudioIODeviceCallbackContext& context);
+	    int numSamples, const AudioIODeviceCallbackContext& context) override;
 	virtual void audioDeviceAboutToStart(AudioIODevice* device) override;
 	virtual void audioDeviceStopped() override;
 
@@ -109,8 +109,8 @@ public:
 	std::string currentReceptionQuality() const;
 	bool isReceivingData();
 	double currentRTT();
-	float channelPitch(int channel) const;
-	float sessionPitch(int channel);
+	float channelPitch(size_t channel) const;
+	float sessionPitch(size_t channel);
 
 	std::shared_ptr<Recorder> getMasterRecorder() const;
 	std::shared_ptr<Recorder> getLocalRecorder() const;

@@ -15,7 +15,7 @@ public:
 	~Tuner();
 
 	void detectPitch(std::shared_ptr<AudioBuffer<float>> audioBuffer);
-	float getPitch(int channel) const;
+	float getPitch(size_t channel) const;
 
 private:
 	// We might want to try different pitch detection libraries, therefore hide the implementation
