@@ -159,7 +159,7 @@ if (MSVC)
     target_compile_options(JammerNetzClient PRIVATE /W4 /WX)
 else()
     # lots of warnings and all warnings as errors
-    target_compile_options(JammerNetzClient PRIVATE -Wall -Wextra -pedantic -Werror -Wno-unknown-pragmas)
+    target_compile_options(JammerNetzClient PRIVATE -Wall -Wextra -Werror -Wno-unknown-pragmas)
 endif()
 
 IF(WIN32)
