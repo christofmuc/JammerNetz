@@ -12,6 +12,8 @@ set(CMAKE_OSX_DEPLOYMENT_TARGET "10.11" CACHE STRING "Minimum OS X version to ta
 
 project(JammerNetz)
 
+OPTION(BUILD_JAMMERNETZ_CLIENT "Option to turn off the client build" ON)
+
 # Since we also build MacOS, we need C++ 17. Which is not a bad thing.
 # JUCE 8 seems to force us to C++ 20 now!
 set(CMAKE_CXX_STANDARD 20)
@@ -75,9 +77,11 @@ elseif(UNIX)
 	find_package(OpenGL)
 
 	# These calls create special `PkgConfig::<MODULE>` variables
-	pkg_check_modules(GTK REQUIRED IMPORTED_TARGET gtk+-3.0)
-	pkg_check_modules(GLEW REQUIRED IMPORTED_TARGET glew)
-	pkg_check_modules(WEBKIT REQUIRED IMPORTED_TARGET webkit2gtk-4.1)
+	if(BUILD_JAMMERNETZ_CLIENT)
+		pkg_check_modules(GTK REQUIRED IMPORTED_TARGET gtk+-3.0)
+		pkg_check_modules(GLEW REQUIRED IMPORTED_TARGET glew)
+		pkg_check_modules(WEBKIT REQUIRED IMPORTED_TARGET webkit2gtk-4.1)
+	endif()
 endif()
 
 
@@ -111,12 +115,17 @@ mark_as_advanced(
 
 # Define the list of link libraries required on Linux linking with JUCE, this must be used by any executable / module to run standalone
 if(UNIX AND NOT APPLE)
-	set(LINUX_JUCE_LINK_LIBRARIES
+	if(BUILD_JAMMERNETZ_CLIENT)
+		set(LINUX_UI_LIBRARIES
 		PkgConfig::WEBKIT
 		PkgConfig::GTK
 		PkgConfig::GLEW
+		)
+	endif()
+	set(LINUX_JUCE_LINK_LIBRARIES
 		Xext
 		X11
+		${LINUX_UI_LIBRARIES}
 		pthread
 		${CMAKE_DL_LIBS}
 		freetype
@@ -133,13 +142,22 @@ add_subdirectory("third_party/JUCE" EXCLUDE_FROM_ALL)
 
 # Build a static library from juce
 add_library(juce-static STATIC)
+if(BUILD_JAMMERNETZ_CLIENT)
+	set(ADDITIONAL_JUCE_MODULES
+		juce::juce_graphics
+		juce::juce_gui_basics
+		juce::juce_gui_extra
+		juce::juce_opengl
+		juce::juce_video
+	)
+endif()
 target_link_libraries(juce-static
 	PRIVATE
 	    juce::juce_audio_basics juce::juce_audio_devices juce::juce_audio_formats
 	    juce::juce_audio_processors juce::juce_audio_utils juce::juce_core
 	    juce::juce_cryptography juce::juce_data_structures juce::juce_dsp
-	    juce::juce_events juce::juce_graphics juce::juce_gui_basics
-	    juce::juce_gui_extra juce::juce_opengl juce::juce_video
+	    juce::juce_events
+		${ADDITIONAL_JUCE_MODULES}
 		${LINUX_JUCE_LINK_LIBRARIES}
 	PUBLIC
 		juce::juce_recommended_config_flags
@@ -170,10 +188,8 @@ target_compile_definitions(juce-static
 target_include_directories(juce-static
 	INTERFACE
 		$<TARGET_PROPERTY:juce-static,INCLUDE_DIRECTORIES>
-if (WIN32)
 	PRIVATE
 		"${ASIO_SDK_DIRECTORY}"
-endif()
 		)
 
 set_target_properties(juce-static PROPERTIES
@@ -194,21 +210,26 @@ if(WIN32)
 endif()
 
 # Add subdirectories
-add_subdirectory("third_party/JUCE-user-modules")
 add_subdirectory("third_party/json")
 add_subdirectory("third_party/fmt")
 add_subdirectory("third_party/spdlog")
 add_subdirectory("modules/juce-utils")
-add_subdirectory("modules/juce-widgets")
+if(BUILD_JAMMERNETZ_CLIENT)
+	add_subdirectory("third_party/JUCE-user-modules")
+	add_subdirectory("modules/juce-widgets")
+endif()
 add_subdirectory("modules/MidiKraft")
 message(${CMAKE_MODULE_PATH})
 add_subdirectory("third_party/oneTBB" EXCLUDE_FROM_ALL)
 add_subdirectory("common")
 add_subdirectory("Server")
+
+if(BUILD_JAMMERNETZ_CLIENT)
 add_subdirectory("Client")
 
 # The client installer now contains the server as well for local testing - make sure to always build the server
 add_dependencies(JammerNetzClient JammerNetzServer)
+endif()
 
 # For Windows, we additionally build a little test program to check if ASIO initialization works.
 if(WIN32)
