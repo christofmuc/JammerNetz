@@ -95,9 +95,9 @@ bool Client::sendData(JammerNetzChannelSetup const& channelSetup, std::shared_pt
 
     // If we have FEC data, and the user enabled it, append the last block sent
     std::shared_ptr<AudioBlock> fecBlock;
-    if (useFEC_ && !fecBuffer_.isEmpty()) {
-        fecBlock = fecBuffer_.getLast();
-    }
+    //if (useFEC_ && !fecBuffer_.isEmpty()) {
+    //    fecBlock = fecBuffer_.getLast();
+    //}
     MidiSignal toSend = MidiSignal_None;
     if (controllers.midiSignal.has_value()) {
         toSend = *controllers.midiSignal;
