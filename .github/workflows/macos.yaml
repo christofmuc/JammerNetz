@@ -17,7 +17,7 @@ jobs:
 
     - name: Install dependencies
       run: |
-        brew install cmake gtk+3 glew
+        brew install gtk+3 glew
 
     - name: Build Flatbuffers
       run: |
