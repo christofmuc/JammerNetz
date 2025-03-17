@@ -32,7 +32,7 @@ jobs:
         cmake --build build --target package -j8
 
     - name: Upload Mac Installer
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
         name: MacInstaller
         path: build/JammerNetz-2.3.0-Darwin.dmg

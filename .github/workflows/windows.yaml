@@ -50,7 +50,7 @@ jobs:
         cmake --build Builds\Windows --config RelWithDebInfo
 
     - name: Upload Windows Installer
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: WindowsInstaller
         path: Builds/Windows/Client/jammernetz_setup_2.3.0.exe
