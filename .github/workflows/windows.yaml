@@ -17,7 +17,7 @@ jobs:
 
     - name: Install InnoSetup
       run: |
-        nuget restore $(System.DefaultWorkingDirectory)/packages.config -PackagesDirectory third_party
+        nuget restore ${{ github.workspace }}/packages.config -PackagesDirectory third_party
 
     - name: Set up Python
       uses: actions/setup-python@v4
