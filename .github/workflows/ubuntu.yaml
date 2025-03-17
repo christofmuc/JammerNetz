@@ -30,7 +30,7 @@ jobs:
         cmake --build LinuxBuilds
         cd ../..
         cd third_party/sentry-native
-        cmake -S . -B builds -DSENTRY_BACKEND=crashpad -DCMAKE_INSTALL_PREFIX=./install
+        cmake -S . -B builds -DSENTRY_BACKEND=crashpad -DCMAKE_INSTALL_PREFIX=./install -DBUILD_JAMMERNETZ_CLIENT=OFF
         cmake --build builds --target install
         cd ../..
 
