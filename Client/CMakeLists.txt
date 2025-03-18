@@ -157,9 +157,12 @@ ENDIF()
 if (MSVC)
     # warning level 4 and all warnings as errors
     target_compile_options(JammerNetzClient PRIVATE /W4 /WX)
+elseif(APPLE)
+	target_compile_options(JammerNetzClient PRIVATE -Wall -Wextra -Werror -Wno-unknown-pragmas)
 else()
+	# Some sort of Linux
     # lots of warnings and all warnings as errors
-    target_compile_options(JammerNetzClient PRIVATE -Wall -Wextra -Werror -Wno-unknown-pragmas)
+    target_compile_options(JammerNetzClient PRIVATE -Wall -Werror -Wno-unknown-pragmas)
 endif()
 
 IF(WIN32)
