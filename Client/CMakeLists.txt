@@ -162,7 +162,7 @@ elseif(APPLE)
 else()
 	# Some sort of Linux
     # lots of warnings and all warnings as errors
-    target_compile_options(JammerNetzClient PRIVATE --Wno-unknown-pragmas)
+    target_compile_options(JammerNetzClient PRIVATE -Wno-unknown-pragmas)
 endif()
 
 IF(WIN32)
