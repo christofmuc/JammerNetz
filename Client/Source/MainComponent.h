@@ -18,6 +18,7 @@
 #include "LogView.h"
 #include "TwoLabelSlider.h"
 #include "MidiDeviceSelector.h"
+#include "Thumbnail.h"
 
 #include "ApplicationState.h"
 
@@ -76,6 +77,7 @@ private:
 	std::unique_ptr<PlayalongDisplay> playalongDisplay_;
 	GroupComponent logGroup_;
 	LogView logView_;
+	juce::AudioVisualiserComponent recordingView_;
 	// END OF WIDGET LIST
 
 	// We hold the simple logger, as we want it to log into our log view

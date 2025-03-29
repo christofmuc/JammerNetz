@@ -83,6 +83,8 @@ public:
 
 	void shutdown();
 
+	void setRecordingView(juce::AudioVisualiserComponent& view);
+
 	void restartClock(std::vector<MidiDeviceInfo> outputs);
 	void setMidiSignalToSend(MidiSignal signal);
 
@@ -154,6 +156,8 @@ private:
 	ReadOnceLatch<MidiSignal> midiSignalToGenerate_;
 
 	std::unique_ptr<Tuner> tuner_;
+
+	juce::AudioVisualiserComponent* recordingView_ {nullptr};
 
 	// Use this to hand out statistics from the audio/real time callback to other interested threads
 	tbb::concurrent_queue<PlayoutQualityInfo> playoutQualityInfo_;

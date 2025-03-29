@@ -91,6 +91,11 @@ void AudioService::setClockOutputs(std::vector<juce::MidiDeviceInfo> outputs)
 	callback_.restartClock(outputs);
 }
 
+void AudioService::setRecordingView(juce::AudioVisualiserComponent& view)
+{
+	callback_.setRecordingView(view);
+}
+
 void AudioService::setMidiSignal(MidiSignal signal)
 {
 	callback_.setMidiSignalToSend(signal);

@@ -91,6 +91,11 @@ void AudioCallback::shutdown()
 	jammerService_.shutdown();
 }
 
+void AudioCallback::setRecordingView(juce::AudioVisualiserComponent& view)
+{
+	recordingView_ = &view;
+}
+
 void AudioCallback::restartClock(std::vector<MidiDeviceInfo> outputs)
 {
 	// Where to send the Midi Clock signals
@@ -448,6 +453,9 @@ void AudioCallback::audioDeviceIOCallbackWithContext(const float* const* inputCh
 	outMeterSource_.measureBlock(outputBuffer);
 	if (masterRecorder_ && masterRecorder_->isRecording()) {
 		masterRecorder_->saveBlock(outputBuffer.getArrayOfReadPointers(), numSamples);
+	}
+	if (recordingView_) {
+		recordingView_->pushBuffer(outputBuffer.getArrayOfReadPointers(), 1, numSamples);
 	}
 
 	// Make the calculated quality info available for an interested consumer

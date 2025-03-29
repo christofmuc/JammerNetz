@@ -28,6 +28,7 @@ MainComponent::MainComponent(std::shared_ptr<AudioService> audioService, std::sh
 	monitorBalance_("Local", "Remote", 50),
 	bpmSlider_(juce::Slider::SliderStyle::LinearHorizontal, juce::Slider::TextBoxRight),
     logView_(false), // Turn off line numbers
+    recordingView_(1), // Single channel display
     stageLeftWhenInMillis_(Time::currentTimeMillis())
 {
 	// Create an a Logger for the JammerNetz client
@@ -40,6 +41,13 @@ MainComponent::MainComponent(std::shared_ptr<AudioService> audioService, std::sh
 	recordingInfo_ = std::make_unique<RecordingInfo>(masterRecorder, "Press to record master mix");
 	//playalongDisplay_ = std::make_unique<PlayalongDisplay>(callback_.getPlayalong());
 	localRecordingInfo_ = std::make_unique<RecordingInfo>(localRecorder, "Press to record yourself only");
+
+	//recordingView_.loadFromFile("F:\\JammerNetzSession\\LocalRecording-2024-10-02-22-05-48.wav", "cache.tmp");
+	//recordingView_.setSamplesPerBlock(SAMPLE_BUFFER_SIZE);
+	recordingView_.setSamplesPerBlock(64);
+	//recordingView_.setRepaintRate(20);
+	recordingView_.setBufferSize(SAMPLE_RATE * 30 / 64);
+	audioService_->setRecordingView(recordingView_);
 
 	// MidiClock
 	addAndMakeVisible(bpmSlider_);
@@ -119,12 +127,13 @@ MainComponent::MainComponent(std::shared_ptr<AudioService> audioService, std::sh
 	addAndMakeVisible(logGroup_);
 	addAndMakeVisible(logView_);
 	addAndMakeVisible(clockSelector_);
+	addAndMakeVisible(recordingView_);
 
 	startTimer(100);
 
 	// Make sure you set the size of the component after
 	// you add any child components.
-	setSize(1536, 800);
+	setSize(1536, 1000);
 
 	clockSelector_.onSelectionChanged = [this](std::vector<juce::MidiDeviceInfo> activeOutputs) {
 		if (audioService_) {
@@ -146,6 +155,7 @@ void MainComponent::resized()
 {
 	auto area = getLocalBounds();
 	area = area.reduced(kSmallInset);
+	auto thumbnailArea = area.removeFromBottom(200);
 
 	int settingsHeight = 400;
 	int deviceSelectorWidth = std::min(area.getWidth() / 5, 250);
@@ -191,6 +201,8 @@ void MainComponent::resized()
 	//bpmDisplay_->setBounds(midiRecordingInfo);
 	recordingInfo_->setBounds(recordingArea.removeFromTop(recordingArea.getHeight() / 2));
 	localRecordingInfo_->setBounds(recordingArea);
+
+	recordingView_.setBounds(thumbnailArea.reduced(kSmallInset));
 
 	// Far lower right  - the new Log View
 	auto logArea = settingsArea;

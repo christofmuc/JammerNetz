@@ -32,6 +32,7 @@ public:
 	void stopAudioIfRunning();
 
 	void setClockOutputs(std::vector<juce::MidiDeviceInfo> outputs);
+	void setRecordingView(juce::AudioVisualiserComponent& view);
 	void setMidiSignal(MidiSignal signal);
 
 	std::shared_ptr<Recorder> getMasterRecorder() const;
