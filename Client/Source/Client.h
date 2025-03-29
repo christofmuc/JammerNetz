@@ -13,6 +13,8 @@
 #include "RingOfAudioBuffers.h"
 #include "ApplicationState.h"
 
+#include "nlohmann/json.hpp"
+
 struct ControlData
 {
 	std::optional<float> bpm;
@@ -25,6 +27,7 @@ public:
 	~Client();
 
 	bool sendData(JammerNetzChannelSetup const &channelSetup, std::shared_ptr<AudioBuffer<float>> audioBuffer, ControlData controllers);
+	bool sendControl(nlohmann::json &json);
 
 	// Statistics info
 	int getCurrentBlockSize() const;
@@ -32,12 +35,14 @@ public:
 private:
 	void setCryptoKey(const void* keyData, int keyBytes);
 	bool sendData(String const &remoteHostname, int remotePort, void *data, int numbytes);
+    bool sendBufferToServer(size_t totalBytes);
 
 	DatagramSocket &socket_;
 	uint64 messageCounter_;
 	uint8 sendBuffer_[65536];
 	std::atomic_int currentBlockSize_;
 	std::atomic<bool> useFEC_;
+	juce::CriticalSection socketLock_;
 	juce::CriticalSection serverLock_;
 	String serverName_;
 	std::atomic<int> serverPort_;

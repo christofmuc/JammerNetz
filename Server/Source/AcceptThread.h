@@ -11,19 +11,30 @@
 #include "SharedServerTypes.h"
 #include "BuffersConfig.h"
 
+#include "JammerNetzPackage.h"
+
 class PrintQualityTimer;
 
 class AcceptThread : public Thread {
 public:
-	AcceptThread(int serverPort, DatagramSocket &socket, TPacketStreamBundle &incomingData, TMessageQueue &wakeUpQueue, ServerBufferConfig bufferConfig, void *keydata, int keysize);
-	~AcceptThread();
+	AcceptThread(int serverPort, DatagramSocket &socket,
+                 TPacketStreamBundle &incomingData, TMessageQueue &wakeUpQueue,
+                 ServerBufferConfig bufferConfig,
+                 void *keydata,
+                 int keysize,
+                 ValueTree serverConfiguration);
+	virtual ~AcceptThread() override;
 
 	virtual void run() override;
 
 private:
-	DatagramSocket &receiveSocket_;
+    void processControlMessage(std::shared_ptr<JammerNetzControlMessage> message);
+    void processAudioMessage(std::shared_ptr<JammerNetzAudioData> message, std::string const& clientName);
+
+    DatagramSocket &receiveSocket_;
 	TPacketStreamBundle &incomingData_;
 	TMessageQueue &wakeUpQueue_;
+    ValueTree serverConfiguration_;
 	uint8 readbuffer[MAXFRAMESIZE];
 	std::unique_ptr<PrintQualityTimer> qualityTimer_;
 	ServerBufferConfig bufferConfig_;

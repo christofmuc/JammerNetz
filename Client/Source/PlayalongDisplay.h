@@ -13,7 +13,7 @@
 class PlayalongDisplay : public Component, private Button::Listener, private Timer {
 public:
 	PlayalongDisplay(MidiPlayAlong *playalong);
-	virtual ~PlayalongDisplay();
+	virtual ~PlayalongDisplay() override;
 
 	virtual void resized() override;
 

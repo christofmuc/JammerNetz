@@ -25,3 +25,5 @@ venv/
 .vs/
 builds2024/
 .conan_venv/
+builds24/
+buildServer/

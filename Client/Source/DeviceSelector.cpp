@@ -16,7 +16,10 @@
 #include "LayoutConstants.h"
 
 DeviceSelector::DeviceSelector(String const& title, bool showTitle, bool inputInsteadOfOutputDevices)
-	: title_(title), showTitle_(showTitle), inputDevices_(inputInsteadOfOutputDevices)
+	:
+    showTitle_(showTitle)
+    , title_(title)
+    , inputDevices_(inputInsteadOfOutputDevices)
 {
 	titleLabel_.setText(title, dontSendNotification);
 
@@ -89,7 +92,7 @@ DeviceSelector::DeviceSelector(String const& title, bool showTitle, bool inputIn
 					// Does it have a control panel?
 					if (selectedDevice->hasControlPanel()) {
 						controlPanelButton_ = std::make_unique<TextButton>("Configure");
-						controlPanelButton_->onClick = [this, selectedDevice]() {
+						controlPanelButton_->onClick = [selectedDevice]() {
 							selectedDevice->showControlPanel();
 						};
 						addAndMakeVisible(*controlPanelButton_);
@@ -198,7 +201,7 @@ void DeviceSelector::resized()
 	return deviceTypes_[typeDropdown_.getSelectedItemIndex()];
 }*/
 
-bool comboHasText(ComboBox* combo, String text) {
+static bool comboHasText(ComboBox* combo, String text) {
 	for (int i = 0; i < combo->getNumItems(); i++) {
 		if (combo->getItemText(i) == text)
 			return true;
@@ -241,8 +244,8 @@ void DeviceSelector::bindControls()
 		deviceSelector.setProperty(VALUE_DEVICE_NAME, "", nullptr);
 	}
 	deviceDropdown_.onChange = [this]() {
-		ValueTree deviceSelector = Data::instance().get().getChildWithName(Identifier(titleLabel_.getText(false)));
-		deviceSelector.setProperty(VALUE_DEVICE_NAME, deviceDropdown_.getText(), nullptr);
+		ValueTree dropdownSelector = Data::instance().get().getChildWithName(Identifier(titleLabel_.getText(false)));
+        dropdownSelector.setProperty(VALUE_DEVICE_NAME, deviceDropdown_.getText(), nullptr);
 	};
 	listeners_.push_back(std::make_unique<ValueListener>(deviceSelector.getPropertyAsValue(VALUE_DEVICE_NAME, nullptr), [this](Value& newValue) {
 		String newType = newValue.getValue();

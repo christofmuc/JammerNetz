@@ -19,7 +19,14 @@ IF (WIN32)
 ELSE()
     set(FLATBUFFERS_FLATC_EXECUTABLE "${CMAKE_CURRENT_LIST_DIR}/../third_party/flatbuffers/LinuxBuilds/flatc")
 ENDIF()
-FLATBUFFERS_GENERATE_C_HEADERS(FlatJammer JammerNetzPackages.fbs JammerNetzAudioData.fbs)
+set(FLATBUFFER_INPUT
+		JammerNetzPackages.fbs
+		JammerNetzAudioData.fbs
+		JammerNetzChannelSetup.fbs
+		JammerNetzSessionInfo.fbs
+		JammerNetzControlMessage.fbs
+		)
+FLATBUFFERS_GENERATE_C_HEADERS(FlatJammer ${FLATBUFFER_INPUT})
 
 # Define the sources for the static library
 set(Sources
@@ -28,10 +35,8 @@ set(Sources
 	Encryption.cpp Encryption.h
 	JammerNetzClientInfoMessage.cpp JammerNetzClientInfoMessage.h
 	JammerNetzPackage.cpp JammerNetzPackage.h
-	JammerNetzPackages.fbs
-	JammerNetzAudioData.fbs
 	JuceHeader.h
-	${FlatJammer_OUTPUTS}
+	${FLATBUFFER_INPUT}
 	PacketStreamQueue.cpp PacketStreamQueue.h
 	Pool.h
 	Recorder.cpp Recorder.h
@@ -41,9 +46,13 @@ set(Sources
 	ServerInfo.cpp ServerInfo.h
 	XPlatformUtils.h
 )
-
 # Setup library
 add_library(JammerCommon ${Sources})
+foreach(OPT ${FlatJammer_OUTPUTS})
+	message("Adding source file ${OPT}")
+target_sources(JammerCommon PRIVATE ${OPT})
+endforeach()
+
 target_include_directories(JammerCommon
 	PUBLIC "${INTEL_TBB_DIRECTORY}/include/" "${CMAKE_CURRENT_LIST_DIR}/../third_party/flatbuffers/include" "${CMAKE_CURRENT_BINARY_DIR}"
 	INTERFACE ${CMAKE_CURRENT_LIST_DIR}
@@ -57,7 +66,7 @@ if (MSVC)
     target_compile_options(JammerCommon PRIVATE /W4 /WX)
 else()
     # lots of warnings and all warnings as errors
-    #target_compile_options(JammerCommon PRIVATE -Wall -Wextra -pedantic -Werror)
+    target_compile_options(JammerCommon PRIVATE -Wall -Wextra -pedantic -Werror)
 endif()
 
 # Define tests

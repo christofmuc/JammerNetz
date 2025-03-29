@@ -1,0 +1,38 @@
+name: macOS Build
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+    - name: Disable git automatic line ending conversion
+      run: git config --global core.autocrlf false
+
+    - name: Checkout code
+      uses: actions/checkout@v2
+      with:
+        submodules: 'recursive'
+
+    - name: Install dependencies
+      run: |
+        brew install gtk+3 glew
+
+    - name: Build Flatbuffers
+      run: |
+        cd third_party/flatbuffers
+        cmake -S . -B LinuxBuilds -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release
+        cmake --build LinuxBuilds -- -j8
+        cd ../..
+
+    - name: Build with CMake
+      run: |
+        cmake -S . -B build -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_RPATH_USE_LINK_PATH="ON"
+        cmake --build build --target package -j8
+
+    - name: Upload Mac Installer
+      uses: actions/upload-artifact@v4
+      with:
+        name: MacInstaller
+        path: build/JammerNetz-2.3.0-Darwin.dmg

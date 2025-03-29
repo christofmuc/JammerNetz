@@ -45,9 +45,7 @@ void MidiSendThread::run()
 			MessageQueueItem item;
 			while (midiMessages.try_pop(item) && !threadShouldExit()) {
 				// Wait until the time has come
-				uint64 waiting = 0;
 				while (std::chrono::high_resolution_clock::now() < item.whenToSend) {
-					waiting += 1;
 				}
 				// Send the F8 MIDI Clock message to all devices registered
 				for (auto &out : f8_outputs) {

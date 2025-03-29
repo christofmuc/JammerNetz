@@ -19,6 +19,8 @@
 
 #include "ServerLogger.h"
 
+std::string getServerVersion();
+
 #include "version.cpp"
 
 #ifdef WIN32
@@ -35,11 +37,15 @@
 
 class Server {
 public:
-	Server(std::shared_ptr<MemoryBlock> cryptoKey, ServerBufferConfig bufferConfig, int serverPort, bool useFEC) : mixdownRecorder_(File::getCurrentWorkingDirectory(), "mixdown", RecordingType::FLAC), clientRecorder_(File(), "input", RecordingType::AIFF),
-		mixdownSetup_(false, { JammerNetzChannelTarget::Left, JammerNetzChannelTarget::Right }) // Setup standard mix down setup - two channels only in stereo
+	Server(std::shared_ptr<MemoryBlock> cryptoKey, ServerBufferConfig bufferConfig, int serverPort, bool useFEC) :
+    clientRecorder_(File(), "input", RecordingType::AIFF)
+    , mixdownRecorder_(File::getCurrentWorkingDirectory(), "mixdown", RecordingType::FLAC)
+    , mixdownSetup_(false, { JammerNetzSingleChannelSetup(JammerNetzChannelTarget::Left), JammerNetzSingleChannelSetup(JammerNetzChannelTarget::Right) }) // Setup standard mix down setup - two channels only in stereo
+    , serverConfiguration_("SERVER_CONFIG")
 	{
 		// Start the recorder of the mix down
 		//mixdownRecorder_.updateChannelInfo(48000, mixdownSetup_);
+        serverConfiguration_.setProperty("FEC", useFEC, nullptr);
 
 		// optional crypto key
 		void* cryptoData = nullptr;
@@ -49,9 +55,9 @@ public:
 			cipherLength = static_cast<int>(cryptoKey->getSize());
 		}
 
-		acceptThread_ = std::make_unique<AcceptThread>(serverPort, socket_, incomingStreams_, wakeUpQueue_, bufferConfig, cryptoData, cipherLength);
-		sendThread_ = std::make_unique <SendThread>(socket_, sendQueue_, incomingStreams_, cryptoData, cipherLength, useFEC);
-		mixerThread_ = std::make_unique<MixerThread>(incomingStreams_, mixdownSetup_, sendQueue_, wakeUpQueue_, mixdownRecorder_, bufferConfig);
+		acceptThread_ = std::make_unique<AcceptThread>(serverPort, socket_, incomingStreams_, wakeUpQueue_, bufferConfig, cryptoData, cipherLength, serverConfiguration_);
+		sendThread_ = std::make_unique <SendThread>(socket_, sendQueue_, incomingStreams_, cryptoData, cipherLength, serverConfiguration_);
+		mixerThread_ = std::make_unique<MixerThread>(incomingStreams_, mixdownSetup_, sendQueue_, wakeUpQueue_, bufferConfig);
 
 		sendQueue_.set_capacity(128); // This is an arbitrary number only to prevent memory overflow should the sender thread somehow die (i.e. no network or something)
 	}
@@ -97,6 +103,8 @@ private:
 	Recorder clientRecorder_; // Later I need one per client
 	Recorder mixdownRecorder_;
 	JammerNetzChannelSetup mixdownSetup_; // This is the same for everybody
+
+    ValueTree serverConfiguration_; // This is used to share the overall server configuration across the Threads
 };
 
 int main(int argc, char *argv[])
@@ -110,10 +118,10 @@ int main(int argc, char *argv[])
 	std::shared_ptr<MemoryBlock> cryptoKey;
 
 	// Parse command line arguments
-	ArgumentList args(argc, argv);
+	ArgumentList arguments(argc, argv);
 
 	// Sweet executable name
-	File myself(args.executableName);
+	File myself(arguments.executableName);
 	String shortExeName = myself.getFileName();
 
 	// Specify commands
@@ -173,7 +181,7 @@ int main(int argc, char *argv[])
 	sentry_capture_event(sentry_value_new_message_event(SENTRY_LEVEL_INFO, "custom", "Launching JammerNetzServer"));
 #endif
 
-	app.findAndRunCommand(args);
+	app.findAndRunCommand(arguments);
 
 #ifdef USE_SENTRY
 	std::cout << "Shutting down Sentry" << std::endl;

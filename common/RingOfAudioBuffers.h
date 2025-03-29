@@ -24,7 +24,11 @@ public:
 
 	void push(std::shared_ptr<T> audioBuffer) {
 		// The write pointer always points to the next element to write to
-		data_[endIndex_] = audioBuffer;
+        if (endIndex_ < 0) {
+            jassertfalse;
+            return;
+        }
+		data_[(size_t) endIndex_] = audioBuffer;
 		incIndex(endIndex_);
 		if (endIndex_ == headIndex_) {
 			incIndex(headIndex_);
@@ -39,7 +43,7 @@ public:
 
 		int readIndex = endIndex_ - 1;
 		if (readIndex < 0) readIndex += (int) data_.size();
-		return data_[readIndex];
+		return data_[(size_t) readIndex];
 	}
 
 	std::shared_ptr<T> getNthLast(int n) const
@@ -62,13 +66,13 @@ public:
 			if (readIndex < 0) readIndex += (int) data_.size();
 			count++;
 		}
-		return data_[readIndex];
+		return data_[(size_t) readIndex];
 	}
 
 private:
 	void incIndex(int &index)
 	{
-		index = (index + 1) % data_.size();
+		index = (index + 1) % (int) data_.size();
 	}
 
 	std::vector<std::shared_ptr<T>> data_;
