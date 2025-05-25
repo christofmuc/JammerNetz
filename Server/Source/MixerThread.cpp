@@ -103,7 +103,7 @@ void MixerThread::run() {
 
 				// We now produce one mix for each client, specific, because you might not want to hear your own voice microphone
 				JammerNetzChannelSetup sessionSetup(false);
-				float maxBpmSet = 0.0f;
+				float newProposedBpm = 0.0f; // Initialize newProposedBpm
 				MidiSignal midiSignal = MidiSignal_None;
 				for (auto &client : incomingData) {
 					//recorder_.saveBlock(client.second->audioBuffer()->getArrayOfReadPointers(), outBuffer->getNumSamples());
@@ -115,8 +115,11 @@ void MixerThread::run() {
 							std::copy(setup.second.channels.cbegin(), setup.second.channels.cend(), std::back_inserter(sessionSetup.channels));
 						});
 					}
-					// Check if any client requests a new bpm (larger than 0.0 value). Check if a start or stop signal should be sent
-					maxBpmSet = std::max(maxBpmSet, client.second->bpm());
+					// Check if any client requests a new bpm. If multiple clients send BPM, the last one processed will set it.
+					if (client.second->bpm() > 0.0f) {
+						newProposedBpm = client.second->bpm();
+					}
+					// Check if a start or stop signal should be sent
 					if (client.second->midiSignal() == MidiSignal_Start && midiSignal == MidiSignal_None) {
 						midiSignal = MidiSignal_Start;
 					}
@@ -124,9 +127,9 @@ void MixerThread::run() {
 						midiSignal = MidiSignal_Stop;
 					}
 				}
-				if (maxBpmSet > 0.0f) {
-					// This is new information, let's use this
-					lastBpm_ = maxBpmSet;
+				if (newProposedBpm > 0.0f) {
+					// A new BPM was proposed, let's use this
+					lastBpm_ = newProposedBpm;
 				}
 
 				// The outgoing queue takes packages for all clients, they will be sent out to different addresses
