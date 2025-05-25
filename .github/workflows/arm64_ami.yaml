@@ -18,6 +18,12 @@ jobs:
 
       - name: Configure ARM64 Package Repositories and Install Dependencies
         run: |
+          # Cleanup repo cache
+          sudo apt-get clean
+          sudo apt-get autoclean
+          sudo rm -rf /var/lib/apt/lists/
+          sudo apt update
+
           # Configure dpkg for multi-arch
           sudo dpkg --add-architecture arm64
 
