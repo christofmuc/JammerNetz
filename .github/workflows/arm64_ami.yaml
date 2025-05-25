@@ -16,39 +16,67 @@ jobs:
         with:
           platforms: arm64
 
-      - name: Install Cross-Compilation Tools and ARM64 Dependencies
+      - name: Configure ARM64 Package Repositories and Install Dependencies
         run: |
+          # Configure dpkg for multi-arch
+          sudo dpkg --add-architecture arm64
+
+          # Add ARM64 sources to apt
+          echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ $(lsb_release -cs) main restricted universe multiverse" | sudo tee -a /etc/apt/sources.list
+          echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ $(lsb_release -cs)-updates main restricted universe multiverse" | sudo tee -a /etc/apt/sources.list
+          echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ $(lsb_release -cs)-security main restricted universe multiverse" | sudo tee -a /etc/apt/sources.list
+
+          # Update package lists
           sudo apt-get update
-          sudo apt-get install -y g++-aarch64-linux-gnu crossbuild-essential-arm64
-          sudo apt-get install -y libncurses-dev:arm64 libcurl4-openssl-dev:arm64 libtbb-dev:arm64
-          # As a fallback for libtbb-dev:arm64, we might need to build oneTBB from source later
-          # For now, we try to install it via apt.
+
+          # Install cross-compilation toolchain
+          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+
+          # Install ARM64 development libraries
+          sudo apt-get install -y \
+            libncurses-dev:arm64 \
+            libcurl4-openssl-dev:arm64 \
+            libtbb-dev:arm64 \
+            zlib1g-dev:arm64 \
+            libssl-dev:arm64
 
       - name: Create ARM64 CMake Toolchain File
         run: |
-          echo "set(CMAKE_SYSTEM_NAME Linux)" > arm64-linux.toolchain.cmake
-          echo "set(CMAKE_SYSTEM_PROCESSOR aarch64)" >> arm64-linux.toolchain.cmake
-          echo "set(CMAKE_C_COMPILER aarch64-linux-gnu-gcc)" >> arm64-linux.toolchain.cmake
-          echo "set(CMAKE_CXX_COMPILER aarch64-linux-gnu-g++)" >> arm64-linux.toolchain.cmake
-          echo "set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)" >> arm64-linux.toolchain.cmake
-          echo "set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)" >> arm64-linux.toolchain.cmake
-          echo "set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)" >> arm64-linux.toolchain.cmake
-          echo "set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)" >> arm64-linux.toolchain.cmake
+          cat > arm64-linux.toolchain.cmake << EOF
+          set(CMAKE_SYSTEM_NAME Linux)
+          set(CMAKE_SYSTEM_PROCESSOR aarch64)
+          set(CMAKE_C_COMPILER aarch64-linux-gnu-gcc)
+          set(CMAKE_CXX_COMPILER aarch64-linux-gnu-g++)
+          set(CMAKE_FIND_ROOT_PATH /usr/aarch64-linux-gnu)
+          set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+          set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+          set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+          set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
+          set(PKG_CONFIG_EXECUTABLE /usr/bin/aarch64-linux-gnu-pkg-config)
+          EOF
         working-directory: ${{ github.workspace }}
 
       - name: Build third_party/flatbuffers for ARM64
         run: |
           cd third_party/flatbuffers
-          cmake -S . -B build_arm64 -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/arm64-linux.toolchain.cmake -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/staging_arm64
+          cmake -S . -B build_arm64 \
+            -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/arm64-linux.toolchain.cmake \
+            -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/staging_arm64 \
+            -DCMAKE_BUILD_TYPE=Release
           cmake --build build_arm64 --target install
-        working-directory: ${{ github.workspace }}/third_party/flatbuffers
+        working-directory: ${{ github.workspace }}
 
       - name: Build third_party/sentry-native for ARM64
         run: |
           cd third_party/sentry-native
-          cmake -S . -B build_arm64 -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/arm64-linux.toolchain.cmake -DSENTRY_BACKEND=crashpad -DBUILD_JAMMERNETZ_CLIENT=OFF -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/staging_arm64/sentry
+          cmake -S . -B build_arm64 \
+            -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/arm64-linux.toolchain.cmake \
+            -DSENTRY_BACKEND=crashpad \
+            -DBUILD_JAMMERNETZ_CLIENT=OFF \
+            -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/staging_arm64/sentry \
+            -DCMAKE_BUILD_TYPE=Release
           cmake --build build_arm64 --target install
-        working-directory: ${{ github.workspace }}/third_party/sentry-native
+        working-directory: ${{ github.workspace }}
 
       - name: Build JammerNetz Server for ARM64
         run: |
@@ -57,7 +85,8 @@ jobs:
             -DBUILD_JAMMERNETZ_CLIENT=OFF \
             -DSENTRY_CRASH_REPORTING=ON \
             -DSENTRY_INSTALL_PATH=${{ github.workspace }}/staging_arm64/sentry \
-            -DCMAKE_PREFIX_PATH=${{ github.workspace }}/staging_arm64
+            -DCMAKE_PREFIX_PATH=${{ github.workspace }}/staging_arm64 \
+            -DCMAKE_BUILD_TYPE=Release
           cmake --build build_arm64 --target JammerNetzServer
         working-directory: ${{ github.workspace }}
 
@@ -68,34 +97,42 @@ jobs:
 
           cp ${{ github.workspace }}/build_arm64/Server/JammerNetzServer ${{ github.workspace }}/packer_staging/usr/local/bin/
 
-          echo "[Unit]
+          cat > ${{ github.workspace }}/packer_staging/etc/systemd/system/JammerNetz.service << EOF
+          [Unit]
           Description=JammerNetz Server
           After=network.target
           StartLimitIntervalSec=0
+
           [Service]
           Type=simple
           Restart=always
           RestartSec=1
           User=ubuntu
           ExecStart=/usr/local/bin/JammerNetzServer
-          [Install]
-          WantedBy=multi-user.target" > ${{ github.workspace }}/packer_staging/etc/systemd/system/JammerNetz.service
 
-          echo "#!/bin/bash
+          [Install]
+          WantedBy=multi-user.target
+          EOF
+
+          cat > ${{ github.workspace }}/packer_staging/ami-setup.sh << 'EOF'
+          #!/bin/bash
           set -ex # Exit on error and print commands
           echo 'Updating packages...'
           sudo apt-get update -y
+
           echo 'Installing runtime dependencies...'
-          # Ensure libtbb1 is the correct package name for ARM64 TBB runtime.
-          # Other potential deps: libatomic1 if not covered by crossbuild-essential
-          sudo apt-get install -y libtbb1 libcurl4 libncurses6
+          sudo apt-get install -y \
+            libtbb12 \
+            libcurl4 \
+            libncurses6 \
+            libssl3 \
+            zlib1g
 
           echo 'Creating target directories if they do not exist...'
           sudo mkdir -p /usr/local/bin
           sudo mkdir -p /etc/systemd/system
 
           echo 'Copying JammerNetzServer binary from Packer staging area...'
-          # This path assumes Packer's file provisioner copies to /tmp/packer_files/ on the instance
           sudo cp /tmp/packer_files/usr/local/bin/JammerNetzServer /usr/local/bin/JammerNetzServer
           sudo chmod +x /usr/local/bin/JammerNetzServer
 
@@ -106,34 +143,27 @@ jobs:
           sudo systemctl daemon-reload
           sudo systemctl enable JammerNetz.service
           echo 'JammerNetz Server setup complete on AMI.'
-          # It's generally recommended not to start the service during AMI creation with Packer,
-          # as Packer might not wait for it or handle its output correctly.
-          # The service will start when an instance boots from the AMI.
-          " > ${{ github.workspace }}/packer_staging/ami-setup.sh
+          EOF
+
           chmod +x ${{ github.workspace }}/packer_staging/ami-setup.sh
-        # No working-directory needed here as paths are absolute with github.workspace
 
       - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v1-node16 # Using a Node.js 16 compatible version
+        uses: aws-actions/configure-aws-credentials@v2
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          #aws-region: us-east-1 # Or use a variable/secret, e.g., ${{ secrets.AWS_REGION }}
-                                # This should match the region in packer config or be passed as a var
+          aws-region: us-east-1 # Adjust as needed
 
       - name: Install Packer
         run: |
-          PACKER_VERSION="1.8.5" # Specify a recent Packer version
-          curl -OsSJL "https://releases.hashicorp.com/packer/${PACKER_VERSION}/packer_${PACKER_VERSION}_linux_amd64.zip"
-          unzip "packer_${PACKER_VERSION}_linux_amd64.zip" -d /usr/local/bin/
+          PACKER_VERSION="1.9.4" # Use more recent version
+          wget -q "https://releases.hashicorp.com/packer/${PACKER_VERSION}/packer_${PACKER_VERSION}_linux_amd64.zip"
+          sudo unzip "packer_${PACKER_VERSION}_linux_amd64.zip" -d /usr/local/bin/
+          sudo chmod +x /usr/local/bin/packer
           packer version
-        working-directory: /tmp # Download and unzip in /tmp
 
       - name: Run Packer Build
-        #env:
-          #PK_VAR_aws_region: eu-central-1 # Example if you want to override Packer vars
-          #PK_VAR_source_ami_arm64: ami-xxxxxxxxxxxxxxxxx # If overriding source AMI
         run: |
           packer init jammernetz-arm64.pkr.hcl
           packer build -color=false -on-error=abort jammernetz-arm64.pkr.hcl
-        working-directory: ${{ github.workspace }} # Ensure Packer runs where .pkr.hcl and packer_staging are
+        working-directory: ${{ github.workspace }}
