@@ -21,7 +21,11 @@ jobs:
           # Configure dpkg for multi-arch
           sudo dpkg --add-architecture arm64
 
-          # Create separate sources file for ARM64 to avoid conflicts
+          # Modify existing sources to be amd64-only and add ARM64 ports repository
+          sudo sed -i 's/^deb /deb [arch=amd64] /' /etc/apt/sources.list
+          sudo sed -i 's/^deb-src /deb-src [arch=amd64] /' /etc/apt/sources.list
+
+          # Create separate sources file for ARM64
           cat << EOF | sudo tee /etc/apt/sources.list.d/arm64-cross.list
           deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ $(lsb_release -cs) main restricted universe multiverse
           deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ $(lsb_release -cs)-updates main restricted universe multiverse
