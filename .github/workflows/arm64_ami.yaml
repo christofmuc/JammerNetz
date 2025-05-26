@@ -4,73 +4,17 @@ on: [push, pull_request]
 
 jobs:
   build_and_package_arm64_ami:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
         with:
           submodules: 'recursive'
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v2
-        with:
-          platforms: arm64
-
-      - name: Configure ARM64 Package Repositories and Install Dependencies
-        run: |
-          # Cleanup repo cache
-          # sudo apt-get clean
-          # sudo apt-get autoclean
-          # sudo rm -rf /var/lib/apt/lists/
-
-          # Configure dpkg for multi-arch
-          sudo dpkg --add-architecture arm64
-
-          # Modify existing sources to be amd64-only and add ARM64 ports repository
-          sudo sed -i 's/^deb /deb [arch=amd64] /' /etc/apt/sources.list
-          sudo sed -i 's/^deb-src /deb-src [arch=amd64] /' /etc/apt/sources.list
-
-          # Create separate sources file for ARM64
-          # cat << EOF | sudo tee /etc/apt/sources.list.d/arm64-cross.list
-          deb [arch=arm64] http://azure.ports.ubuntu.com/ $(lsb_release -cs) main restricted universe multiverse
-          deb [arch=arm64] http://azure.ports.ubuntu.com/ $(lsb_release -cs)-updates main restricted universe multiverse
-          # EOF
-
-          # Update package lists
-          sudo apt-get update
-
-          # Install cross-compilation toolchain
-          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
-
-          # Install ARM64 development libraries
-          sudo apt-get install -y \
-            libncurses-dev:arm64 \
-            libcurl4-openssl-dev:arm64 \
-            libtbb-dev:arm64 \
-            zlib1g-dev:arm64 \
-            libssl-dev:arm64
-
-      - name: Create ARM64 CMake Toolchain File
-        run: |
-          cat > arm64-linux.toolchain.cmake << EOF
-          set(CMAKE_SYSTEM_NAME Linux)
-          set(CMAKE_SYSTEM_PROCESSOR aarch64)
-          set(CMAKE_C_COMPILER aarch64-linux-gnu-gcc)
-          set(CMAKE_CXX_COMPILER aarch64-linux-gnu-g++)
-          set(CMAKE_FIND_ROOT_PATH /usr/aarch64-linux-gnu)
-          set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
-          set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
-          set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
-          set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
-          set(PKG_CONFIG_EXECUTABLE /usr/bin/aarch64-linux-gnu-pkg-config)
-          EOF
-        working-directory: ${{ github.workspace }}
-
       - name: Build third_party/flatbuffers for ARM64
         run: |
           cd third_party/flatbuffers
           cmake -S . -B build_arm64 \
-            -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/arm64-linux.toolchain.cmake \
             -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/staging_arm64 \
             -DCMAKE_BUILD_TYPE=Release
           cmake --build build_arm64 --target install
@@ -80,7 +24,6 @@ jobs:
         run: |
           cd third_party/sentry-native
           cmake -S . -B build_arm64 \
-            -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/arm64-linux.toolchain.cmake \
             -DSENTRY_BACKEND=crashpad \
             -DBUILD_JAMMERNETZ_CLIENT=OFF \
             -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/staging_arm64/sentry \
@@ -91,7 +34,6 @@ jobs:
       - name: Build JammerNetz Server for ARM64
         run: |
           cmake -S . -B build_arm64 \
-            -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/arm64-linux.toolchain.cmake \
             -DBUILD_JAMMERNETZ_CLIENT=OFF \
             -DSENTRY_CRASH_REPORTING=ON \
             -DSENTRY_INSTALL_PATH=${{ github.workspace }}/staging_arm64/sentry \
