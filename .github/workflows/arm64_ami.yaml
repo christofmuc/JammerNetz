@@ -33,8 +33,8 @@ jobs:
 
           # Create separate sources file for ARM64
           cat << EOF | sudo tee /etc/apt/sources.list.d/arm64-cross.list
-          deb [arch=arm64] http://azure.ports.ubuntu.com/dists/noble/main/binary-arm64/ $(lsb_release -cs) main restricted universe multiverse
-          deb [arch=arm64] http://azure.ports.ubuntu.com/dists/noble/main/binary-arm64/ $(lsb_release -cs)-updates main restricted universe multiverse
+          deb [arch=arm64] http://azure.ports.ubuntu.com/dists/noble/ $(lsb_release -cs) main restricted universe multiverse
+          deb [arch=arm64] http://azure.ports.ubuntu.com/dists/noble/ $(lsb_release -cs)-updates main restricted universe multiverse
           EOF
 
           # Update package lists
