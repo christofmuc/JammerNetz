@@ -33,11 +33,11 @@ jobs:
       - name: Build third_party/flatbuffers for ARM64
         run: |
           cd third_party/flatbuffers
-          cmake -S . -B build_arm64 \
+          cmake -S . -B LinuxBuilds \
             -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/staging_arm64 \
             -DCMAKE_BUILD_TYPE=Release
-          cmake --build build_arm64 --target install
-        working-directory: ${{ github.workspace }}
+          cmake --build LinuxBuilds --target install
+        working-directory: ${{ github.workspace }}/third_party/flatbuffers
 
       - name: Build JammerNetz Server for ARM64
         run: |
