@@ -77,11 +77,9 @@ elseif(UNIX)
 	find_package(OpenGL)
 
 	# These calls create special `PkgConfig::<MODULE>` variables
-	if(BUILD_JAMMERNETZ_CLIENT)
-		pkg_check_modules(GTK REQUIRED IMPORTED_TARGET gtk+-3.0)
-		pkg_check_modules(GLEW REQUIRED IMPORTED_TARGET glew)
-		pkg_check_modules(WEBKIT REQUIRED IMPORTED_TARGET webkit2gtk-4.1)
-	endif()
+        pkg_check_modules(GTK REQUIRED IMPORTED_TARGET gtk+-3.0)
+        pkg_check_modules(GLEW REQUIRED IMPORTED_TARGET glew)
+        pkg_check_modules(WEBKIT REQUIRED IMPORTED_TARGET webkit2gtk-4.1)
 endif()
 
 
@@ -115,13 +113,11 @@ mark_as_advanced(
 
 # Define the list of link libraries required on Linux linking with JUCE, this must be used by any executable / module to run standalone
 if(UNIX AND NOT APPLE)
-	if(BUILD_JAMMERNETZ_CLIENT)
-		set(LINUX_UI_LIBRARIES
-		PkgConfig::WEBKIT
-		PkgConfig::GTK
-		PkgConfig::GLEW
-		)
-	endif()
+        set(LINUX_UI_LIBRARIES
+        PkgConfig::WEBKIT
+        PkgConfig::GTK
+        PkgConfig::GLEW
+        )
 	set(LINUX_JUCE_LINK_LIBRARIES
 		Xext
 		X11
