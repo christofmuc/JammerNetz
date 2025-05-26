@@ -37,7 +37,7 @@ jobs:
             -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/staging_arm64 \
             -DCMAKE_BUILD_TYPE=Release
           cmake --build LinuxBuilds --target install
-        working-directory: ${{ github.workspace }}/third_party/flatbuffers
+        working-directory: ${{ github.workspace }}
 
       - name: Build JammerNetz Server for ARM64
         run: |
