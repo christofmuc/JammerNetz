@@ -11,14 +11,12 @@ jobs:
         with:
           submodules: 'recursive'
 
-      - name: Build third_party/flatbuffers for ARM64
+      - name: Install dependencies
         run: |
-          cd third_party/flatbuffers
-          cmake -S . -B build_arm64 \
-            -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/staging_arm64 \
-            -DCMAKE_BUILD_TYPE=Release
-          cmake --build build_arm64 --target install
-        working-directory: ${{ github.workspace }}
+          sudo apt-get update
+          sudo apt-get install -y g++ cmake libncurses-dev libglew-dev libncurses5-dev nlohmann-json3-dev
+          sudo apt-get install -y libcurl4-openssl-dev pkg-config libasound2-dev libgtk-3-dev libglew-dev libjack-dev
+          sudo apt-get install -y libasound2-dev libjack-jackd2-dev ladspa-sdk libcurl4-openssl-dev libfreetype-dev libfontconfig1-dev libx11-dev libxcomposite-dev libxcursor-dev libxext-dev libxinerama-dev libxrandr-dev libxrender-dev libwebkit2gtk-4.1-dev libglu1-mesa-dev mesa-common-dev
 
       - name: Build third_party/sentry-native for ARM64
         run: |
@@ -27,6 +25,15 @@ jobs:
             -DSENTRY_BACKEND=crashpad \
             -DBUILD_JAMMERNETZ_CLIENT=OFF \
             -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/staging_arm64/sentry \
+            -DCMAKE_BUILD_TYPE=Release
+          cmake --build build_arm64 --target install
+        working-directory: ${{ github.workspace }}
+
+      - name: Build third_party/flatbuffers for ARM64
+        run: |
+          cd third_party/flatbuffers
+          cmake -S . -B build_arm64 \
+            -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/staging_arm64 \
             -DCMAKE_BUILD_TYPE=Release
           cmake --build build_arm64 --target install
         working-directory: ${{ github.workspace }}
