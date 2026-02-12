@@ -136,6 +136,8 @@ private:
 	std::atomic<bool> monitorIsLocal_;
 	ReadOnceLatch<float> clientBpm_;
 	std::atomic<double> serverBpm_;
+	std::atomic<bool> ignoreNextServerBpmChange_;
+	std::atomic<float> pendingServerBpm_;
 	std::optional<std::chrono::steady_clock::time_point> bpmSliderLastMoved_;
 	std::string currentText_;
 

@@ -15,12 +15,17 @@
 
 #include "Logger.h"
 
+#include <cmath>
+
 AudioCallback::AudioCallback() :
     jammerService_([this](std::shared_ptr < JammerNetzAudioData> buffer) { playBuffer_.push(buffer); })
     , playBuffer_("server")
     , masterVolume_(1.0)
     , monitorBalance_(0.0)
     , clientBpm_(0.0f)
+    , serverBpm_(0.0)
+    , ignoreNextServerBpmChange_(false)
+    , pendingServerBpm_(0.0f)
     , channelSetup_(false)
     , midiSignalToSend_(MidiSignal_None)
     , midiSignalToGenerate_(MidiSignal_None)
@@ -77,8 +82,17 @@ AudioCallback::AudioCallback() :
 	Data::instance().ensurePropertyExists(VALUE_SERVER_BPM, 0.0);
 	listeners_.push_back(
 	    std::make_unique<ValueListener>(Data::instance().get().getPropertyAsValue(VALUE_SERVER_BPM, nullptr), [this](Value& newValue) {
-			clientBpm_.setValue(newValue.getValue().operator float());
-		bpmSliderLastMoved_ = std::chrono::steady_clock::now();
+			float bpmValue = newValue.getValue().operator float();
+			if (ignoreNextServerBpmChange_.load(std::memory_order_acquire)) {
+				float pendingValue = pendingServerBpm_.load(std::memory_order_relaxed);
+				if (std::fabs(bpmValue - pendingValue) < 1.0e-4f) {
+					ignoreNextServerBpmChange_.store(false, std::memory_order_release);
+					return;
+				}
+				ignoreNextServerBpmChange_.store(false, std::memory_order_release);
+			}
+			clientBpm_.setValue(bpmValue);
+			bpmSliderLastMoved_ = std::chrono::steady_clock::now();
 	}));
 }
 
@@ -406,6 +420,8 @@ void AudioCallback::audioDeviceIOCallbackWithContext(const float* const* inputCh
 
 			// Check if the slider wasn't updated for a while, then take the server value and update the slider
 			if (!bpmSliderLastMoved_.has_value() || (std::chrono::steady_clock::now() - *bpmSliderLastMoved_) > std::chrono::seconds(1)) {
+				pendingServerBpm_.store((float) bpm, std::memory_order_release);
+				ignoreNextServerBpmChange_.store(true, std::memory_order_release);
 				Data::getPropertyAsValue(VALUE_SERVER_BPM).setValue(bpm);
 				bpmSliderLastMoved_ = std::chrono::steady_clock::now();
 			}

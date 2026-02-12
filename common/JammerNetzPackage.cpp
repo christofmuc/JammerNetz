@@ -135,7 +135,9 @@ JammerNetzAudioData::JammerNetzAudioData(uint64 messageCounter, double timestamp
 	audioBlock_ = std::make_shared<AudioBlock>();
 	audioBlock_->messageCounter = messageCounter;
 	audioBlock_->timestamp = timestamp;
+	audioBlock_->serverTime = 0;
 	audioBlock_->sampleRate = (uint16) sampleRate; // What about 96kHz?
+	audioBlock_->bpm = 0.0f;
 	if (bpm.has_value()) {
 		audioBlock_->bpm = *bpm;
 	}
