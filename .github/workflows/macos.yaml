@@ -17,19 +17,19 @@ jobs:
 
     - name: Install dependencies
       run: |
-        brew install gtk+3 glew
+        brew install gtk+3 glew ninja
 
     - name: Build Flatbuffers
       run: |
         cd third_party/flatbuffers
-        cmake -S . -B LinuxBuilds -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release
-        cmake --build LinuxBuilds -- -j8
+        cmake -S . -B LinuxBuilds -G Ninja -DCMAKE_BUILD_TYPE=Release
+        cmake --build LinuxBuilds --parallel
         cd ../..
 
     - name: Build with CMake
       run: |
-        cmake -S . -B build -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_RPATH_USE_LINK_PATH="ON"
-        cmake --build build --target package -j8
+        cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_RPATH_USE_LINK_PATH="ON" -DJAMMERNETZ_ENABLE_LTO=ON
+        cmake --build build --target package --parallel
 
     - name: Upload Mac Installer
       uses: actions/upload-artifact@v4

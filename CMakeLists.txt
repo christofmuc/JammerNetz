@@ -13,6 +13,7 @@ set(CMAKE_OSX_DEPLOYMENT_TARGET "10.11" CACHE STRING "Minimum OS X version to ta
 project(JammerNetz)
 
 OPTION(BUILD_JAMMERNETZ_CLIENT "Option to turn off the client build" ON)
+OPTION(JAMMERNETZ_ENABLE_LTO "Enable JUCE LTO flags (better runtime performance, slower links)" OFF)
 
 # Since we also build MacOS, we need C++ 17. Which is not a bad thing.
 # JUCE 8 seems to force us to C++ 20 now!
@@ -161,8 +162,11 @@ target_link_libraries(juce-static
 		${LINUX_JUCE_LINK_LIBRARIES}
 	PUBLIC
 		juce::juce_recommended_config_flags
-		juce::juce_recommended_lto_flags
 		juce::juce_recommended_warning_flags)
+
+if(JAMMERNETZ_ENABLE_LTO)
+	target_link_libraries(juce-static PUBLIC juce::juce_recommended_lto_flags)
+endif()
 
 target_compile_definitions(juce-static
 	PUBLIC
