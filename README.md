@@ -84,6 +84,12 @@ Release configuration example:
     cmake -S . -B builds -G Ninja -DCMAKE_BUILD_TYPE=Release -DJAMMERNETZ_ENABLE_LTO=ON
     cmake --build builds --parallel
 
+If you are using CMake 4.x with the current vendored dependencies (notably googletest), add:
+
+    -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+
+to your configure command.
+
 ## Building on Windows
 
 We use modern [CMake 3.14](https://cmake.org/) and Visual Studio 2022 Build Tools for C++. The default generator in this repository is Ninja, so make sure `ninja` is installed and you build from a Developer Command Prompt / Developer PowerShell so MSVC is available.
