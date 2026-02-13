@@ -72,20 +72,43 @@ We are moving towards Conan 2.1 for dependency management, and in order to inclu
 
 In case you do not have conan installed, have a look at their documentation and [download page](https://conan.io/downloads.html). It is a great tool!
 
+## Build mode (development vs release)
+
+`JAMMERNETZ_ENABLE_LTO` controls link-time optimization:
+
+- Development default: `OFF` (faster local rebuild and link times).
+- Release/CI: set `-DJAMMERNETZ_ENABLE_LTO=ON` explicitly.
+
+Release configuration example:
+
+    cmake -S . -B builds -G Ninja -DCMAKE_BUILD_TYPE=Release -DJAMMERNETZ_ENABLE_LTO=ON
+    cmake --build builds --parallel
+
+If you are using CMake 4.x with the current vendored dependencies (notably googletest), add:
+
+    -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+
+to your configure command.
+
 ## Building on Windows
 
-We use modern [CMake 3.14](https://cmake.org/) and Visual Studio 2022 for C++. Make sure to have both of these installed. Newer Visual Studios might work as well, you can select them as generators in CMake.
+We use modern [CMake 3.14](https://cmake.org/) and Visual Studio 2022 Build Tools for C++. The default generator in this repository is Ninja, so make sure `ninja` is installed and you build from a Developer Command Prompt / Developer PowerShell so MSVC is available.
 
 Optionally, if you want to produce a Windows-style installer for your band members: We always recommend the [InnoSetup](http://www.jrsoftware.org/isinfo.php) tool, really one of these golden tools that despite its age shines on and on. Download it and install it, it will automatically be picked up and used by the build process.
 
 Using CMake and building JammerNetz client and server is a multi-step build:
 
     cd third_party\flatbuffers
-    cmake -S . -B Builds -G "Visual Studio 17 2022" -A x64
-    cmake --build Builds --config Release
+    cmake -S . -B Builds -G Ninja -DCMAKE_BUILD_TYPE=Release
+    cmake --build Builds --parallel
     cd ..\..
-    cmake -S . -B Builds\Windows -G "Visual Studio 17 2022" -A x64
-    cmake --build Builds\Windows  --config Release
+    cmake -S . -B Builds\Windows -G Ninja -DCMAKE_BUILD_TYPE=Release
+    cmake --build Builds\Windows --parallel
+
+For optimized release builds (CI setting), explicitly enable LTO:
+
+    cmake -S . -B Builds\Windows -G Ninja -DCMAKE_BUILD_TYPE=Release -DJAMMERNETZ_ENABLE_LTO=ON
+    cmake --build Builds\Windows --parallel
 
 The build will take a few minutes, and produce Release versions of Client and Server software, as well as a client installer in case you have InnoSetup installed before kicking off. The installer executable is created as `<JammerNetzDir>\Builds\Client\jammernetz_setup_x.x.x.exe`
 
@@ -101,16 +124,16 @@ We tested on macOS Mojave 10.15:
 
 First install your prerequisites with brew:
 
-    brew install cmake gtk+3 glew
+    brew install cmake gtk+3 glew ninja
 
 Then run
 
     cd third_party/flatbuffers
-    cmake -S . -B LinuxBuilds
-    cmake --build LinuxBuilds -j8
+    cmake -S . -B LinuxBuilds -G Ninja -DCMAKE_BUILD_TYPE=Release
+    cmake --build LinuxBuilds --parallel
     cd ../..
-    cmake -S . -B Builds/macOS -DCMAKE_BUILD_TYPE=Release
-    cmake --build Builds/macOS -j8
+    cmake -S . -B Builds/macOS -G Ninja -DCMAKE_BUILD_TYPE=Release
+    cmake --build Builds/macOS --parallel
 
 
 ## Building the server for Linux on Windows
@@ -191,12 +214,12 @@ For a Fedora-based distribution like Amazon Linux 2, you would use `yum` to inst
 
 With those installs and the recursive git clone from above, cd into the cloned directory and run cmake with the following commands:
 
-    cmake -S . -B builds -G "Unix Makefiles"
+    cmake -S . -B builds -G Ninja
     cd third_party/flatbuffers
-    cmake -S . -B LinuxBuilds -G "Unix Makefiles" -D FLATBUFFERS_CXX_FLAGS="-Wno-error"
-    cmake --build LinuxBuilds/
+    cmake -S . -B LinuxBuilds -G Ninja -D FLATBUFFERS_CXX_FLAGS="-Wno-error"
+    cmake --build LinuxBuilds --parallel
     cd ../..
-    cmake --build builds
+    cmake --build builds --parallel
 
 This should have created a server binary as `builds/Server/JammerNetzServer` and a client binary as `builds/Client/JammerNetzClient`.
 

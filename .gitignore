@@ -27,3 +27,7 @@ builds2024/
 .conan_venv/
 builds24/
 buildServer/
+builds
+builds-relwithdebinfo/
+/builds-ninja
+/RandomNumbers.bin

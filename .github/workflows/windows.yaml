@@ -19,6 +19,13 @@ jobs:
       run: |
         choco install innosetup
 
+    - name: Install Ninja
+      run: |
+        choco install ninja
+
+    - name: Set up MSVC developer command prompt
+      uses: ilammy/msvc-dev-cmd@v1
+
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
@@ -31,23 +38,23 @@ jobs:
     - name: Run Conan
       run: |
         conan profile detect
-        conan install -of Builds\Windows -s build_type=RelWithDebInfo --build missing .
+        conan install -of Builds\Windows -s build_type=Release --build missing .
 
     - name: Configure CMake for Flatbuffers
       run: |
-        cmake -S third_party/flatbuffers -B third_party/flatbuffers/Builds -G "Visual Studio 17 2022" -A x64
+        cmake -S third_party/flatbuffers -B third_party/flatbuffers/Builds -G Ninja -DCMAKE_BUILD_TYPE=Release
 
     - name: Build Flatbuffers
       run: |
-        cmake --build third_party/flatbuffers/Builds --config RelWithDebInfo
+        cmake --build third_party/flatbuffers/Builds --parallel
 
     - name: Configure CMake for Windows
       run: |
-        cmake -S . -B Builds\Windows -G "Visual Studio 17 2022" -A x64
+        cmake -S . -B Builds\Windows -G Ninja -DCMAKE_BUILD_TYPE=Release -DJAMMERNETZ_ENABLE_LTO=ON -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DFLATBUFFERS_FLATC_EXECUTABLE="${{ github.workspace }}\\third_party\\flatbuffers\\Builds\\flatc.exe"
 
     - name: Build Windows
       run: |
-        cmake --build Builds\Windows --config RelWithDebInfo
+        cmake --build Builds\Windows --parallel
 
     - name: Upload Windows Installer
       uses: actions/upload-artifact@v4
