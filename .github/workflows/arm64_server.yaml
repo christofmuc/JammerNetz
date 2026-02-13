@@ -72,7 +72,7 @@ jobs:
 
     - name: Build JammerNetzServer
       run: |
-        cmake -S . -B builds-arm64-server -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_JAMMERNETZ_CLIENT=OFF -DJAMMERNETZ_ENABLE_LTO=ON -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+        cmake -S . -B builds-arm64-server -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DBUILD_JAMMERNETZ_CLIENT=OFF -DJAMMERNETZ_ENABLE_LTO=ON -DCMAKE_POLICY_VERSION_MINIMUM=3.5
         cmake --build builds-arm64-server --target JammerNetzServer --parallel
 
     - name: Upload ARM64 Server Artifact

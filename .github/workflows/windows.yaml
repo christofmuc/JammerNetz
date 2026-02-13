@@ -92,7 +92,7 @@ jobs:
 
     - name: Configure CMake for Windows
       run: |
-        cmake -S . -B Builds\Windows -G Ninja -DCMAKE_BUILD_TYPE=Release -DJAMMERNETZ_ENABLE_LTO=ON -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DFLATBUFFERS_FLATC_EXECUTABLE="${{ github.workspace }}\\third_party\\flatbuffers\\Builds\\flatc.exe"
+        cmake -S . -B Builds\Windows -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DJAMMERNETZ_ENABLE_LTO=ON -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DFLATBUFFERS_FLATC_EXECUTABLE="${{ github.workspace }}\\third_party\\flatbuffers\\Builds\\flatc.exe"
 
     - name: Build Windows
       run: |
