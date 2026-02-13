@@ -14,10 +14,16 @@ find_package(Flatbuffers REQUIRED PATHS "${CMAKE_CURRENT_LIST_DIR}/../third_part
 include(HomegrownFlatC)
 
 # Compile Flatbuffers. The output will be found because we added CMAKE_CURRENT_BINARY_DIR to the list of includes above
-IF (WIN32)
-	set(FLATBUFFERS_FLATC_EXECUTABLE "${CMAKE_CURRENT_LIST_DIR}/../third_party/flatbuffers/builds/$<CONFIG>/flatc.exe")
-ELSE()
-    set(FLATBUFFERS_FLATC_EXECUTABLE "${CMAKE_CURRENT_LIST_DIR}/../third_party/flatbuffers/LinuxBuilds/flatc")
+IF (NOT FLATBUFFERS_FLATC_EXECUTABLE)
+	IF (WIN32)
+		if (CMAKE_CONFIGURATION_TYPES)
+			set(FLATBUFFERS_FLATC_EXECUTABLE "${CMAKE_CURRENT_LIST_DIR}/../third_party/flatbuffers/Builds/$<CONFIG>/flatc.exe")
+		else()
+			set(FLATBUFFERS_FLATC_EXECUTABLE "${CMAKE_CURRENT_LIST_DIR}/../third_party/flatbuffers/Builds/flatc.exe")
+		endif()
+	ELSE()
+		set(FLATBUFFERS_FLATC_EXECUTABLE "${CMAKE_CURRENT_LIST_DIR}/../third_party/flatbuffers/LinuxBuilds/flatc")
+	ENDIF()
 ENDIF()
 set(FLATBUFFER_INPUT
 		JammerNetzPackages.fbs
