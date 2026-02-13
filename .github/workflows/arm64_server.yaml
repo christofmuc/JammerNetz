@@ -3,11 +3,49 @@ name: ARM64 Server Build
 on:
   pull_request:
   push:
-    branches:
-      - master
+permissions:
+  contents: read
+  pull-requests: read
 
 jobs:
+  skip_duplicate_push:
+    runs-on: ubuntu-latest
+    outputs:
+      run_build: ${{ steps.decide.outputs.run_build }}
+    steps:
+    - name: Decide whether to run build
+      id: decide
+      uses: actions/github-script@v7
+      with:
+        script: |
+          if (context.eventName !== 'push') {
+            core.setOutput('run_build', 'true');
+            return;
+          }
+
+          const branch = context.ref.replace('refs/heads/', '');
+          try {
+            const { data: prs } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              head: `${context.repo.owner}:${branch}`,
+              per_page: 1
+            });
+
+            const runBuild = prs.length === 0;
+            core.info(runBuild
+              ? `No open PR for branch '${branch}', running push build.`
+              : `Branch '${branch}' already has an open PR, skipping duplicate push build.`);
+            core.setOutput('run_build', runBuild ? 'true' : 'false');
+          } catch (error) {
+            core.warning(`Could not check open PRs for '${branch}', running push build anyway: ${error.message}`);
+            core.setOutput('run_build', 'true');
+          }
+
   build_server_arm64:
+    needs: skip_duplicate_push
+    if: needs.skip_duplicate_push.outputs.run_build == 'true'
     runs-on: ubuntu-24.04-arm
 
     steps:
