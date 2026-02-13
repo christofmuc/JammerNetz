@@ -77,11 +77,13 @@ elseif(UNIX)
 	find_package(PkgConfig REQUIRED)
 	find_package(OpenGL)
 
-	# These calls create special `PkgConfig::<MODULE>` variables
+	# juce_audio_utils pulls in juce_gui_extra on Linux, so GTK/WebKit are required even for server-only builds.
+	pkg_check_modules(GTK REQUIRED IMPORTED_TARGET gtk+-3.0)
+	pkg_check_modules(WEBKIT REQUIRED IMPORTED_TARGET webkit2gtk-4.1)
+
+	# Client-only UI dependency.
 	if(BUILD_JAMMERNETZ_CLIENT)
-		pkg_check_modules(GTK REQUIRED IMPORTED_TARGET gtk+-3.0)
 		pkg_check_modules(GLEW REQUIRED IMPORTED_TARGET glew)
-		pkg_check_modules(WEBKIT REQUIRED IMPORTED_TARGET webkit2gtk-4.1)
 	endif()
 endif()
 
@@ -116,11 +118,14 @@ mark_as_advanced(
 
 # Define the list of link libraries required on Linux linking with JUCE, this must be used by any executable / module to run standalone
 if(UNIX AND NOT APPLE)
-	if(BUILD_JAMMERNETZ_CLIENT)
-		set(LINUX_UI_LIBRARIES
+	set(LINUX_UI_LIBRARIES
 		PkgConfig::WEBKIT
 		PkgConfig::GTK
-		PkgConfig::GLEW
+	)
+	if(BUILD_JAMMERNETZ_CLIENT)
+		list(APPEND LINUX_UI_LIBRARIES
+			PkgConfig::WEBKIT
+			PkgConfig::GLEW
 		)
 	endif()
 	set(LINUX_JUCE_LINK_LIBRARIES
