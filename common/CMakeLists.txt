@@ -73,6 +73,10 @@ if (MSVC)
 else()
     # lots of warnings and all warnings as errors
     target_compile_options(JammerCommon PRIVATE -Wall -Wextra -pedantic -Werror)
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64)$")
+        # oneTBB triggers redundant-decls on GCC ARM in system headers; keep warnings on, but do not fail the build on this one.
+        target_compile_options(JammerCommon PRIVATE -Wno-error=redundant-decls)
+    endif()
 endif()
 
 # Define tests
