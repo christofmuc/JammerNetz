@@ -1,6 +1,10 @@
 name: ARM64 Server Build
 
-on: [push, pull_request]
+on:
+  pull_request:
+  push:
+    branches:
+      - master
 
 jobs:
   build_server_arm64:
