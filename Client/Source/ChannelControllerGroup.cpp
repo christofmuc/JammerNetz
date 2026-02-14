@@ -16,6 +16,7 @@ ChannelControllerGroup::ChannelControllerGroup()
 void ChannelControllerGroup::setup(std::shared_ptr<ChannelSetup> setup, FFAU::LevelMeterSource*meterSource)
 {
 	channelControllers_.clear(true);
+	sessionChannelIdentities_.clear();
 	int i = 0;
 	for (const auto& channelName : setup->activeChannelNames) {
 		auto controller = new ChannelController(channelName, "Input" + String(i), true, true, true);
@@ -30,6 +31,7 @@ void ChannelControllerGroup::setup(std::shared_ptr<ChannelSetup> setup, FFAU::Le
 void ChannelControllerGroup::setup(std::shared_ptr<JammerNetzChannelSetup> sessionChannels, FFAU::LevelMeterSource*meterSource)
 {
 	channelControllers_.clear(true);
+	sessionChannelIdentities_.clear();
 	std::map<std::pair<uint32, uint16>, int> identityCounts;
 	for (const auto& channel : sessionChannels->channels) {
 		identityCounts[{channel.sourceClientId, channel.sourceChannelIndex}]++;
@@ -44,6 +46,7 @@ void ChannelControllerGroup::setup(std::shared_ptr<JammerNetzChannelSetup> sessi
 		controller->setTarget(channel.target);
 		controller->setMeterSource(meterSource, i);
 		const auto identity = std::make_pair(channel.sourceClientId, channel.sourceChannelIndex);
+		sessionChannelIdentities_.push_back(identity);
 		auto canControlRemote = identity.first != 0 && identityCounts[identity] == 1;
 		controller->enableVolumeSlider(canControlRemote);
 		controller->enableTargetSelector(false);
@@ -62,6 +65,13 @@ void ChannelControllerGroup::setup(std::shared_ptr<JammerNetzChannelSetup> sessi
 void ChannelControllerGroup::setSessionVolumeChangedHandler(SessionVolumeChangedHandler handler)
 {
 	sessionVolumeChangedHandler_ = std::move(handler);
+}
+
+void ChannelControllerGroup::setSessionChannelVolume(int channel, float volumePercent)
+{
+	if (channel >= 0 && channel < channelControllers_.size()) {
+		channelControllers_[channel]->setVolume(volumePercent);
+	}
 }
 
 void ChannelControllerGroup::enableClientSideControls(bool enabled)
@@ -102,6 +112,25 @@ bool ChannelControllerGroup::isAnyVolumeSliderBeingDragged() const
 		}
 	}
 	return false;
+}
+
+bool ChannelControllerGroup::isSessionVolumeSliderBeingDragged(uint32 sourceClientId, uint16 sourceChannelIndex) const
+{
+	auto channelIndex = findSessionChannelIndex(sourceClientId, sourceChannelIndex);
+	if (!channelIndex.has_value()) {
+		return false;
+	}
+	return channelControllers_[*channelIndex]->isVolumeSliderBeingDragged();
+}
+
+std::optional<int> ChannelControllerGroup::findSessionChannelIndex(uint32 sourceClientId, uint16 sourceChannelIndex) const
+{
+	for (size_t i = 0; i < sessionChannelIdentities_.size(); i++) {
+		if (sessionChannelIdentities_[i] == std::make_pair(sourceClientId, sourceChannelIndex)) {
+			return static_cast<int>(i);
+		}
+	}
+	return {};
 }
 
 void ChannelControllerGroup::resized()

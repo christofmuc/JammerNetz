@@ -13,6 +13,37 @@
 #include <stack>
 #include <utility>
 #include "ServerLogger.h"
+#include <optional>
+
+namespace {
+struct SetRemoteVolumePayload {
+	uint32 targetClientId;
+	uint16 targetChannelIndex;
+	float volumePercent;
+	std::optional<uint64_t> commandSequence;
+};
+
+std::optional<SetRemoteVolumePayload> parseSetRemoteVolumePayload(const nlohmann::json& payload)
+{
+	try {
+		if (!payload.contains("target_client_id") || !payload.contains("target_channel_index") || !payload.contains("volume_percent")) {
+			return {};
+		}
+
+		SetRemoteVolumePayload parsed;
+		parsed.targetClientId = payload.at("target_client_id").get<uint32>();
+		parsed.targetChannelIndex = payload.at("target_channel_index").get<uint16>();
+		parsed.volumePercent = jlimit(0.0f, 100.0f, payload.at("volume_percent").get<float>());
+		if (payload.contains("command_sequence")) {
+			parsed.commandSequence = payload.at("command_sequence").get<uint64_t>();
+		}
+		return parsed;
+	}
+	catch (const nlohmann::json::exception&) {
+		return {};
+	}
+}
+}
 
 class PrintQualityTimer : public HighResolutionTimer {
 public:
@@ -61,17 +92,17 @@ AcceptThread::~AcceptThread()
 	qualityTimer_->stopTimer();
 }
 
-void AcceptThread::sendControlMessageToClient(const std::string& targetAddress, nlohmann::json payload)
+bool AcceptThread::sendControlMessageToClient(const std::string& targetAddress, nlohmann::json payload)
 {
 	auto separator = targetAddress.find(':');
 	if (separator == std::string::npos) {
-		return;
+		return false;
 	}
 
 	String ipAddress(targetAddress.substr(0, separator));
 	int port = atoi(targetAddress.substr(separator + 1).c_str());
 	if (port <= 0) {
-		return;
+		return false;
 	}
 
 	uint8 buffer[MAXFRAMESIZE];
@@ -79,22 +110,27 @@ void AcceptThread::sendControlMessageToClient(const std::string& targetAddress, 
 	size_t bytesWritten = 0;
 	controlMessage.serialize(buffer, bytesWritten);
 	if (bytesWritten == 0) {
-		return;
+		return false;
 	}
 
 	if (!sizet_is_safe_as_int(bytesWritten)) {
-		return;
+		return false;
 	}
 
 	int bytesToSend = static_cast<int>(bytesWritten);
 	if (blowFish_) {
 		bytesToSend = blowFish_->encrypt(buffer, bytesWritten, MAXFRAMESIZE);
 		if (bytesToSend == -1) {
-			return;
+			return false;
 		}
 	}
 
-	receiveSocket_.write(ipAddress, port, buffer, bytesToSend);
+	// Never block control forwarding in the receive thread; drop if socket is currently not writable.
+	if (receiveSocket_.waitUntilReady(false, 0) != 1) {
+		return false;
+	}
+
+	return receiveSocket_.write(ipAddress, port, buffer, bytesToSend) > 0;
 }
 
 void AcceptThread::processControlMessage(std::shared_ptr<JammerNetzControlMessage> message, std::string const& clientName)
@@ -111,75 +147,61 @@ void AcceptThread::processControlMessage(std::shared_ptr<JammerNetzControlMessag
 		return;
 	}
 
-	try {
-		auto payload = message->json_.at("SetRemoteVolume");
-		if (!payload.contains("target_client_id") || !payload.contains("target_channel_index") || !payload.contains("volume_percent")) {
-			return;
-		}
-
-		auto targetClientId = payload.at("target_client_id").get<uint32>();
-		auto targetChannelIndex = payload.at("target_channel_index").get<uint16>();
-		auto volumePercent = payload.at("volume_percent").get<float>();
-		volumePercent = jlimit(0.0f, 100.0f, volumePercent);
-		auto sourceClientId = clientIdentityRegistry_.getOrAssignClientId(clientName);
-
-		uint64_t commandSequence = 0;
-		bool hasCommandSequence = false;
-		if (payload.contains("command_sequence")) {
-			commandSequence = payload.at("command_sequence").get<uint64_t>();
-			hasCommandSequence = true;
-		}
-		if (hasCommandSequence) {
-			auto sequenceKey = std::make_tuple(sourceClientId, targetClientId, targetChannelIndex);
-			auto &lastSequence = lastForwardedControlSequence_[sequenceKey];
-			if (commandSequence <= lastSequence) {
-				RemoteControlDebugLog::logEvent("server.accept",
-					"drop duplicate/out-of-order SetRemoteVolume srcClientId=" + String(sourceClientId)
-					+ " targetClientId=" + String(targetClientId)
-					+ " targetChannel=" + String(targetChannelIndex)
-					+ " seq=" + String(static_cast<uint64>(commandSequence))
-					+ " last=" + String(static_cast<uint64>(lastSequence)));
-				return;
-			}
-			lastSequence = commandSequence;
-		}
-		auto sequenceText = hasCommandSequence ? String(static_cast<uint64>(commandSequence)) : String("none");
-		RemoteControlDebugLog::logEvent("server.accept",
-			"recv SetRemoteVolume from=" + String(clientName.c_str())
-			+ " srcClientId=" + String(sourceClientId)
-			+ " targetClientId=" + String(targetClientId)
-			+ " targetChannel=" + String(targetChannelIndex)
-			+ " vol=" + String(volumePercent, 2)
-			+ " seq=" + sequenceText);
-
-		auto targetEndpoint = clientIdentityRegistry_.endpointForClientId(targetClientId);
-		if (!targetEndpoint.has_value()) {
-			RemoteControlDebugLog::logEvent("server.accept",
-				"drop SetRemoteVolume unresolved targetClientId=" + String(targetClientId)
-				+ " seq=" + sequenceText);
-			return;
-		}
-
-		nlohmann::json forwardedControl;
-		forwardedControl["ApplyLocalVolume"] = {
-			{ "target_channel_index", targetChannelIndex },
-			{ "volume_percent", volumePercent },
-			{ "source_client_id", sourceClientId },
-		};
-		if (hasCommandSequence) {
-			forwardedControl["ApplyLocalVolume"]["command_sequence"] = commandSequence;
-		}
-		sendControlMessageToClient(*targetEndpoint, forwardedControl);
-		RemoteControlDebugLog::logEvent("server.accept",
-			"forward ApplyLocalVolume to=" + String(targetEndpoint->c_str())
-			+ " targetChannel=" + String(targetChannelIndex)
-			+ " vol=" + String(volumePercent, 2)
-			+ " seq=" + sequenceText
-			+ " copies=1");
-		sessionControlRevision_.fetch_add(1, std::memory_order_relaxed);
-	} catch (const nlohmann::json::exception&) {
-		// Ignore malformed control messages
+	auto parsedPayload = parseSetRemoteVolumePayload(message->json_.at("SetRemoteVolume"));
+	if (!parsedPayload.has_value()) {
 		RemoteControlDebugLog::logEvent("server.accept", "drop malformed SetRemoteVolume payload");
+		return;
+	}
+
+	auto sourceClientId = clientIdentityRegistry_.getOrAssignClientId(clientName);
+	if (parsedPayload->commandSequence.has_value()) {
+		auto sequenceKey = std::make_tuple(sourceClientId, parsedPayload->targetClientId, parsedPayload->targetChannelIndex);
+		auto &lastSequence = lastForwardedControlSequence_[sequenceKey];
+		if (*parsedPayload->commandSequence <= lastSequence) {
+			RemoteControlDebugLog::logEvent("server.accept",
+				"drop duplicate/out-of-order SetRemoteVolume srcClientId=" + String(sourceClientId)
+				+ " targetClientId=" + String(parsedPayload->targetClientId)
+				+ " targetChannel=" + String(parsedPayload->targetChannelIndex)
+				+ " seq=" + String(static_cast<uint64>(*parsedPayload->commandSequence))
+				+ " last=" + String(static_cast<uint64>(lastSequence)));
+			return;
+		}
+		lastSequence = *parsedPayload->commandSequence;
+	}
+
+	auto targetEndpoint = clientIdentityRegistry_.endpointForClientId(parsedPayload->targetClientId);
+	if (!targetEndpoint.has_value()) {
+		auto sequenceText = parsedPayload->commandSequence.has_value() ? String(static_cast<uint64>(*parsedPayload->commandSequence)) : String("none");
+		RemoteControlDebugLog::logEvent("server.accept",
+			"drop SetRemoteVolume unresolved targetClientId=" + String(parsedPayload->targetClientId)
+			+ " seq=" + sequenceText);
+		return;
+	}
+
+	nlohmann::json forwardedControl;
+	forwardedControl["ApplyLocalVolume"] = {
+		{ "target_channel_index", parsedPayload->targetChannelIndex },
+		{ "volume_percent", parsedPayload->volumePercent },
+		{ "source_client_id", sourceClientId },
+	};
+	if (parsedPayload->commandSequence.has_value()) {
+		forwardedControl["ApplyLocalVolume"]["command_sequence"] = *parsedPayload->commandSequence;
+	}
+	bool sent = sendControlMessageToClient(*targetEndpoint, forwardedControl);
+	if (!sent) {
+		RemoteControlDebugLog::logEvent("server.accept",
+			"drop ApplyLocalVolume targetClientId=" + String(parsedPayload->targetClientId)
+			+ " targetChannel=" + String(parsedPayload->targetChannelIndex)
+			+ " reason=socket-not-writable");
+		return;
+	}
+
+	// Throttle session revision bumps to avoid flooding SESSIONSETUP while dragging sliders.
+	constexpr juce::int64 kSessionRevisionMinIntervalMs = 60;
+	auto now = Time::currentTimeMillis();
+	if (lastSessionRevisionBumpMillis_ == 0 || (now - lastSessionRevisionBumpMillis_) >= kSessionRevisionMinIntervalMs) {
+		sessionControlRevision_.fetch_add(1, std::memory_order_relaxed);
+		lastSessionRevisionBumpMillis_ = now;
 	}
 }
 

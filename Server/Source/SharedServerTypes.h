@@ -69,18 +69,6 @@ public:
 		return found->second;
 	}
 
-	void removeEndpoint(const std::string& endpoint)
-	{
-		const ScopedLock lock(lock_);
-		auto found = endpointToClientId_.find(endpoint);
-		if (found == endpointToClientId_.end()) {
-			return;
-		}
-		auto clientId = found->second;
-		endpointToClientId_.erase(found);
-		clientIdToEndpoint_.erase(clientId);
-	}
-
 private:
 	mutable CriticalSection lock_;
 	std::map<std::string, uint32> endpointToClientId_;

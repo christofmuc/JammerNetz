@@ -20,6 +20,7 @@
 
 #include "BuffersConfig.h"
 #include <cmath>
+#include <set>
 
 MainComponent::MainComponent(std::shared_ptr<AudioService> audioService, std::shared_ptr<Recorder> masterRecorder, std::shared_ptr<Recorder> localRecorder) :
 	audioService_(audioService),
@@ -98,25 +99,26 @@ MainComponent::MainComponent(std::shared_ptr<AudioService> audioService, std::sh
 	addAndMakeVisible(allChannels_);
 	allChannels_.setSessionVolumeChangedHandler([this](uint32 targetClientId, uint16 targetChannelIndex, float volumePercent) {
 		if (audioService_) {
-			constexpr juce::int64 kDragSendIntervalMs = 35;
-			constexpr float kDragMinDeltaPercent = 0.8f;
+			constexpr juce::int64 kDragSendIntervalMs = 50;
+			constexpr float kDragMinDeltaPercent = 1.0f;
+			constexpr juce::int64 kSettleWindowMs = 300;
 
 			auto key = std::make_pair(targetClientId, targetChannelIndex);
 			auto now = Time::currentTimeMillis();
-			bool isDragging = allChannels_.isAnyVolumeSliderBeingDragged();
+			auto &state = remoteVolumeCommandState_[key];
+			bool isDragging = allChannels_.isSessionVolumeSliderBeingDragged(targetClientId, targetChannelIndex);
 			if (isDragging) {
-				auto lastSendAt = lastRemoteVolumeSendMillis_.find(key);
-				auto lastSentVolume = lastRemoteVolumeSentPercent_.find(key);
-				bool enoughTimePassed = lastSendAt == lastRemoteVolumeSendMillis_.end() || (now - lastSendAt->second) >= kDragSendIntervalMs;
-				bool enoughVolumeDelta = lastSentVolume == lastRemoteVolumeSentPercent_.end() || std::fabs(volumePercent - lastSentVolume->second) >= kDragMinDeltaPercent;
+				bool enoughTimePassed = state.lastSentMillis == 0 || (now - state.lastSentMillis) >= kDragSendIntervalMs;
+				bool enoughVolumeDelta = state.lastSentMillis == 0 || std::fabs(volumePercent - state.lastSentPercent) >= kDragMinDeltaPercent;
 				if (!enoughTimePassed || !enoughVolumeDelta) {
 					return;
 				}
 			}
 
 			audioService_->setRemoteParticipantVolume(targetClientId, targetChannelIndex, volumePercent);
-			lastRemoteVolumeSendMillis_[key] = now;
-			lastRemoteVolumeSentPercent_[key] = volumePercent;
+			state.lastSentMillis = now;
+			state.lastSentPercent = volumePercent;
+			state.holdUntilMillis = now + kSettleWindowMs;
 		}
 	});
 	addAndMakeVisible(statusInfo_);
@@ -366,16 +368,16 @@ void MainComponent::timerCallback()
 	// Hold freshly commanded remote volumes briefly to avoid visible snap/wiggle from stale session snapshots.
 	for (auto &channel : thisSetup.channels) {
 		auto key = std::make_pair(channel.sourceClientId, channel.sourceChannelIndex);
-		auto lastSentAt = lastRemoteVolumeSendMillis_.find(key);
-		auto lastSentVolume = lastRemoteVolumeSentPercent_.find(key);
-		if (lastSentAt != lastRemoteVolumeSendMillis_.end()
-			&& lastSentVolume != lastRemoteVolumeSentPercent_.end()
-			&& (now - lastSentAt->second) <= 300) {
-			channel.volume = lastSentVolume->second / 100.0f;
+		auto state = remoteVolumeCommandState_.find(key);
+		if (state != remoteVolumeCommandState_.end()) {
+			auto sliderBeingDragged = allChannels_.isSessionVolumeSliderBeingDragged(channel.sourceClientId, channel.sourceChannelIndex);
+			if (sliderBeingDragged || now <= state->second.holdUntilMillis) {
+				channel.volume = state->second.lastSentPercent / 100.0f;
+			}
 		}
 	}
 	bool sessionSliderDragged = allChannels_.isAnyVolumeSliderBeingDragged();
-	if (!currentSessionSetup_ || !(currentSessionSetup_->isEqualEnough(thisSetup))) {
+	if (!currentSessionSetup_ || !isSessionLayoutEqual(*currentSessionSetup_, thisSetup)) {
 		if (sessionSliderDragged) {
 			return;
 		}
@@ -383,6 +385,11 @@ void MainComponent::timerCallback()
 		// Setup changed, need to re-init UI
 		allChannels_.setup(currentSessionSetup_, audioService_->getSessionMeterSource());
 	}
+	else {
+		*currentSessionSetup_ = thisSetup;
+		updateSessionChannelsIncremental(thisSetup);
+	}
+	pruneRemoteVolumeControlState(thisSetup);
 }
 
 void MainComponent::inputSetupChanged() {
@@ -393,4 +400,50 @@ void MainComponent::inputSetupChanged() {
 
 void MainComponent::updateUserName() {
 	Data::instance().get().setProperty(VALUE_USER_NAME, nameEntry_.getText(), nullptr);
+}
+
+bool MainComponent::isSessionLayoutEqual(const JammerNetzChannelSetup& lhs, const JammerNetzChannelSetup& rhs) const
+{
+	if (lhs.channels.size() != rhs.channels.size()) {
+		return false;
+	}
+	for (size_t i = 0; i < lhs.channels.size(); i++) {
+		const auto &left = lhs.channels[i];
+		const auto &right = rhs.channels[i];
+		if (left.name != right.name
+			|| left.target != right.target
+			|| left.sourceClientId != right.sourceClientId
+			|| left.sourceChannelIndex != right.sourceChannelIndex) {
+			return false;
+		}
+	}
+	return true;
+}
+
+void MainComponent::updateSessionChannelsIncremental(const JammerNetzChannelSetup& setup)
+{
+	for (int i = 0; i < static_cast<int>(setup.channels.size()); i++) {
+		const auto &channel = setup.channels[static_cast<size_t>(i)];
+		if (allChannels_.isSessionVolumeSliderBeingDragged(channel.sourceClientId, channel.sourceChannelIndex)) {
+			continue;
+		}
+		allChannels_.setSessionChannelVolume(i, channel.volume * 100.0f);
+	}
+}
+
+void MainComponent::pruneRemoteVolumeControlState(const JammerNetzChannelSetup& setup)
+{
+	std::set<std::pair<uint32, uint16>> validKeys;
+	for (const auto &channel : setup.channels) {
+		validKeys.insert(std::make_pair(channel.sourceClientId, channel.sourceChannelIndex));
+	}
+
+	for (auto it = remoteVolumeCommandState_.begin(); it != remoteVolumeCommandState_.end(); ) {
+		if (validKeys.find(it->first) == validKeys.end()) {
+			it = remoteVolumeCommandState_.erase(it);
+		}
+		else {
+			++it;
+		}
+	}
 }

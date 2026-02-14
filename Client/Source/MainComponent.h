@@ -38,6 +38,9 @@ private:
 	void updateUserName();
 	void numConnectedClientsChanged();
 	void fillConnectedClientsStatistics();
+	bool isSessionLayoutEqual(const JammerNetzChannelSetup& lhs, const JammerNetzChannelSetup& rhs) const;
+	void updateSessionChannelsIncremental(const JammerNetzChannelSetup& setup);
+	void pruneRemoteVolumeControlState(const JammerNetzChannelSetup& setup);
 
 	std::shared_ptr<AudioService> audioService_;
 
@@ -88,8 +91,12 @@ private:
 	// This is a cached variable, not state, used by the timer callback to display the quality statistics
 	// Probably should go away
 	std::shared_ptr<JammerNetzChannelSetup> currentSessionSetup_;
-	std::map<std::pair<uint32, uint16>, juce::int64> lastRemoteVolumeSendMillis_;
-	std::map<std::pair<uint32, uint16>, float> lastRemoteVolumeSentPercent_;
+	struct RemoteVolumeCommandState {
+		juce::int64 lastSentMillis = 0;
+		juce::int64 holdUntilMillis = 0;
+		float lastSentPercent = 0.0f;
+	};
+	std::map<std::pair<uint32, uint16>, RemoteVolumeCommandState> remoteVolumeCommandState_;
 
 	juce::int64 stageLeftWhenInMillis_;
 

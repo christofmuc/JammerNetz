@@ -15,6 +15,36 @@
 
 #include <optional>
 
+namespace {
+struct ApplyLocalVolumePayload {
+	int targetChannelIndex;
+	float volumePercent;
+	uint32 sourceClientId;
+	std::optional<uint64_t> commandSequence;
+};
+
+std::optional<ApplyLocalVolumePayload> parseApplyLocalVolumePayload(const nlohmann::json& payload)
+{
+	try {
+		if (!payload.contains("target_channel_index") || !payload.contains("volume_percent")) {
+			return {};
+		}
+
+		ApplyLocalVolumePayload parsed;
+		parsed.targetChannelIndex = payload.at("target_channel_index").get<int>();
+		parsed.volumePercent = jlimit(0.0f, 100.0f, payload.at("volume_percent").get<float>());
+		parsed.sourceClientId = payload.contains("source_client_id") ? payload.at("source_client_id").get<uint32>() : 0;
+		if (payload.contains("command_sequence")) {
+			parsed.commandSequence = payload.at("command_sequence").get<uint64_t>();
+		}
+		return parsed;
+	}
+	catch (const nlohmann::json::exception&) {
+		return {};
+	}
+}
+}
+
 DataReceiveThread::DataReceiveThread(DatagramSocket &socket, std::function<void(std::shared_ptr<JammerNetzAudioData>)> newDataHandler)
 	: Thread("ReceiveDataFromServer"), socket_(socket), newDataHandler_(newDataHandler), currentRTT_(0.0), isReceiving_(false), currentSession_(false)
 {
@@ -52,52 +82,32 @@ void DataReceiveThread::processControlMessage(const std::shared_ptr<JammerNetzCo
 		return;
 	}
 
-	try {
-		auto payload = message->json_.at("ApplyLocalVolume");
-		if (!payload.contains("target_channel_index") || !payload.contains("volume_percent")) {
+	auto payload = parseApplyLocalVolumePayload(message->json_.at("ApplyLocalVolume"));
+	if (!payload.has_value()) {
+		RemoteControlDebugLog::logEvent("client.recv", "drop malformed ApplyLocalVolume payload");
+		return;
+	}
+
+	if (payload->targetChannelIndex < 0) {
+		return;
+	}
+
+	if (payload->commandSequence.has_value()) {
+		auto key = std::make_pair(payload->sourceClientId, static_cast<uint16>(payload->targetChannelIndex));
+		auto &lastAppliedSequence = lastAppliedRemoteVolumeSequence_[key];
+		if (*payload->commandSequence <= lastAppliedSequence) {
+			RemoteControlDebugLog::logEvent("client.recv",
+				"drop stale ApplyLocalVolume sourceClientId=" + String(payload->sourceClientId)
+				+ " targetChannel=" + String(payload->targetChannelIndex)
+				+ " vol=" + String(payload->volumePercent, 2)
+				+ " seq=" + String(static_cast<uint64>(*payload->commandSequence))
+				+ " last=" + String(static_cast<uint64>(lastAppliedSequence)));
 			return;
 		}
+		lastAppliedSequence = *payload->commandSequence;
+	}
 
-		auto targetChannelIndex = payload.at("target_channel_index").get<int>();
-		auto remoteVolumePercent = payload.at("volume_percent").get<float>();
-		if (targetChannelIndex < 0) {
-			return;
-		}
-		remoteVolumePercent = jlimit(0.0f, 100.0f, remoteVolumePercent);
-
-		uint32 sourceClientId = 0;
-		if (payload.contains("source_client_id")) {
-			sourceClientId = payload.at("source_client_id").get<uint32>();
-		}
-
-		if (payload.contains("command_sequence")) {
-			auto commandSequence = payload.at("command_sequence").get<uint64_t>();
-			auto key = std::make_pair(sourceClientId, static_cast<uint16>(targetChannelIndex));
-			auto &lastAppliedSequence = lastAppliedRemoteVolumeSequence_[key];
-			if (commandSequence <= lastAppliedSequence) {
-				RemoteControlDebugLog::logEvent("client.recv",
-					"drop stale ApplyLocalVolume sourceClientId=" + String(sourceClientId)
-					+ " targetChannel=" + String(targetChannelIndex)
-					+ " vol=" + String(remoteVolumePercent, 2)
-					+ " seq=" + String(static_cast<uint64>(commandSequence))
-					+ " last=" + String(static_cast<uint64>(lastAppliedSequence)));
-				return;
-			}
-			lastAppliedSequence = commandSequence;
-			RemoteControlDebugLog::logEvent("client.recv",
-				"accept ApplyLocalVolume sourceClientId=" + String(sourceClientId)
-				+ " targetChannel=" + String(targetChannelIndex)
-				+ " vol=" + String(remoteVolumePercent, 2)
-				+ " seq=" + String(static_cast<uint64>(commandSequence)));
-		}
-		else {
-			RemoteControlDebugLog::logEvent("client.recv",
-				"accept ApplyLocalVolume(no-seq) sourceClientId=" + String(sourceClientId)
-				+ " targetChannel=" + String(targetChannelIndex)
-				+ " vol=" + String(remoteVolumePercent, 2));
-		}
-
-		MessageManager::callAsync([targetChannelIndex, remoteVolumePercent]() {
+	MessageManager::callAsync([targetChannelIndex = payload->targetChannelIndex, remoteVolumePercent = payload->volumePercent]() {
 			auto& data = Data::instance().get();
 			auto inputSetup = data.getChildWithName(VALUE_INPUT_SETUP);
 			auto channels = inputSetup.getChildWithName(VALUE_CHANNELS);
@@ -134,9 +144,6 @@ void DataReceiveThread::processControlMessage(const std::shared_ptr<JammerNetzCo
 			auto controllerSettings = mixer.getOrCreateChildWithName("Input" + String(*activeControllerIndex), nullptr);
 			controllerSettings.setProperty(VALUE_VOLUME, remoteVolumePercent, nullptr);
 		});
-	} catch (const nlohmann::json::exception&) {
-		// Ignore malformed control payloads
-	}
 }
 
 void DataReceiveThread::run()
