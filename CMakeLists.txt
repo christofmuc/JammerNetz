@@ -30,8 +30,8 @@ IF(APPLE)
 add_compile_options(-Wno-unused-command-line-argument -fno-aligned-allocation)
 ENDIF()
 
-# To avoid dependency on WebKit. This also came with MacOS, but as webkit is heavyweight, it is probably a good idea to turn it off for all
-option(JUCE_CONFIG_JUCE_WEB_BROWSER OFF)
+# Disable JUCE WebBrowserComponent globally. This avoids Linux WebKit/GTK browser dependencies.
+option(JAMMERNETZ_ENABLE_JUCE_WEB_BROWSER "Enable JUCE WebBrowserComponent support" OFF)
 
 # Allow to turn on crash reporting via Sentry. This is turned on by default for the builds I upload to github
 OPTION(SENTRY_CRASH_REPORTING "Turn on crash reporting via Internet/Sentry")
@@ -82,10 +82,6 @@ elseif(UNIX)
 	find_package(PkgConfig REQUIRED)
 	find_package(OpenGL)
 
-	# juce_audio_utils pulls in juce_gui_extra on Linux, so GTK/WebKit are required even for server-only builds.
-	pkg_check_modules(GTK REQUIRED IMPORTED_TARGET gtk+-3.0)
-	pkg_check_modules(WEBKIT REQUIRED IMPORTED_TARGET webkit2gtk-4.1)
-
 	# Client-only UI dependency.
 	if(BUILD_JAMMERNETZ_CLIENT)
 		pkg_check_modules(GLEW REQUIRED IMPORTED_TARGET glew)
@@ -123,13 +119,9 @@ mark_as_advanced(
 
 # Define the list of link libraries required on Linux linking with JUCE, this must be used by any executable / module to run standalone
 if(UNIX AND NOT APPLE)
-	set(LINUX_UI_LIBRARIES
-		PkgConfig::WEBKIT
-		PkgConfig::GTK
-	)
+	set(LINUX_UI_LIBRARIES)
 	if(BUILD_JAMMERNETZ_CLIENT)
 		list(APPEND LINUX_UI_LIBRARIES
-			PkgConfig::WEBKIT
 			PkgConfig::GLEW
 		)
 	endif()
@@ -180,6 +172,7 @@ endif()
 
 target_compile_definitions(juce-static
 	PUBLIC
+		JUCE_WEB_BROWSER=$<IF:$<BOOL:${JAMMERNETZ_ENABLE_JUCE_WEB_BROWSER}>,1,0>
 		JUCE_PLUGINHOST_VST=0
 		JUCE_PLUGINHOST_AU=0
 		DONT_SET_USING_JUCE_NAMESPACE=1
