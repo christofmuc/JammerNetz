@@ -42,6 +42,20 @@ We provide installers for Windows and Mac client to download here in the release
 
 you will need some experience in compiling a C++ application and starting an AWS (or Azure or self-hosted or...) instance and deploying the Linux build of the server there to run it. Depending on the interest in this system, we might be able to provide more help.
 
+## Remote control diagnostics logging
+
+Remote control debug logging is disabled by default for both client and server.
+
+- `JN_REMOTE_LOG_ENABLE`:
+  - set to `1` or `true` to enable remote control diagnostics logging
+  - unset (or any other value) keeps logging disabled
+- `JN_REMOTE_LOG_NAME`:
+  - optional log file basename (without `.log`)
+  - logs are written to `<repo>/logs/<name>.log`
+  - if unset, a timestamp-based name is used automatically
+
+The provided `run_test.sh` script enables logging explicitly for its test processes.
+
 # Building the software
 
 ### Supported platforms

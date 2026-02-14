@@ -36,14 +36,9 @@ void ensureLogStream(RemoteControlLogState &s)
 		return;
 	}
 
+	// Logging is opt-in via JN_REMOTE_LOG_ENABLE.
 	auto enabledByEnv = juce::SystemStats::getEnvironmentVariable("JN_REMOTE_LOG_ENABLE", {});
 	if (!(enabledByEnv == "1" || enabledByEnv.equalsIgnoreCase("true"))) {
-		s.disabled = true;
-		return;
-	}
-
-	auto disabledByEnv = juce::SystemStats::getEnvironmentVariable("JN_REMOTE_LOG_DISABLE", {});
-	if (disabledByEnv == "1" || disabledByEnv.equalsIgnoreCase("true")) {
 		s.disabled = true;
 		return;
 	}
