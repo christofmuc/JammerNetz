@@ -47,6 +47,8 @@ void ChannelControllerGroup::setup(std::shared_ptr<JammerNetzChannelSetup> sessi
 		controller->setMeterSource(meterSource, i);
 		const auto identity = std::make_pair(channel.sourceClientId, channel.sourceChannelIndex);
 		sessionChannelIdentities_.push_back(identity);
+		// Only enable remote control for identities that map to exactly one visible slider.
+		// If an identity appears multiple times, controlling it would be ambiguous.
 		auto canControlRemote = identity.first != 0 && identityCounts[identity] == 1;
 		controller->enableVolumeSlider(canControlRemote);
 		controller->enableTargetSelector(false);
@@ -71,14 +73,6 @@ void ChannelControllerGroup::setSessionChannelVolume(int channel, float volumePe
 {
 	if (channel >= 0 && channel < channelControllers_.size()) {
 		channelControllers_[channel]->setVolume(volumePercent);
-	}
-}
-
-void ChannelControllerGroup::enableClientSideControls(bool enabled)
-{
-	for (auto c : channelControllers_) {
-		c->enableVolumeSlider(enabled);
-		c->enableTargetSelector(enabled);
 	}
 }
 
@@ -117,7 +111,8 @@ bool ChannelControllerGroup::isAnyVolumeSliderBeingDragged() const
 bool ChannelControllerGroup::isSessionVolumeSliderBeingDragged(uint32 sourceClientId, uint16 sourceChannelIndex) const
 {
 	auto channelIndex = findSessionChannelIndex(sourceClientId, sourceChannelIndex);
-	if (!channelIndex.has_value()) {
+	if (!channelIndex.has_value() || *channelIndex < 0 || *channelIndex >= channelControllers_.size()) {
+		jassertfalse;
 		return false;
 	}
 	return channelControllers_[*channelIndex]->isVolumeSliderBeingDragged();

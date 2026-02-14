@@ -40,8 +40,6 @@ public:
 	int numChannels() const;
 
 private:
-	void enableClientSideControls(bool enabled);
-
 	OwnedArray<ChannelController> channelControllers_;
 	SessionVolumeChangedHandler sessionVolumeChangedHandler_;
 	std::vector<std::pair<uint32, uint16>> sessionChannelIdentities_;
