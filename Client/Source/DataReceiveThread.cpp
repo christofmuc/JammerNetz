@@ -107,43 +107,46 @@ void DataReceiveThread::processControlMessage(const std::shared_ptr<JammerNetzCo
 		lastAppliedSequence = *payload->commandSequence;
 	}
 
-	MessageManager::callAsync([targetChannelIndex = payload->targetChannelIndex, remoteVolumePercent = payload->volumePercent]() {
-			auto& data = Data::instance().get();
-			auto inputSetup = data.getChildWithName(VALUE_INPUT_SETUP);
-			auto channels = inputSetup.getChildWithName(VALUE_CHANNELS);
-			if (!channels.isValid()) {
-				return;
-			}
+	auto& data = Data::instance().get();
+	auto inputSetup = data.getChildWithName(VALUE_INPUT_SETUP);
+	auto channels = inputSetup.getChildWithName(VALUE_CHANNELS);
+	if (!channels.isValid()) {
+		return;
+	}
 
-			int channelCount = channels.getProperty(VALUE_CHANNEL_COUNT, 0);
-			if (targetChannelIndex >= channelCount) {
-				return;
-			}
+	int channelCount = channels.getProperty(VALUE_CHANNEL_COUNT, 0);
+	if (payload->targetChannelIndex >= channelCount) {
+		return;
+	}
 
-			std::optional<int> activeControllerIndex;
-			int activeCount = 0;
-			for (int physicalIndex = 0; physicalIndex < channelCount; physicalIndex++) {
-				auto channel = channels.getChildWithName("Channel" + String(physicalIndex));
-				if (!channel.isValid()) {
-					continue;
-				}
-				bool isActive = channel.getProperty(VALUE_CHANNEL_ACTIVE, false);
-				if (isActive) {
-					if (physicalIndex == targetChannelIndex) {
-						activeControllerIndex = activeCount;
-						break;
-					}
-					activeCount++;
-				}
+	std::optional<int> activeControllerIndex;
+	int activeCount = 0;
+	for (int physicalIndex = 0; physicalIndex < channelCount; physicalIndex++) {
+		auto channel = channels.getChildWithName("Channel" + String(physicalIndex));
+		if (!channel.isValid()) {
+			continue;
+		}
+		bool isActive = channel.getProperty(VALUE_CHANNEL_ACTIVE, false);
+		if (isActive) {
+			if (physicalIndex == payload->targetChannelIndex) {
+				activeControllerIndex = activeCount;
+				break;
 			}
-			if (!activeControllerIndex.has_value()) {
-				return;
-			}
+			activeCount++;
+		}
+	}
+	if (!activeControllerIndex.has_value()) {
+		return;
+	}
 
-			auto mixer = data.getOrCreateChildWithName(VALUE_MIXER, nullptr);
-			auto controllerSettings = mixer.getOrCreateChildWithName("Input" + String(*activeControllerIndex), nullptr);
-			controllerSettings.setProperty(VALUE_VOLUME, remoteVolumePercent, nullptr);
-		});
+	auto resolvedControllerIndex = *activeControllerIndex;
+	auto remoteVolumePercent = payload->volumePercent;
+	MessageManager::callAsync([resolvedControllerIndex, remoteVolumePercent]() {
+		auto& uiData = Data::instance().get();
+		auto mixer = uiData.getOrCreateChildWithName(VALUE_MIXER, nullptr);
+		auto controllerSettings = mixer.getOrCreateChildWithName("Input" + String(resolvedControllerIndex), nullptr);
+		controllerSettings.setProperty(VALUE_VOLUME, remoteVolumePercent, nullptr);
+	});
 }
 
 void DataReceiveThread::run()
