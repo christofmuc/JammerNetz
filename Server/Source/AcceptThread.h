@@ -49,7 +49,9 @@ private:
 	std::unique_ptr<PrintQualityTimer> qualityTimer_;
 	ServerBufferConfig bufferConfig_;
 	std::unique_ptr<BlowFish> blowFish_;
-	std::map<std::tuple<uint32, uint32, uint16>, uint64_t> lastForwardedControlSequence_;
+	// (sourceClientId, targetClientId, targetChannelIndex) -> last forwarded command sequence
+	using RemoteVolumeSequenceKey = std::tuple<uint32, uint32, uint16>;
+	std::map<RemoteVolumeSequenceKey, uint64_t> lastForwardedControlSequence_;
 	juce::int64 lastSessionRevisionBumpMillis_ { 0 };
 	juce::int64 pendingSessionRevisionDueMillis_ { 0 };
 	bool pendingSessionRevisionBump_ { false };

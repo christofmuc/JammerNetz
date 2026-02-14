@@ -73,6 +73,7 @@ AcceptThread::AcceptThread(int serverPort, DatagramSocket &socket, TPacketStream
 	    , serverConfiguration_(serverConfiguration)
 	    , clientIdentityRegistry_(clientIdentityRegistry)
 	    , sessionControlRevision_(sessionControlRevision)
+	    , qualityTimer_(nullptr)
 	    , bufferConfig_(bufferConfig)
 {
 	if (keydata) {
@@ -102,8 +103,19 @@ bool AcceptThread::sendControlMessageToClient(const std::string& targetAddress, 
 	}
 
 	String ipAddress(targetAddress.substr(0, separator));
-	int port = atoi(targetAddress.substr(separator + 1).c_str());
-	if (port <= 0) {
+	auto portText = targetAddress.substr(separator + 1);
+	int port = 0;
+	try {
+		size_t parsedChars = 0;
+		port = std::stoi(portText, &parsedChars, 10);
+		if (parsedChars != portText.size()) {
+			return false;
+		}
+	}
+	catch (const std::exception&) {
+		return false;
+	}
+	if (port <= 0 || port > 65535) {
 		return false;
 	}
 
