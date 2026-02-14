@@ -112,17 +112,17 @@ void MixerThread::run() {
 					//recorder_.saveBlock(client.second->audioBuffer()->getArrayOfReadPointers(), outBuffer->getNumSamples());
 					bufferMixdown(outBuffer, client.second, client.first == receiver.first);
 					// Build the client specific session data structure - this is basically all channels except your own
-						if (client.first != receiver.first) {
-							auto range = allSessionChannels.equal_range(client.first);
-							for_each(range.first, range.second, [&](std::pair<const std::string, JammerNetzChannelSetup> setup) {
-								auto sourceClientId = clientIdentityRegistry_.getOrAssignClientId(client.first);
-								for (const auto& sourceChannel : setup.second.channels) {
-									auto copiedChannel = sourceChannel;
-									copiedChannel.sourceClientId = sourceClientId;
-									sessionSetup.channels.push_back(copiedChannel);
-								}
-							});
-						}
+					if (client.first != receiver.first) {
+						auto range = allSessionChannels.equal_range(client.first);
+						auto sourceClientId = clientIdentityRegistry_.getOrAssignClientId(client.first);
+						for_each(range.first, range.second, [&](const std::pair<const std::string, JammerNetzChannelSetup>& setup) {
+							for (const auto& sourceChannel : setup.second.channels) {
+								auto copiedChannel = sourceChannel;
+								copiedChannel.sourceClientId = sourceClientId;
+								sessionSetup.channels.push_back(copiedChannel);
+							}
+						});
+					}
 					// Check if any client requests a new bpm (larger than 0.0 value). Check if a start or stop signal should be sent
 					maxBpmSet = std::max(maxBpmSet, client.second->bpm());
 					if (client.second->midiSignal() == MidiSignal_Start && midiSignal == MidiSignal_None) {
