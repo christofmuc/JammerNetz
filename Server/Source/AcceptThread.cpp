@@ -156,17 +156,22 @@ void AcceptThread::processControlMessage(std::shared_ptr<JammerNetzControlMessag
 	auto sourceClientId = clientIdentityRegistry_.getOrAssignClientId(clientName);
 	if (parsedPayload->commandSequence.has_value()) {
 		auto sequenceKey = std::make_tuple(sourceClientId, parsedPayload->targetClientId, parsedPayload->targetChannelIndex);
-		auto &lastSequence = lastForwardedControlSequence_[sequenceKey];
-		if (*parsedPayload->commandSequence <= lastSequence) {
-			RemoteControlDebugLog::logEvent("server.accept",
-				"drop duplicate/out-of-order SetRemoteVolume srcClientId=" + String(sourceClientId)
-				+ " targetClientId=" + String(parsedPayload->targetClientId)
-				+ " targetChannel=" + String(parsedPayload->targetChannelIndex)
-				+ " seq=" + String(static_cast<uint64>(*parsedPayload->commandSequence))
-				+ " last=" + String(static_cast<uint64>(lastSequence)));
-			return;
+		auto found = lastForwardedControlSequence_.find(sequenceKey);
+		if (found != lastForwardedControlSequence_.end()) {
+			if (*parsedPayload->commandSequence <= found->second) {
+				RemoteControlDebugLog::logEvent("server.accept",
+					"drop duplicate/out-of-order SetRemoteVolume srcClientId=" + String(sourceClientId)
+					+ " targetClientId=" + String(parsedPayload->targetClientId)
+					+ " targetChannel=" + String(parsedPayload->targetChannelIndex)
+					+ " seq=" + String(static_cast<uint64>(*parsedPayload->commandSequence))
+					+ " last=" + String(static_cast<uint64>(found->second)));
+				return;
+			}
+			found->second = *parsedPayload->commandSequence;
 		}
-		lastSequence = *parsedPayload->commandSequence;
+		else {
+			lastForwardedControlSequence_.emplace(sequenceKey, *parsedPayload->commandSequence);
+		}
 	}
 
 	auto targetEndpoint = clientIdentityRegistry_.endpointForClientId(parsedPayload->targetClientId);

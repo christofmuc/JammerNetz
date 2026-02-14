@@ -95,17 +95,22 @@ void DataReceiveThread::processControlMessage(const std::shared_ptr<JammerNetzCo
 
 	if (payload->commandSequence.has_value()) {
 		auto key = std::make_pair(payload->sourceClientId, static_cast<uint16>(payload->targetChannelIndex));
-		auto &lastAppliedSequence = lastAppliedRemoteVolumeSequence_[key];
-		if (*payload->commandSequence <= lastAppliedSequence) {
-			RemoteControlDebugLog::logEvent("client.recv",
-				"drop stale ApplyLocalVolume sourceClientId=" + String(payload->sourceClientId)
-				+ " targetChannel=" + String(payload->targetChannelIndex)
-				+ " vol=" + String(payload->volumePercent, 2)
-				+ " seq=" + String(static_cast<uint64>(*payload->commandSequence))
-				+ " last=" + String(static_cast<uint64>(lastAppliedSequence)));
-			return;
+		auto found = lastAppliedRemoteVolumeSequence_.find(key);
+		if (found != lastAppliedRemoteVolumeSequence_.end()) {
+			if (*payload->commandSequence <= found->second) {
+				RemoteControlDebugLog::logEvent("client.recv",
+					"drop stale ApplyLocalVolume sourceClientId=" + String(payload->sourceClientId)
+					+ " targetChannel=" + String(payload->targetChannelIndex)
+					+ " vol=" + String(payload->volumePercent, 2)
+					+ " seq=" + String(static_cast<uint64>(*payload->commandSequence))
+					+ " last=" + String(static_cast<uint64>(found->second)));
+				return;
+			}
+			found->second = *payload->commandSequence;
 		}
-		lastAppliedSequence = *payload->commandSequence;
+		else {
+			lastAppliedRemoteVolumeSequence_.emplace(key, *payload->commandSequence);
+		}
 	}
 
 	auto& data = Data::instance().get();
