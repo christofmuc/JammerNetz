@@ -6,6 +6,11 @@
 
 cmake_minimum_required(VERSION 3.14)
 
+# Avoid MSVC '/W3' defaults so target-level '/W4' does not emit D9025 override warnings.
+if(POLICY CMP0092)
+	cmake_policy(SET CMP0092 NEW)
+endif()
+
 # Target a specific macOS version to allow older hardware to run the client
 set(CMAKE_OSX_DEPLOYMENT_TARGET "10.11" CACHE STRING "Minimum OS X version to target for deployment")
 
