@@ -42,10 +42,10 @@ Source: "@JAMMERNETZ_CLIENT_OUTPUT_DIR@\{#MyAppExeName}"; DestDir: "{app}"; Flag
 Source: "@JAMMERNETZ_CLIENT_OUTPUT_DIR@\{#MyAppPdbName}"; DestDir: "{app}"; Flags: ignoreversion
 Source: "@JAMMERNETZ_SERVER_OUTPUT_DIR@\JammerNetzServer.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "@JAMMERNETZ_SERVER_OUTPUT_DIR@\JammerNetzServer.pdb"; DestDir: "{app}"; Flags: ignoreversion
-Source: "@JAMMERNETZ_CLIENT_RUNTIME_DIR@\tbb12.dll"; DestDir: "{app}"; Flags: ignoreversion
+Source: "@JAMMERNETZ_CLIENT_OUTPUT_DIR@\tbb12.dll"; DestDir: "{app}"; Flags: ignoreversion
 Source: "${VCREDIST_PATH}\{#VCRedistFileName}"; DestDir: {tmp}; Flags: dontcopy
-Source: "@JAMMERNETZ_CLIENT_RUNTIME_DIR@\sentry.dll"; DestDir: "{app}"; Flags: skipifsourcedoesntexist
-Source: "@JAMMERNETZ_CLIENT_RUNTIME_DIR@\crashpad_handler.exe"; DestDir: "{app}"; Flags: skipifsourcedoesntexist
+Source: "@JAMMERNETZ_CLIENT_OUTPUT_DIR@\sentry.dll"; DestDir: "{app}"; Flags: skipifsourcedoesntexist
+Source: "@JAMMERNETZ_CLIENT_OUTPUT_DIR@\crashpad_handler.exe"; DestDir: "{app}"; Flags: skipifsourcedoesntexist
 Source: "@JAMMERNETZ_ROOT_OUTPUT_DIR@\test_asio.exe"; DestDir: "{app}"; Flags: skipifsourcedoesntexist
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 ; VC++ redistributable runtime. Extracted by VC2017RedistNeedsInstall(), if needed.
