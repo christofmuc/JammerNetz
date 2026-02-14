@@ -10,7 +10,10 @@
 
 #include "Data.h"
 #include "Encryption.h"
+#include "RemoteControlDebugLog.h"
 #include "XPlatformUtils.h"
+
+#include <optional>
 
 DataReceiveThread::DataReceiveThread(DatagramSocket &socket, std::function<void(std::shared_ptr<JammerNetzAudioData>)> newDataHandler)
 	: Thread("ReceiveDataFromServer"), socket_(socket), newDataHandler_(newDataHandler), currentRTT_(0.0), isReceiving_(false), currentSession_(false)
@@ -41,6 +44,99 @@ DataReceiveThread::DataReceiveThread(DatagramSocket &socket, std::function<void(
 
 DataReceiveThread::~DataReceiveThread()
 {
+}
+
+void DataReceiveThread::processControlMessage(const std::shared_ptr<JammerNetzControlMessage>& message)
+{
+	if (!message || !message->json_.contains("ApplyLocalVolume")) {
+		return;
+	}
+
+	try {
+		auto payload = message->json_.at("ApplyLocalVolume");
+		if (!payload.contains("target_channel_index") || !payload.contains("volume_percent")) {
+			return;
+		}
+
+		auto targetChannelIndex = payload.at("target_channel_index").get<int>();
+		auto remoteVolumePercent = payload.at("volume_percent").get<float>();
+		if (targetChannelIndex < 0) {
+			return;
+		}
+		remoteVolumePercent = jlimit(0.0f, 100.0f, remoteVolumePercent);
+
+		uint32 sourceClientId = 0;
+		if (payload.contains("source_client_id")) {
+			sourceClientId = payload.at("source_client_id").get<uint32>();
+		}
+
+		if (payload.contains("command_sequence")) {
+			auto commandSequence = payload.at("command_sequence").get<uint64_t>();
+			auto key = std::make_pair(sourceClientId, static_cast<uint16>(targetChannelIndex));
+			auto &lastAppliedSequence = lastAppliedRemoteVolumeSequence_[key];
+			if (commandSequence <= lastAppliedSequence) {
+				RemoteControlDebugLog::logEvent("client.recv",
+					"drop stale ApplyLocalVolume sourceClientId=" + String(sourceClientId)
+					+ " targetChannel=" + String(targetChannelIndex)
+					+ " vol=" + String(remoteVolumePercent, 2)
+					+ " seq=" + String(static_cast<uint64>(commandSequence))
+					+ " last=" + String(static_cast<uint64>(lastAppliedSequence)));
+				return;
+			}
+			lastAppliedSequence = commandSequence;
+			RemoteControlDebugLog::logEvent("client.recv",
+				"accept ApplyLocalVolume sourceClientId=" + String(sourceClientId)
+				+ " targetChannel=" + String(targetChannelIndex)
+				+ " vol=" + String(remoteVolumePercent, 2)
+				+ " seq=" + String(static_cast<uint64>(commandSequence)));
+		}
+		else {
+			RemoteControlDebugLog::logEvent("client.recv",
+				"accept ApplyLocalVolume(no-seq) sourceClientId=" + String(sourceClientId)
+				+ " targetChannel=" + String(targetChannelIndex)
+				+ " vol=" + String(remoteVolumePercent, 2));
+		}
+
+		MessageManager::callAsync([targetChannelIndex, remoteVolumePercent]() {
+			auto& data = Data::instance().get();
+			auto inputSetup = data.getChildWithName(VALUE_INPUT_SETUP);
+			auto channels = inputSetup.getChildWithName(VALUE_CHANNELS);
+			if (!channels.isValid()) {
+				return;
+			}
+
+			int channelCount = channels.getProperty(VALUE_CHANNEL_COUNT, 0);
+			if (targetChannelIndex >= channelCount) {
+				return;
+			}
+
+			std::optional<int> activeControllerIndex;
+			int activeCount = 0;
+			for (int physicalIndex = 0; physicalIndex < channelCount; physicalIndex++) {
+				auto channel = channels.getChildWithName("Channel" + String(physicalIndex));
+				if (!channel.isValid()) {
+					continue;
+				}
+				bool isActive = channel.getProperty(VALUE_CHANNEL_ACTIVE, false);
+				if (isActive) {
+					if (physicalIndex == targetChannelIndex) {
+						activeControllerIndex = activeCount;
+						break;
+					}
+					activeCount++;
+				}
+			}
+			if (!activeControllerIndex.has_value()) {
+				return;
+			}
+
+			auto mixer = data.getOrCreateChildWithName(VALUE_MIXER, nullptr);
+			auto controllerSettings = mixer.getOrCreateChildWithName("Input" + String(*activeControllerIndex), nullptr);
+			controllerSettings.setProperty(VALUE_VOLUME, remoteVolumePercent, nullptr);
+		});
+	} catch (const nlohmann::json::exception&) {
+		// Ignore malformed control payloads
+	}
 }
 
 void DataReceiveThread::run()
@@ -119,7 +215,7 @@ void DataReceiveThread::run()
                         break;
                     }
                     case JammerNetzMessage::MessageType::GENERIC_JSON:
-                        // Ignore for now
+                        processControlMessage(std::dynamic_pointer_cast<JammerNetzControlMessage>(message));
                         break;
 					default:
 						// What's this?

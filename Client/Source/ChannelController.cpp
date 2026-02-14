@@ -11,6 +11,8 @@
 
 #include "ApplicationState.h"
 
+#include <utility>
+
 ChannelController::ChannelController(String const &name, String const &id,
 	bool hasVolume /*= true*/, bool hasTarget /*= true*/, bool hasPitch /* = false */) :
 		id_(id)
@@ -20,6 +22,7 @@ ChannelController::ChannelController(String const &name, String const &id,
         , levelMeter_(name == "Master" ? FFAU::LevelMeter::Default : FFAU::LevelMeter::SingleChannel)
         , meterSource_(nullptr)
         , channelNo_(0)
+		, volumeSliderDragged_(false)
 {
 	channelName_.setText(name, dontSendNotification);
 	if (hasVolume) {
@@ -29,6 +32,7 @@ ChannelController::ChannelController(String const &name, String const &id,
 		volumeSlider_.setTextValueSuffix("%");
 		volumeSlider_.setValue(100.0, dontSendNotification);
 		volumeSlider_.setNumDecimalPlacesToDisplay(0);
+		volumeSlider_.setChangeNotificationOnlyOnRelease(false);
 		volumeSlider_.addListener(this);
 		addAndMakeVisible(volumeSlider_);
 	}
@@ -118,6 +122,16 @@ void ChannelController::setPitchDisplayed(MidiNote note)
 	}
 }
 
+void ChannelController::setUpdateHandler(std::function<void(double, JammerNetzChannelTarget)> updateHandler)
+{
+	updateHandler_ = std::move(updateHandler);
+}
+
+bool ChannelController::isVolumeSliderBeingDragged() const
+{
+	return volumeSliderDragged_;
+}
+
 JammerNetzChannelTarget ChannelController::getCurrentTarget() const
 {
 	JammerNetzChannelTarget target;
@@ -191,5 +205,22 @@ void ChannelController::sliderValueChanged(Slider* slider)
 	if (slider == &volumeSlider_) {
 		if (updateHandler_)
 			updateHandler_(slider->getValue(), getCurrentTarget());
+	}
+}
+
+void ChannelController::sliderDragStarted(Slider* slider)
+{
+	if (slider == &volumeSlider_) {
+		volumeSliderDragged_ = true;
+	}
+}
+
+void ChannelController::sliderDragEnded(Slider* slider)
+{
+	if (slider == &volumeSlider_) {
+		volumeSliderDragged_ = false;
+		if (updateHandler_) {
+			updateHandler_(slider->getValue(), getCurrentTarget());
+		}
 	}
 }

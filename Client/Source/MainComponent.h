@@ -20,6 +20,7 @@
 #include "MidiDeviceSelector.h"
 
 #include "ApplicationState.h"
+#include <map>
 
 class MainComponent   : public Component, private Timer, public ValueTree::Listener
 {
@@ -87,6 +88,8 @@ private:
 	// This is a cached variable, not state, used by the timer callback to display the quality statistics
 	// Probably should go away
 	std::shared_ptr<JammerNetzChannelSetup> currentSessionSetup_;
+	std::map<std::pair<uint32, uint16>, juce::int64> lastRemoteVolumeSendMillis_;
+	std::map<std::pair<uint32, uint16>, float> lastRemoteVolumeSentPercent_;
 
 	juce::int64 stageLeftWhenInMillis_;
 

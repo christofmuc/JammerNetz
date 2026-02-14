@@ -18,14 +18,18 @@
 
 class ChannelControllerGroup : public Component {
 public:
+	using SessionVolumeChangedHandler = std::function<void(uint32, uint16, float)>;
+
 	ChannelControllerGroup();
 
 	void setup(std::shared_ptr<ChannelSetup> setup, FFAU::LevelMeterSource*meterSource);
 	void setup(std::shared_ptr<JammerNetzChannelSetup> sessionChannels, FFAU::LevelMeterSource*meterSource);
+	void setSessionVolumeChangedHandler(SessionVolumeChangedHandler handler);
 
 	JammerNetzChannelTarget getCurrentTarget(int channel) const;
 	float getCurrentVolume(int channel) const;
 	void setPitchDisplayed(int channel, MidiNote note);
+	bool isAnyVolumeSliderBeingDragged() const;
 
 	virtual void resized();
 
@@ -35,4 +39,5 @@ private:
 	void enableClientSideControls(bool enabled);
 
 	OwnedArray<ChannelController> channelControllers_;
+	SessionVolumeChangedHandler sessionVolumeChangedHandler_;
 };

@@ -11,10 +11,11 @@
 #include "SharedServerTypes.h"
 #include "JammerNetzPackage.h"
 #include "RingOfAudioBuffers.h"
+#include <atomic>
 
 class SendThread : public Thread {
 public:
-	SendThread(DatagramSocket& socket, TOutgoingQueue &sendQueue, TPacketStreamBundle &incomingData, void *keydata, int keysize, ValueTree serverConfiguration);
+	SendThread(DatagramSocket& socket, TOutgoingQueue &sendQueue, TPacketStreamBundle &incomingData, void *keydata, int keysize, ValueTree serverConfiguration, std::atomic<uint64_t> &sessionControlRevision);
 
 	virtual void run() override;
 
@@ -29,8 +30,10 @@ private:
 	TPacketStreamBundle &incomingData_;
 	DatagramSocket& sendSocket_;
     ValueTree serverConfiguration_;
+	std::atomic<uint64_t> &sessionControlRevision_;
 	uint8 writebuffer_[MAXFRAMESIZE];
 	std::map<std::string, RingOfAudioBuffers<AudioBlock>> fecData_;
 	std::map<std::string, uint64_t> packageCounters_;
+	std::map<std::string, uint64_t> lastSessionRevisionSent_;
 	std::unique_ptr<BlowFish> blowFish_;
 };

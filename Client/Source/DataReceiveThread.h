@@ -12,6 +12,7 @@
 #include "JammerNetzClientInfoMessage.h"
 
 #include "ApplicationState.h"
+#include <map>
 
 class DataReceiveThread : public Thread {
 public:
@@ -27,6 +28,7 @@ public:
 
 private:
 	void setCryptoKey(const void* keyData, int keyBytes);
+	void processControlMessage(const std::shared_ptr<JammerNetzControlMessage>& message);
 
 	DatagramSocket &socket_;
 	uint8 readbuffer_[MAXFRAMESIZE];
@@ -42,6 +44,7 @@ private:
 	JammerNetzChannelSetup currentSession_;
 	CriticalSection sessionDataLock_;
 	std::shared_ptr<JammerNetzClientInfoMessage> lastClientInfoMessage_;
+	std::map<std::pair<uint32, uint16>, uint64_t> lastAppliedRemoteVolumeSequence_;
 
 	// Generic listeners, required to maintain the lifetime of the Values and their listeners
 	std::vector<std::unique_ptr<ValueListener>> listeners_;

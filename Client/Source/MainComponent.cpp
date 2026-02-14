@@ -19,6 +19,7 @@
 #include "LayoutConstants.h"
 
 #include "BuffersConfig.h"
+#include <cmath>
 
 MainComponent::MainComponent(std::shared_ptr<AudioService> audioService, std::shared_ptr<Recorder> masterRecorder, std::shared_ptr<Recorder> localRecorder) :
 	audioService_(audioService),
@@ -95,6 +96,29 @@ MainComponent::MainComponent(std::shared_ptr<AudioService> audioService, std::sh
 	addAndMakeVisible(ownChannels_);
 	addAndMakeVisible(sessionGroup_);
 	addAndMakeVisible(allChannels_);
+	allChannels_.setSessionVolumeChangedHandler([this](uint32 targetClientId, uint16 targetChannelIndex, float volumePercent) {
+		if (audioService_) {
+			constexpr juce::int64 kDragSendIntervalMs = 35;
+			constexpr float kDragMinDeltaPercent = 0.8f;
+
+			auto key = std::make_pair(targetClientId, targetChannelIndex);
+			auto now = Time::currentTimeMillis();
+			bool isDragging = allChannels_.isAnyVolumeSliderBeingDragged();
+			if (isDragging) {
+				auto lastSendAt = lastRemoteVolumeSendMillis_.find(key);
+				auto lastSentVolume = lastRemoteVolumeSentPercent_.find(key);
+				bool enoughTimePassed = lastSendAt == lastRemoteVolumeSendMillis_.end() || (now - lastSendAt->second) >= kDragSendIntervalMs;
+				bool enoughVolumeDelta = lastSentVolume == lastRemoteVolumeSentPercent_.end() || std::fabs(volumePercent - lastSentVolume->second) >= kDragMinDeltaPercent;
+				if (!enoughTimePassed || !enoughVolumeDelta) {
+					return;
+				}
+			}
+
+			audioService_->setRemoteParticipantVolume(targetClientId, targetChannelIndex, volumePercent);
+			lastRemoteVolumeSendMillis_[key] = now;
+			lastRemoteVolumeSentPercent_[key] = volumePercent;
+		}
+	});
 	addAndMakeVisible(statusInfo_);
 	addAndMakeVisible(downstreamInfo_);
 	addAndMakeVisible(outputGroup_);
@@ -338,7 +362,23 @@ void MainComponent::timerCallback()
 
 	// Refresh session participants in case this changed!
 	auto thisSetup = audioService_->getSessionSetup();
+	auto now = Time::currentTimeMillis();
+	// Hold freshly commanded remote volumes briefly to avoid visible snap/wiggle from stale session snapshots.
+	for (auto &channel : thisSetup.channels) {
+		auto key = std::make_pair(channel.sourceClientId, channel.sourceChannelIndex);
+		auto lastSentAt = lastRemoteVolumeSendMillis_.find(key);
+		auto lastSentVolume = lastRemoteVolumeSentPercent_.find(key);
+		if (lastSentAt != lastRemoteVolumeSendMillis_.end()
+			&& lastSentVolume != lastRemoteVolumeSentPercent_.end()
+			&& (now - lastSentAt->second) <= 300) {
+			channel.volume = lastSentVolume->second / 100.0f;
+		}
+	}
+	bool sessionSliderDragged = allChannels_.isAnyVolumeSliderBeingDragged();
 	if (!currentSessionSetup_ || !(currentSessionSetup_->isEqualEnough(thisSetup))) {
+		if (sessionSliderDragged) {
+			return;
+		}
 		currentSessionSetup_ = std::make_shared<JammerNetzChannelSetup>(thisSetup);
 		// Setup changed, need to re-init UI
 		allChannels_.setup(currentSessionSetup_, audioService_->getSessionMeterSource());

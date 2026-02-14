@@ -11,4 +11,6 @@ table JammerNetzPNPChannelSetup {
 	rms: float;
 	pitch: float;
 	name: string;
+	source_client_id: uint32;
+	source_channel_index: uint16;
 }

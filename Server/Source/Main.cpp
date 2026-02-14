@@ -34,6 +34,7 @@ std::string getServerVersion();
 
 #undef MOUSE_MOVED
 #include <curses.h>
+#include <atomic>
 
 class Server {
 public:
@@ -55,9 +56,9 @@ public:
 			cipherLength = static_cast<int>(cryptoKey->getSize());
 		}
 
-		acceptThread_ = std::make_unique<AcceptThread>(serverPort, socket_, incomingStreams_, wakeUpQueue_, bufferConfig, cryptoData, cipherLength, serverConfiguration_);
-		sendThread_ = std::make_unique <SendThread>(socket_, sendQueue_, incomingStreams_, cryptoData, cipherLength, serverConfiguration_);
-		mixerThread_ = std::make_unique<MixerThread>(incomingStreams_, mixdownSetup_, sendQueue_, wakeUpQueue_, bufferConfig);
+			acceptThread_ = std::make_unique<AcceptThread>(serverPort, socket_, incomingStreams_, wakeUpQueue_, bufferConfig, cryptoData, cipherLength, serverConfiguration_, clientIdentityRegistry_, sessionControlRevision_);
+			sendThread_ = std::make_unique <SendThread>(socket_, sendQueue_, incomingStreams_, cryptoData, cipherLength, serverConfiguration_, sessionControlRevision_);
+			mixerThread_ = std::make_unique<MixerThread>(incomingStreams_, mixdownSetup_, sendQueue_, wakeUpQueue_, bufferConfig, clientIdentityRegistry_);
 
 		sendQueue_.set_capacity(128); // This is an arbitrary number only to prevent memory overflow should the sender thread somehow die (i.e. no network or something)
 	}
@@ -99,6 +100,8 @@ private:
 	TPacketStreamBundle incomingStreams_;
 	TOutgoingQueue sendQueue_;
 	TMessageQueue wakeUpQueue_;
+	ClientIdentityRegistry clientIdentityRegistry_;
+	std::atomic<uint64_t> sessionControlRevision_ { 0 };
 
 	Recorder clientRecorder_; // Later I need one per client
 	Recorder mixdownRecorder_;

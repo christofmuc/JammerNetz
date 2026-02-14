@@ -6,6 +6,9 @@
 
 #include "ChannelControllerGroup.h"
 
+#include <map>
+#include <utility>
+
 ChannelControllerGroup::ChannelControllerGroup()
 {
 }
@@ -27,6 +30,11 @@ void ChannelControllerGroup::setup(std::shared_ptr<ChannelSetup> setup, FFAU::Le
 void ChannelControllerGroup::setup(std::shared_ptr<JammerNetzChannelSetup> sessionChannels, FFAU::LevelMeterSource*meterSource)
 {
 	channelControllers_.clear(true);
+	std::map<std::pair<uint32, uint16>, int> identityCounts;
+	for (const auto& channel : sessionChannels->channels) {
+		identityCounts[{channel.sourceClientId, channel.sourceChannelIndex}]++;
+	}
+
 	int i = 0;
 	for (const auto& channel : sessionChannels->channels) {
 		auto controller = new ChannelController(channel.name, "Session" + String(i), true, true, true);
@@ -34,10 +42,26 @@ void ChannelControllerGroup::setup(std::shared_ptr<JammerNetzChannelSetup> sessi
 		channelControllers_.add(controller);
 		controller->setVolume(channel.volume * 100.0f);
 		controller->setTarget(channel.target);
-		controller->setMeterSource(meterSource, i++);
+		controller->setMeterSource(meterSource, i);
+		const auto identity = std::make_pair(channel.sourceClientId, channel.sourceChannelIndex);
+		auto canControlRemote = identity.first != 0 && identityCounts[identity] == 1;
+		controller->enableVolumeSlider(canControlRemote);
+		controller->enableTargetSelector(false);
+		if (canControlRemote) {
+			controller->setUpdateHandler([this, identity](double volumePercent, JammerNetzChannelTarget) {
+				if (sessionVolumeChangedHandler_) {
+					sessionVolumeChangedHandler_(identity.first, identity.second, (float) volumePercent);
+				}
+			});
+		}
+		i++;
 	}
-	enableClientSideControls(false);
 	resized();
+}
+
+void ChannelControllerGroup::setSessionVolumeChangedHandler(SessionVolumeChangedHandler handler)
+{
+	sessionVolumeChangedHandler_ = std::move(handler);
 }
 
 void ChannelControllerGroup::enableClientSideControls(bool enabled)
@@ -68,6 +92,16 @@ void ChannelControllerGroup::setPitchDisplayed(int channel, MidiNote note)
 {
 	if (channel < channelControllers_.size())
 		channelControllers_[channel]->setPitchDisplayed(note);
+}
+
+bool ChannelControllerGroup::isAnyVolumeSliderBeingDragged() const
+{
+	for (auto controller : channelControllers_) {
+		if (controller->isVolumeSliderBeingDragged()) {
+			return true;
+		}
+	}
+	return false;
 }
 
 void ChannelControllerGroup::resized()

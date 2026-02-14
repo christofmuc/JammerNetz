@@ -54,10 +54,12 @@ void AudioService::refreshChannelSetup(std::shared_ptr<ChannelSetup> setup)
 			auto controllerData = mixer.getChildWithName(inputController);
 			jassert(controllerData.isValid());
 			JammerNetzChannelTarget target = static_cast<JammerNetzChannelTarget>(((int)  controllerData.getProperty(VALUE_TARGET, JammerNetzChannelTarget::Mono)) - 1);
-			JammerNetzSingleChannelSetup channel((uint8) target);
-			double volume = controllerData.getProperty(VALUE_VOLUME, 100.0);
-			channel.volume = (float)volume/100.0f;
-			auto username = Data::instance().get().getProperty(VALUE_USER_NAME).toString().toStdString();
+				JammerNetzSingleChannelSetup channel((uint8) target);
+				double volume = controllerData.getProperty(VALUE_VOLUME, 100.0);
+				channel.volume = (float)volume/100.0f;
+				channel.sourceClientId = 0;
+				channel.sourceChannelIndex = static_cast<uint16>(setup->activeChannelIndices[i]);
+				auto username = Data::instance().get().getProperty(VALUE_USER_NAME).toString().toStdString();
 			channel.name = setup->activeChannelIndices.size() > 1 ? username + " " + setup->activeChannelNames[i] : username;
 			// Not more than 20 characters please
 			if (channel.name.length() > 20)
@@ -94,6 +96,11 @@ void AudioService::setClockOutputs(std::vector<juce::MidiDeviceInfo> outputs)
 void AudioService::setMidiSignal(MidiSignal signal)
 {
 	callback_.setMidiSignalToSend(signal);
+}
+
+void AudioService::setRemoteParticipantVolume(uint32 targetClientId, uint16 targetChannelIndex, float volumePercent)
+{
+	callback_.setRemoteParticipantVolume(targetClientId, targetChannelIndex, volumePercent);
 }
 
 std::shared_ptr<Recorder> AudioService::getMasterRecorder() const
