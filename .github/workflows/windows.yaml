@@ -80,7 +80,7 @@ jobs:
     - name: Run Conan
       run: |
         conan profile detect
-        conan install -of Builds\Windows -s build_type=Release --build missing .
+        conan install -of Builds\Windows -s build_type=RelWithDebInfo --build missing .
 
     - name: Configure CMake for Flatbuffers
       run: |

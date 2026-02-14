@@ -42,7 +42,7 @@ if (WIN32)
 			COMMAND ${CMAKE_COMMAND} -E copy
 					${SENTRY_DISTRIBUTION_FILES}
 					${CMAKE_BINARY_DIR}/$<IF:$<CONFIG:Release>,${MY_TBB_BINARY_DIR_BASE}_release/tbb12.dll,$<IF:$<CONFIG:Debug>,${MY_TBB_BINARY_DIR_BASE}_debug/tbb12_debug.dll,${MY_TBB_BINARY_DIR_BASE}_relwithdebinfo/tbb12.dll>>
-					${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>)
+					$<TARGET_FILE_DIR:JammerNetzServer>)
 elseif(APPLE)
 	target_link_directories(JammerNetzServer PRIVATE "${INTEL_TBB_DIRECTORY}/lib/")
 	target_link_libraries(JammerNetzServer  ${JUCE_LIBRARIES} juce-utils JammerCommon tbb ncurses ${SENTRY_LIB})
