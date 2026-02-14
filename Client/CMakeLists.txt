@@ -138,9 +138,6 @@ ELSE()
 	target_link_libraries(JammerNetzClient
 		${JUCE_LIBRARIES}
 		${DS_LIBRARIES}
-		PkgConfig::WEBKIT
-		PkgConfig::GTK
-		PkgConfig::GLEW
 		Xext
 		X11
 		pthread
