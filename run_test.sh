@@ -13,9 +13,9 @@ echo "Client 1 stdout: ${client1_stdout}"
 echo "Client 2 stdout: ${client2_stdout}"
 echo "Server stdout:   ${server_stdout}"
 
-JN_REMOTE_LOG_NAME="client1-remote-${stamp}" ./builds/Client/JammerNetzClient >"${client1_stdout}" 2>&1 &
+JN_REMOTE_LOG_ENABLE=1 JN_REMOTE_LOG_NAME="client1-remote-${stamp}" ./builds/Client/JammerNetzClient >"${client1_stdout}" 2>&1 &
 client1_pid=$!
-JN_REMOTE_LOG_NAME="client2-remote-${stamp}" ./builds/Client/JammerNetzClient --clientID=Zweiter >"${client2_stdout}" 2>&1 &
+JN_REMOTE_LOG_ENABLE=1 JN_REMOTE_LOG_NAME="client2-remote-${stamp}" ./builds/Client/JammerNetzClient --clientID=Zweiter >"${client2_stdout}" 2>&1 &
 client2_pid=$!
 
 cleanup() {
@@ -23,4 +23,4 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-JN_REMOTE_LOG_NAME="server-remote-${stamp}" ./builds/Server/JammerNetzServer | tee "${server_stdout}"
+JN_REMOTE_LOG_ENABLE=1 JN_REMOTE_LOG_NAME="server-remote-${stamp}" ./builds/Server/JammerNetzServer | tee "${server_stdout}"
