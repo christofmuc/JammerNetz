@@ -14,6 +14,7 @@
 #include "XPlatformUtils.h"
 
 #include <optional>
+#include <set>
 
 namespace {
 struct ApplyLocalVolumePayload {
@@ -149,12 +150,74 @@ void DataReceiveThread::processControlMessage(const std::shared_ptr<JammerNetzCo
 	});
 }
 
+void DataReceiveThread::clearRemoteVolumeSequenceForClient(uint32 clientId)
+{
+	for (auto it = lastAppliedRemoteVolumeSequence_.begin(); it != lastAppliedRemoteVolumeSequence_.end(); ) {
+		if (it->first.first == clientId) {
+			it = lastAppliedRemoteVolumeSequence_.erase(it);
+		}
+		else {
+			++it;
+		}
+	}
+}
+
+void DataReceiveThread::clearAllRemoteSequencesOnSessionReset()
+{
+	lastAppliedRemoteVolumeSequence_.clear();
+}
+
+void DataReceiveThread::handleSessionSetupChange(const JammerNetzChannelSetup& newSessionSetup)
+{
+	std::set<uint32> previousClientIds;
+	for (const auto& channel : currentSession_.channels) {
+		if (channel.sourceClientId != 0) {
+			previousClientIds.insert(channel.sourceClientId);
+		}
+	}
+
+	std::set<uint32> currentClientIds;
+	for (const auto& channel : newSessionSetup.channels) {
+		if (channel.sourceClientId != 0) {
+			currentClientIds.insert(channel.sourceClientId);
+		}
+	}
+
+	for (auto clientId : previousClientIds) {
+		if (currentClientIds.find(clientId) == currentClientIds.end()) {
+			clearRemoteVolumeSequenceForClient(clientId);
+		}
+	}
+
+	bool topologyChanged = currentSession_.channels.size() != newSessionSetup.channels.size();
+	if (!topologyChanged) {
+		for (size_t i = 0; i < currentSession_.channels.size(); i++) {
+			const auto& oldChannel = currentSession_.channels[i];
+			const auto& newChannel = newSessionSetup.channels[i];
+			if (oldChannel.sourceClientId != newChannel.sourceClientId
+				|| oldChannel.sourceChannelIndex != newChannel.sourceChannelIndex) {
+				topologyChanged = true;
+				break;
+			}
+		}
+	}
+
+	if (topologyChanged) {
+		for (auto clientId : currentClientIds) {
+			clearRemoteVolumeSequenceForClient(clientId);
+		}
+	}
+}
+
 void DataReceiveThread::run()
 {
 	while (!threadShouldExit()) {
 		switch (socket_.waitUntilReady(true, 500)) {
 		case 0:
 			// Timeout on socket, no client connected within timeout period
+			if (isReceiving_) {
+				clearAllRemoteSequencesOnSessionReset();
+			}
 			isReceiving_ = false;
 			break;
 		case 1: {
@@ -171,6 +234,9 @@ void DataReceiveThread::run()
 			if (dataRead == 0) {
 				// Weird, this seems to happen recently instead of a socket timeout even when no packets are received. So this is not a 0 byte package, but actually
 				// no package at all (e.g. if you kill the server, you'll end up here instead of the socket waitUntilReady == 0)
+				if (isReceiving_) {
+					clearAllRemoteSequencesOnSessionReset();
+				}
 				isReceiving_ = false;
 				continue;
 			}
@@ -212,6 +278,9 @@ void DataReceiveThread::run()
 					case JammerNetzMessage::CLIENTINFO: {
 						auto clientInfo = std::dynamic_pointer_cast<JammerNetzClientInfoMessage>(message);
 						if (clientInfo) {
+							if (lastClientInfoMessage_ && clientInfo->getNumClients() < lastClientInfoMessage_->getNumClients()) {
+								clearAllRemoteSequencesOnSessionReset();
+							}
 							// Yes, got it. Copy it! This is thread safe if and only if the read function to the shared_ptr is atomic!
 							lastClientInfoMessage_ = std::make_shared<JammerNetzClientInfoMessage>(*clientInfo);
 						}
@@ -220,6 +289,7 @@ void DataReceiveThread::run()
                     case JammerNetzMessage::SESSIONSETUP: {
                         auto sessionInfo = std::dynamic_pointer_cast<JammerNetzSessionInfoMessage>(message);
                         if (sessionInfo) {
+							handleSessionSetupChange(sessionInfo->channels_);
                             currentSession_ = sessionInfo->channels_; //TODO - this is not thread safe, I trust
                         }
                         break;

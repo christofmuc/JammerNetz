@@ -29,6 +29,9 @@ public:
 private:
 	void setCryptoKey(const void* keyData, int keyBytes);
 	void processControlMessage(const std::shared_ptr<JammerNetzControlMessage>& message);
+	void clearRemoteVolumeSequenceForClient(uint32 clientId);
+	void clearAllRemoteSequencesOnSessionReset();
+	void handleSessionSetupChange(const JammerNetzChannelSetup& newSessionSetup);
 
 	DatagramSocket &socket_;
 	uint8 readbuffer_[MAXFRAMESIZE];
