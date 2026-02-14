@@ -112,7 +112,6 @@ bool ChannelControllerGroup::isSessionVolumeSliderBeingDragged(uint32 sourceClie
 {
 	auto channelIndex = findSessionChannelIndex(sourceClientId, sourceChannelIndex);
 	if (!channelIndex.has_value() || *channelIndex < 0 || *channelIndex >= channelControllers_.size()) {
-		jassertfalse;
 		return false;
 	}
 	return channelControllers_[*channelIndex]->isVolumeSliderBeingDragged();
