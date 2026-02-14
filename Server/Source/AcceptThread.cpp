@@ -16,6 +16,8 @@
 #include <optional>
 
 namespace {
+constexpr juce::int64 kSessionRevisionMinIntervalMs = 60;
+
 struct SetRemoteVolumePayload {
 	uint32 targetClientId;
 	uint16 targetChannelIndex;
@@ -133,6 +135,39 @@ bool AcceptThread::sendControlMessageToClient(const std::string& targetAddress, 
 	return receiveSocket_.write(ipAddress, port, buffer, bytesToSend) > 0;
 }
 
+void AcceptThread::scheduleSessionRevisionBump()
+{
+	auto now = Time::currentTimeMillis();
+	if (lastSessionRevisionBumpMillis_ == 0 || (now - lastSessionRevisionBumpMillis_) >= kSessionRevisionMinIntervalMs) {
+		sessionControlRevision_.fetch_add(1, std::memory_order_relaxed);
+		lastSessionRevisionBumpMillis_ = now;
+		pendingSessionRevisionBump_ = false;
+		pendingSessionRevisionDueMillis_ = 0;
+		return;
+	}
+
+	// Keep a trailing-edge bump pending so the final slider value is always published.
+	pendingSessionRevisionBump_ = true;
+	pendingSessionRevisionDueMillis_ = lastSessionRevisionBumpMillis_ + kSessionRevisionMinIntervalMs;
+}
+
+void AcceptThread::flushPendingSessionRevisionBumpIfDue()
+{
+	if (!pendingSessionRevisionBump_) {
+		return;
+	}
+
+	auto now = Time::currentTimeMillis();
+	if (now < pendingSessionRevisionDueMillis_) {
+		return;
+	}
+
+	sessionControlRevision_.fetch_add(1, std::memory_order_relaxed);
+	lastSessionRevisionBumpMillis_ = now;
+	pendingSessionRevisionBump_ = false;
+	pendingSessionRevisionDueMillis_ = 0;
+}
+
 void AcceptThread::processControlMessage(std::shared_ptr<JammerNetzControlMessage> message, std::string const& clientName)
 {
 	if (!message) {
@@ -201,13 +236,8 @@ void AcceptThread::processControlMessage(std::shared_ptr<JammerNetzControlMessag
 		return;
 	}
 
-	// Throttle session revision bumps to avoid flooding SESSIONSETUP while dragging sliders.
-	constexpr juce::int64 kSessionRevisionMinIntervalMs = 60;
-	auto now = Time::currentTimeMillis();
-	if (lastSessionRevisionBumpMillis_ == 0 || (now - lastSessionRevisionBumpMillis_) >= kSessionRevisionMinIntervalMs) {
-		sessionControlRevision_.fetch_add(1, std::memory_order_relaxed);
-		lastSessionRevisionBumpMillis_ = now;
-	}
+	// Throttle frequent bumps, but keep a trailing-edge bump pending for the last slider update.
+	scheduleSessionRevisionBump();
 }
 
 void AcceptThread::processAudioMessage(std::shared_ptr<JammerNetzAudioData> audioData, std::string const& clientName)
@@ -254,8 +284,22 @@ void AcceptThread::run()
 	// Start the timer that will frequently output quality data for each of the clients' connections
 	qualityTimer_->startTimer(500);
 	while (!currentThreadShouldExit()) {
-		switch (receiveSocket_.waitUntilReady(true, 250)) {
+		flushPendingSessionRevisionBumpIfDue();
+
+		int waitTimeoutMs = 250;
+		if (pendingSessionRevisionBump_) {
+			auto now = Time::currentTimeMillis();
+			auto remaining = pendingSessionRevisionDueMillis_ - now;
+			if (remaining <= 0) {
+				flushPendingSessionRevisionBumpIfDue();
+				continue;
+			}
+			waitTimeoutMs = static_cast<int>(jlimit<juce::int64>(1, 250, remaining));
+		}
+
+		switch (receiveSocket_.waitUntilReady(true, waitTimeoutMs)) {
 		case 0:
+			flushPendingSessionRevisionBumpIfDue();
 			// Timeout, nothing to be done (no data received from any client), just check if we should terminate, also wake up the MixerThread so it can do the same
 			wakeUpQueue_.push(0);
 			break;

@@ -36,6 +36,8 @@ private:
 	bool sendControlMessageToClient(const std::string& targetAddress, nlohmann::json payload);
     void processControlMessage(std::shared_ptr<JammerNetzControlMessage> message, std::string const& clientName);
     void processAudioMessage(std::shared_ptr<JammerNetzAudioData> message, std::string const& clientName);
+	void scheduleSessionRevisionBump();
+	void flushPendingSessionRevisionBumpIfDue();
 
     DatagramSocket &receiveSocket_;
 	TPacketStreamBundle &incomingData_;
@@ -49,4 +51,6 @@ private:
 	std::unique_ptr<BlowFish> blowFish_;
 	std::map<std::tuple<uint32, uint32, uint16>, uint64_t> lastForwardedControlSequence_;
 	juce::int64 lastSessionRevisionBumpMillis_ { 0 };
+	juce::int64 pendingSessionRevisionDueMillis_ { 0 };
+	bool pendingSessionRevisionBump_ { false };
 };
