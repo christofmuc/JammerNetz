@@ -1,4 +1,4 @@
-name: Windows Build
+name: ARM64 Server Build
 
 on:
   pull_request:
@@ -43,63 +43,40 @@ jobs:
             core.setOutput('run_build', 'true');
           }
 
-  build:
+  build_server_arm64:
     needs: skip_duplicate_push
     if: needs.skip_duplicate_push.outputs.run_build == 'true'
-    runs-on: windows-latest
+    runs-on: ubuntu-24.04-arm
 
     steps:
     - name: Disable git automatic line ending conversion
       run: git config --global core.autocrlf false
 
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v2
       with:
         submodules: 'recursive'
 
-    - name: Install InnoSetup
+    - name: Install dependencies
       run: |
-        choco install innosetup
-
-    - name: Install Ninja
-      run: |
-        choco install ninja
-
-    - name: Set up MSVC developer command prompt
-      uses: ilammy/msvc-dev-cmd@v1
-
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.x'
-
-    - name: Install Python dependencies
-      run: |
-        pip install wheel setuptools conan
-
-    - name: Run Conan
-      run: |
-        conan profile detect
-        conan install -of Builds\Windows -s build_type=RelWithDebInfo --build missing .
-
-    - name: Configure CMake for Flatbuffers
-      run: |
-        cmake -S third_party/flatbuffers -B third_party/flatbuffers/Builds -G Ninja -DCMAKE_BUILD_TYPE=Release
+        sudo apt-get update
+        sudo apt-get install -y g++ cmake ninja-build pkg-config nlohmann-json3-dev libncurses-dev libglew-dev
+        sudo apt-get install -y libasound2-dev libjack-jackd2-dev ladspa-sdk libcurl4-openssl-dev libfreetype-dev libfontconfig1-dev
+        sudo apt-get install -y libx11-dev libxcomposite-dev libxcursor-dev libxext-dev libxinerama-dev libxrandr-dev libxrender-dev
+        sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libglu1-mesa-dev mesa-common-dev
 
     - name: Build Flatbuffers
       run: |
-        cmake --build third_party/flatbuffers/Builds --parallel
+        cmake -S third_party/flatbuffers -B third_party/flatbuffers/LinuxBuilds -G Ninja -DCMAKE_BUILD_TYPE=Release
+        cmake --build third_party/flatbuffers/LinuxBuilds --parallel
 
-    - name: Configure CMake for Windows
+    - name: Build JammerNetzServer
       run: |
-        cmake -S . -B Builds\Windows -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DJAMMERNETZ_ENABLE_LTO=ON -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DFLATBUFFERS_FLATC_EXECUTABLE="${{ github.workspace }}\\third_party\\flatbuffers\\Builds\\flatc.exe"
+        cmake -S . -B builds-arm64-server -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DBUILD_JAMMERNETZ_CLIENT=OFF -DJAMMERNETZ_ENABLE_LTO=ON -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+        cmake --build builds-arm64-server --target JammerNetzServer --parallel
 
-    - name: Build Windows
-      run: |
-        cmake --build Builds\Windows --parallel
-
-    - name: Upload Windows Installer
+    - name: Upload ARM64 Server Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: WindowsInstaller
-        path: Builds/Windows/Client/jammernetz_setup_2.3.0.exe
+        name: JammerNetzServer-arm64
+        path: builds-arm64-server/Server/JammerNetzServer

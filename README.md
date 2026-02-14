@@ -77,11 +77,11 @@ In case you do not have conan installed, have a look at their documentation and 
 `JAMMERNETZ_ENABLE_LTO` controls link-time optimization:
 
 - Development default: `OFF` (faster local rebuild and link times).
-- Release/CI: set `-DJAMMERNETZ_ENABLE_LTO=ON` explicitly.
+- CI/release artifacts: use `-DCMAKE_BUILD_TYPE=RelWithDebInfo` and set `-DJAMMERNETZ_ENABLE_LTO=ON` explicitly.
 
-Release configuration example:
+CI/release-with-symbols configuration example:
 
-    cmake -S . -B builds -G Ninja -DCMAKE_BUILD_TYPE=Release -DJAMMERNETZ_ENABLE_LTO=ON
+    cmake -S . -B builds -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DJAMMERNETZ_ENABLE_LTO=ON
     cmake --build builds --parallel
 
 If you are using CMake 4.x with the current vendored dependencies (notably googletest), add:
@@ -102,15 +102,15 @@ Using CMake and building JammerNetz client and server is a multi-step build:
     cmake -S . -B Builds -G Ninja -DCMAKE_BUILD_TYPE=Release
     cmake --build Builds --parallel
     cd ..\..
-    cmake -S . -B Builds\Windows -G Ninja -DCMAKE_BUILD_TYPE=Release
+    cmake -S . -B Builds\Windows -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo
     cmake --build Builds\Windows --parallel
 
-For optimized release builds (CI setting), explicitly enable LTO:
+For CI/release builds with symbols, explicitly enable LTO:
 
-    cmake -S . -B Builds\Windows -G Ninja -DCMAKE_BUILD_TYPE=Release -DJAMMERNETZ_ENABLE_LTO=ON
+    cmake -S . -B Builds\Windows -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DJAMMERNETZ_ENABLE_LTO=ON
     cmake --build Builds\Windows --parallel
 
-The build will take a few minutes, and produce Release versions of Client and Server software, as well as a client installer in case you have InnoSetup installed before kicking off. The installer executable is created as `<JammerNetzDir>\Builds\Client\jammernetz_setup_x.x.x.exe`
+The build will take a few minutes, and produce optimized Client and Server binaries with debug symbols, as well as a client installer in case you have InnoSetup installed before kicking off. The installer executable is created as `<JammerNetzDir>\Builds\Client\jammernetz_setup_x.x.x.exe`
 
 To test it, you can launch the server on your local machine with
 
@@ -132,7 +132,7 @@ Then run
     cmake -S . -B LinuxBuilds -G Ninja -DCMAKE_BUILD_TYPE=Release
     cmake --build LinuxBuilds --parallel
     cd ../..
-    cmake -S . -B Builds/macOS -G Ninja -DCMAKE_BUILD_TYPE=Release
+    cmake -S . -B Builds/macOS -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo
     cmake --build Builds/macOS --parallel
 
 
