@@ -124,6 +124,45 @@ Goal: reduce regression risk and improve maintainability.
 - Scope in:
   - one authoritative thread/lock map linked from README
 
+## Phase 4: Branch Governance And Cleanup
+
+Goal: resolve stale unmerged branches so unfinished work is either integrated or retired explicitly.
+
+1. `2026-02-15-branch-feature-remote-participant-volume-control-followup.debt.md`
+- Why first: active open PR with current feature work and low divergence.
+- Effort: `S` to `M`
+- Scope in:
+  - complete remaining validation
+  - merge or close PR `#47` with explicit replacement plan
+
+2. `2025-03-29-branch-features-recordingview-triage.debt.md`
+- Why second: low divergence, potentially recoverable with limited effort.
+- Effort: `S`
+
+3. `2024-10-18-branch-rustserver-prototype-disposition.debt.md`
+- Why third: strategic architecture branch; needs explicit keep/defer/drop decision.
+- Effort: `M`
+
+4. `2021-03-24-branch-uuencodedkeys-disposition.debt.md`
+- Why fourth: security/config feature candidate that may still be valuable.
+- Effort: `S` to `M`
+
+5. `2020-12-21-branch-createmidiclock-triage.debt.md`
+- Why fifth: large staleness but potentially useful protocol idea.
+- Effort: `M`
+
+6. `2019-11-26-branch-spectrogram-prototype-disposition.debt.md`
+- Why sixth: feature experiment with known stability concerns.
+- Effort: `M`
+
+7. `2019-11-03-branch-mathgl-experiment-disposition.debt.md`
+8. `2021-10-05-branch-miniaudio-experiment-disposition.debt.md`
+9. `2021-10-05-branch-miniaudio-discovery-experiment-disposition.debt.md`
+10. `2021-04-03-branch-newffmeters-disposition.debt.md`
+11. `2021-04-03-branch-tbbviaconan-disposition.debt.md`
+- Why last group: older dependency/experiment branches likely to retire after quick confirmation.
+- Effort: `S` each
+
 ## Suggested Next Three Sessions
 
 Session A (stability focus):

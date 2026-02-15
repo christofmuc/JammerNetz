@@ -60,6 +60,17 @@ Debt:
 - `2026-02-15-client-identity-registry-lifecycle.debt.md`
 - `2026-02-15-client-port-bind-strategy.debt.md`
 - `2026-02-15-log-and-core-retention-policy.debt.md`
+- `2026-02-15-branch-feature-remote-participant-volume-control-followup.debt.md`
+- `2020-12-21-branch-createmidiclock-triage.debt.md`
+- `2025-03-29-branch-features-recordingview-triage.debt.md`
+- `2019-11-03-branch-mathgl-experiment-disposition.debt.md`
+- `2021-10-05-branch-miniaudio-experiment-disposition.debt.md`
+- `2021-10-05-branch-miniaudio-discovery-experiment-disposition.debt.md`
+- `2021-04-03-branch-newffmeters-disposition.debt.md`
+- `2024-10-18-branch-rustserver-prototype-disposition.debt.md`
+- `2019-11-26-branch-spectrogram-prototype-disposition.debt.md`
+- `2021-04-03-branch-tbbviaconan-disposition.debt.md`
+- `2021-03-24-branch-uuencodedkeys-disposition.debt.md`
 
 Perf:
 - `2026-02-15-control-traffic-observability-and-rate-budget.perf.md`
@@ -69,3 +80,4 @@ Test:
 
 Doc:
 - `2026-02-15-threading-model-and-locking-map.doc.md`
+- `2026-02-15-unmerged-branch-audit.doc.md`
