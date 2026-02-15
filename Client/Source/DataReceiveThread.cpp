@@ -151,8 +151,18 @@ void DataReceiveThread::processControlMessage(const std::shared_ptr<JammerNetzCo
 	std::optional<int> resolvedControllerIndex;
 	auto cachedRouting = targetChannelRoutingCache_.find(targetChannel);
 	if (cachedRouting != targetChannelRoutingCache_.end()) {
+		if (!activeControllerIndex.has_value()) {
+			auto staleControllerIndex = cachedRouting->second;
+			targetChannelRoutingCache_.erase(cachedRouting);
+			RemoteControlDebugLog::logEvent("client.recv",
+				"drop ApplyLocalVolume stale cache targetChannel=" + String(payload->targetChannelIndex)
+				+ " cachedController=" + String(staleControllerIndex)
+				+ " action=evict-cache");
+			return;
+		}
+
 		resolvedControllerIndex = cachedRouting->second;
-		if (activeControllerIndex.has_value() && *activeControllerIndex != cachedRouting->second) {
+		if (*activeControllerIndex != cachedRouting->second) {
 			RemoteControlDebugLog::logEvent("client.recv",
 				"routing drift targetChannel=" + String(payload->targetChannelIndex)
 				+ " computedController=" + String(*activeControllerIndex)
@@ -254,6 +264,8 @@ void DataReceiveThread::handleSessionSetupChange(const JammerNetzChannelSetup& n
 	}
 
 	if (topologyChanged) {
+		// Channel topology changed, so cached target-channel to controller routing is no longer trustworthy.
+		clearRemoteVolumeChannelRoutingCache();
 		for (auto clientId : currentClientIds) {
 			clearRemoteVolumeSequenceForClient(clientId);
 		}
