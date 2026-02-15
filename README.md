@@ -70,6 +70,16 @@ The repository includes `log_analyze.py` to summarize one test run and flag anom
 
 `run_test.sh` calls `log_analyze.py` automatically when the script exits.
 
+## Engineering handover and backlog
+
+For future coding sessions and agent handover context:
+
+- Feature/design handover:
+  - `docs/remote-volume-control-handover.md`
+- Persistent backlog items:
+  - `issues/README.md`
+  - individual issue files in `issues/`
+
 # Building the software
 
 ### Supported platforms
