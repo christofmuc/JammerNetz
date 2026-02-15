@@ -90,6 +90,8 @@ void DataReceiveThread::processControlMessage(const std::shared_ptr<JammerNetzCo
 	}
 
 	if (payload->targetChannelIndex < 0) {
+		RemoteControlDebugLog::logEvent("client.recv",
+			"drop ApplyLocalVolume negative targetChannel=" + String(payload->targetChannelIndex));
 		return;
 	}
 
@@ -117,11 +119,15 @@ void DataReceiveThread::processControlMessage(const std::shared_ptr<JammerNetzCo
 	auto inputSetup = data.getChildWithName(VALUE_INPUT_SETUP);
 	auto channels = inputSetup.getChildWithName(VALUE_CHANNELS);
 	if (!channels.isValid()) {
+		RemoteControlDebugLog::logEvent("client.recv", "drop ApplyLocalVolume missing channel setup");
 		return;
 	}
 
 	int channelCount = channels.getProperty(VALUE_CHANNEL_COUNT, 0);
 	if (payload->targetChannelIndex >= channelCount) {
+		RemoteControlDebugLog::logEvent("client.recv",
+			"drop ApplyLocalVolume out-of-range targetChannel=" + String(payload->targetChannelIndex)
+			+ " channelCount=" + String(channelCount));
 		return;
 	}
 
@@ -141,17 +147,51 @@ void DataReceiveThread::processControlMessage(const std::shared_ptr<JammerNetzCo
 			activeCount++;
 		}
 	}
-	if (!activeControllerIndex.has_value()) {
+	auto targetChannel = static_cast<uint16>(payload->targetChannelIndex);
+	std::optional<int> resolvedControllerIndex;
+	auto cachedRouting = targetChannelRoutingCache_.find(targetChannel);
+	if (cachedRouting != targetChannelRoutingCache_.end()) {
+		resolvedControllerIndex = cachedRouting->second;
+		if (activeControllerIndex.has_value() && *activeControllerIndex != cachedRouting->second) {
+			RemoteControlDebugLog::logEvent("client.recv",
+				"routing drift targetChannel=" + String(payload->targetChannelIndex)
+				+ " computedController=" + String(*activeControllerIndex)
+				+ " cachedController=" + String(cachedRouting->second)
+				+ " action=use-cached");
+		}
+	}
+	else {
+		if (!activeControllerIndex.has_value()) {
+			RemoteControlDebugLog::logEvent("client.recv",
+				"drop ApplyLocalVolume inactive targetChannel=" + String(payload->targetChannelIndex));
+			return;
+		}
+		resolvedControllerIndex = *activeControllerIndex;
+		targetChannelRoutingCache_.emplace(targetChannel, *resolvedControllerIndex);
+	}
+
+	jassert(resolvedControllerIndex.has_value());
+	if (!resolvedControllerIndex.has_value()) {
 		return;
 	}
 
-	auto resolvedControllerIndex = *activeControllerIndex;
 	auto remoteVolumePercent = payload->volumePercent;
-	MessageManager::callAsync([resolvedControllerIndex, remoteVolumePercent]() {
+	auto sourceClientId = payload->sourceClientId;
+	auto targetChannelIndex = payload->targetChannelIndex;
+	auto sequenceText = payload->commandSequence.has_value()
+		? String(static_cast<uint64>(*payload->commandSequence))
+		: String("none");
+	MessageManager::callAsync([resolvedControllerIndex, remoteVolumePercent, sourceClientId, targetChannelIndex, sequenceText]() {
 		auto& uiData = Data::instance().get();
 		auto mixer = uiData.getOrCreateChildWithName(VALUE_MIXER, nullptr);
-		auto controllerSettings = mixer.getOrCreateChildWithName("Input" + String(resolvedControllerIndex), nullptr);
+		auto controllerSettings = mixer.getOrCreateChildWithName("Input" + String(*resolvedControllerIndex), nullptr);
 		controllerSettings.setProperty(VALUE_VOLUME, remoteVolumePercent, nullptr);
+		RemoteControlDebugLog::logEvent("client.apply",
+			"ApplyLocalVolume sourceClientId=" + String(sourceClientId)
+			+ " targetChannel=" + String(targetChannelIndex)
+			+ " controllerIndex=" + String(*resolvedControllerIndex)
+			+ " vol=" + String(remoteVolumePercent, 2)
+			+ " seq=" + sequenceText);
 	});
 }
 
@@ -170,6 +210,12 @@ void DataReceiveThread::clearRemoteVolumeSequenceForClient(uint32 clientId)
 void DataReceiveThread::clearAllRemoteSequencesOnSessionReset()
 {
 	lastAppliedRemoteVolumeSequence_.clear();
+	clearRemoteVolumeChannelRoutingCache();
+}
+
+void DataReceiveThread::clearRemoteVolumeChannelRoutingCache()
+{
+	targetChannelRoutingCache_.clear();
 }
 
 void DataReceiveThread::handleSessionSetupChange(const JammerNetzChannelSetup& newSessionSetup)
