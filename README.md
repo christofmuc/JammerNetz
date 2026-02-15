@@ -56,6 +56,20 @@ Remote control debug logging is disabled by default for both client and server.
 
 The provided `run_test.sh` script enables logging explicitly for its test processes.
 
+### Test log analysis helper
+
+The repository includes `log_analyze.py` to summarize one test run and flag anomalies (sequence gaps, drops, suspicious server stdout lines):
+
+    python3 log_analyze.py
+    python3 log_analyze.py --stamp 20260215-112804
+    python3 log_analyze.py --strict
+
+- default mode analyzes the latest run found in `logs/`
+- `--stamp` selects a specific run
+- `--strict` exits with code 1 when anomalies are detected
+
+`run_test.sh` calls `log_analyze.py` automatically when the script exits.
+
 # Building the software
 
 ### Supported platforms
