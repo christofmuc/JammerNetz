@@ -31,3 +31,5 @@ builds
 builds-relwithdebinfo/
 /builds-ninja
 /RandomNumbers.bin
+__pycache__/
+*.pyc
