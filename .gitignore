@@ -33,3 +33,4 @@ builds-relwithdebinfo/
 /RandomNumbers.bin
 __pycache__/
 *.pyc
+logs/

@@ -42,6 +42,9 @@ Use this structure for consistency:
 
 ## Current index
 
+Planning:
+- `PRIORITY_PLAN.md`
+
 Bug:
 - `2026-02-15-server-crash-unaligned-tcache.bug.md`
 - `2026-02-15-remote-volume-routing-drift-root-cause.bug.md`
