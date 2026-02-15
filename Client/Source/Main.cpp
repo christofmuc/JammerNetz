@@ -28,14 +28,18 @@ public:
 	const String getApplicationVersion() override { return getClientVersion(); }
     bool moreThanOneInstanceAllowed() override       { return true; }
 
-    void initialise (const String& commandLine) override
+	void initialise (const String& commandLine) override
     {
 		// Parse the command line arguments
 		auto list = ArgumentList("Client.exe", commandLine);
 		String clientID;
+		bool autoStartAudio = false;
 		for (auto arg : list.arguments) {
 			if (arg == "--clientID") {
 				clientID = arg.getLongOptionValue();
+			}
+			if (arg == "--auto-start-audio") {
+				autoStartAudio = true;
 			}
 		}
 
@@ -73,6 +77,11 @@ public:
 			windowTitle += ": " + clientID;
 		}
         mainWindow = std::make_unique<MainWindow>(new MainComponent(audioService_, audioService_->getMasterRecorder(), audioService_->getLocalRecorder()), windowTitle);
+		if (autoStartAudio) {
+			MessageManager::callAsync([]() {
+				Data::instance().getEphemeral().setProperty(EPHEMERAL_VALUE_AUDIO_SHOULD_RUN, true, nullptr);
+			});
+		}
 
 #ifdef USE_SENTRY
 		// Initialize sentry for error crash reporting

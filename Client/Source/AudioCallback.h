@@ -85,6 +85,7 @@ public:
 
 	void restartClock(std::vector<MidiDeviceInfo> outputs);
 	void setMidiSignalToSend(MidiSignal signal);
+	void setRemoteParticipantVolume(uint32 targetClientId, uint16 targetChannelIndex, float volumePercent);
 
 	virtual void audioDeviceIOCallbackWithContext(const float* const* inputChannelData, int numInputChannels, float* const* outputChannelData, int numOutputChannels,
 	    int numSamples, const AudioIODeviceCallbackContext& context) override;
@@ -154,6 +155,7 @@ private:
 
 	ReadOnceLatch<MidiSignal> midiSignalToSend_;
 	ReadOnceLatch<MidiSignal> midiSignalToGenerate_;
+	std::atomic<uint64_t> remoteVolumeCommandSequence_ { 0 };
 
 	std::unique_ptr<Tuner> tuner_;
 

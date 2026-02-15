@@ -10,7 +10,41 @@
 
 #include "Data.h"
 #include "Encryption.h"
+#include "RemoteControlDebugLog.h"
 #include "XPlatformUtils.h"
+
+#include <optional>
+#include <set>
+
+namespace {
+struct ApplyLocalVolumePayload {
+	int targetChannelIndex;
+	float volumePercent;
+	uint32 sourceClientId;
+	std::optional<uint64_t> commandSequence;
+};
+
+std::optional<ApplyLocalVolumePayload> parseApplyLocalVolumePayload(const nlohmann::json& payload)
+{
+	try {
+		if (!payload.contains("target_channel_index") || !payload.contains("volume_percent")) {
+			return {};
+		}
+
+		ApplyLocalVolumePayload parsed;
+		parsed.targetChannelIndex = payload.at("target_channel_index").get<int>();
+		parsed.volumePercent = jlimit(0.0f, 100.0f, payload.at("volume_percent").get<float>());
+		parsed.sourceClientId = payload.contains("source_client_id") ? payload.at("source_client_id").get<uint32>() : 0;
+		if (payload.contains("command_sequence")) {
+			parsed.commandSequence = payload.at("command_sequence").get<uint64_t>();
+		}
+		return parsed;
+	}
+	catch (const nlohmann::json::exception&) {
+		return {};
+	}
+}
+}
 
 DataReceiveThread::DataReceiveThread(DatagramSocket &socket, std::function<void(std::shared_ptr<JammerNetzAudioData>)> newDataHandler)
 	: Thread("ReceiveDataFromServer"), socket_(socket), newDataHandler_(newDataHandler), currentRTT_(0.0), isReceiving_(false), currentSession_(false)
@@ -43,12 +77,210 @@ DataReceiveThread::~DataReceiveThread()
 {
 }
 
+void DataReceiveThread::processControlMessage(const std::shared_ptr<JammerNetzControlMessage>& message)
+{
+	if (!message || !message->json_.contains("ApplyLocalVolume")) {
+		return;
+	}
+
+	auto payload = parseApplyLocalVolumePayload(message->json_.at("ApplyLocalVolume"));
+	if (!payload.has_value()) {
+		RemoteControlDebugLog::logEvent("client.recv", "drop malformed ApplyLocalVolume payload");
+		return;
+	}
+
+	if (payload->targetChannelIndex < 0) {
+		RemoteControlDebugLog::logEvent("client.recv",
+			"drop ApplyLocalVolume negative targetChannel=" + String(payload->targetChannelIndex));
+		return;
+	}
+
+	if (payload->commandSequence.has_value()) {
+		auto key = std::make_pair(payload->sourceClientId, static_cast<uint16>(payload->targetChannelIndex));
+		auto found = lastAppliedRemoteVolumeSequence_.find(key);
+		if (found != lastAppliedRemoteVolumeSequence_.end()) {
+			if (*payload->commandSequence <= found->second) {
+				RemoteControlDebugLog::logEvent("client.recv",
+					"drop stale ApplyLocalVolume sourceClientId=" + String(payload->sourceClientId)
+					+ " targetChannel=" + String(payload->targetChannelIndex)
+					+ " vol=" + String(payload->volumePercent, 2)
+					+ " seq=" + String(static_cast<uint64>(*payload->commandSequence))
+					+ " last=" + String(static_cast<uint64>(found->second)));
+				return;
+			}
+			found->second = *payload->commandSequence;
+		}
+		else {
+			lastAppliedRemoteVolumeSequence_.emplace(key, *payload->commandSequence);
+		}
+	}
+
+	auto& data = Data::instance().get();
+	auto inputSetup = data.getChildWithName(VALUE_INPUT_SETUP);
+	auto channels = inputSetup.getChildWithName(VALUE_CHANNELS);
+	if (!channels.isValid()) {
+		RemoteControlDebugLog::logEvent("client.recv", "drop ApplyLocalVolume missing channel setup");
+		return;
+	}
+
+	int channelCount = channels.getProperty(VALUE_CHANNEL_COUNT, 0);
+	if (payload->targetChannelIndex >= channelCount) {
+		RemoteControlDebugLog::logEvent("client.recv",
+			"drop ApplyLocalVolume out-of-range targetChannel=" + String(payload->targetChannelIndex)
+			+ " channelCount=" + String(channelCount));
+		return;
+	}
+
+	std::optional<int> activeControllerIndex;
+	int activeCount = 0;
+	for (int physicalIndex = 0; physicalIndex < channelCount; physicalIndex++) {
+		auto channel = channels.getChildWithName("Channel" + String(physicalIndex));
+		if (!channel.isValid()) {
+			continue;
+		}
+		bool isActive = channel.getProperty(VALUE_CHANNEL_ACTIVE, false);
+		if (isActive) {
+			if (physicalIndex == payload->targetChannelIndex) {
+				activeControllerIndex = activeCount;
+				break;
+			}
+			activeCount++;
+		}
+	}
+	auto targetChannel = static_cast<uint16>(payload->targetChannelIndex);
+	std::optional<int> resolvedControllerIndex;
+	auto cachedRouting = targetChannelRoutingCache_.find(targetChannel);
+	if (cachedRouting != targetChannelRoutingCache_.end()) {
+		if (!activeControllerIndex.has_value()) {
+			auto staleControllerIndex = cachedRouting->second;
+			targetChannelRoutingCache_.erase(cachedRouting);
+			RemoteControlDebugLog::logEvent("client.recv",
+				"drop ApplyLocalVolume stale cache targetChannel=" + String(payload->targetChannelIndex)
+				+ " cachedController=" + String(staleControllerIndex)
+				+ " action=evict-cache");
+			return;
+		}
+
+		resolvedControllerIndex = cachedRouting->second;
+		if (*activeControllerIndex != cachedRouting->second) {
+			RemoteControlDebugLog::logEvent("client.recv",
+				"routing drift targetChannel=" + String(payload->targetChannelIndex)
+				+ " computedController=" + String(*activeControllerIndex)
+				+ " cachedController=" + String(cachedRouting->second)
+				+ " action=use-cached");
+		}
+	}
+	else {
+		if (!activeControllerIndex.has_value()) {
+			RemoteControlDebugLog::logEvent("client.recv",
+				"drop ApplyLocalVolume inactive targetChannel=" + String(payload->targetChannelIndex));
+			return;
+		}
+		resolvedControllerIndex = *activeControllerIndex;
+		targetChannelRoutingCache_.emplace(targetChannel, *resolvedControllerIndex);
+	}
+
+	jassert(resolvedControllerIndex.has_value());
+	if (!resolvedControllerIndex.has_value()) {
+		return;
+	}
+
+	auto remoteVolumePercent = payload->volumePercent;
+	auto sourceClientId = payload->sourceClientId;
+	auto targetChannelIndex = payload->targetChannelIndex;
+	auto sequenceText = payload->commandSequence.has_value()
+		? String(static_cast<uint64>(*payload->commandSequence))
+		: String("none");
+	MessageManager::callAsync([resolvedControllerIndex, remoteVolumePercent, sourceClientId, targetChannelIndex, sequenceText]() {
+		auto& uiData = Data::instance().get();
+		auto mixer = uiData.getOrCreateChildWithName(VALUE_MIXER, nullptr);
+		auto controllerSettings = mixer.getOrCreateChildWithName("Input" + String(*resolvedControllerIndex), nullptr);
+		controllerSettings.setProperty(VALUE_VOLUME, remoteVolumePercent, nullptr);
+		RemoteControlDebugLog::logEvent("client.apply",
+			"ApplyLocalVolume sourceClientId=" + String(sourceClientId)
+			+ " targetChannel=" + String(targetChannelIndex)
+			+ " controllerIndex=" + String(*resolvedControllerIndex)
+			+ " vol=" + String(remoteVolumePercent, 2)
+			+ " seq=" + sequenceText);
+	});
+}
+
+void DataReceiveThread::clearRemoteVolumeSequenceForClient(uint32 clientId)
+{
+	for (auto it = lastAppliedRemoteVolumeSequence_.begin(); it != lastAppliedRemoteVolumeSequence_.end(); ) {
+		if (it->first.first == clientId) {
+			it = lastAppliedRemoteVolumeSequence_.erase(it);
+		}
+		else {
+			++it;
+		}
+	}
+}
+
+void DataReceiveThread::clearAllRemoteSequencesOnSessionReset()
+{
+	lastAppliedRemoteVolumeSequence_.clear();
+	clearRemoteVolumeChannelRoutingCache();
+}
+
+void DataReceiveThread::clearRemoteVolumeChannelRoutingCache()
+{
+	targetChannelRoutingCache_.clear();
+}
+
+void DataReceiveThread::handleSessionSetupChange(const JammerNetzChannelSetup& newSessionSetup)
+{
+	std::set<uint32> previousClientIds;
+	for (const auto& channel : currentSession_.channels) {
+		if (channel.sourceClientId != 0) {
+			previousClientIds.insert(channel.sourceClientId);
+		}
+	}
+
+	std::set<uint32> currentClientIds;
+	for (const auto& channel : newSessionSetup.channels) {
+		if (channel.sourceClientId != 0) {
+			currentClientIds.insert(channel.sourceClientId);
+		}
+	}
+
+	for (auto clientId : previousClientIds) {
+		if (currentClientIds.find(clientId) == currentClientIds.end()) {
+			clearRemoteVolumeSequenceForClient(clientId);
+		}
+	}
+
+	bool topologyChanged = currentSession_.channels.size() != newSessionSetup.channels.size();
+	if (!topologyChanged) {
+		for (size_t i = 0; i < currentSession_.channels.size(); i++) {
+			const auto& oldChannel = currentSession_.channels[i];
+			const auto& newChannel = newSessionSetup.channels[i];
+			if (oldChannel.sourceClientId != newChannel.sourceClientId
+				|| oldChannel.sourceChannelIndex != newChannel.sourceChannelIndex) {
+				topologyChanged = true;
+				break;
+			}
+		}
+	}
+
+	if (topologyChanged) {
+		// Channel topology changed, so cached target-channel to controller routing is no longer trustworthy.
+		clearRemoteVolumeChannelRoutingCache();
+		for (auto clientId : currentClientIds) {
+			clearRemoteVolumeSequenceForClient(clientId);
+		}
+	}
+}
+
 void DataReceiveThread::run()
 {
 	while (!threadShouldExit()) {
 		switch (socket_.waitUntilReady(true, 500)) {
 		case 0:
 			// Timeout on socket, no client connected within timeout period
+			if (isReceiving_) {
+				clearAllRemoteSequencesOnSessionReset();
+			}
 			isReceiving_ = false;
 			break;
 		case 1: {
@@ -65,6 +297,9 @@ void DataReceiveThread::run()
 			if (dataRead == 0) {
 				// Weird, this seems to happen recently instead of a socket timeout even when no packets are received. So this is not a 0 byte package, but actually
 				// no package at all (e.g. if you kill the server, you'll end up here instead of the socket waitUntilReady == 0)
+				if (isReceiving_) {
+					clearAllRemoteSequencesOnSessionReset();
+				}
 				isReceiving_ = false;
 				continue;
 			}
@@ -106,6 +341,9 @@ void DataReceiveThread::run()
 					case JammerNetzMessage::CLIENTINFO: {
 						auto clientInfo = std::dynamic_pointer_cast<JammerNetzClientInfoMessage>(message);
 						if (clientInfo) {
+							if (lastClientInfoMessage_ && clientInfo->getNumClients() < lastClientInfoMessage_->getNumClients()) {
+								clearAllRemoteSequencesOnSessionReset();
+							}
 							// Yes, got it. Copy it! This is thread safe if and only if the read function to the shared_ptr is atomic!
 							lastClientInfoMessage_ = std::make_shared<JammerNetzClientInfoMessage>(*clientInfo);
 						}
@@ -114,12 +352,13 @@ void DataReceiveThread::run()
                     case JammerNetzMessage::SESSIONSETUP: {
                         auto sessionInfo = std::dynamic_pointer_cast<JammerNetzSessionInfoMessage>(message);
                         if (sessionInfo) {
+							handleSessionSetupChange(sessionInfo->channels_);
                             currentSession_ = sessionInfo->channels_; //TODO - this is not thread safe, I trust
                         }
                         break;
                     }
                     case JammerNetzMessage::MessageType::GENERIC_JSON:
-                        // Ignore for now
+                        processControlMessage(std::dynamic_pointer_cast<JammerNetzControlMessage>(message));
                         break;
 					default:
 						// What's this?

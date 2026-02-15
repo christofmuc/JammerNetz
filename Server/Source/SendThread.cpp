@@ -7,15 +7,17 @@
 #include "SendThread.h"
 
 #include "BuffersConfig.h"
+#include "RemoteControlDebugLog.h"
 #include "XPlatformUtils.h"
 #include "ServerLogger.h"
 
-SendThread::SendThread(DatagramSocket& socket, TOutgoingQueue &sendQueue, TPacketStreamBundle &incomingData, void *keydata, int keysize, ValueTree serverConfiguration)
+SendThread::SendThread(DatagramSocket& socket, TOutgoingQueue &sendQueue, TPacketStreamBundle &incomingData, void *keydata, int keysize, ValueTree serverConfiguration, std::atomic<uint64_t> &sessionControlRevision)
 	: Thread("SenderThread")
     , sendQueue_(sendQueue)
     , incomingData_(incomingData)
     , sendSocket_(socket)
     , serverConfiguration_(serverConfiguration)
+    , sessionControlRevision_(sessionControlRevision)
 {
 	if (keydata) {
 		blowFish_ = std::make_unique<BlowFish>(keydata, keysize);
@@ -131,15 +133,25 @@ void SendThread::run()
 		// Now serialize the buffer and create the datagram to send back to the client
 		sendAudioBlock(nextBlock.targetAddress, nextBlock.audioBlock);
 
-		// Check if we want to send a statistics package to that client (every nth data package)
-		if (packageCounters_.find(nextBlock.targetAddress) == packageCounters_.end()) {
-			// First time we send a package to this address!
-			packageCounters_.emplace(nextBlock.targetAddress, 0);
-		}
-		if (packageCounters_[nextBlock.targetAddress] % 100 == 0) {
+		// Keep periodic statistics, and push session setup when control revision changed.
+		auto &packageCounter = packageCounters_[nextBlock.targetAddress];
+		uint64_t currentSessionRevision = sessionControlRevision_.load(std::memory_order_relaxed);
+		bool sendPeriodicInfo = (packageCounter % 100 == 0);
+		bool sendOnChangedRevision = (lastSessionRevisionSent_[nextBlock.targetAddress] != currentSessionRevision);
+
+		if (sendPeriodicInfo) {
 			sendClientInfoPackage(nextBlock.targetAddress);
-            sendSessionInfoPackage(nextBlock.targetAddress, nextBlock.sessionSetup);
 		}
-		packageCounters_[nextBlock.targetAddress]++;
+		if (sendPeriodicInfo || sendOnChangedRevision) {
+            sendSessionInfoPackage(nextBlock.targetAddress, nextBlock.sessionSetup);
+			if (sendOnChangedRevision) {
+				RemoteControlDebugLog::logEvent("server.send",
+					"session revision=" + String(static_cast<uint64>(currentSessionRevision))
+					+ " target=" + String(nextBlock.targetAddress.c_str())
+					+ " send=changed");
+			}
+			lastSessionRevisionSent_[nextBlock.targetAddress] = currentSessionRevision;
+		}
+		packageCounter++;
 	}
 }

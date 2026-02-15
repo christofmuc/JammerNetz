@@ -12,6 +12,7 @@
 #include "Settings.h"
 #include "Data.h"
 #include "Encryption.h"
+#include "RemoteControlDebugLog.h"
 
 #include "Logger.h"
 
@@ -114,6 +115,26 @@ void AudioCallback::restartClock(std::vector<MidiDeviceInfo> outputs)
 void AudioCallback::setMidiSignalToSend(MidiSignal signal)
 {
 	midiSignalToSend_.setValue(signal);
+}
+
+void AudioCallback::setRemoteParticipantVolume(uint32 targetClientId, uint16 targetChannelIndex, float volumePercent)
+{
+	auto clampedVolume = jlimit(0.0f, 100.0f, volumePercent);
+	auto commandSequence = remoteVolumeCommandSequence_.fetch_add(1, std::memory_order_relaxed) + 1;
+	nlohmann::json remoteVolumeCommand;
+	remoteVolumeCommand["SetRemoteVolume"] = {
+		{ "target_client_id", targetClientId },
+		{ "target_channel_index", targetChannelIndex },
+		{ "volume_percent", clampedVolume },
+		{ "command_sequence", commandSequence },
+	};
+	RemoteControlDebugLog::logEvent("client.send",
+		"SetRemoteVolume targetClientId=" + String(targetClientId)
+		+ " targetChannel=" + String(targetChannelIndex)
+		+ " vol=" + String(clampedVolume, 2)
+		+ " seq=" + String(static_cast<uint64>(commandSequence))
+		+ " copies=1");
+	jammerService_.sender()->sendControl(remoteVolumeCommand);
 }
 
 void AudioCallback::newServer()

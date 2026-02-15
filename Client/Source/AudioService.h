@@ -33,6 +33,7 @@ public:
 
 	void setClockOutputs(std::vector<juce::MidiDeviceInfo> outputs);
 	void setMidiSignal(MidiSignal signal);
+	void setRemoteParticipantVolume(uint32 targetClientId, uint16 targetChannelIndex, float volumePercent);
 
 	std::shared_ptr<Recorder> getMasterRecorder() const;
 	std::shared_ptr<Recorder> getLocalRecorder() const;

@@ -67,6 +67,8 @@ struct JammerNetzSingleChannelSetup {
 	float rms;
 	float pitch;
 	std::string name;
+	uint32 sourceClientId;
+	uint16 sourceChannelIndex;
 
 	[[nodiscard]] bool isEqualEnough(const JammerNetzSingleChannelSetup &other) const;
 };
@@ -218,6 +220,8 @@ public:
                 setup.rms = channel->rms();
                 setup.pitch = channel->pitch();
                 setup.name = channel->name()->str();
+                setup.sourceClientId = channel->source_client_id();
+                setup.sourceChannelIndex = channel->source_channel_index();
                 channels_.channels.push_back(setup);
             }
         }
@@ -228,7 +232,7 @@ public:
         std::vector<flatbuffers::Offset<JammerNetzPNPChannelSetup>> allChannels;
         for (const auto& channel : channels_.channels) {
             auto fb_name = fbb.CreateString(channel.name);
-            allChannels.push_back(CreateJammerNetzPNPChannelSetup(fbb, channel.target, channel.volume, channel.mag, channel.rms, channel.pitch, fb_name));
+            allChannels.push_back(CreateJammerNetzPNPChannelSetup(fbb, channel.target, channel.volume, channel.mag, channel.rms, channel.pitch, fb_name, channel.sourceClientId, channel.sourceChannelIndex));
         }
         auto channelSetupVector = fbb.CreateVector(allChannels);
         fbb.Finish(CreateJammerNetzSessionInfo(fbb, channelSetupVector));

@@ -24,6 +24,8 @@
 #endif
 #include <string>
 #include <set>
+#include <map>
+#include <optional>
 
 class OutgoingPackage {
 public:
@@ -35,7 +37,43 @@ public:
 
 	std::string targetAddress;
 	AudioBlock audioBlock;
-    JammerNetzChannelSetup sessionSetup;
+	JammerNetzChannelSetup sessionSetup;
+};
+
+class ClientIdentityRegistry {
+public:
+	uint32 getOrAssignClientId(const std::string& endpoint)
+	{
+		const ScopedLock lock(lock_);
+		auto found = endpointToClientId_.find(endpoint);
+		if (found != endpointToClientId_.end()) {
+			return found->second;
+		}
+
+		uint32 newId = nextClientId_++;
+		if (newId == 0) {
+			newId = nextClientId_++;
+		}
+		endpointToClientId_[endpoint] = newId;
+		clientIdToEndpoint_[newId] = endpoint;
+		return newId;
+	}
+
+	std::optional<std::string> endpointForClientId(uint32 clientId) const
+	{
+		const ScopedLock lock(lock_);
+		auto found = clientIdToEndpoint_.find(clientId);
+		if (found == clientIdToEndpoint_.end()) {
+			return {};
+		}
+		return found->second;
+	}
+
+private:
+	mutable CriticalSection lock_;
+	std::map<std::string, uint32> endpointToClientId_;
+	std::map<uint32, std::string> clientIdToEndpoint_;
+	uint32 nextClientId_ { 1 };
 };
 
 #if WIN32

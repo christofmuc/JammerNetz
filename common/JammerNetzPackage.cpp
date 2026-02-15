@@ -11,19 +11,19 @@
 #include "JammerNetzClientInfoMessage.h"
 
 JammerNetzSingleChannelSetup::JammerNetzSingleChannelSetup() :
-	target(JammerNetzChannelTarget::Mono), volume(1.0f), mag(0.0f), rms(0.0f), pitch(0.0f), name("")
+	target(JammerNetzChannelTarget::Mono), volume(1.0f), mag(0.0f), rms(0.0f), pitch(0.0f), name(""), sourceClientId(0), sourceChannelIndex(0)
 {
 }
 
 JammerNetzSingleChannelSetup::JammerNetzSingleChannelSetup(uint8 target_) :
-	target(target_), volume(1.0f), mag(0.0f), rms(0.0f), pitch(0.0f), name("")
+	target(target_), volume(1.0f), mag(0.0f), rms(0.0f), pitch(0.0f), name(""), sourceClientId(0), sourceChannelIndex(0)
 {
 }
 
 
 bool JammerNetzSingleChannelSetup::isEqualEnough(const JammerNetzSingleChannelSetup &other) const
 {
-	return target == other.target && fabs(volume-other.volume) < 1e-6f && name == other.name;
+	return target == other.target && fabs(volume-other.volume) < 1e-6f && name == other.name && sourceClientId == other.sourceClientId && sourceChannelIndex == other.sourceChannelIndex;
 }
 
 /*bool JammerNetzSingleChannelSetup::operator==(const JammerNetzSingleChannelSetup &other) const
@@ -207,7 +207,7 @@ flatbuffers::Offset<JammerNetzPNPAudioBlock> JammerNetzAudioData::serializeAudio
 	std::vector<flatbuffers::Offset<JammerNetzPNPChannelSetup>> channelSetup;
 	for (const auto& channel : src->channelSetup.channels) {
 		auto fb_name = fbb.CreateString(channel.name);
-		channelSetup.push_back(CreateJammerNetzPNPChannelSetup(fbb, channel.target, channel.volume, channel.mag, channel.rms, channel.pitch, fb_name));
+		channelSetup.push_back(CreateJammerNetzPNPChannelSetup(fbb, channel.target, channel.volume, channel.mag, channel.rms, channel.pitch, fb_name, channel.sourceClientId, channel.sourceChannelIndex));
 	}
 	auto channelSetupVector = fbb.CreateVector(channelSetup);
 	auto audioSamples = appendAudioBuffer(fbb, *src->audioBuffer, reductionFactor);
@@ -309,6 +309,8 @@ std::shared_ptr<AudioBlock> JammerNetzAudioData::readAudioHeaderAndBytes(JammerN
 		setup.rms = channel->rms();
 		setup.pitch = channel->pitch();
 		setup.name = channel->name()->str();
+		setup.sourceClientId = channel->source_client_id();
+		setup.sourceChannelIndex = channel->source_channel_index();
 		result->channelSetup.channels.push_back(setup);
 	}
 

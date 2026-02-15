@@ -17,8 +17,8 @@
 class MixerThread : public Thread {
 public:
 	MixerThread(TPacketStreamBundle &incoming, JammerNetzChannelSetup mixdownSetup, TOutgoingQueue &outgoing, TMessageQueue &wakeUpQueue
-                /*, Recorder &recorder*/
-                , ServerBufferConfig bufferConfig);
+	                /*, Recorder &recorder*/
+	                , ServerBufferConfig bufferConfig, ClientIdentityRegistry &clientIdentityRegistry);
 
 	virtual void run() override;
 
@@ -31,6 +31,7 @@ private:
 	TOutgoingQueue &outgoing_;
 	TMessageQueue &wakeUpQueue_;
 	JammerNetzChannelSetup mixdownSetup_;
+	ClientIdentityRegistry &clientIdentityRegistry_;
 	//Recorder &recorder_;
 	ServerBufferConfig bufferConfig_;
 };

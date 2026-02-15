@@ -46,6 +46,7 @@ set(Sources
 	PacketStreamQueue.cpp PacketStreamQueue.h
 	Pool.h
 	Recorder.cpp Recorder.h
+	RemoteControlDebugLog.cpp RemoteControlDebugLog.h
 	RingOfAudioBuffers.h
 	RunningStats.cpp RunningStats.h
 	sentry-config.h.in

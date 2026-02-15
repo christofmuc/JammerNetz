@@ -42,6 +42,44 @@ We provide installers for Windows and Mac client to download here in the release
 
 you will need some experience in compiling a C++ application and starting an AWS (or Azure or self-hosted or...) instance and deploying the Linux build of the server there to run it. Depending on the interest in this system, we might be able to provide more help.
 
+## Remote control diagnostics logging
+
+Remote control debug logging is disabled by default for both client and server.
+
+- `JN_REMOTE_LOG_ENABLE`:
+  - set to `1` or `true` to enable remote control diagnostics logging
+  - unset (or any other value) keeps logging disabled
+- `JN_REMOTE_LOG_NAME`:
+  - optional log file basename (without `.log`)
+  - logs are written to `<repo>/logs/<name>.log`
+  - if unset, a timestamp-based name is used automatically
+
+The provided `run_test.sh` script enables logging explicitly for its test processes.
+
+### Test log analysis helper
+
+The repository includes `log_analyze.py` to summarize one test run and flag anomalies (sequence gaps, drops, suspicious server stdout lines):
+
+    python3 log_analyze.py
+    python3 log_analyze.py --stamp 20260215-112804
+    python3 log_analyze.py --strict
+
+- default mode analyzes the latest run found in `logs/`
+- `--stamp` selects a specific run
+- `--strict` exits with code 1 when anomalies are detected
+
+`run_test.sh` calls `log_analyze.py` automatically when the script exits.
+
+## Engineering handover and backlog
+
+For future coding sessions and agent handover context:
+
+- Feature/design handover:
+  - `docs/remote-volume-control-handover.md`
+- Persistent backlog items:
+  - `issues/README.md`
+  - individual issue files in `issues/`
+
 # Building the software
 
 ### Supported platforms

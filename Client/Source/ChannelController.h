@@ -26,6 +26,8 @@ public:
 	void setVolume(float volume);
 	void setTarget(uint8 target);
 	void setPitchDisplayed(MidiNote note);
+	void setUpdateHandler(std::function<void(double, JammerNetzChannelTarget)> updateHandler);
+	bool isVolumeSliderBeingDragged() const;
 
 	JammerNetzChannelTarget getCurrentTarget() const;
 	float getCurrentVolume() const;
@@ -39,6 +41,8 @@ private:
 	void bindControls();
 
 	virtual void sliderValueChanged(Slider* slider) override;
+	virtual void sliderDragStarted(Slider* slider) override;
+	virtual void sliderDragEnded(Slider* slider) override;
 	virtual void comboBoxChanged(ComboBox* comboBoxThatHasChanged) override;
 
 	String id_;
@@ -54,5 +58,6 @@ private:
 	FFAU::LevelMeterSource *meterSource_;
 	int channelNo_;
 	Label pitchLabel_;
+	bool volumeSliderDragged_;
 	//TextButton muteButton_;
 };

@@ -9,7 +9,7 @@
 #include "BuffersConfig.h"
 #include "ServerLogger.h"
 
-MixerThread::MixerThread(TPacketStreamBundle &incoming, JammerNetzChannelSetup mixdownSetup, TOutgoingQueue &outgoing, TMessageQueue &wakeUpQueue/*, Recorder &recorder*/, ServerBufferConfig bufferConfig) :
+MixerThread::MixerThread(TPacketStreamBundle &incoming, JammerNetzChannelSetup mixdownSetup, TOutgoingQueue &outgoing, TMessageQueue &wakeUpQueue/*, Recorder &recorder*/, ServerBufferConfig bufferConfig, ClientIdentityRegistry &clientIdentityRegistry) :
     Thread("MixerThread")
         , serverTime_(0)
         , lastBpm_(120.0f)
@@ -17,6 +17,7 @@ MixerThread::MixerThread(TPacketStreamBundle &incoming, JammerNetzChannelSetup m
         , outgoing_(outgoing)
         , wakeUpQueue_(wakeUpQueue)
         , mixdownSetup_(mixdownSetup)
+	    , clientIdentityRegistry_(clientIdentityRegistry)
         /*, recorder_(recorder) */
         , bufferConfig_(bufferConfig)
 {
@@ -83,11 +84,13 @@ void MixerThread::run() {
 				}
 			}
 		}
-		for (auto remove : toBeRemoved) {
-			// Kill the queue of that client
-			//TODO - this is not thread safe. I am not allowed to remove the queue, I can only empty it and somewhere else flag the client as connected or not.
-			incoming_[remove].reset();
-		}
+			for (auto remove : toBeRemoved) {
+				// Kill the queue of that client
+				//TODO - this is not thread safe. I am not allowed to remove the queue, I can only empty it and somewhere else flag the client as connected or not.
+				incoming_[remove].reset();
+				// Keep the endpoint->clientId mapping stable across temporary underruns/reconnects.
+				// Otherwise remote-control target IDs churn and control messages get dropped.
+			}
 
 		// All clients have delivered (or one has a timeout), mix them all together!
 		if (incomingData.size() > 0) {
@@ -111,8 +114,13 @@ void MixerThread::run() {
 					// Build the client specific session data structure - this is basically all channels except your own
 					if (client.first != receiver.first) {
 						auto range = allSessionChannels.equal_range(client.first);
-						for_each(range.first, range.second, [&](std::pair<const std::string, JammerNetzChannelSetup> setup) {
-							std::copy(setup.second.channels.cbegin(), setup.second.channels.cend(), std::back_inserter(sessionSetup.channels));
+						auto sourceClientId = clientIdentityRegistry_.getOrAssignClientId(client.first);
+						for_each(range.first, range.second, [&](const std::pair<const std::string, JammerNetzChannelSetup>& setup) {
+							for (const auto& sourceChannel : setup.second.channels) {
+								auto copiedChannel = sourceChannel;
+								copiedChannel.sourceClientId = sourceClientId;
+								sessionSetup.channels.push_back(copiedChannel);
+							}
 						});
 					}
 					// Check if any client requests a new bpm (larger than 0.0 value). Check if a start or stop signal should be sent
@@ -142,10 +150,12 @@ void MixerThread::run() {
                     sessionSetup
 					);
 				if (!outgoing_.try_push(package)) {
-					// That's a bad sign - I would assume the sender thread died and that's possibly because the network is down.
-					// Abort
-					std::cerr << "send queue length overflow at " << outgoing_.size() << " packets - network down? FATAL!" << std::endl;
-					exit(-1);
+					// Keep server alive under congestion; drop this packet and continue.
+					static uint64 droppedOutgoingPackages = 0;
+					droppedOutgoingPackages++;
+					if (droppedOutgoingPackages % 100 == 1) {
+						std::cerr << "send queue overflow at " << outgoing_.size() << " packets - dropped " << droppedOutgoingPackages << " outgoing packages" << std::endl;
+					}
 				}
 				/*		// Write this to the recorder
 						if (!clientRecorder_.isRecording()) {

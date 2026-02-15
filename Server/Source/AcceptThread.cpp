@@ -7,9 +7,45 @@
 #include "AcceptThread.h"
 
 #include "BuffersConfig.h"
+#include "RemoteControlDebugLog.h"
+#include "XPlatformUtils.h"
 
 #include <stack>
+#include <utility>
 #include "ServerLogger.h"
+#include <optional>
+
+namespace {
+constexpr juce::int64 kSessionRevisionMinIntervalMs = 60;
+
+struct SetRemoteVolumePayload {
+	uint32 targetClientId;
+	uint16 targetChannelIndex;
+	float volumePercent;
+	std::optional<uint64_t> commandSequence;
+};
+
+std::optional<SetRemoteVolumePayload> parseSetRemoteVolumePayload(const nlohmann::json& payload)
+{
+	try {
+		if (!payload.contains("target_client_id") || !payload.contains("target_channel_index") || !payload.contains("volume_percent")) {
+			return {};
+		}
+
+		SetRemoteVolumePayload parsed;
+		parsed.targetClientId = payload.at("target_client_id").get<uint32>();
+		parsed.targetChannelIndex = payload.at("target_channel_index").get<uint16>();
+		parsed.volumePercent = jlimit(0.0f, 100.0f, payload.at("volume_percent").get<float>());
+		if (payload.contains("command_sequence")) {
+			parsed.commandSequence = payload.at("command_sequence").get<uint64_t>();
+		}
+		return parsed;
+	}
+	catch (const nlohmann::json::exception&) {
+		return {};
+	}
+}
+}
 
 class PrintQualityTimer : public HighResolutionTimer {
 public:
@@ -29,13 +65,16 @@ private:
 	TPacketStreamBundle &data_;
 };
 
-AcceptThread::AcceptThread(int serverPort, DatagramSocket &socket, TPacketStreamBundle &incomingData, TMessageQueue &wakeUpQueue, ServerBufferConfig bufferConfig, void *keydata, int keysize, ValueTree serverConfiguration)
+AcceptThread::AcceptThread(int serverPort, DatagramSocket &socket, TPacketStreamBundle &incomingData, TMessageQueue &wakeUpQueue, ServerBufferConfig bufferConfig, void *keydata, int keysize, ValueTree serverConfiguration, ClientIdentityRegistry &clientIdentityRegistry, std::atomic<uint64_t> &sessionControlRevision)
 	: Thread("ReceiverThread")
-    , receiveSocket_(socket)
-    , incomingData_(incomingData)
-    , wakeUpQueue_(wakeUpQueue)
-    , serverConfiguration_(serverConfiguration)
-    , bufferConfig_(bufferConfig)
+	    , receiveSocket_(socket)
+	    , incomingData_(incomingData)
+	    , wakeUpQueue_(wakeUpQueue)
+	    , serverConfiguration_(serverConfiguration)
+	    , clientIdentityRegistry_(clientIdentityRegistry)
+	    , sessionControlRevision_(sessionControlRevision)
+	    , qualityTimer_(nullptr)
+	    , bufferConfig_(bufferConfig)
 {
 	if (keydata) {
 		blowFish_ = std::make_unique<BlowFish>(keydata, keysize);
@@ -56,19 +95,167 @@ AcceptThread::~AcceptThread()
 	qualityTimer_->stopTimer();
 }
 
-void AcceptThread::processControlMessage(std::shared_ptr<JammerNetzControlMessage> message)
+bool AcceptThread::sendControlMessageToClient(const std::string& targetAddress, nlohmann::json payload)
 {
-    if (message)
-    {
-        if (message->json_.contains("FEC")) {
-            serverConfiguration_.setProperty("FEC", message->json_["FEC"].operator bool(), nullptr);
-        }
-    }
+	auto separator = targetAddress.find(':');
+	if (separator == std::string::npos) {
+		return false;
+	}
+
+	String ipAddress(targetAddress.substr(0, separator));
+	auto portText = targetAddress.substr(separator + 1);
+	int port = 0;
+	try {
+		size_t parsedChars = 0;
+		port = std::stoi(portText, &parsedChars, 10);
+		if (parsedChars != portText.size()) {
+			return false;
+		}
+	}
+	catch (const std::exception&) {
+		return false;
+	}
+	if (port <= 0 || port > 65535) {
+		return false;
+	}
+
+	uint8 buffer[MAXFRAMESIZE];
+	JammerNetzControlMessage controlMessage(payload);
+	size_t bytesWritten = 0;
+	controlMessage.serialize(buffer, bytesWritten);
+	if (bytesWritten == 0) {
+		return false;
+	}
+
+	if (!sizet_is_safe_as_int(bytesWritten)) {
+		return false;
+	}
+
+	int bytesToSend = static_cast<int>(bytesWritten);
+	if (blowFish_) {
+		bytesToSend = blowFish_->encrypt(buffer, bytesWritten, MAXFRAMESIZE);
+		if (bytesToSend == -1) {
+			return false;
+		}
+	}
+
+	// Never block control forwarding in the receive thread; drop if socket is currently not writable.
+	if (receiveSocket_.waitUntilReady(false, 0) != 1) {
+		return false;
+	}
+
+	return receiveSocket_.write(ipAddress, port, buffer, bytesToSend) > 0;
+}
+
+void AcceptThread::scheduleSessionRevisionBump()
+{
+	auto now = Time::currentTimeMillis();
+	if (lastSessionRevisionBumpMillis_ == 0 || (now - lastSessionRevisionBumpMillis_) >= kSessionRevisionMinIntervalMs) {
+		sessionControlRevision_.fetch_add(1, std::memory_order_relaxed);
+		lastSessionRevisionBumpMillis_ = now;
+		pendingSessionRevisionBump_ = false;
+		pendingSessionRevisionDueMillis_ = 0;
+		return;
+	}
+
+	// Keep a trailing-edge bump pending so the final slider value is always published.
+	pendingSessionRevisionBump_ = true;
+	pendingSessionRevisionDueMillis_ = lastSessionRevisionBumpMillis_ + kSessionRevisionMinIntervalMs;
+}
+
+void AcceptThread::flushPendingSessionRevisionBumpIfDue()
+{
+	if (!pendingSessionRevisionBump_) {
+		return;
+	}
+
+	auto now = Time::currentTimeMillis();
+	if (now < pendingSessionRevisionDueMillis_) {
+		return;
+	}
+
+	sessionControlRevision_.fetch_add(1, std::memory_order_relaxed);
+	lastSessionRevisionBumpMillis_ = now;
+	pendingSessionRevisionBump_ = false;
+	pendingSessionRevisionDueMillis_ = 0;
+}
+
+void AcceptThread::processControlMessage(std::shared_ptr<JammerNetzControlMessage> message, std::string const& clientName)
+{
+	if (!message) {
+		return;
+	}
+
+	if (message->json_.contains("FEC")) {
+		serverConfiguration_.setProperty("FEC", message->json_["FEC"].operator bool(), nullptr);
+	}
+
+	if (!message->json_.contains("SetRemoteVolume")) {
+		return;
+	}
+
+	auto parsedPayload = parseSetRemoteVolumePayload(message->json_.at("SetRemoteVolume"));
+	if (!parsedPayload.has_value()) {
+		RemoteControlDebugLog::logEvent("server.accept", "drop malformed SetRemoteVolume payload");
+		return;
+	}
+
+	auto sourceClientId = clientIdentityRegistry_.getOrAssignClientId(clientName);
+	if (parsedPayload->commandSequence.has_value()) {
+		auto sequenceKey = std::make_tuple(sourceClientId, parsedPayload->targetClientId, parsedPayload->targetChannelIndex);
+		auto found = lastForwardedControlSequence_.find(sequenceKey);
+		if (found != lastForwardedControlSequence_.end()) {
+			if (*parsedPayload->commandSequence <= found->second) {
+				RemoteControlDebugLog::logEvent("server.accept",
+					"drop duplicate/out-of-order SetRemoteVolume srcClientId=" + String(sourceClientId)
+					+ " targetClientId=" + String(parsedPayload->targetClientId)
+					+ " targetChannel=" + String(parsedPayload->targetChannelIndex)
+					+ " seq=" + String(static_cast<uint64>(*parsedPayload->commandSequence))
+					+ " last=" + String(static_cast<uint64>(found->second)));
+				return;
+			}
+			found->second = *parsedPayload->commandSequence;
+		}
+		else {
+			lastForwardedControlSequence_.emplace(sequenceKey, *parsedPayload->commandSequence);
+		}
+	}
+
+	auto targetEndpoint = clientIdentityRegistry_.endpointForClientId(parsedPayload->targetClientId);
+	if (!targetEndpoint.has_value()) {
+		auto sequenceText = parsedPayload->commandSequence.has_value() ? String(static_cast<uint64>(*parsedPayload->commandSequence)) : String("none");
+		RemoteControlDebugLog::logEvent("server.accept",
+			"drop SetRemoteVolume unresolved targetClientId=" + String(parsedPayload->targetClientId)
+			+ " seq=" + sequenceText);
+		return;
+	}
+
+	nlohmann::json forwardedControl;
+	forwardedControl["ApplyLocalVolume"] = {
+		{ "target_channel_index", parsedPayload->targetChannelIndex },
+		{ "volume_percent", parsedPayload->volumePercent },
+		{ "source_client_id", sourceClientId },
+	};
+	if (parsedPayload->commandSequence.has_value()) {
+		forwardedControl["ApplyLocalVolume"]["command_sequence"] = *parsedPayload->commandSequence;
+	}
+	bool sent = sendControlMessageToClient(*targetEndpoint, forwardedControl);
+	if (!sent) {
+		RemoteControlDebugLog::logEvent("server.accept",
+			"drop ApplyLocalVolume targetClientId=" + String(parsedPayload->targetClientId)
+			+ " targetChannel=" + String(parsedPayload->targetChannelIndex)
+			+ " reason=socket-not-writable");
+		return;
+	}
+
+	// Throttle frequent bumps, but keep a trailing-edge bump pending for the last slider update.
+	scheduleSessionRevisionBump();
 }
 
 void AcceptThread::processAudioMessage(std::shared_ptr<JammerNetzAudioData> audioData, std::string const& clientName)
 {
     if (audioData) {
+		clientIdentityRegistry_.getOrAssignClientId(clientName);
         // Insert this package into the right priority audio queue
         bool prefill = false;
         if (incomingData_.find(clientName) == incomingData_.end()) {
@@ -109,8 +296,22 @@ void AcceptThread::run()
 	// Start the timer that will frequently output quality data for each of the clients' connections
 	qualityTimer_->startTimer(500);
 	while (!currentThreadShouldExit()) {
-		switch (receiveSocket_.waitUntilReady(true, 250)) {
+		flushPendingSessionRevisionBumpIfDue();
+
+		int waitTimeoutMs = 250;
+		if (pendingSessionRevisionBump_) {
+			auto now = Time::currentTimeMillis();
+			auto remaining = pendingSessionRevisionDueMillis_ - now;
+			if (remaining <= 0) {
+				flushPendingSessionRevisionBumpIfDue();
+				continue;
+			}
+			waitTimeoutMs = static_cast<int>(jlimit<juce::int64>(1, 250, remaining));
+		}
+
+		switch (receiveSocket_.waitUntilReady(true, waitTimeoutMs)) {
 		case 0:
+			flushPendingSessionRevisionBumpIfDue();
 			// Timeout, nothing to be done (no data received from any client), just check if we should terminate, also wake up the MixerThread so it can do the same
 			wakeUpQueue_.push(0);
 			break;
@@ -151,7 +352,7 @@ void AcceptThread::run()
                             processAudioMessage(std::dynamic_pointer_cast<JammerNetzAudioData>(message), clientName);
                             break;
                         case JammerNetzMessage::MessageType::GENERIC_JSON:
-                            processControlMessage(std::dynamic_pointer_cast<JammerNetzControlMessage>(message));
+                            processControlMessage(std::dynamic_pointer_cast<JammerNetzControlMessage>(message), clientName);
                             break;
                         case JammerNetzMessage::MessageType::CLIENTINFO:
                             // fall through

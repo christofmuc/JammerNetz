@@ -17,6 +17,8 @@ TEST(TestSerialization, TestAudioData) {
 	// Create a setup for this
 	JammerNetzChannelSetup setup(false);
 	setup.channels.push_back(JammerNetzSingleChannelSetup(JammerNetzChannelTarget::Left));
+	setup.channels[0].sourceClientId = 42;
+	setup.channels[0].sourceChannelIndex = 7;
 
 	JammerNetzAudioData  message(0, 1234.0, setup, SAMPLE_RATE, 0.0f, MidiSignal_None, buffer, nullptr);
 	ASSERT_EQ(message.messageCounter(), 0);
@@ -39,6 +41,8 @@ TEST(TestSerialization, TestAudioData) {
 	ASSERT_NE(loadedAudio1, nullptr);
 	auto loaded2 = JammerNetzMessage::deserialize(stream2, size2);
 	auto loadedAudio2 = std::dynamic_pointer_cast<JammerNetzAudioData>(loaded2);
+	ASSERT_EQ(loadedAudio2->channelSetup().channels[0].sourceClientId, 42u);
+	ASSERT_EQ(loadedAudio2->channelSetup().channels[0].sourceChannelIndex, 7u);
 
 	for (int channel = 0; channel < 2; channel++) {
 		for (int i = 0; i < SAMPLE_BUFFER_SIZE; i++) {
