@@ -11,8 +11,9 @@ if(POLICY CMP0092)
 	cmake_policy(SET CMP0092 NEW)
 endif()
 
-# Target a specific macOS version to allow older hardware to run the client
-set(CMAKE_OSX_DEPLOYMENT_TARGET "10.11" CACHE STRING "Minimum OS X version to target for deployment")
+# Target a specific macOS version to allow older hardware to run the client.
+# C++17's std::uncaught_exceptions is available from macOS 10.12 onward.
+set(CMAKE_OSX_DEPLOYMENT_TARGET "10.12" CACHE STRING "Minimum OS X version to target for deployment")
 
 
 project(JammerNetz)
