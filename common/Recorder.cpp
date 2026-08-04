@@ -45,7 +45,7 @@ bool Recorder::isRecording() const
 
 RelativeTime Recorder::getElapsedTime() const
 {
-	return RelativeTime(samplesWritten_ / (double) lastSampleRate_);
+	return RelativeTime(static_cast<double>(samplesWritten_) / static_cast<double>(lastSampleRate_));
 }
 
 juce::String Recorder::getFilename() const
