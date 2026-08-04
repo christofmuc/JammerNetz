@@ -101,7 +101,6 @@ void Recorder::updateChannelInfo(int sampleRate, JammerNetzChannelSetup const &c
 
 	// Setup the channel layout
 	AudioChannelSet channels;
-	unsigned numChannels = 0;
 	for (auto channel : channelSetup.channels) {
 		switch (channel.target) {
 		case Mute:
@@ -112,19 +111,16 @@ void Recorder::updateChannelInfo(int sampleRate, JammerNetzChannelSetup const &c
 			// Fall through
 		case SendLeft:
 			channels.addChannel(AudioChannelSet::left);
-			numChannels++;
 			break;
 		case Right:
 			// Fall through
 		case SendRight:
 			channels.addChannel(AudioChannelSet::right);
-			numChannels++;
 			break;
 		case SendMono:
 			// Fall through
 		case Mono:
 			channels.addChannel(AudioChannelSet::centre);
-			numChannels++;
 			break;
 		}
 	}
@@ -137,14 +133,17 @@ void Recorder::updateChannelInfo(int sampleRate, JammerNetzChannelSetup const &c
 	// Setup a new audio file to write to
 	startTime_ = Time::getCurrentTime();
 	activeFile_ = directory_.getNonexistentChildFile(String(baseFileName_) + startTime_.formatted("-%Y-%m-%d-%H-%M-%S"), fileExtension, false);
-	OutputStream * outStream = new FileOutputStream(activeFile_, 16384);
+	auto outStream = std::make_unique<FileOutputStream>(activeFile_, 16384);
 
 	// Create the writer based on the format and file
-	StringPairArray metaData;
-	writer_ = audioFormat->createWriterFor(outStream, sampleRate, numChannels, bitDepthRequested, metaData, 1 /* unused by wav */);
+	const auto writerOptions = AudioFormatWriterOptions{}
+	                               .withSampleRate(sampleRate)
+	                               .withChannelLayout(channels)
+	                               .withBitsPerSample(bitDepthRequested)
+	                               .withQualityOptionIndex(1 /* unused by wav */);
+	writer_ = audioFormat->createWriterFor(outStream, writerOptions).release();
 	if (!writer_) {
 		jassert(false);
-		delete outStream;
 		std::cerr << "Fatal: Could not create writer for Audio file, can't record to disk" << std::endl;
 		return;
 	}
