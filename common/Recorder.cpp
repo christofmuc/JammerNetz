@@ -133,7 +133,7 @@ void Recorder::updateChannelInfo(int sampleRate, JammerNetzChannelSetup const &c
 	// Setup a new audio file to write to
 	startTime_ = Time::getCurrentTime();
 	activeFile_ = directory_.getNonexistentChildFile(String(baseFileName_) + startTime_.formatted("-%Y-%m-%d-%H-%M-%S"), fileExtension, false);
-	auto outStream = std::make_unique<FileOutputStream>(activeFile_, 16384);
+	std::unique_ptr<OutputStream> outStream = std::make_unique<FileOutputStream>(activeFile_, 16384);
 
 	// Create the writer based on the format and file
 	const auto writerOptions = AudioFormatWriterOptions{}
