@@ -18,14 +18,15 @@ static String humanReadableByteCount(size_t bytes, bool si) {
 	if (bytes < unit) {
 		return String(bytes) + " B";
 	}
-	size_t exp = (size_t) std::floor(std::log(bytes) / std::log(unit));
+	size_t exp = static_cast<size_t>(std::floor(std::log(static_cast<double>(bytes)) / std::log(static_cast<double>(unit))));
 	if (exp == 0) {
 		jassert(false);
 		return "NaN B";
 	}
-	String pre = String(si ? "kMGTPE" : "KMGTPE")[(int) (exp - 1)] + String(si ? "" : "i"); // Yikes, JUCE String operator[] takes a signed int as index
+	String pre = String(si ? "kMGTPE" : "KMGTPE")[static_cast<int>(exp - 1)] + String(si ? "" : "i"); // Yikes, JUCE String operator[] takes a signed int as index
+	const auto scaledBytes = static_cast<double>(bytes) / std::pow(static_cast<double>(unit), static_cast<double>(exp));
 	std::stringstream str;
-	str << std::setprecision(1) << std::fixed << bytes / std::pow(unit, exp) << " " << pre << "B";
+	str << std::setprecision(1) << std::fixed << scaledBytes << " " << pre << "B";
 	return str.str();
 }
 
@@ -127,8 +128,12 @@ void RecordingInfo::updateData()
 	if (recorder_.lock()) {
 		auto dir = recorder_.lock()->getDirectory();
 		recordingPath_.setText(dir.getFullPathName(), dontSendNotification);
-		diskSpacePercentage_ =  1.0 - dir.getBytesFreeOnVolume() / (double)dir.getVolumeTotalSize();
-		diskSpace_.setTextToDisplay(humanReadableByteCount((size_t) dir.getBytesFreeOnVolume(), false));
+		const auto freeBytes = dir.getBytesFreeOnVolume();
+		const auto totalBytes = dir.getVolumeTotalSize();
+		diskSpacePercentage_ = totalBytes > 0
+			? 1.0 - static_cast<double>(freeBytes) / static_cast<double>(totalBytes)
+			: 0.0;
+		diskSpace_.setTextToDisplay(humanReadableByteCount(freeBytes > 0 ? static_cast<size_t>(freeBytes) : size_t{0}, false));
 		bool isLive = recorder_.lock()->isRecording();
 		recording_.setToggleState(!isLive, dontSendNotification);
 
