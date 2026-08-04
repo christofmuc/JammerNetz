@@ -220,6 +220,7 @@ endif()
 # Add subdirectories
 add_subdirectory("third_party/json")
 add_subdirectory("third_party/fmt")
+set(SPDLOG_FMT_EXTERNAL ON CACHE BOOL "Use the external fmt dependency" FORCE)
 add_subdirectory("third_party/spdlog")
 add_subdirectory("modules/juce-utils")
 if(BUILD_JAMMERNETZ_CLIENT)
