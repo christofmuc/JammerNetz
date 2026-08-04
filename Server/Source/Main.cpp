@@ -18,6 +18,7 @@
 #include "XPlatformUtils.h"
 
 #include "ServerLogger.h"
+#include "ServerPort.h"
 
 std::string getServerVersion();
 
@@ -139,8 +140,10 @@ int main(int argc, char *argv[])
 		}
 		if (args.containsOption("--port|-P")) {
 			const String portValue = args.getValueForOption("--port|-P");
-			serverPort = portValue.getIntValue();
-			if (portValue.isEmpty() || !portValue.containsOnly("0123456789") || serverPort < 1 || serverPort > 65535) {
+			if (const auto parsedPort = parseServerPort(portValue.toStdString())) {
+				serverPort = *parsedPort;
+			}
+			else {
 				app.fail("Invalid server port '" + portValue + "'. Use --port=<port> or -P <port> with a value from 1 to 65535.", -1);
 			}
 		}
