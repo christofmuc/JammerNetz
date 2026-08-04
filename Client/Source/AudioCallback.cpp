@@ -160,7 +160,8 @@ void AudioCallback::measureSamplesPerTime(PlayoutQualityInfo &qualityInfo, int n
 		qualityInfo.numSamplesSinceStart_ += numSamples;
 		qualityInfo.lastTime_ = std::chrono::steady_clock::now();
 		auto timeElapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(qualityInfo.lastTime_ - qualityInfo.startTime_);
-		qualityInfo.measuredSampleRate = (qualityInfo.numSamplesSinceStart_) / (double)(timeElapsed.count() / (double)1e9);
+		const auto elapsedSeconds = static_cast<double>(timeElapsed.count()) / 1e9;
+		qualityInfo.measuredSampleRate = elapsedSeconds > 0.0 ? static_cast<double>(qualityInfo.numSamplesSinceStart_) / elapsedSeconds : 0.0;
 	}
 }
 
@@ -420,19 +421,20 @@ void AudioCallback::audioDeviceIOCallbackWithContext(const float* const* inputCh
 			serverBpm_ = bpm;
 			if (midiSendThread_) {
 				// Play a MIDI clock at the speed given
-				uint64 pulsesPerQuarterNote = 24; // This is fairly standard
+				constexpr double pulsesPerQuarterNote = 24.0; // This is fairly standard
 				double pulsesPerSecond = bpm * pulsesPerQuarterNote / 60.0;
-				double samplesPerSecond = SAMPLE_RATE;
+				double samplesPerSecond = static_cast<double>(SAMPLE_RATE);
 				double samplesPerPulse = samplesPerSecond / pulsesPerSecond;
 				jassert(samplesPerPulse > SAMPLE_BUFFER_SIZE); // Else it gets jitery
 
 				// Determine the server time for the first sample of this package
 				uint64 serverTimeinSamples = toPlay->serverTime();
-				double bufferStartPulseNumber = floor(serverTimeinSamples / samplesPerPulse);
-				double bufferEndPulseNumber = floor((serverTimeinSamples + SAMPLE_BUFFER_SIZE) / samplesPerPulse);
+				const auto serverTimeInSamplesAsDouble = static_cast<double>(serverTimeinSamples);
+				double bufferStartPulseNumber = floor(serverTimeInSamplesAsDouble / samplesPerPulse);
+				double bufferEndPulseNumber = floor((serverTimeInSamplesAsDouble + static_cast<double>(SAMPLE_BUFFER_SIZE)) / samplesPerPulse);
 				if (bufferEndPulseNumber - bufferStartPulseNumber > 1e-6) {
 					// A Pulse must be sent! When in this buffer is the pulse due?
-					double pulseFractionInSamples = bufferEndPulseNumber * samplesPerPulse - serverTimeinSamples;
+					double pulseFractionInSamples = bufferEndPulseNumber * samplesPerPulse - serverTimeInSamplesAsDouble;
 					jassert(pulseFractionInSamples <= SAMPLE_BUFFER_SIZE);
 					auto signalToGenerate = midiSignalToGenerate_.readOnce();
 					midiSendThread_->enqueue(std::chrono::nanoseconds(int(1e9 * pulseFractionInSamples / SAMPLE_RATE)), createMidiBeatMessage(bpm, signalToGenerate, true));

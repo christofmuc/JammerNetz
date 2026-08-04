@@ -153,6 +153,12 @@ StreamQualityData::StreamQualityData()
 }
 
 std::string StreamQualityData::qualityStatement() const {
+	const auto droppedPackets = droppedPacketCounter.load();
+	const auto poppedPackets = packagesPopped.load();
+	const auto droppedPercentage = poppedPackets == 0
+		? 0.0
+		: static_cast<double>(droppedPackets) / static_cast<double>(poppedPackets) * 100.0;
+
 	std::stringstream text;
 	text << streamName << " quality: "
 		//<< packagesPushed << " push, "
@@ -163,8 +169,8 @@ std::string StreamQualityData::qualityStatement() const {
 		<< duplicatePacketCounter << " dup, "
 		<< dropsHealed << " heal, "
 		<< tooLateOrDuplicate << " late, "
-		<< droppedPacketCounter << " drop ("
-		<< std::setprecision(2) << droppedPacketCounter / (float)packagesPopped * 100.0f <<"%), "
+		<< droppedPackets << " drop ("
+		<< std::setprecision(2) << droppedPercentage << "%), "
 		<< maxLengthOfGap << " gap";
 
 	return text.str();
