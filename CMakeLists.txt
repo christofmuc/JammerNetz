@@ -11,8 +11,9 @@ if(POLICY CMP0092)
 	cmake_policy(SET CMP0092 NEW)
 endif()
 
-# Target a specific macOS version to allow older hardware to run the client
-set(CMAKE_OSX_DEPLOYMENT_TARGET "10.11" CACHE STRING "Minimum OS X version to target for deployment")
+# Target a specific macOS version to allow older hardware to run the client.
+# C++17's std::uncaught_exceptions is available from macOS 10.12 onward.
+set(CMAKE_OSX_DEPLOYMENT_TARGET "10.12" CACHE STRING "Minimum OS X version to target for deployment")
 
 
 project(JammerNetz)
@@ -219,7 +220,12 @@ endif()
 # Add subdirectories
 add_subdirectory("third_party/json")
 add_subdirectory("third_party/fmt")
+set_property(TARGET fmt APPEND PROPERTY INTERFACE_SYSTEM_INCLUDE_DIRECTORIES
+	"${CMAKE_CURRENT_SOURCE_DIR}/third_party/fmt/include")
+set(SPDLOG_FMT_EXTERNAL ON CACHE BOOL "Use the external fmt dependency" FORCE)
 add_subdirectory("third_party/spdlog")
+set_property(TARGET spdlog APPEND PROPERTY INTERFACE_SYSTEM_INCLUDE_DIRECTORIES
+	"${CMAKE_CURRENT_SOURCE_DIR}/third_party/spdlog/include")
 add_subdirectory("modules/juce-utils")
 if(BUILD_JAMMERNETZ_CLIENT)
 	add_subdirectory("third_party/JUCE-user-modules")
