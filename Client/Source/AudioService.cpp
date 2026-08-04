@@ -267,9 +267,9 @@ void AudioService::restartAudio(std::shared_ptr<ChannelSetup> inputSetup, std::s
 				refreshChannelSetup(std::shared_ptr < ChannelSetup>());
 			}
 			else {
-				float inputLatencyInMS = audioDevice_->getInputLatencyInSamples() / (float)SAMPLE_RATE * 1000.0f;
+				const auto inputLatencyInMS = static_cast<double>(audioDevice_->getInputLatencyInSamples()) / static_cast<double>(SAMPLE_RATE) * 1000.0;
 				Data::instance().get().setProperty(VALUE_INPUT_LATENCY, inputLatencyInMS, nullptr);
-				float outputLatencyInMS = audioDevice_->getOutputLatencyInSamples() / (float)SAMPLE_RATE * 1000.0f;
+				const auto outputLatencyInMS = static_cast<double>(audioDevice_->getOutputLatencyInSamples()) / static_cast<double>(SAMPLE_RATE) * 1000.0;
 				Data::instance().get().setProperty(VALUE_OUTPUT_LATENCY, outputLatencyInMS, nullptr);
 
 				refreshChannelSetup(inputSetup);

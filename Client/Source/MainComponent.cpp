@@ -274,6 +274,9 @@ void MainComponent::fillConnectedClientsStatistics() {
 			std::stringstream status;
 			status << info->getIPAddress(i) << ":";
 			auto quality = info->getStreamQuality(i);
+			const auto droppedPercentage = quality.packagesPopped == 0
+				? 0.0
+				: static_cast<double>(quality.droppedPacketCounter) / static_cast<double>(quality.packagesPopped) * 100.0;
 			status
 				<< quality.packagesPushed - quality.packagesPopped << " len, "
 				<< quality.outOfOrderPacketCounter << " ooO, "
@@ -282,7 +285,7 @@ void MainComponent::fillConnectedClientsStatistics() {
 				<< quality.dropsHealed << " heal, "
 				<< quality.tooLateOrDuplicate << " late, "
 				<< quality.droppedPacketCounter << " drop ("
-				<< std::setprecision(2) << quality.droppedPacketCounter / (float)quality.packagesPopped * 100.0f << "%), "
+				<< std::setprecision(2) << droppedPercentage << "%), "
 				<< quality.maxLengthOfGap << " gap";
 
 			label->setText(status.str(), dontSendNotification);
@@ -310,9 +313,12 @@ void MainComponent::timerCallback()
 	statusInfo_.setText(status.str(), dontSendNotification);
 	downstreamInfo_.setText(audioService_->currentReceptionQuality(), dontSendNotification);
 	std::stringstream connectionInfo;
+	const auto packetSize = audioService_->currentPacketSize();
+	const auto packetsPerSecond = static_cast<double>(SAMPLE_RATE) / static_cast<double>(SAMPLE_BUFFER_SIZE);
+	const auto bandwidthMegabits = static_cast<double>(packetSize) * 8.0 * packetsPerSecond / (1024.0 * 1024.0);
 	connectionInfo << std::fixed << std::setprecision(2)
-		<< "Network MTU: " << audioService_->currentPacketSize() << " bytes. Bandwidth: "
-		<< audioService_->currentPacketSize() * 8 * (SAMPLE_RATE / (float)SAMPLE_BUFFER_SIZE) / (1024 * 1024.0f) << "MBit/s. ";
+		<< "Network MTU: " << packetSize << " bytes. Bandwidth: "
+		<< bandwidthMegabits << "MBit/s. ";
 	connectionInfo_.setText(connectionInfo.str(), dontSendNotification);
 
 	if (audioService_->getClientInfo() && audioService_->getClientInfo()->getNumClients() != clientInfo_.size()) {
