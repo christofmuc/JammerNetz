@@ -138,7 +138,11 @@ int main(int argc, char *argv[])
 			}
 		}
 		if (args.containsOption("--port|-P")) {
-			serverPort = args.getValueForOption("--port|-P").getIntValue();
+			const String portValue = args.getValueForOption("--port|-P");
+			serverPort = portValue.getIntValue();
+			if (portValue.isEmpty() || !portValue.containsOnly("0123456789") || serverPort < 1 || serverPort > 65535) {
+				app.fail("Invalid server port '" + portValue + "'. Use --port=<port> or -P <port> with a value from 1 to 65535.", -1);
+			}
 		}
 		if (args.containsOption("--fec|-F")) {
 			useFEC = true;
