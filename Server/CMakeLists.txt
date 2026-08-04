@@ -17,6 +17,7 @@ endif()
 
 set(SOURCES
 	Source/Main.cpp
+	Source/ClientState.cpp Source/ClientState.h
 	Source/AcceptThread.cpp Source/AcceptThread.h
 	Source/MixerThread.cpp Source/MixerThread.h
 	Source/SendThread.cpp Source/SendThread.h
@@ -33,6 +34,15 @@ if(SENTRY_CRASH_REPORTING)
 	message(STATUS "Configuring server to link with ${SENTRY_INSTALL_PATH}/lib")
 	target_link_directories(JammerNetzServer PRIVATE "${SENTRY_INSTALL_PATH}/lib")
 endif()
+
+add_executable(ClientStateTest Source/ClientStateTests.cpp Source/ClientState.cpp Source/ClientState.h Source/SharedServerTypes.h)
+target_include_directories(ClientStateTest PRIVATE "${CMAKE_CURRENT_LIST_DIR}/Source")
+target_link_libraries(ClientStateTest PRIVATE gtest gmock gtest_main juce-utils JammerCommon ${JUCE_LIBRARIES})
+gtest_discover_tests(ClientStateTest
+	WORKING_DIRECTORY ${TEST_WORKING_DIRECTORY}
+	PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY "${TEST_WORKING_DIRECTORY}"
+)
+set_target_properties(ClientStateTest PROPERTIES FOLDER tests)
 if (WIN32)
 	target_link_libraries(JammerNetzServer  ${JUCE_LIBRARIES} juce-utils JammerCommon pdcurses::pdcurses ${SENTRY_LIB})
 
