@@ -220,8 +220,12 @@ endif()
 # Add subdirectories
 add_subdirectory("third_party/json")
 add_subdirectory("third_party/fmt")
+set_property(TARGET fmt APPEND PROPERTY INTERFACE_SYSTEM_INCLUDE_DIRECTORIES
+	"${CMAKE_CURRENT_SOURCE_DIR}/third_party/fmt/include")
 set(SPDLOG_FMT_EXTERNAL ON CACHE BOOL "Use the external fmt dependency" FORCE)
 add_subdirectory("third_party/spdlog")
+set_property(TARGET spdlog APPEND PROPERTY INTERFACE_SYSTEM_INCLUDE_DIRECTORIES
+	"${CMAKE_CURRENT_SOURCE_DIR}/third_party/spdlog/include")
 add_subdirectory("modules/juce-utils")
 if(BUILD_JAMMERNETZ_CLIENT)
 	add_subdirectory("third_party/JUCE-user-modules")
