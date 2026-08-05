@@ -30,7 +30,7 @@ AudioCallback::AudioCallback() :
     , midiSignalToSend_(MidiSignal_None)
     , midiSignalToGenerate_(MidiSignal_None)
 {
-	inputState_.store(std::make_shared<const InputState>(InputState { JammerNetzChannelSetup(false), nullptr }), std::memory_order_release);
+	std::atomic_store_explicit(&inputState_, std::make_shared<const InputState>(InputState { JammerNetzChannelSetup(false), nullptr }), std::memory_order_release);
 	isPlaying_ = false;
 	resetQualityInfo_ = false;
 	minPlayoutBufferLength_ = CLIENT_PLAYOUT_JITTER_BUFFER;
@@ -110,7 +110,7 @@ void AudioCallback::shutdown()
 void AudioCallback::restartClock(std::vector<MidiDeviceInfo> outputs)
 {
 	// Where to send the Midi Clock signals
-	midiSendThread_.store(std::make_shared<MidiSendThread>(outputs), std::memory_order_release);
+	std::atomic_store_explicit(&midiSendThread_, std::make_shared<MidiSendThread>(outputs), std::memory_order_release);
 }
 
 void AudioCallback::setMidiSignalToSend(MidiSignal signal)
@@ -285,7 +285,7 @@ void AudioCallback::audioDeviceIOCallbackWithContext(const float* const* inputCh
 	if (resetQualityInfo_.exchange(false, std::memory_order_acq_rel)) {
 		qualityInfo = PlayoutQualityInfo();
 	}
-	const auto inputState = inputState_.load(std::memory_order_acquire);
+	const auto inputState = std::atomic_load_explicit(&inputState_, std::memory_order_acquire);
 
 	// Measure time passed
 	measureSamplesPerTime(qualityInfo, numSamples);
@@ -405,7 +405,7 @@ void AudioCallback::audioDeviceIOCallbackWithContext(const float* const* inputCh
 
 			double bpm = toPlay->bpm();
 			serverBpm_ = bpm;
-			if (auto midiSendThread = midiSendThread_.load(std::memory_order_acquire)) {
+			if (auto midiSendThread = std::atomic_load_explicit(&midiSendThread_, std::memory_order_acquire)) {
 				// Play a MIDI clock at the speed given
 				constexpr double pulsesPerQuarterNote = 24.0; // This is fairly standard
 				double pulsesPerSecond = bpm * pulsesPerQuarterNote / 60.0;
@@ -501,7 +501,7 @@ void AudioCallback::audioDeviceStopped()
 
 void AudioCallback::setChannelSetup(JammerNetzChannelSetup const &channelSetup)
 {
-	const auto previousState = inputState_.load(std::memory_order_acquire);
+	const auto previousState = std::atomic_load_explicit(&inputState_, std::memory_order_acquire);
 	if (previousState && previousState->setup.isEqualEnough(channelSetup)) {
 		return;
 	}
@@ -515,7 +515,7 @@ void AudioCallback::setChannelSetup(JammerNetzChannelSetup const &channelSetup)
 		}
 	}
 
-	inputState_.store(std::make_shared<const InputState>(InputState { channelSetup, std::move(ingestBuffer) }), std::memory_order_release);
+	std::atomic_store_explicit(&inputState_, std::make_shared<const InputState>(InputState { channelSetup, std::move(ingestBuffer) }), std::memory_order_release);
 	if (channelCountChanged && midiRecorder_) {
 		midiRecorder_->startRecording();
 	}

@@ -102,7 +102,7 @@ void DataReceiveThread::run()
 						auto clientInfo = std::dynamic_pointer_cast<JammerNetzClientInfoMessage>(message);
 						if (clientInfo) {
 							// Yes, got it. Copy it! This is thread safe if and only if the read function to the shared_ptr is atomic!
-							lastClientInfoMessage_.store(std::make_shared<JammerNetzClientInfoMessage>(*clientInfo), std::memory_order_release);
+							std::atomic_store_explicit(&lastClientInfoMessage_, std::make_shared<JammerNetzClientInfoMessage>(*clientInfo), std::memory_order_release);
 						}
 						break;
 					}
@@ -170,7 +170,7 @@ JammerNetzChannelSetup DataReceiveThread::sessionSetup() const
 
 std::shared_ptr<JammerNetzClientInfoMessage> DataReceiveThread::getClientInfo() const
 {
-	return lastClientInfoMessage_.load(std::memory_order_acquire);
+	return std::atomic_load_explicit(&lastClientInfoMessage_, std::memory_order_acquire);
 }
 
 bool DataReceiveThread::isReceivingData() const
