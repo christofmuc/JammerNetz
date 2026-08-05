@@ -35,7 +35,7 @@ MainComponent::MainComponent(std::shared_ptr<AudioService> audioService, std::sh
 	SimpleLogger::instance()->postMessage("Welcome!");
 
 	// We want data updates for our log window
-	Data::instance().get().addListener(this);
+	::Data::instance().get().addListener(this);
 
 	recordingInfo_ = std::make_unique<RecordingInfo>(masterRecorder, "Press to record master mix");
 	//playalongDisplay_ = std::make_unique<PlayalongDisplay>(callback_.getPlayalong());
@@ -45,8 +45,8 @@ MainComponent::MainComponent(std::shared_ptr<AudioService> audioService, std::sh
 	addAndMakeVisible(bpmSlider_);
 	bpmSlider_.setRange(Range(10.0, 250.0), 0.1);
 	bpmSlider_.setTitle("bpm");
-	Data::ensurePropertyExists(VALUE_SERVER_BPM, 0.0);
-	bpmSlider_.getValueObject().referTo(Data::getPropertyAsValue(VALUE_SERVER_BPM));
+	::Data::ensurePropertyExists(VALUE_SERVER_BPM, 0.0);
+	bpmSlider_.getValueObject().referTo(::Data::getPropertyAsValue(VALUE_SERVER_BPM));
 	midiStart_.setButtonText("Start");
 	midiStart_.onClick = [this]() { audioService_->setMidiSignal(MidiSignal_Start); };
 	midiStop_.setButtonText("Stop");
@@ -56,7 +56,7 @@ MainComponent::MainComponent(std::shared_ptr<AudioService> audioService, std::sh
 
 	// Setup output and monitoring
 	monitorLocal_.setClickingTogglesState(true);
-	auto mixer = Data::instance().get().getOrCreateChildWithName(VALUE_MIXER, nullptr);
+	auto mixer = ::Data::instance().get().getOrCreateChildWithName(VALUE_MIXER, nullptr);
 	listeners_.push_back(std::make_unique<ValueListener>(mixer.getPropertyAsValue(VALUE_USE_LOCAL_MONITOR, nullptr), [this](Value& value) {
 		ignoreUnused(value);
 		monitorLocal_.setButtonText(monitorLocal_.getToggleState() ? "Local" : "Remote");
@@ -69,14 +69,14 @@ MainComponent::MainComponent(std::shared_ptr<AudioService> audioService, std::sh
 	outputController_.setMeterSource(audioService_->getOutputMeterSource(), -1);
 
 	nameLabel_.setText("My name", dontSendNotification);
-	listeners_.push_back(std::make_unique<ValueListener>(Data::instance().get().getPropertyAsValue(VALUE_USER_NAME, nullptr), [this](Value &value) {
+	listeners_.push_back(std::make_unique<ValueListener>(::Data::instance().get().getPropertyAsValue(VALUE_USER_NAME, nullptr), [this](Value &value) {
 		nameEntry_.setText(value.toString(), dontSendNotification);
 	}));
 	for_each(listeners_.begin(), listeners_.end(), [](std::unique_ptr<ValueListener>& ptr) { ptr->triggerOnChanged();  });
 
 	nameChange_.setButtonText("Change");
 	nameChange_.onClick = [this]() { updateUserName();  };
-	nameEntry_.onEscapeKey = [this]() { nameEntry_.setText(Data::instance().get().getProperty(VALUE_USER_NAME), dontSendNotification);  };
+	nameEntry_.onEscapeKey = [this]() { nameEntry_.setText(::Data::instance().get().getProperty(VALUE_USER_NAME), dontSendNotification);  };
 	nameEntry_.onReturnKey = [this]() { updateUserName(); };
 
 	inputGroup_.setText("Input");
@@ -136,7 +136,7 @@ MainComponent::MainComponent(std::shared_ptr<AudioService> audioService, std::sh
 
 MainComponent::~MainComponent()
 {
-	Data::instance().saveToSettings();
+	::Data::instance().saveToSettings();
 	Settings::instance().saveAndClose();
 	audioService_->shutdown();
 	setLookAndFeel(nullptr);
@@ -297,8 +297,8 @@ void MainComponent::timerCallback()
 {
 	// Refresh the UI with info from the Audio callback
 	std::stringstream status;
-	float inputLatency = Data::instance().get().getProperty(VALUE_INPUT_LATENCY);
-	float outputLatency = Data::instance().get().getProperty(VALUE_INPUT_LATENCY);
+	float inputLatency = ::Data::instance().get().getProperty(VALUE_INPUT_LATENCY);
+	float outputLatency = ::Data::instance().get().getProperty(VALUE_OUTPUT_LATENCY);
 	PlayoutQualityInfo qualityInfo = audioService_->getPlayoutQualityInfo();
 	status << "Quality information" << std::endl << std::fixed << std::setprecision(2);
 	status << "Sample rate measured " << qualityInfo.measuredSampleRate << std::endl;
@@ -358,5 +358,5 @@ void MainComponent::inputSetupChanged() {
 }
 
 void MainComponent::updateUserName() {
-	Data::instance().get().setProperty(VALUE_USER_NAME, nameEntry_.getText(), nullptr);
+	::Data::instance().get().setProperty(VALUE_USER_NAME, nameEntry_.getText(), nullptr);
 }
