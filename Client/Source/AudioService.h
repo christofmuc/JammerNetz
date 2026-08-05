@@ -10,6 +10,8 @@
 #include "ApplicationState.h"
 #include "DebounceTimer.h"
 
+#include <atomic>
+
 
 struct ChannelSetup {
 	std::string typeName;
@@ -68,4 +70,5 @@ private:
 
 	AudioCallback callback_;
 	DebounceTimer debouncer_;
+	std::atomic<bool> shutdown_ { false };
 };

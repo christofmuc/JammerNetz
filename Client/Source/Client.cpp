@@ -135,23 +135,25 @@ bool Client::sendBufferToServer(size_t totalBytes)
 		servername = "127.0.0.1";
 	}
 
-	if (blowFish_) {
+	{
 		ScopedLock blowfishLock(blowFishLock_);
-		int encryptedLength = blowFish_->encrypt(sendBuffer_, totalBytes, MAXFRAMESIZE);
-		if (encryptedLength == -1) {
-			std::cerr << "Fatal: Couldn't encrypt package, not sending to server!" << std::endl;
-			return false;
+		if (blowFish_) {
+			int encryptedLength = blowFish_->encrypt(sendBuffer_, totalBytes, MAXFRAMESIZE);
+			if (encryptedLength == -1) {
+				std::cerr << "Fatal: Couldn't encrypt package, not sending to server!" << std::endl;
+				return false;
+			}
+			sendData(servername, serverPort_, sendBuffer_, encryptedLength);
+			currentBlockSize_ = encryptedLength;
+			return true;
 		}
-		sendData(servername, serverPort_, sendBuffer_, encryptedLength);
-		currentBlockSize_ = encryptedLength;
 	}
-	else {
-		// No encryption key loaded - send unencrypted Audio stream through the Internet. This is for testing only,
-		// and probably at some point should be disabled again ;-O
-		if (sizet_is_safe_as_int(totalBytes)) {
-			sendData(servername, serverPort_, sendBuffer_, static_cast<int>(totalBytes));
-			currentBlockSize_ = static_cast<int>(totalBytes);
-		}
+
+	// No encryption key loaded - send unencrypted Audio stream through the Internet. This is for testing only,
+	// and probably at some point should be disabled again ;-O
+	if (sizet_is_safe_as_int(totalBytes)) {
+		sendData(servername, serverPort_, sendBuffer_, static_cast<int>(totalBytes));
+		currentBlockSize_ = static_cast<int>(totalBytes);
 	}
 
 	return true;

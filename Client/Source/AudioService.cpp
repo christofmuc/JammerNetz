@@ -10,6 +10,7 @@
 #include "ApplicationState.h"
 #include "BuffersConfig.h"
 #include "AudioDeviceDiscovery.h"
+#include "AudioCorrectness.h"
 
 #include "Logger.h"
 
@@ -28,11 +29,15 @@ AudioService::~AudioService()
 {
 	Data::instance().get().removeListener(this);
 	Data::instance().getEphemeral().removeListener(this);
+	shutdown();
 	AudioDeviceDiscovery::shutdown();
 }
 
 void AudioService::shutdown()
 {
+	if (shutdown_.exchange(true, std::memory_order_acq_rel)) {
+		return;
+	}
 	stopAudioIfRunning();
 	callback_.shutdown();
 }
@@ -72,17 +77,18 @@ void AudioService::stopAudioIfRunning()
 {
 	jassert(juce::MessageManager::getInstance()->isThisTheMessageThread());
 
+	Data::instance().getEphemeral().setProperty(EPHEMERAL_VALUE_AUDIO_RUNNING, false, nullptr);
 	if (audioDevice_) {
+		if (audioDevice_->isPlaying()) {
+			audioDevice_->stop();
+		}
 		if (audioDevice_->isOpen()) {
-			if (audioDevice_->isPlaying()) {
-				audioDevice_->stop();
-				audioDevice_->close();
-				while (audioDevice_->isOpen()) {
-					Thread::sleep(10);
-				}
-				Data::instance().getEphemeral().setProperty(EPHEMERAL_VALUE_AUDIO_RUNNING, false, nullptr);
+			audioDevice_->close();
+			if (audioDevice_->isOpen()) {
+				SimpleLogger::instance()->postMessage("Audio device did not close cleanly");
 			}
 		}
+		audioDevice_.reset();
 	}
 }
 
@@ -235,9 +241,35 @@ static BigInteger makeChannelMask(std::vector<int> const& indices) {
 
 void AudioService::restartAudio(std::shared_ptr<ChannelSetup> inputSetup, std::shared_ptr<ChannelSetup> outputSetup)
 {
+	auto failStartup = [this](const String& message) {
+		SimpleLogger::instance()->postMessage("Audio startup failed: " + message);
+		Data::instance().getEphemeral().setProperty(EPHEMERAL_VALUE_AUDIO_RUNNING, false, nullptr);
+		refreshChannelSetup({});
+		if (audioDevice_) {
+			if (audioDevice_->isPlaying()) {
+				audioDevice_->stop();
+			}
+			if (audioDevice_->isOpen()) {
+				audioDevice_->close();
+			}
+			audioDevice_.reset();
+		}
+	};
+
+	if (!inputSetup || !outputSetup || !AudioCorrectness::hasUsableChannelSelection(inputSetup->activeChannelIndices, outputSetup->activeChannelIndices)) {
+		failStartup("at least one input and one output channel must be selected");
+		return;
+	}
+
 	juce::AudioIODeviceType* selectedType = AudioDeviceDiscovery::deviceTypeByName(inputSetup ? inputSetup->typeName : "");
 	// Sample rate and buffer size are hard coded for now
-	if (selectedType) {
+	if (!selectedType) {
+		failStartup("the selected audio device type is unavailable");
+		return;
+	}
+
+	selectedType->scanForDevices();
+	{
 		if (selectedType->hasSeparateInputsAndOutputs()) {
 			// This is for other Audio types like DirectSound
 			audioDevice_.reset(selectedType->createDevice(outputSetup ? outputSetup->device : "", inputSetup ? inputSetup->device : ""));
@@ -249,37 +281,48 @@ void AudioService::restartAudio(std::shared_ptr<ChannelSetup> inputSetup, std::s
 			}
 		}
 
-		if (audioDevice_) {
+		if (!audioDevice_) {
+			failStartup("the selected audio device could not be created");
+			return;
+		}
+
+		{
 			BigInteger inputChannelMask = inputSetup ? makeChannelMask(inputSetup->activeChannelIndices) : 0;
 			BigInteger outputChannelMask = outputSetup ? makeChannelMask(outputSetup->activeChannelIndices) : 0;
 
-			// Ask for the smallest possible buffer size in this device! We should probably expose a UI control for this?
+			// Prefer the network block size, or the smallest supported size above it.
 			auto buffers = audioDevice_->getAvailableBufferSizes();
-			if (buffers.size() == 0) {
-				SimpleLogger::instance()->postMessage("Device reports no buffer sizes are available!");
+			const std::vector<int> availableBufferSizes(buffers.begin(), buffers.end());
+			const auto selectedBufferSize = AudioCorrectness::selectBufferSize(availableBufferSizes, SAMPLE_BUFFER_SIZE);
+			if (!selectedBufferSize) {
+				failStartup("the device reports no usable buffer sizes");
+				return;
 			}
-			int minBufferSize = buffers[0];
 
-			String error = audioDevice_->open(inputChannelMask, outputChannelMask, SAMPLE_RATE, minBufferSize);
+			String error = audioDevice_->open(inputChannelMask, outputChannelMask, SAMPLE_RATE, *selectedBufferSize);
 			if (error.isNotEmpty()) {
-				jassert(false);
-				AlertWindow::showMessageBox(AlertWindow::WarningIcon, "Error opening audio device", "Error text: " + error);
-				refreshChannelSetup(std::shared_ptr < ChannelSetup>());
+				failStartup(error);
+				return;
 			}
-			else {
-				const auto inputLatencyInMS = static_cast<double>(audioDevice_->getInputLatencyInSamples()) / static_cast<double>(SAMPLE_RATE) * 1000.0;
-				Data::instance().get().setProperty(VALUE_INPUT_LATENCY, inputLatencyInMS, nullptr);
-				const auto outputLatencyInMS = static_cast<double>(audioDevice_->getOutputLatencyInSamples()) / static_cast<double>(SAMPLE_RATE) * 1000.0;
-				Data::instance().get().setProperty(VALUE_OUTPUT_LATENCY, outputLatencyInMS, nullptr);
 
-				refreshChannelSetup(inputSetup);
-
-				if (!inputChannelMask.isZero() && !outputChannelMask.isZero()) {
-					// We can actually start recording and playing
-					audioDevice_->start(&callback_);
-					Data::instance().getEphemeral().setProperty(EPHEMERAL_VALUE_AUDIO_RUNNING, true, nullptr);
-				}
+			const double actualSampleRate = audioDevice_->getCurrentSampleRate();
+			if (std::abs(actualSampleRate - static_cast<double>(SAMPLE_RATE)) > 0.5) {
+				failStartup("the device opened at " + String(actualSampleRate) + " Hz instead of " + String(SAMPLE_RATE) + " Hz");
+				return;
 			}
+
+			const auto inputLatencyInMS = static_cast<double>(audioDevice_->getInputLatencyInSamples()) / actualSampleRate * 1000.0;
+			Data::instance().get().setProperty(VALUE_INPUT_LATENCY, inputLatencyInMS, nullptr);
+			const auto outputLatencyInMS = static_cast<double>(audioDevice_->getOutputLatencyInSamples()) / actualSampleRate * 1000.0;
+			Data::instance().get().setProperty(VALUE_OUTPUT_LATENCY, outputLatencyInMS, nullptr);
+
+			refreshChannelSetup(inputSetup);
+			audioDevice_->start(&callback_);
+			if (!audioDevice_->isPlaying()) {
+				failStartup("the device opened but did not start");
+				return;
+			}
+			Data::instance().getEphemeral().setProperty(EPHEMERAL_VALUE_AUDIO_RUNNING, true, nullptr);
 		}
 	}
 }

@@ -51,4 +51,5 @@ private:
 
 	int lastSampleRate_;
 	JammerNetzChannelSetup lastChannelSetup_;
+	mutable CriticalSection stateLock_;
 };

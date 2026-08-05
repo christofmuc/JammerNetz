@@ -23,43 +23,52 @@ Recorder::Recorder(File directory, std::string const &baseFileName, RecordingTyp
 Recorder::~Recorder()
 {
 	// Stop writing, make sure to finalize file
-	writeThread_.reset();
+	{
+		ScopedLock lock(stateLock_);
+		writeThread_.reset();
+	}
 	// Give it a second to flush and exit
 	thread_->stopThread(1000);
 }
 
 void Recorder::setRecording(bool recordOn)
 {
-	if (recordOn && !isRecording()) {
+	ScopedLock lock(stateLock_);
+	if (recordOn && writeThread_ == nullptr) {
 		updateChannelInfo(lastSampleRate_, lastChannelSetup_);
 		launchWriter();
-	} else if (!recordOn && isRecording()) {
+	} else if (!recordOn && writeThread_ != nullptr) {
 		writeThread_.reset();
 	}
 }
 
 bool Recorder::isRecording() const
 {
+	ScopedLock lock(stateLock_);
 	return writeThread_ != nullptr;
 }
 
 RelativeTime Recorder::getElapsedTime() const
 {
-	return RelativeTime(static_cast<double>(samplesWritten_) / static_cast<double>(lastSampleRate_));
+	ScopedLock lock(stateLock_);
+	return RelativeTime(lastSampleRate_ > 0 ? static_cast<double>(samplesWritten_) / static_cast<double>(lastSampleRate_) : 0.0);
 }
 
 juce::String Recorder::getFilename() const
 {
+	ScopedLock lock(stateLock_);
 	return activeFile_.getFileName();
 }
 
 juce::File Recorder::getFile() const
 {
+	ScopedLock lock(stateLock_);
 	return activeFile_;
 }
 
 void Recorder::setChannelInfo(int sampleRate, JammerNetzChannelSetup const &channelSetup)
 {
+	ScopedLock lock(stateLock_);
 	lastSampleRate_ = sampleRate;
 	lastChannelSetup_ = channelSetup;
 }
@@ -160,8 +169,9 @@ void Recorder::launchWriter() {
 }
 
 void Recorder::saveBlock(const float* const* data, int numSamples) {
+	ScopedLock lock(stateLock_);
 	// Don't crash on me when there is surprisingly no data in the package
-	if (data && data[0] && numSamples > 0) {
+	if (writeThread_ && data && data[0] && numSamples > 0) {
 		if (!writeThread_->write(data, numSamples)) {
 			//TODO - need a smarter strategy than that
 			std::cerr << "Ups, FIFO full and can't write block to disk, lost it!" << std::endl;
@@ -172,11 +182,13 @@ void Recorder::saveBlock(const float* const* data, int numSamples) {
 
 juce::File Recorder::getDirectory() const
 {
+	ScopedLock lock(stateLock_);
 	return directory_;
 }
 
 void Recorder::setDirectory(File &directory)
 {
+	ScopedLock lock(stateLock_);
 	// Stop writing if any
 	writeThread_.reset();
 	directory_ = directory;

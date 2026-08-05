@@ -118,17 +118,23 @@ public:
 	JammerNetzChannelSetup getSessionSetup();
 
 private:
+	struct InputState {
+		JammerNetzChannelSetup setup;
+		std::shared_ptr<RingBuffer> ingestBuffer;
+	};
+
 	void measureSamplesPerTime(PlayoutQualityInfo &qualityInfo, int numSamples) const;
 
-	void calcLocalMonitoring(std::shared_ptr<AudioBuffer<float>> inputBuffer, AudioBuffer<float>& outputBuffer);
+	void calcLocalMonitoring(const AudioBuffer<float>& inputBuffer, AudioBuffer<float>& outputBuffer, const JammerNetzChannelSetup& channelSetup);
 
 	JammerService jammerService_; //TODO - this instance needs to be pulled up another level, so the audiocallback class wouldn't know anything about the network
 
-	std::unique_ptr<RingBuffer> ingestBuffer_;
+	std::atomic<std::shared_ptr<const InputState>> inputState_;
 	std::unique_ptr<RingBuffer> playoutBuffer_;
 
 	PacketStreamQueue playBuffer_;
 	std::atomic_bool isPlaying_;
+	std::atomic_bool resetQualityInfo_;
 	std::atomic_uint64_t minPlayoutBufferLength_;
 	std::atomic_uint64_t maxPlayoutBufferLength_;
 	std::atomic<double> masterVolume_;
@@ -138,10 +144,9 @@ private:
 	std::atomic<double> serverBpm_;
 	std::atomic<bool> ignoreNextServerBpmChange_;
 	std::atomic<float> pendingServerBpm_;
-	std::optional<std::chrono::steady_clock::time_point> bpmSliderLastMoved_;
+	std::atomic<int64_t> bpmSliderLastMovedTicks_;
 	std::string currentText_;
 
-	JammerNetzChannelSetup channelSetup_;
 	FFAU::LevelMeterSource meterSource_; // This is for peak metering
 	FFAU::LevelMeterSource sessionMeterSource_; // This is to display the complete session peak meters
 	FFAU::LevelMeterSource outMeterSource_; // This is for peak metering the output
@@ -150,7 +155,7 @@ private:
 	std::shared_ptr<Recorder> masterRecorder_;
 	std::unique_ptr<MidiRecorder> midiRecorder_;
 	std::unique_ptr<MidiPlayAlong> midiPlayalong_;
-	std::unique_ptr<MidiSendThread> midiSendThread_;
+	std::atomic<std::shared_ptr<MidiSendThread>> midiSendThread_;
 
 	ReadOnceLatch<MidiSignal> midiSignalToSend_;
 	ReadOnceLatch<MidiSignal> midiSignalToGenerate_;

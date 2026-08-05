@@ -13,7 +13,7 @@
 #include "XPlatformUtils.h"
 
 DataReceiveThread::DataReceiveThread(DatagramSocket &socket, std::function<void(std::shared_ptr<JammerNetzAudioData>)> newDataHandler)
-	: Thread("ReceiveDataFromServer"), socket_(socket), newDataHandler_(newDataHandler), currentRTT_(0.0), isReceiving_(false), currentSession_(false)
+	: Thread("ReceiveDataFromServer"), socket_(socket), newDataHandler_(newDataHandler), currentRTT_(0.0), isReceiving_(false), receiveErrorCount_(0), currentSession_(false)
 {
 	// Create listeners to get notified if the application state we depend on changes
 	listeners_.push_back(std::make_unique<ValueListener>(Data::getPropertyAsValue(VALUE_CRYPTOPATH), [this](Value& value) {
@@ -46,7 +46,8 @@ DataReceiveThread::~DataReceiveThread()
 void DataReceiveThread::run()
 {
 	while (!threadShouldExit()) {
-		switch (socket_.waitUntilReady(true, 500)) {
+		try {
+			switch (socket_.waitUntilReady(true, 500)) {
 		case 0:
 			// Timeout on socket, no client connected within timeout period
 			isReceiving_ = false;
@@ -57,9 +58,7 @@ void DataReceiveThread::run()
 			int senderPortNumber;
 			int dataRead = socket_.read(readbuffer_, MAXFRAMESIZE, false, senderIPAdress, senderPortNumber);
 			if (dataRead == -1) {
-				//TODO This is bad, when could that happen? Should probably handle more explicitly
-				jassertfalse;
-				std::cerr << "Error reading data from socket!" << std::endl;
+				recordReceiveError("Error reading data from socket");
 				continue;
 			}
 			if (dataRead == 0) {
@@ -68,19 +67,16 @@ void DataReceiveThread::run()
 				isReceiving_ = false;
 				continue;
 			}
-			int messageLength = -1;
-			if (blowFish_) {
+			int messageLength = dataRead;
+			{
 				ScopedLock lock(blowFishLock_);
-				messageLength = blowFish_->decrypt(readbuffer_, safe_int_to_sizet(dataRead));
-				if (messageLength == -1) {
-					//TODO - This should be handled differently
-					std::cerr << "Couldn't decrypt package received from server, probably fatal" << std::endl;
-					continue;
+				if (blowFish_) {
+					messageLength = blowFish_->decrypt(readbuffer_, safe_int_to_sizet(dataRead));
+					if (messageLength == -1) {
+						recordReceiveError("Could not decrypt packet received from server");
+						continue;
+					}
 				}
-			}
-			else {
-				// For now, accept unencrypted data as well, and hope for the best
-				messageLength = dataRead;
 			}
 
 			// Check that the package at least seems to come from the currently active server
@@ -96,7 +92,6 @@ void DataReceiveThread::run()
 					case JammerNetzMessage::AUDIODATA: {
 						auto audioData = std::dynamic_pointer_cast<JammerNetzAudioData>(message);
 						if (audioData) {
-							ScopedLock sessionLock(sessionDataLock_);
 							// Hand off to player
 							currentRTT_ = Time::getMillisecondCounterHiRes() - audioData->timestamp();
 							newDataHandler_(audioData);
@@ -107,14 +102,15 @@ void DataReceiveThread::run()
 						auto clientInfo = std::dynamic_pointer_cast<JammerNetzClientInfoMessage>(message);
 						if (clientInfo) {
 							// Yes, got it. Copy it! This is thread safe if and only if the read function to the shared_ptr is atomic!
-							lastClientInfoMessage_ = std::make_shared<JammerNetzClientInfoMessage>(*clientInfo);
+							lastClientInfoMessage_.store(std::make_shared<JammerNetzClientInfoMessage>(*clientInfo), std::memory_order_release);
 						}
 						break;
 					}
                     case JammerNetzMessage::SESSIONSETUP: {
                         auto sessionInfo = std::dynamic_pointer_cast<JammerNetzSessionInfoMessage>(message);
                         if (sessionInfo) {
-                            currentSession_ = sessionInfo->channels_; //TODO - this is not thread safe, I trust
+							ScopedLock sessionLock(sessionDataLock_);
+                            currentSession_ = sessionInfo->channels_;
                         }
                         break;
                     }
@@ -122,24 +118,48 @@ void DataReceiveThread::run()
                         // Ignore for now
                         break;
 					default:
-						// What's this?
-						jassert(false);
+						recordReceiveError("Received packet with an unknown message type");
 					}
 				}
 			}
 			break;
 		}
 		case -1:
-			//TODO - when does this happen? This could kill the receive thread and the client would need to be restartet
-			std::cerr << "Error in waitUntilReady on socket" << std::endl;
-			return;
+			if (!threadShouldExit()) {
+				recordReceiveError("Error waiting for data on socket");
+				Thread::sleep(10);
+			}
+			break;
+		default:
+			recordReceiveError("Socket returned an unexpected readiness state");
+			break;
+			}
 		}
+		catch (const std::exception& exception) {
+			recordReceiveError(exception.what());
+		}
+		catch (...) {
+			recordReceiveError("Unknown exception while receiving a packet");
+		}
+	}
+}
+
+void DataReceiveThread::recordReceiveError(const char* message)
+{
+	const auto errorNumber = receiveErrorCount_.fetch_add(1, std::memory_order_relaxed) + 1;
+	if (errorNumber == 1 || errorNumber % 100 == 0) {
+		std::cerr << "JammerNetz receive error " << errorNumber << ": " << message << std::endl;
 	}
 }
 
 double DataReceiveThread::currentRTT() const
 {
 	return currentRTT_;
+}
+
+uint64_t DataReceiveThread::receiveErrorCount() const
+{
+	return receiveErrorCount_.load(std::memory_order_relaxed);
 }
 
 JammerNetzChannelSetup DataReceiveThread::sessionSetup() const
@@ -150,7 +170,7 @@ JammerNetzChannelSetup DataReceiveThread::sessionSetup() const
 
 std::shared_ptr<JammerNetzClientInfoMessage> DataReceiveThread::getClientInfo() const
 {
-	return lastClientInfoMessage_;
+	return lastClientInfoMessage_.load(std::memory_order_acquire);
 }
 
 bool DataReceiveThread::isReceivingData() const
