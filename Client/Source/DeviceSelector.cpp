@@ -26,7 +26,7 @@ DeviceSelector::DeviceSelector(String const& title, bool showTitle, bool inputIn
 	typeDropdown_.setTextWhenNoChoicesAvailable("No supported device types on this machine");
 	typeDropdown_.setTextWhenNothingSelected("Please select audio device type to open...");
 	// Listen to the Value representing the list of available Audio Device types (usually this shouldn't be changing during runtime...)
-	auto& ephemeralTree = Data::instance().getEphemeral();
+	auto& ephemeralTree = ::Data::instance().getEphemeral();
 	auto listener = std::make_unique<ValueListener>(ephemeralTree.getPropertyAsValue(EPHEMERAL_VALUE_DEVICE_TYPES_AVAILABLE, nullptr), [this](juce::Value& newValue) {
 		var dt = newValue;
 		auto a = dt.getArray();
@@ -37,8 +37,8 @@ DeviceSelector::DeviceSelector(String const& title, bool showTitle, bool inputIn
 	});
 	// Make sure to execute the update at least once
 	listener->triggerOnChanged();
-	auto setupDefinition = Data::instance().get().getOrCreateChildWithName(title, nullptr);
-	listeners_.push_back(std::make_unique<ValueListener>(Data::instance().get().getPropertyAsValue(VALUE_DEVICE_TYPE, nullptr), [this](Value& newValue) {
+	auto setupDefinition = ::Data::instance().get().getOrCreateChildWithName(title, nullptr);
+	listeners_.push_back(std::make_unique<ValueListener>(::Data::instance().get().getPropertyAsValue(VALUE_DEVICE_TYPE, nullptr), [this](Value& newValue) {
 		deviceDropdown_.clear();
 		String typeName = newValue.getValue();
 		auto selectedType = AudioDeviceDiscovery::deviceTypeByName(typeName);
@@ -63,11 +63,11 @@ DeviceSelector::DeviceSelector(String const& title, bool showTitle, bool inputIn
 		}
 	}));
 	listeners_.push_back(std::make_unique<ValueListener>(setupDefinition.getPropertyAsValue(VALUE_DEVICE_NAME, nullptr), [this](Value& newValue) {
-		ValueTree deviceSelector = Data::instance().get().getOrCreateChildWithName(Identifier(titleLabel_.getText(false)), nullptr);
+		ValueTree deviceSelector = ::Data::instance().get().getOrCreateChildWithName(Identifier(titleLabel_.getText(false)), nullptr);
 		channelSelectors_.clear(true);
 		channelNames_.clear(true);
 		controlPanelButton_.reset();
-		String typeName = Data::instance().get().getProperty(VALUE_DEVICE_TYPE, "");
+		String typeName = ::Data::instance().get().getProperty(VALUE_DEVICE_TYPE, "");
 		auto selectedType = AudioDeviceDiscovery::deviceTypeByName(typeName);
 		jassert(selectedType);
 		if (selectedType) {
@@ -82,7 +82,7 @@ DeviceSelector::DeviceSelector(String const& title, bool showTitle, bool inputIn
 					}
 				} else {
 					if (inputDevices_) {
-						ValueTree outputSelector = Data::instance().get().getOrCreateChildWithName(VALUE_OUTPUT_SETUP, nullptr);
+						ValueTree outputSelector = ::Data::instance().get().getOrCreateChildWithName(VALUE_OUTPUT_SETUP, nullptr);
 						outputSelector.setProperty(VALUE_DEVICE_TYPE, typeName, nullptr);
 						outputSelector.setProperty(VALUE_DEVICE_NAME, name, nullptr);
 					}
@@ -117,7 +117,7 @@ DeviceSelector::DeviceSelector(String const& title, bool showTitle, bool inputIn
 						}
 						channelButton->getToggleStateValue().referTo(channelProp.getPropertyAsValue(VALUE_CHANNEL_ACTIVE, nullptr));
 						channelButton->onClick = [this]() {
-							Data::instance().get().sendPropertyChangeMessage(title_);
+							::Data::instance().get().sendPropertyChangeMessage(title_);
 						};
 						scrollArea_.addAndMakeVisible(channelButton);
 						channelSelectors_.add(channelButton);
@@ -146,8 +146,8 @@ DeviceSelector::DeviceSelector(String const& title, bool showTitle, bool inputIn
 
 	startStopButton_.setClickingTogglesState(true);
 	addAndMakeVisible(startStopButton_);
-	Data::instance().getEphemeral().getOrCreateChildWithName(EPHEMERAL_VALUE_AUDIO_RUNNING, nullptr);
-	listeners_.push_back(std::make_unique<ValueListener>(Data::instance().getEphemeral().getPropertyAsValue(EPHEMERAL_VALUE_AUDIO_RUNNING, nullptr),
+	::Data::instance().getEphemeral().getOrCreateChildWithName(EPHEMERAL_VALUE_AUDIO_RUNNING, nullptr);
+	listeners_.push_back(std::make_unique<ValueListener>(::Data::instance().getEphemeral().getPropertyAsValue(EPHEMERAL_VALUE_AUDIO_RUNNING, nullptr),
 		[this](Value& newValue) {
 			bool audioRunning = newValue.getValue().operator bool();
 			startStopButton_.setToggleState(audioRunning, dontSendNotification);
@@ -156,8 +156,8 @@ DeviceSelector::DeviceSelector(String const& title, bool showTitle, bool inputIn
 	}));
 	startStopButton_.onClick = []() {
 		// Flip the switch
-		bool isRunning = Data::instance().getEphemeral().getProperty(EPHEMERAL_VALUE_AUDIO_RUNNING);
-		Data::instance().getEphemeral().setProperty(EPHEMERAL_VALUE_AUDIO_SHOULD_RUN, !isRunning, nullptr);
+		bool isRunning = ::Data::instance().getEphemeral().getProperty(EPHEMERAL_VALUE_AUDIO_RUNNING);
+		::Data::instance().getEphemeral().setProperty(EPHEMERAL_VALUE_AUDIO_SHOULD_RUN, !isRunning, nullptr);
 	};
 
 	bindControls();
@@ -221,15 +221,15 @@ void DeviceSelector::bindControls()
 	defaultType = comboHasText(&typeDropdown_, "JACK") ? "JACK" : "";
 #endif
 
-	ValueTree& data = Data::instance().get();
+	ValueTree& data = ::Data::instance().get();
 	ValueTree deviceSelector = data.getOrCreateChildWithName(Identifier(titleLabel_.getText(false)), nullptr);
-	if (!Data::instance().get().hasProperty(VALUE_DEVICE_TYPE)) {
-		Data::instance().get().setProperty(VALUE_DEVICE_TYPE, defaultType, nullptr);
+	if (!::Data::instance().get().hasProperty(VALUE_DEVICE_TYPE)) {
+		::Data::instance().get().setProperty(VALUE_DEVICE_TYPE, defaultType, nullptr);
 	}
 	typeDropdown_.onChange = [this]() {
-		Data::instance().get().setProperty(VALUE_DEVICE_TYPE, typeDropdown_.getText(), nullptr);
+		::Data::instance().get().setProperty(VALUE_DEVICE_TYPE, typeDropdown_.getText(), nullptr);
 	};
-	listeners_.push_back(std::make_unique<ValueListener>(Data::instance().get().getPropertyAsValue(VALUE_DEVICE_TYPE, nullptr), [this](Value& newValue) {
+	listeners_.push_back(std::make_unique<ValueListener>(::Data::instance().get().getPropertyAsValue(VALUE_DEVICE_TYPE, nullptr), [this](Value& newValue) {
 		String newType = newValue.getValue();
 		for (int i = 0; i < typeDropdown_.getNumItems(); i++) {
 			if (typeDropdown_.getItemText(i) == newType) {
@@ -244,7 +244,7 @@ void DeviceSelector::bindControls()
 		deviceSelector.setProperty(VALUE_DEVICE_NAME, "", nullptr);
 	}
 	deviceDropdown_.onChange = [this]() {
-		ValueTree dropdownSelector = Data::instance().get().getChildWithName(Identifier(titleLabel_.getText(false)));
+		ValueTree dropdownSelector = ::Data::instance().get().getChildWithName(Identifier(titleLabel_.getText(false)));
         dropdownSelector.setProperty(VALUE_DEVICE_NAME, deviceDropdown_.getText(), nullptr);
 	};
 	listeners_.push_back(std::make_unique<ValueListener>(deviceSelector.getPropertyAsValue(VALUE_DEVICE_NAME, nullptr), [this](Value& newValue) {
