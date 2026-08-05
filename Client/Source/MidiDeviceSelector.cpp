@@ -53,7 +53,7 @@ std::vector<juce::MidiDeviceInfo> MidiDeviceSelector::selectedOutputDevices() co
 
 void MidiDeviceSelector::storeInSettings()
 {
-	auto settings = Data::instance().get().getOrCreateChildWithName(VALUE_MIDI_CLOCK_DEVICES, nullptr);
+	auto settings = ::Data::instance().get().getOrCreateChildWithName(VALUE_MIDI_CLOCK_DEVICES, nullptr);
 	//settings.removeAllChildren(nullptr);
 	for (auto selector : deviceSelectors_) {
 		if (selector->getToggleState()) {
@@ -71,7 +71,7 @@ void MidiDeviceSelector::storeInSettings()
 
 void MidiDeviceSelector::loadFromSettings()
 {
-	auto settings = Data::instance().get().getOrCreateChildWithName(VALUE_MIDI_CLOCK_DEVICES, nullptr);
+	auto settings = ::Data::instance().get().getOrCreateChildWithName(VALUE_MIDI_CLOCK_DEVICES, nullptr);
 	for (int i = 0; i < settings.getNumChildren(); i++) {
 		auto child = settings.getChild(i);
 		auto deviceName = child.getProperty(VALUE_DEVICE_NAME).toString();

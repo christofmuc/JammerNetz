@@ -23,6 +23,7 @@ set(SOURCES
 	Source/SendThread.cpp Source/SendThread.h
 	Source/SharedServerTypes.h
 	Source/ServerLogger.cpp Source/ServerLogger.h
+	Source/ServerPort.h
 	Source/version.cpp.in
 )
 
@@ -43,6 +44,12 @@ gtest_discover_tests(ClientStateTest
 	PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY "${TEST_WORKING_DIRECTORY}"
 )
 set_target_properties(ClientStateTest PROPERTIES FOLDER tests)
+
+set(TESTNAME ServerTest)
+add_executable(${TESTNAME} Source/ServerPortTests.cpp)
+target_link_libraries(${TESTNAME} PRIVATE gtest_main)
+gtest_discover_tests(${TESTNAME})
+set_target_properties(${TESTNAME} PROPERTIES FOLDER tests)
 if (WIN32)
 	target_link_libraries(JammerNetzServer  ${JUCE_LIBRARIES} juce-utils JammerCommon pdcurses::pdcurses ${SENTRY_LIB})
 
