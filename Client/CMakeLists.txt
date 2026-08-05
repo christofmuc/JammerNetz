@@ -55,6 +55,7 @@ set(RESOURCE_FILES
 source_group(Source\\Resources FILES ${RESOURCE_FILES})
 
 set(AUDIO_PROCESSING_FILES
+	Source/AtomicSharedPtr.h
 	Source/AudioCorrectness.h
 	Source/AudioCallback.cpp
 	Source/AudioCallback.h

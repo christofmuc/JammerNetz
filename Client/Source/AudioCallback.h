@@ -22,6 +22,7 @@
 #include "MidiSendThread.h"
 
 #include "ApplicationState.h"
+#include "AtomicSharedPtr.h"
 
 #include <chrono>
 #include <tbb/concurrent_queue.h>
@@ -129,7 +130,7 @@ private:
 
 	JammerService jammerService_; //TODO - this instance needs to be pulled up another level, so the audiocallback class wouldn't know anything about the network
 
-	std::shared_ptr<const InputState> inputState_;
+	AtomicSharedPtr<const InputState> inputState_;
 	std::unique_ptr<RingBuffer> playoutBuffer_;
 
 	PacketStreamQueue playBuffer_;
@@ -155,7 +156,7 @@ private:
 	std::shared_ptr<Recorder> masterRecorder_;
 	std::unique_ptr<MidiRecorder> midiRecorder_;
 	std::unique_ptr<MidiPlayAlong> midiPlayalong_;
-	std::shared_ptr<MidiSendThread> midiSendThread_;
+	AtomicSharedPtr<MidiSendThread> midiSendThread_;
 
 	ReadOnceLatch<MidiSignal> midiSignalToSend_;
 	ReadOnceLatch<MidiSignal> midiSignalToGenerate_;
