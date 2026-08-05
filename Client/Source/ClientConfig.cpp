@@ -47,7 +47,7 @@ void ClientConfigurator::resized()
 
 void ClientConfigurator::bindControls()
 {
-	ValueTree &data = Data::instance().get();
+	ValueTree &data = ::Data::instance().get();
 	if (!data.hasProperty(VALUE_MIN_PLAYOUT_BUFFER)) {
 		data.setProperty(VALUE_MIN_PLAYOUT_BUFFER, CLIENT_PLAYOUT_JITTER_BUFFER, nullptr);
 	}

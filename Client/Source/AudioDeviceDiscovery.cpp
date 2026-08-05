@@ -149,7 +149,9 @@ void AudioDeviceDiscovery::init()
 		deviceTypes.push_back(AudioIODeviceType::createAudioIODeviceType_ASIO());
 		deviceTypes.push_back(AudioIODeviceType::createAudioIODeviceType_CoreAudio());
 		deviceTypes.push_back(AudioIODeviceType::createAudioIODeviceType_iOSAudio());
+#if JUCE_VERSION < 0x090000
 		deviceTypes.push_back(AudioIODeviceType::createAudioIODeviceType_Bela());
+#endif
 		deviceTypes.push_back(AudioIODeviceType::createAudioIODeviceType_ALSA());
 		deviceTypes.push_back(AudioIODeviceType::createAudioIODeviceType_JACK());
 		deviceTypes.push_back(AudioIODeviceType::createAudioIODeviceType_Oboe());

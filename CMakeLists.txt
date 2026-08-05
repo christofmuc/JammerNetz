@@ -18,6 +18,10 @@ set(CMAKE_OSX_DEPLOYMENT_TARGET "10.12" CACHE STRING "Minimum OS X version to ta
 
 project(JammerNetz)
 
+if(APPLE AND CMAKE_OSX_DEPLOYMENT_TARGET VERSION_LESS "10.12")
+	message(FATAL_ERROR "CMAKE_OSX_DEPLOYMENT_TARGET must be 10.12 or newer (got '${CMAKE_OSX_DEPLOYMENT_TARGET}')")
+endif()
+
 OPTION(BUILD_JAMMERNETZ_CLIENT "Option to turn off the client build" ON)
 OPTION(JAMMERNETZ_ENABLE_LTO "Enable JUCE LTO flags (better runtime performance, slower links)" OFF)
 

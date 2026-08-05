@@ -176,7 +176,7 @@ void ChannelController::enableTargetSelector(bool enabled)
 
 void ChannelController::bindControls()
 {
-	ValueTree &data = Data::instance().get();
+	ValueTree &data = ::Data::instance().get();
 	auto mixer = data.getOrCreateChildWithName(VALUE_MIXER, nullptr);
 	auto channelSettings = mixer.getOrCreateChildWithName(id_, nullptr);
 	if (!channelSettings.hasProperty(VALUE_VOLUME)) {

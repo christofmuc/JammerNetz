@@ -22,6 +22,7 @@ set(SOURCES
 	Source/SendThread.cpp Source/SendThread.h
 	Source/SharedServerTypes.h
 	Source/ServerLogger.cpp Source/ServerLogger.h
+	Source/ServerPort.h
 	Source/version.cpp.in
 )
 
@@ -33,6 +34,12 @@ if(SENTRY_CRASH_REPORTING)
 	message(STATUS "Configuring server to link with ${SENTRY_INSTALL_PATH}/lib")
 	target_link_directories(JammerNetzServer PRIVATE "${SENTRY_INSTALL_PATH}/lib")
 endif()
+
+set(TESTNAME ServerTest)
+add_executable(${TESTNAME} Source/ServerPortTests.cpp)
+target_link_libraries(${TESTNAME} PRIVATE gtest_main)
+gtest_discover_tests(${TESTNAME})
+set_target_properties(${TESTNAME} PROPERTIES FOLDER tests)
 if (WIN32)
 	target_link_libraries(JammerNetzServer  ${JUCE_LIBRARIES} juce-utils JammerCommon pdcurses::pdcurses ${SENTRY_LIB})
 
