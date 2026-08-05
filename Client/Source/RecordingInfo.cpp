@@ -128,12 +128,13 @@ void RecordingInfo::updateData()
 	if (recorder_.lock()) {
 		auto dir = recorder_.lock()->getDirectory();
 		recordingPath_.setText(dir.getFullPathName(), dontSendNotification);
-		const auto freeBytes = dir.getBytesFreeOnVolume();
+		const auto reportedFreeBytes = dir.getBytesFreeOnVolume();
+		const auto freeBytes = reportedFreeBytes > 0 ? reportedFreeBytes : 0;
 		const auto totalBytes = dir.getVolumeTotalSize();
 		diskSpacePercentage_ = totalBytes > 0
 			? 1.0 - static_cast<double>(freeBytes) / static_cast<double>(totalBytes)
 			: 0.0;
-		diskSpace_.setTextToDisplay(humanReadableByteCount(freeBytes > 0 ? static_cast<size_t>(freeBytes) : size_t{0}, false));
+		diskSpace_.setTextToDisplay(humanReadableByteCount(static_cast<size_t>(freeBytes), false));
 		bool isLive = recorder_.lock()->isRecording();
 		recording_.setToggleState(!isLive, dontSendNotification);
 
