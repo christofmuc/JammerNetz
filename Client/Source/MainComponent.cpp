@@ -298,7 +298,7 @@ void MainComponent::timerCallback()
 	// Refresh the UI with info from the Audio callback
 	std::stringstream status;
 	float inputLatency = ::Data::instance().get().getProperty(VALUE_INPUT_LATENCY);
-	float outputLatency = ::Data::instance().get().getProperty(VALUE_INPUT_LATENCY);
+	float outputLatency = ::Data::instance().get().getProperty(VALUE_OUTPUT_LATENCY);
 	PlayoutQualityInfo qualityInfo = audioService_->getPlayoutQualityInfo();
 	status << "Quality information" << std::endl << std::fixed << std::setprecision(2);
 	status << "Sample rate measured " << qualityInfo.measuredSampleRate << std::endl;
