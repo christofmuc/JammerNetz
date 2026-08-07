@@ -11,8 +11,6 @@
 #include "DataReceiveThread.h"
 
 #include "RingOfAudioBuffers.h"
-#include "ApplicationState.h"
-
 #include "nlohmann/json.hpp"
 
 struct ControlData
@@ -28,12 +26,14 @@ public:
 
 	bool sendData(JammerNetzChannelSetup const &channelSetup, std::shared_ptr<AudioBuffer<float>> audioBuffer, ControlData controllers);
 	bool sendControl(nlohmann::json &json);
+	void setServer(const juce::String& serverName, int serverPort, bool useLocalhost);
+	void setUseFEC(bool enabled);
+	void setCryptoKey(const void* keyData, int keyBytes);
 
 	// Statistics info
 	int getCurrentBlockSize() const;
 
 private:
-	void setCryptoKey(const void* keyData, int keyBytes);
 	bool sendData(String const &remoteHostname, int remotePort, void *data, int numbytes);
     bool sendBufferToServer(size_t totalBytes);
 
@@ -51,7 +51,4 @@ private:
 	RingOfAudioBuffers<AudioBlock> fecBuffer_; // Forward error correction buffer, keep the last n sent packages
 	juce::CriticalSection blowFishLock_;
 	std::unique_ptr<BlowFish> blowFish_;
-
-	// Generic listeners, required to maintain the lifetime of the Values and their listeners
-	std::vector<std::unique_ptr<ValueListener>> listeners_;
 };

@@ -11,18 +11,30 @@
 #include "BuffersConfig.h"
 #include "AudioDeviceDiscovery.h"
 #include "AudioCorrectness.h"
+#include "Encryption.h"
+#include "Settings.h"
 
 #include "Logger.h"
 
 AudioService::AudioService()
+	: engine_(session_, Settings::instance().getSessionStorageDir())
+	, callback_(engine_, [](float bpm) {
+		juce::MessageManager::callAsync([bpm]() {
+			Data::getPropertyAsValue(VALUE_SERVER_BPM).setValue(bpm);
+		});
+	})
 {
 	// Put the list into the ephemeral app data (not stored across runs of the software)
 	auto& data = Data::instance().getEphemeral();
 	data.setProperty(EPHEMERAL_VALUE_DEVICE_TYPES_AVAILABLE, AudioDeviceDiscovery::allDeviceTypeNames(), nullptr);
 	data.setProperty(EPHEMERAL_VALUE_AUDIO_RUNNING, false, nullptr);
+	Data::instance().ensurePropertyExists(VALUE_SERVER_BPM, 0.0);
 
 	Data::instance().get().addListener(this);
 	Data::instance().getEphemeral().addListener(this);
+	engine_.start();
+	refreshEngineConfiguration();
+	session_.start([this](std::shared_ptr<JammerNetzAudioData> audio) { engine_.enqueueRemoteAudio(std::move(audio)); }, getSessionConfiguration());
 }
 
 AudioService::~AudioService()
@@ -39,12 +51,13 @@ void AudioService::shutdown()
 		return;
 	}
 	stopAudioIfRunning();
-	callback_.shutdown();
+	session_.shutdown();
+	engine_.shutdown();
 }
 
 bool AudioService::isConnected()
 {
-	return callback_.isReceivingData();
+	return engine_.isReceivingData();
 }
 
 void AudioService::refreshChannelSetup(std::shared_ptr<ChannelSetup> setup)
@@ -70,7 +83,7 @@ void AudioService::refreshChannelSetup(std::shared_ptr<ChannelSetup> setup)
 			channelSetup.channels.push_back(channel);
 		}
 	}
-	callback_.setChannelSetup(channelSetup);
+	engine_.setChannelSetup(channelSetup);
 }
 
 void AudioService::stopAudioIfRunning()
@@ -94,22 +107,22 @@ void AudioService::stopAudioIfRunning()
 
 void AudioService::setClockOutputs(std::vector<juce::MidiDeviceInfo> outputs)
 {
-	callback_.restartClock(outputs);
+	engine_.restartClock(outputs);
 }
 
 void AudioService::setMidiSignal(MidiSignal signal)
 {
-	callback_.setMidiSignalToSend(signal);
+	engine_.setMidiSignalToSend(signal);
 }
 
 std::shared_ptr<Recorder> AudioService::getMasterRecorder() const
 {
-	return callback_.getMasterRecorder();
+	return engine_.getMasterRecorder();
 }
 
 std::shared_ptr<Recorder> AudioService::getLocalRecorder() const
 {
-	return callback_.getLocalRecorder();
+	return engine_.getLocalRecorder();
 }
 
 std::shared_ptr<ChannelSetup> AudioService::getInputSetup() const
@@ -124,57 +137,96 @@ std::shared_ptr<ChannelSetup> AudioService::getOutputSetup() const
 
 JammerNetzChannelSetup AudioService::getSessionSetup()
 {
-	return callback_.getSessionSetup();
+	return engine_.getSessionSetup();
 }
 
 std::shared_ptr<JammerNetzClientInfoMessage> AudioService::getClientInfo()
 {
-	return callback_.getClientInfo();
+	return engine_.getClientInfo();
 }
 
 PlayoutQualityInfo AudioService::getPlayoutQualityInfo()
 {
-	return callback_.getPlayoutQualityInfo();
+	return engine_.getPlayoutQualityInfo();
 }
 
 double AudioService::currentRTT()
 {
-	return callback_.currentRTT();
+	return engine_.currentRTT();
 }
 
 std::string AudioService::currentReceptionQuality() const
 {
-	return callback_.currentReceptionQuality();
+	return engine_.currentReceptionQuality();
 }
 
 int AudioService::currentPacketSize()
 {
-	return callback_.currentPacketSize();
+	return engine_.currentPacketSize();
 }
 
 float AudioService::channelPitch(size_t channel) const
 {
-	return callback_.channelPitch(channel);
+	return engine_.channelPitch(channel);
 }
 
 float AudioService::sessionPitch(size_t channel)
 {
-	return callback_.sessionPitch(channel);
+	return engine_.sessionPitch(channel);
 }
 
 FFAU::LevelMeterSource* AudioService::getInputMeterSource()
 {
-	return callback_.getMeterSource();
+	return engine_.getMeterSource();
 }
 
 FFAU::LevelMeterSource* AudioService::getOutputMeterSource()
 {
-	return callback_.getOutputMeterSource();
+	return engine_.getOutputMeterSource();
 }
 
 FFAU::LevelMeterSource* AudioService::getSessionMeterSource()
 {
-	return callback_.getSessionMeterSource();
+	return engine_.getSessionMeterSource();
+}
+
+void AudioService::refreshEngineConfiguration()
+{
+	auto& data = Data::instance().get();
+	auto mixer = data.getOrCreateChildWithName(VALUE_MIXER, nullptr);
+	const auto outputController = mixer.getOrCreateChildWithName(VALUE_MASTER_OUTPUT, nullptr);
+	const auto minimum = static_cast<uint64>(static_cast<int64>(data.getProperty(VALUE_MIN_PLAYOUT_BUFFER, CLIENT_PLAYOUT_JITTER_BUFFER)));
+	const auto maximum = static_cast<uint64>(static_cast<int64>(data.getProperty(VALUE_MAX_PLAYOUT_BUFFER, CLIENT_PLAYOUT_MAX_BUFFER)));
+	engine_.setPlayoutBufferRange(minimum, maximum);
+	engine_.setMasterVolume(static_cast<double>(outputController.getProperty(VALUE_VOLUME, 100.0)) / 100.0);
+	engine_.setMonitorBalance(outputController.getProperty(VALUE_MONITOR_BALANCE, 0.0));
+	engine_.setLocalMonitoring(mixer.getProperty(VALUE_USE_LOCAL_MONITOR, false));
+	engine_.setClientBpm(data.getProperty(VALUE_SERVER_BPM, 0.0));
+}
+
+JammerNetzSessionConfiguration AudioService::getSessionConfiguration() const
+{
+	const auto& data = Data::instance().get();
+	JammerNetzSessionConfiguration configuration;
+	configuration.serverName = data.getProperty(VALUE_SERVER_NAME).toString();
+	configuration.serverPort = data.getProperty(VALUE_SERVER_PORT, 7777).toString().getIntValue();
+	configuration.useLocalhost = data.getProperty(VALUE_USE_LOCALHOST, false);
+	configuration.useFEC = data.getProperty(VALUE_USE_FEC, false);
+
+	const auto cryptoPath = data.getProperty(VALUE_CRYPTOPATH).toString();
+	if (cryptoPath.isNotEmpty()) {
+		std::shared_ptr<juce::MemoryBlock> key;
+		if (UDPEncryption::loadKeyfile(cryptoPath.toRawUTF8(), &key)) {
+			configuration.cryptoKey = std::move(key);
+		}
+	}
+	return configuration;
+}
+
+void AudioService::refreshSessionConfiguration()
+{
+	session_.updateConfiguration(getSessionConfiguration());
+	engine_.newServer();
 }
 
 void AudioService::valueTreePropertyChanged(ValueTree& treeWhosePropertyHasChanged, const Identifier& property)
@@ -198,7 +250,17 @@ void AudioService::valueTreePropertyChanged(ValueTree& treeWhosePropertyHasChang
 		}, 250);
 	}
 	else if (ValueTreeUtils::isChildOf(VALUE_MIXER, treeWhosePropertyHasChanged) || property.toString() == VALUE_USER_NAME) {
+		refreshEngineConfiguration();
 		refreshChannelSetup(getSetup(Data::instance().get().getChildWithName(VALUE_INPUT_SETUP)));
+	}
+	else if (property == Identifier(VALUE_MIN_PLAYOUT_BUFFER) || property == Identifier(VALUE_MAX_PLAYOUT_BUFFER)
+		|| property == Identifier(VALUE_SERVER_BPM)) {
+		refreshEngineConfiguration();
+	}
+	else if (property == Identifier(VALUE_SERVER_NAME) || property == Identifier(VALUE_SERVER_PORT)
+		|| property == Identifier(VALUE_USE_LOCALHOST) || property == Identifier(VALUE_USE_FEC)
+		|| property == Identifier(VALUE_CRYPTOPATH)) {
+		refreshSessionConfiguration();
 	}
 }
 

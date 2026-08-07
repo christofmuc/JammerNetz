@@ -54,22 +54,27 @@ set(RESOURCE_FILES
 )
 source_group(Source\\Resources FILES ${RESOURCE_FILES})
 
-set(AUDIO_PROCESSING_FILES
+set(CORE_AUDIO_PROCESSING_FILES
 	Source/AtomicSharedPtr.h
+	Source/JammerNetzAudioEngine.cpp
+	Source/JammerNetzAudioEngine.h
+	Source/MidiSendThread.cpp Source/MidiSendThread.h
+	Source/Tuner.cpp
+	Source/Tuner.h
+	Source/MidiPlayAlong.cpp Source/MidiPlayAlong.h
+)
+set(AUDIO_PROCESSING_FILES
 	Source/AudioCorrectness.h
 	Source/AudioCallback.cpp
 	Source/AudioCallback.h
 	Source/AudioService.cpp
 	Source/AudioService.h
-	Source/MidiSendThread.cpp Source/MidiSendThread.h
-	Source/Tuner.cpp
-	Source/Tuner.h
 )
-source_group(Source\\AudioProcessing FILES ${AUDIO_PROCESSING_FILES})
+source_group(Source\\AudioProcessing FILES ${CORE_AUDIO_PROCESSING_FILES} ${AUDIO_PROCESSING_FILES})
 
 set(NETWORK_FILES
-	Source/JammerService.cpp
-	Source/JammerService.h
+	Source/JammerNetzSession.cpp
+	Source/JammerNetzSession.h
 	Source/Client.cpp
 	Source/Client.h
 	Source/DataReceiveThread.cpp
@@ -101,7 +106,6 @@ set(UICOMPONENT_FILES
 source_group(Source\\UIComponents FILES ${UICOMPONENT_FILES})
 
 set(PLAYALONG_FILES
-	Source/MidiPlayAlong.cpp Source/MidiPlayAlong.h
 	Source/PlayalongDisplay.cpp Source/PlayalongDisplay.h
 )
 source_group(Source\\PlayAlong FILES ${PLAYALONG_FILES})
@@ -117,7 +121,14 @@ source_group(Source\\DigitalStage FILES ${DSBRANCH_FILES})
 set(EXECUTABLE_BASE_NAME "JammerNetzClient")
 set(INSTALLER_BASE_NAME "JammerNetz")
 
-add_executable(JammerNetzClient MACOSX_BUNDLE WIN32 ${SOURCES} ${DS_SOURCES} ${UICOMPONENT_FILES} ${PLAYALONG_FILES} ${AUDIO_PROCESSING_FILES} ${NETWORK_FILES} ${MIDI_FILES} ${RESOURCE_FILES} ${INSTALLER_FILES})
+add_library(JammerNetzCore STATIC ${CORE_AUDIO_PROCESSING_FILES} ${NETWORK_FILES})
+target_include_directories(JammerNetzCore PUBLIC Source "${CMAKE_CURRENT_BINARY_DIR}/Source")
+target_link_libraries(JammerNetzCore PUBLIC ${JUCE_LIBRARIES} JammerCommon juce-utils midikraft-base ff_meters)
+if(APPLE OR UNIX)
+	target_link_libraries(JammerNetzCore PUBLIC tbb)
+endif()
+
+add_executable(JammerNetzClient MACOSX_BUNDLE WIN32 ${SOURCES} ${DS_SOURCES} ${UICOMPONENT_FILES} ${PLAYALONG_FILES} ${AUDIO_PROCESSING_FILES} ${MIDI_FILES} ${RESOURCE_FILES} ${INSTALLER_FILES})
 set(JammerNetz_VersionedName "JammerNetz 2")
 set(JammerNetz_ApplicationName "JammerNetzClient")
 set(JammerNetz_AppId "{{704C397B-E756-47B0-AB7A-5C52A62E0A3F}")
@@ -137,15 +148,21 @@ target_link_libraries(${TESTNAME} PRIVATE gtest gtest_main)
 gtest_discover_tests(${TESTNAME})
 set_target_properties(${TESTNAME} PROPERTIES FOLDER tests)
 
+set(CORE_TEST_NAME JammerNetzCoreTest)
+add_executable(${CORE_TEST_NAME} Source/JammerNetzAudioEngineTests.cpp)
+target_link_libraries(${CORE_TEST_NAME} PRIVATE JammerNetzCore gtest gtest_main)
+gtest_discover_tests(${CORE_TEST_NAME})
+set_target_properties(${CORE_TEST_NAME} PROPERTIES FOLDER tests)
+
 target_include_directories(JammerNetzClient PRIVATE "${SENTRY_INCLUDE_DIR}"  "${CMAKE_CURRENT_BINARY_DIR}/Source")
 IF(WIN32)
-	target_link_libraries(JammerNetzClient ${JUCE_LIBRARIES} ${DS_LIBRARIES} JammerCommon juce-utils juce-widgets midikraft-base ff_meters ${SENTRY_LIB})
+	target_link_libraries(JammerNetzClient JammerNetzCore ${DS_LIBRARIES} juce-widgets ${SENTRY_LIB})
 elseif(APPLE)
-	target_link_libraries(JammerNetzClient ${JUCE_LIBRARIES} ${DS_LIBRARIES} JammerCommon juce-utils juce-widgets midikraft-base ff_meters tbb)
+	target_link_libraries(JammerNetzClient JammerNetzCore ${DS_LIBRARIES} juce-widgets)
 	# ${SENTRY_LIB})
 ELSE()
 	target_link_libraries(JammerNetzClient
-		${JUCE_LIBRARIES}
+		JammerNetzCore
 		${DS_LIBRARIES}
 		Xext
 		X11
@@ -156,7 +173,7 @@ ELSE()
 		asound
 		tbb
 		${SENTRY_LIB}
-		JammerCommon juce-utils juce-widgets midikraft-base ff_meters)
+		juce-widgets)
 ENDIF()
 
 # Pedantic about warnings

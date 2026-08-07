@@ -11,60 +11,33 @@
 #include "StreamLogger.h"
 
 #include "BuffersConfig.h"
-
 #include "XPlatformUtils.h"
-#include "Encryption.h"
-#include "Data.h"
 
 Client::Client(DatagramSocket& socket) : socket_(socket), messageCounter_(10) /* TODO - because of the pre-fill on server side, can't be 0 */
 	, currentBlockSize_(0), useFEC_(false), serverPort_(7777), useLocalhost_(false), fecBuffer_(16)
 {
-	// Create listeners to get notified if the application state we depend on changes
-	listeners_.push_back(std::make_unique<ValueListener>(Data::getPropertyAsValue(VALUE_CRYPTOPATH), [this](Value& value) {
-		std::shared_ptr<MemoryBlock> cryptokey;
-		String newCryptopath = value.getValue();
-		if (newCryptopath.isNotEmpty()) {
-			UDPEncryption::loadKeyfile(newCryptopath.toRawUTF8(), &cryptokey);
-			if (cryptokey) {
-				setCryptoKey(cryptokey->getData(), safe_sizet_to_int(cryptokey->getSize()));
-			}
-			else {
-				// Turn off encrpytion
-				setCryptoKey(nullptr, 0);
-			}
-		}
-		else {
-			// Turn off encrpytion
-			setCryptoKey(nullptr, 0);
-		}
-	}));
-	listeners_.push_back(std::make_unique<ValueListener>(Data::instance().get().getPropertyAsValue(VALUE_USE_FEC, nullptr), [this](Value& value) {
-		useFEC_ = value.getValue();
-        nlohmann::json fecControl;
-        fecControl["FEC"] = value.getValue().operator bool();
-        sendControl(fecControl);
-	}));
-	listeners_.push_back(std::make_unique<ValueListener>(Data::getPropertyAsValue(VALUE_SERVER_NAME), [this](Value& value) {
-		ScopedLock lock(serverLock_);
-		serverName_ = value.getValue();
-	}));
-	listeners_.push_back(std::make_unique<ValueListener>(Data::getPropertyAsValue(VALUE_SERVER_PORT), [this](Value& value) {
-		String serverPortAsString = value.getValue();
-		serverPort_ = atoi(serverPortAsString.toRawUTF8()); // https://forum.juce.com/t/string-to-float-int-bool/16733/12
-		if (serverPort_ == 0) {
-			serverPort_ = 7777; // Default value
-		}
-	}));
-	listeners_.push_back(std::make_unique<ValueListener>(Data::getPropertyAsValue(VALUE_USE_LOCALHOST), [this](Value& value) {
-		useLocalhost_ = value.getValue();
-	}));
-
-	// To read the current state, just execute each of these listeners once!
-	std::for_each(listeners_.begin(), listeners_.end(), [](std::unique_ptr<ValueListener>& ptr) { ptr->triggerOnChanged();  });
 }
 
 Client::~Client()
 {
+}
+
+void Client::setServer(const juce::String& serverName, int serverPort, bool useLocalhost)
+{
+	{
+		const juce::ScopedLock lock(serverLock_);
+		serverName_ = serverName;
+	}
+	serverPort_.store(serverPort > 0 ? serverPort : 7777, std::memory_order_relaxed);
+	useLocalhost_.store(useLocalhost, std::memory_order_relaxed);
+}
+
+void Client::setUseFEC(bool enabled)
+{
+	useFEC_.store(enabled, std::memory_order_relaxed);
+	nlohmann::json fecControl;
+	fecControl["FEC"] = enabled;
+	sendControl(fecControl);
 }
 
 void Client::setCryptoKey(const void* keyData, int keyBytes)
