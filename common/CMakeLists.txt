@@ -83,8 +83,8 @@ endif()
 set(TESTNAME CommonTest)
 add_executable(${TESTNAME} JammerCommonTests.cpp)
 target_link_libraries(${TESTNAME} gtest gmock gtest_main juce-utils JammerCommon ${JUCE_LIBRARIES})
-gtest_discover_tests(${TESTNAME}
-    WORKING_DIRECTORY ${TEST_WORKING_DIRECTORY}
-    PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY "${TEST_WORKING_DIRECTORY}"
+jammernetz_copy_msvc_debug_runtime(${TESTNAME})
+gtest_add_tests(TARGET ${TESTNAME}
+	SOURCES JammerCommonTests.cpp
 )
 set_target_properties(${TESTNAME} PROPERTIES FOLDER tests)
