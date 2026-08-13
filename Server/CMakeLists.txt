@@ -17,6 +17,7 @@ endif()
 
 set(SOURCES
 	Source/Main.cpp
+	Source/ClientState.cpp Source/ClientState.h
 	Source/AcceptThread.cpp Source/AcceptThread.h
 	Source/MixerThread.cpp Source/MixerThread.h
 	Source/SendThread.cpp Source/SendThread.h
@@ -35,10 +36,20 @@ if(SENTRY_CRASH_REPORTING)
 	target_link_directories(JammerNetzServer PRIVATE "${SENTRY_INSTALL_PATH}/lib")
 endif()
 
+add_executable(ClientStateTest Source/ClientStateTests.cpp Source/ClientState.cpp Source/ClientState.h Source/SharedServerTypes.h)
+target_include_directories(ClientStateTest PRIVATE "${CMAKE_CURRENT_LIST_DIR}/Source")
+target_link_libraries(ClientStateTest PRIVATE gtest gmock gtest_main juce-utils JammerCommon ${JUCE_LIBRARIES})
+gtest_discover_tests(ClientStateTest
+	WORKING_DIRECTORY ${TEST_WORKING_DIRECTORY}
+	PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY "${TEST_WORKING_DIRECTORY}"
+)
+set_target_properties(ClientStateTest PROPERTIES FOLDER tests)
+
 set(TESTNAME ServerTest)
 add_executable(${TESTNAME} Source/ServerPortTests.cpp)
 target_link_libraries(${TESTNAME} PRIVATE gtest_main)
-gtest_discover_tests(${TESTNAME})
+jammernetz_copy_msvc_debug_runtime(${TESTNAME})
+gtest_add_tests(TARGET ${TESTNAME} SOURCES Source/ServerPortTests.cpp)
 set_target_properties(${TESTNAME} PROPERTIES FOLDER tests)
 if (WIN32)
 	target_link_libraries(JammerNetzServer  ${JUCE_LIBRARIES} juce-utils JammerCommon pdcurses::pdcurses ${SENTRY_LIB})
@@ -46,10 +57,11 @@ if (WIN32)
 	# Post build commands - copy the DLLs
 	add_custom_command(
 			TARGET JammerNetzServer POST_BUILD
-			COMMAND ${CMAKE_COMMAND} -E copy
+			COMMAND ${CMAKE_COMMAND} -E copy_if_different
 					${SENTRY_DISTRIBUTION_FILES}
 					${CMAKE_BINARY_DIR}/$<IF:$<CONFIG:Release>,${MY_TBB_BINARY_DIR_BASE}_release/tbb12.dll,$<IF:$<CONFIG:Debug>,${MY_TBB_BINARY_DIR_BASE}_debug/tbb12_debug.dll,${MY_TBB_BINARY_DIR_BASE}_relwithdebinfo/tbb12.dll>>
 					$<TARGET_FILE_DIR:JammerNetzServer>)
+	jammernetz_copy_msvc_debug_runtime(JammerNetzServer)
 elseif(APPLE)
 	target_link_directories(JammerNetzServer PRIVATE "${INTEL_TBB_DIRECTORY}/lib/")
 	target_link_libraries(JammerNetzServer  ${JUCE_LIBRARIES} juce-utils JammerCommon tbb ncurses ${SENTRY_LIB})

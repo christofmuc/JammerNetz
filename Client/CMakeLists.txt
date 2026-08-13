@@ -175,10 +175,11 @@ IF(WIN32)
 	# Post build commands - copy the DLLs (Windows only I guess). Due to the directory format of the oneTBB output directory, we need to parse the MSVC compiler version and use it appropriately
 	add_custom_command(
 			TARGET JammerNetzClient POST_BUILD
-			COMMAND ${CMAKE_COMMAND} -E copy
+			COMMAND ${CMAKE_COMMAND} -E copy_if_different
 					${SENTRY_DISTRIBUTION_FILES}
 					${CMAKE_BINARY_DIR}/$<IF:$<CONFIG:Release>,${MY_TBB_BINARY_DIR_BASE}_release/tbb12.dll,$<IF:$<CONFIG:Debug>,${MY_TBB_BINARY_DIR_BASE}_debug/tbb12_debug.dll,${MY_TBB_BINARY_DIR_BASE}_relwithdebinfo/tbb12.dll>>
 					$<TARGET_FILE_DIR:JammerNetzClient>)
+	jammernetz_copy_msvc_debug_runtime(JammerNetzClient)
 ENDIF()
 
 IF(WIN32)
