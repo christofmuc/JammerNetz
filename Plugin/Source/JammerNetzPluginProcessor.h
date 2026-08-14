@@ -43,6 +43,8 @@ public:
 
 	void prepareToPlay(double sampleRate, int maximumExpectedSamplesPerBlock) override;
 	void releaseResources() override;
+	using AudioProcessor::processBlock;
+	using AudioProcessor::processBlockBypassed;
 	void processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages) override;
 	void processBlockBypassed(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages) override;
 	void setNonRealtime(bool shouldUseNonRealtimeMode) noexcept override;
@@ -108,5 +110,3 @@ private:
 
 	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(JammerNetzPluginProcessor)
 };
-
-juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter();

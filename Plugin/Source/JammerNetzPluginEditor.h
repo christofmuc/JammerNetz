@@ -10,7 +10,7 @@
 
 class JammerNetzPluginEditor final : public juce::AudioProcessorEditor, private juce::Timer {
 public:
-	explicit JammerNetzPluginEditor(JammerNetzPluginProcessor& processor);
+	explicit JammerNetzPluginEditor(JammerNetzPluginProcessor& pluginProcessor);
 	~JammerNetzPluginEditor() override;
 
 	void paint(juce::Graphics& graphics) override;

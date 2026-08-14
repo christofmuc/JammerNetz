@@ -17,8 +17,8 @@ constexpr int labelWidth = 150;
 
 } // namespace
 
-JammerNetzPluginEditor::JammerNetzPluginEditor(JammerNetzPluginProcessor& processor)
-	: AudioProcessorEditor(processor), processor_(processor)
+JammerNetzPluginEditor::JammerNetzPluginEditor(JammerNetzPluginProcessor& pluginProcessor)
+	: AudioProcessorEditor(pluginProcessor), processor_(pluginProcessor)
 {
 	title_.setText("JammerNetz", juce::dontSendNotification);
 	title_.setFont(juce::FontOptions(24.0f, juce::Font::bold));

@@ -365,8 +365,8 @@ void JammerNetzPluginProcessor::getStateInformation(juce::MemoryBlock& destinati
 	state.setProperty("sendGain", config.sendGain, nullptr);
 	state.setProperty("remoteGain", config.remoteGain, nullptr);
 	state.setProperty("dryGain", config.dryGain, nullptr);
-	state.setProperty("minimumJitterFrames", static_cast<int64_t>(config.minimumJitterFrames), nullptr);
-	state.setProperty("maximumJitterFrames", static_cast<int64_t>(config.maximumJitterFrames), nullptr);
+	state.setProperty("minimumJitterFrames", static_cast<juce::int64>(config.minimumJitterFrames), nullptr);
+	state.setProperty("maximumJitterFrames", static_cast<juce::int64>(config.maximumJitterFrames), nullptr);
 	state.setProperty("useLocalhost", config.useLocalhost, nullptr);
 	state.setProperty("useFEC", config.useFEC, nullptr);
 	state.setProperty("localPassthrough", config.localPassthrough, nullptr);
@@ -392,8 +392,8 @@ void JammerNetzPluginProcessor::setStateInformation(const void* data, int sizeIn
 	config.sendGain = static_cast<float>(state.getProperty("sendGain", config.sendGain));
 	config.remoteGain = static_cast<float>(state.getProperty("remoteGain", config.remoteGain));
 	config.dryGain = static_cast<float>(state.getProperty("dryGain", config.dryGain));
-	config.minimumJitterFrames = static_cast<uint64_t>(static_cast<int64_t>(state.getProperty("minimumJitterFrames", static_cast<int64_t>(config.minimumJitterFrames))));
-	config.maximumJitterFrames = static_cast<uint64_t>(static_cast<int64_t>(state.getProperty("maximumJitterFrames", static_cast<int64_t>(config.maximumJitterFrames))));
+	config.minimumJitterFrames = static_cast<uint64_t>(static_cast<juce::int64>(state.getProperty("minimumJitterFrames", juce::var(static_cast<juce::int64>(config.minimumJitterFrames)))));
+	config.maximumJitterFrames = static_cast<uint64_t>(static_cast<juce::int64>(state.getProperty("maximumJitterFrames", juce::var(static_cast<juce::int64>(config.maximumJitterFrames)))));
 	config.useLocalhost = state.getProperty("useLocalhost", config.useLocalhost);
 	config.useFEC = state.getProperty("useFEC", config.useFEC);
 	config.localPassthrough = state.getProperty("localPassthrough", config.localPassthrough);
