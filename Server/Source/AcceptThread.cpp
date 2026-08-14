@@ -10,7 +10,7 @@
 #include "RemoteControlDebugLog.h"
 #include "XPlatformUtils.h"
 
-#include <stack>
+#include <algorithm>
 #include <utility>
 #include "ServerLogger.h"
 #include <optional>
@@ -55,8 +55,9 @@ public:
 	virtual void hiResTimerCallback() override
 	{
 		for (auto &streamData : data_) {
-			if (streamData.second) {
-				ServerLogger::printStatistics(4, streamData.first, streamData.second->qualityInfoPackage());
+			JammerNetzStreamQualityInfo qualityInfo;
+			if (streamData.second && streamData.second->qualityInfo(qualityInfo)) {
+				ServerLogger::printStatistics(4, streamData.first, qualityInfo);
 			}
 		}
 	}
@@ -256,36 +257,32 @@ void AcceptThread::processAudioMessage(std::shared_ptr<JammerNetzAudioData> audi
 {
     if (audioData) {
 		clientIdentityRegistry_.getOrAssignClientId(clientName);
-        // Insert this package into the right priority audio queue
-        bool prefill = false;
-        if (incomingData_.find(clientName) == incomingData_.end()) {
-            // This is from a new client!
-            ServerLogger::printClientStatus(4, clientName,
-                                            "New client connected, first package received");
-            incomingData_[clientName] = std::make_unique<PacketStreamQueue>(clientName);
-            prefill = true;
-        } else if (!incomingData_[clientName]) {
-            ServerLogger::printClientStatus(4, clientName,
-                                            "Reconnected successfully and starts sending again");
-            incomingData_[clientName] = std::make_unique<PacketStreamQueue>(clientName);
-            prefill = false;
-        }
-        if (prefill) {
-            auto lastInserted = audioData;
-            std::stack<std::shared_ptr<JammerNetzAudioData>> reverse;
-            for (int i = 0; i < bufferConfig_.serverBufferPrefillOnConnect; i++) {
-                lastInserted = lastInserted->createPrePaddingPackage();
-                reverse.push(lastInserted);
-            }
-            while (!reverse.empty()) {
-                incomingData_[clientName]->push(reverse.top());
-                reverse.pop();
-            }
-        }
+		// Publish a fully constructed, stable value. Concurrent readers never observe
+		// an empty mapped smart pointer and never access queue ownership directly.
+		auto insertion = incomingData_.insert(
+			std::make_pair(clientName, std::make_shared<ClientState>(clientName)));
+		auto clientState = insertion.first->second;
+		const auto prefillCount = static_cast<std::size_t>(
+			std::max(0, bufferConfig_.serverBufferPrefillOnConnect));
+		const auto result = clientState->push(audioData, prefillCount);
 
-        if (incomingData_[clientName]->push(audioData)) {
-            // Only if this was not a duplicate package do give the mixer thread a tick, else duplicates will cause queue drain
-            wakeUpQueue_.push(
+		switch (result.transition) {
+		case ClientConnectionTransition::InitialConnection:
+			ServerLogger::printClientStatus(4, clientName, "New client connected, first package received");
+			break;
+		case ClientConnectionTransition::GraceRecovery:
+			ServerLogger::printClientStatus(4, clientName, "Client recovered during disconnect grace period");
+			break;
+		case ClientConnectionTransition::Reconnection:
+			ServerLogger::printClientStatus(4, clientName, "Reconnected successfully and starts sending again");
+			break;
+		case ClientConnectionTransition::None:
+			break;
+		}
+
+		if (result.queued) {
+			// Only if this was not a duplicate package do give the mixer thread a tick, else duplicates will cause queue drain
+			wakeUpQueue_.push(
                     1); // The value pushed is irrelevant, we just want to wake up the mixer thread which is in a blocking read on this queue
         }
     }

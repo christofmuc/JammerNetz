@@ -39,9 +39,16 @@ void MixerThread::run() {
 		int available = 0;
 		for (auto &inqueue : incoming_) {
 			if (inqueue.second) {
+				if (inqueue.second->disconnectIfGraceExpired()) {
+					ServerLogger::printClientStatus(4, inqueue.first, "Disconnect grace period expired");
+				}
+				const auto snapshot = inqueue.second->snapshot();
+				if (snapshot.state == ClientConnectionState::Disconnected) {
+					continue;
+				}
 				clientCount++;
-				if ((int)inqueue.second->size() > bufferConfig_.serverIncomingJitterBuffer) available++;
-				if ((int)inqueue.second->size() > bufferConfig_.serverIncomingMaximumBuffer) queueOverrun = true; // This is one client much faster than the others
+				if (static_cast<int>(snapshot.size) > bufferConfig_.serverIncomingJitterBuffer) available++;
+				if (static_cast<int>(snapshot.size) > bufferConfig_.serverIncomingMaximumBuffer) queueOverrun = true; // This is one client much faster than the others
 			}
 		}
 		if (clientCount == available) allHaveDelivered = true;
@@ -50,47 +57,48 @@ void MixerThread::run() {
 
 		// Ok, we are committed now to mix the data!
 		std::map<std::string, std::shared_ptr<JammerNetzAudioData>> incomingData;
+		std::map<std::string, std::uint64_t> observedActivity;
 		// Try to pop a package from each client
 		for (auto &inqueue : incoming_) {
-			if (inqueue.second) { // Skip client entries without a queue
+			if (inqueue.second) {
 				if (incomingData.find(inqueue.first) == incomingData.end()) {
 					// That client hasn't popped yet - try it!
 					std::shared_ptr<JammerNetzAudioData> popped;
-					bool isFillIn;
-					if (inqueue.second->try_pop(popped, isFillIn)) {
+					bool isFillIn = false;
+					std::uint64_t activityGeneration = 0;
+					if (inqueue.second->tryPop(popped, isFillIn, activityGeneration)) {
 						incomingData[inqueue.first] = popped;
 						if (isFillIn) {
 							wakeUpQueue_.push(0);
 						}
 					}
+					else if (inqueue.second->snapshot().state != ClientConnectionState::Disconnected) {
+						observedActivity[inqueue.first] = activityGeneration;
+					}
 				}
 			}
 		}
 
-		// All clients who have not delivered by now are to be gone!
+		// Start a grace period for clients that have not delivered. The activity
+		// generation prevents a packet racing this decision from being ignored.
 		// While doing this, sort all session infos into a multimap with sender -> session info
 		std::multimap<std::string, JammerNetzChannelSetup> allSessionChannels;
-		std::vector<std::string> toBeRemoved;
 		for (auto inClient = incoming_.cbegin(); inClient != incoming_.cend(); inClient++) {
 			if (inClient->second) {
-				if (incomingData.find(inClient->first) == incomingData.end()) {
-					ServerLogger::printClientStatus(4, inClient->first, "Jitter queue underrun, removing from client list in mix!");
-					toBeRemoved.push_back(inClient->first);
+				auto observation = observedActivity.find(inClient->first);
+				if (observation != observedActivity.end()) {
+					if (inClient->second->markUnderrun(observation->second)) {
+						ServerLogger::printClientStatus(4, inClient->first,
+							"Jitter queue underrun, starting disconnect grace period");
+					}
 				}
-				else {
+				else if (incomingData.find(inClient->first) != incomingData.end()) {
 					// TODO- do we need to do this every packet?
 					// Is part of mix, list in session info
 					allSessionChannels.emplace(inClient->first, incomingData[inClient->first]->channelSetup());
 				}
 			}
 		}
-			for (auto remove : toBeRemoved) {
-				// Kill the queue of that client
-				//TODO - this is not thread safe. I am not allowed to remove the queue, I can only empty it and somewhere else flag the client as connected or not.
-				incoming_[remove].reset();
-				// Keep the endpoint->clientId mapping stable across temporary underruns/reconnects.
-				// Otherwise remote-control target IDs churn and control messages get dropped.
-			}
 
 		// All clients have delivered (or one has a timeout), mix them all together!
 		if (incomingData.size() > 0) {
