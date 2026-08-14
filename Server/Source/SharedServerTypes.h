@@ -9,7 +9,7 @@
 #include "JuceHeader.h"
 
 #include "JammerNetzPackage.h"
-#include "PacketStreamQueue.h"
+#include "ClientState.h"
 
 #ifdef __GNUC__
 #pragma GCC diagnostic push
@@ -42,7 +42,7 @@ public:
 #pragma warning( push )
 #pragma warning( disable : 4996 ) // Disable deprecated warning for now, as it is inside TBB
 #endif
-typedef tbb::concurrent_unordered_map<std::string, std::unique_ptr<PacketStreamQueue>> TPacketStreamBundle;
+typedef tbb::concurrent_unordered_map<std::string, std::shared_ptr<ClientState>> TPacketStreamBundle;
 typedef tbb::concurrent_bounded_queue < OutgoingPackage > TOutgoingQueue;
 typedef tbb::concurrent_bounded_queue<int> TMessageQueue;
 #if WIN32
