@@ -30,3 +30,29 @@ Build the plug-in together with the client targets:
 cmake -S . -B builds -DBUILD_JAMMERNETZ_CLIENT=ON -DBUILD_JAMMERNETZ_PLUGIN=ON
 cmake --build builds --config RelWithDebInfo --target JammerNetzPlugin_VST3
 ```
+
+## Windows Debug workflow
+
+MSVC Debug binaries require the non-redistributable Debug CRT to be available
+while JUCE generates VST3 metadata, while tests run, and while Ableton scans the
+plug-in. The helper script locates Visual Studio's Debug CRT and the matching
+oneTBB runtime and adds both to the child process environment.
+
+After configuring the Visual Studio CMake build in `builds`, use:
+
+```bat
+Plugin\windows-debug.cmd build
+Plugin\windows-debug.cmd server
+Plugin\windows-debug.cmd ableton
+```
+
+`build` builds the Debug VST3, matching server, and plug-in tests, then runs the
+tests. Run `server` and `ableton` in separate terminals. If Ableton is installed
+somewhere other than the default Live 12 Suite location, pass its executable:
+
+```bat
+Plugin\windows-debug.cmd ableton "C:\path\to\Ableton Live.exe"
+```
+
+Run `Plugin\windows-debug.cmd help` for all available actions. Do not distribute
+the Debug CRT; use a Release or RelWithDebInfo build for distributable binaries.
