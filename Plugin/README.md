@@ -16,6 +16,8 @@ The first version intentionally has a narrow host contract:
   input.
 - Project state contains connection and mix settings, but not the cryptographic
   key. The key-file path is stored in the machine-local JammerNetz settings.
+- The Windows VST3 bundle includes its required oneTBB runtime beside the plug-in
+  binary.
 
 With **Dry passthrough / suppress self return** enabled, the host input is mixed
 locally and the server is asked not to return the sender's own channels. Until

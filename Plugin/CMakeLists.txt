@@ -47,5 +47,19 @@ endif()
 set(PLUGIN_TEST_NAME JammerNetzPluginTest)
 add_executable(${PLUGIN_TEST_NAME} Source/JammerNetzPluginTests.cpp)
 target_link_libraries(${PLUGIN_TEST_NAME} PRIVATE JammerNetzPlugin gtest gtest_main)
+
+if(WIN32)
+	set(JAMMERNETZ_TBB_RUNTIME
+		${CMAKE_BINARY_DIR}/$<IF:$<CONFIG:Release>,${MY_TBB_BINARY_DIR_BASE}_release/tbb12.dll,$<IF:$<CONFIG:Debug>,${MY_TBB_BINARY_DIR_BASE}_debug/tbb12_debug.dll,${MY_TBB_BINARY_DIR_BASE}_relwithdebinfo/tbb12.dll>>)
+	add_custom_command(TARGET ${PLUGIN_TEST_NAME} POST_BUILD
+		COMMAND ${CMAKE_COMMAND} -E copy_if_different
+			${JAMMERNETZ_TBB_RUNTIME}
+			$<TARGET_FILE_DIR:${PLUGIN_TEST_NAME}>)
+	add_custom_command(TARGET JammerNetzPlugin_VST3 POST_BUILD
+		COMMAND ${CMAKE_COMMAND} -E copy_if_different
+			${JAMMERNETZ_TBB_RUNTIME}
+			$<TARGET_FILE_DIR:JammerNetzPlugin_VST3>)
+endif()
+
 gtest_discover_tests(${PLUGIN_TEST_NAME})
 set_target_properties(${PLUGIN_TEST_NAME} PROPERTIES FOLDER tests)
