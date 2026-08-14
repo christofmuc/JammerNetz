@@ -15,7 +15,10 @@
 template <typename Item>
 class BoundedSpscQueue {
 public:
-	explicit BoundedSpscQueue(int capacity) : fifo_(capacity), slots_(static_cast<size_t>(capacity)) {}
+	// AbstractFifo keeps one backing slot empty to distinguish full from empty,
+	// so allocate one extra slot to make this wrapper's capacity exact.
+	explicit BoundedSpscQueue(int capacity)
+		: fifo_(capacity + 1), slots_(static_cast<size_t>(capacity + 1)) {}
 
 	template <typename Writer>
 	bool tryWrite(Writer&& writer)
