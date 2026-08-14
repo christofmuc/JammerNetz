@@ -62,11 +62,12 @@ void SendThread::sendClientInfoPackage(std::string const &targetAddress)
 	// Loop over the incoming data streams and add them to our statistics package we are going to send to the client
 	JammerNetzClientInfoMessage clientInfoPackage;
 	for (auto &incoming : incomingData_) {
-		if (incoming.second && incoming.second->size() > 0) {
+		JammerNetzStreamQualityInfo qualityInfo;
+		if (incoming.second && incoming.second->snapshot().size > 0 && incoming.second->qualityInfo(qualityInfo)) {
 			String ipAddress;
 			int port;
 			determineTargetIP(incoming.first, ipAddress, port);
-			clientInfoPackage.addClientInfo(IPAddress(ipAddress), port, incoming.second->qualityInfoPackage());
+			clientInfoPackage.addClientInfo(IPAddress(ipAddress), port, qualityInfo);
 		}
 	}
 	if (clientInfoPackage.getNumClients() == 0) {

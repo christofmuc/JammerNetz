@@ -115,6 +115,31 @@ set(gtest_force_shared_crt ON) # needed to build on Windows
 set(CMAKE_POLICY_DEFAULT_CMP0077 NEW) # otherwise the flag set above is ignored?
 add_subdirectory(third_party/googletest EXCLUDE_FROM_ALL)
 
+# Debug builds use the non-redistributable MSVC and UCRT development DLLs.
+# Deploy them beside local executables so they can be launched directly from
+# Visual Studio without modifying the developer's PATH.
+if(MSVC)
+	set(CMAKE_INSTALL_DEBUG_LIBRARIES TRUE)
+	set(CMAKE_INSTALL_DEBUG_LIBRARIES_ONLY TRUE)
+	set(CMAKE_INSTALL_UCRT_LIBRARIES TRUE)
+	set(CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS_SKIP TRUE)
+	include(InstallRequiredSystemLibraries)
+
+	function(jammernetz_copy_msvc_debug_runtime target)
+		add_custom_command(
+			TARGET ${target} POST_BUILD
+			COMMAND ${CMAKE_COMMAND} -E $<IF:$<CONFIG:Debug>,copy_if_different,true>
+					"$<$<CONFIG:Debug>:${CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS}>"
+					"$<$<CONFIG:Debug>:$<TARGET_FILE_DIR:${target}>>"
+			COMMAND_EXPAND_LISTS
+			COMMENT "Deploying the MSVC Debug runtime for ${target}"
+		)
+	endfunction()
+else()
+	function(jammernetz_copy_msvc_debug_runtime target)
+	endfunction()
+endif()
+
 # See https://cmake.org/cmake/help/v3.10/module/GoogleTest.html
 # Keep cache clean
 mark_as_advanced(
