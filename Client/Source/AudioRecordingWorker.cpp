@@ -26,6 +26,7 @@ void AudioRecordingWorker::shutdown()
 {
 	signalThreadShouldExit();
 	stopThread(2000);
+	queue_.reset();
 }
 
 bool AudioRecordingWorker::enqueue(RecordingTarget target, const float* const* channels, int numChannels, int numSamples) noexcept

@@ -68,6 +68,8 @@ void AudioReceiveWorker::shutdown()
 {
 	signalThreadShouldExit();
 	stopThread(2000);
+	outputQueue_.reset();
+	packetQueue_.reset();
 	midiSender_.store(nullptr, std::memory_order_release);
 }
 

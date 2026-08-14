@@ -71,6 +71,8 @@ jobs:
     - name: Build with CMake
       run: |
         cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_RPATH_USE_LINK_PATH="ON" -DJAMMERNETZ_ENABLE_LTO=ON -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+        cmake --build build --target JammerNetzPlugin_VST3 JammerNetzPluginTest --parallel
+        ctest --test-dir build -R JammerNetzPluginTest --output-on-failure
         cmake --build build --target package --parallel
 
     - name: Upload Mac Installer
@@ -78,3 +80,9 @@ jobs:
       with:
         name: MacInstaller
         path: build/JammerNetz-2.3.0-Darwin.dmg
+
+    - name: Upload macOS VST3
+      uses: actions/upload-artifact@v4
+      with:
+        name: JammerNetz-macOS-VST3
+        path: build/Plugin/JammerNetzPlugin_artefacts/RelWithDebInfo/VST3/JammerNetz.vst3

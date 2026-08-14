@@ -47,6 +47,7 @@ public:
 
 	int size() const noexcept { return fifo_.getNumReady(); }
 	int freeSpace() const noexcept { return fifo_.getFreeSpace(); }
+	void reset() noexcept { fifo_.reset(); }
 
 private:
 	juce::AbstractFifo fifo_;

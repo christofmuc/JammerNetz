@@ -28,6 +28,7 @@ void AudioTransmitWorker::shutdown()
 {
 	signalThreadShouldExit();
 	stopThread(2000);
+	queue_.reset();
 }
 
 void AudioTransmitWorker::setChannelSetup(const JammerNetzChannelSetup& setup)
