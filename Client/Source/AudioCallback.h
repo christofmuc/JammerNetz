@@ -13,9 +13,10 @@
 
 // Standalone-only adapter. The reusable engine deliberately has no dependency on
 // an AudioIODevice or the application's ValueTree state.
-class AudioCallback final : public juce::AudioIODeviceCallback {
+class AudioCallback final : public juce::AudioIODeviceCallback, private juce::Timer {
 public:
 	AudioCallback(JammerNetzAudioEngine& engine, std::function<void(float)> serverBpmChanged);
+	~AudioCallback() override;
 
 	void audioDeviceIOCallbackWithContext(const float* const* inputChannelData, int numInputChannels, float* const* outputChannelData,
 		int numOutputChannels, int numSamples, const juce::AudioIODeviceCallbackContext& context) override;
@@ -23,6 +24,8 @@ public:
 	void audioDeviceStopped() override;
 
 private:
+	void timerCallback() override;
+
 	JammerNetzAudioEngine& engine_;
 	std::function<void(float)> serverBpmChanged_;
 };

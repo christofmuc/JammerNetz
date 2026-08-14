@@ -11,6 +11,12 @@
 AudioCallback::AudioCallback(JammerNetzAudioEngine& engine, std::function<void(float)> serverBpmChanged)
 	: engine_(engine), serverBpmChanged_(std::move(serverBpmChanged))
 {
+	startTimerHz(20);
+}
+
+AudioCallback::~AudioCallback()
+{
+	stopTimer();
 }
 
 void AudioCallback::audioDeviceIOCallbackWithContext(const float* const* inputChannelData, int numInputChannels,
@@ -18,6 +24,10 @@ void AudioCallback::audioDeviceIOCallbackWithContext(const float* const* inputCh
 {
 	juce::ignoreUnused(context);
 	engine_.process(inputChannelData, numInputChannels, outputChannelData, numOutputChannels, numSamples);
+}
+
+void AudioCallback::timerCallback()
+{
 	if (const auto bpm = engine_.takeServerBpmUpdate()) {
 		serverBpmChanged_(*bpm);
 	}

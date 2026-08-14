@@ -25,6 +25,7 @@ Recorder::~Recorder()
 	// Stop writing, make sure to finalize file
 	{
 		ScopedLock lock(stateLock_);
+		recording_.store(false, std::memory_order_release);
 		writeThread_.reset();
 	}
 	// Give it a second to flush and exit
@@ -40,12 +41,12 @@ void Recorder::setRecording(bool recordOn)
 	} else if (!recordOn && writeThread_ != nullptr) {
 		writeThread_.reset();
 	}
+	recording_.store(writeThread_ != nullptr, std::memory_order_release);
 }
 
 bool Recorder::isRecording() const
 {
-	ScopedLock lock(stateLock_);
-	return writeThread_ != nullptr;
+	return recording_.load(std::memory_order_acquire);
 }
 
 RelativeTime Recorder::getElapsedTime() const
@@ -190,6 +191,7 @@ void Recorder::setDirectory(File &directory)
 {
 	ScopedLock lock(stateLock_);
 	// Stop writing if any
+	recording_.store(false, std::memory_order_release);
 	writeThread_.reset();
 	directory_ = directory;
 }

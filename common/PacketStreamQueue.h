@@ -59,6 +59,7 @@ public:
 
 	bool push(std::shared_ptr<JammerNetzAudioData> packet);
 	bool try_pop(std::shared_ptr<JammerNetzAudioData> &element, bool &outIsFillIn);
+	void reset();
 	size_t size() const;
 
 	std::string qualityStatement() const;
