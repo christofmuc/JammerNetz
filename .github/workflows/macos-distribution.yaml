@@ -1,0 +1,200 @@
+name: macOS Signed Distribution
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+    - '[0-9]+.[0-9]+.[0-9]+'
+    - '[0-9]+.[0-9]+.[0-9]+-rc[0-9]+'
+
+permissions:
+  contents: read
+
+jobs:
+  distribution:
+    runs-on: macos-latest
+    timeout-minutes: 90
+
+    steps:
+    - name: Require an Apple Silicon runner
+      run: test "$(uname -m)" = "arm64"
+
+    - name: Disable git automatic line ending conversion
+      run: git config --global core.autocrlf false
+
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Validate signing secrets
+      env:
+        APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+        APPLE_DEVELOPER_IDENTITY: ${{ secrets.APPLE_DEVELOPER_IDENTITY }}
+        APPLE_ID: ${{ secrets.APPLE_ID }}
+        MACOS_CERTIFICATE_BASE64: ${{ secrets.MACOS_CERTIFICATE_BASE64 }}
+        MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+        MACOS_TEMPORARY_KEYCHAIN_PASSWORD: ${{ secrets.MACOS_TEMPORARY_KEYCHAIN_PASSWORD }}
+        TEAM_ID: ${{ secrets.TEAM_ID }}
+      run: |
+        missing=0
+        for name in APPLE_APP_SPECIFIC_PASSWORD APPLE_DEVELOPER_IDENTITY APPLE_ID MACOS_CERTIFICATE_BASE64 MACOS_CERTIFICATE_PASSWORD MACOS_TEMPORARY_KEYCHAIN_PASSWORD TEAM_ID; do
+          if [[ -z "${!name:-}" ]]; then
+            echo "::error::Required repository secret '$name' is not configured."
+            missing=1
+          fi
+        done
+        exit "$missing"
+
+    - name: Import Developer ID certificate
+      env:
+        APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+        APPLE_DEVELOPER_IDENTITY: ${{ secrets.APPLE_DEVELOPER_IDENTITY }}
+        APPLE_ID: ${{ secrets.APPLE_ID }}
+        MACOS_CERTIFICATE_BASE64: ${{ secrets.MACOS_CERTIFICATE_BASE64 }}
+        MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+        MACOS_TEMPORARY_KEYCHAIN_PASSWORD: ${{ secrets.MACOS_TEMPORARY_KEYCHAIN_PASSWORD }}
+        TEAM_ID: ${{ secrets.TEAM_ID }}
+      run: |
+        certificate_path="$RUNNER_TEMP/jammernetz-developer-id.p12"
+        keychain_path="$RUNNER_TEMP/jammernetz-signing.keychain-db"
+        notary_profile="jammernetz-notary"
+
+        printf '%s' "$MACOS_CERTIFICATE_BASE64" | base64 --decode > "$certificate_path"
+        security create-keychain -p "$MACOS_TEMPORARY_KEYCHAIN_PASSWORD" "$keychain_path"
+        security set-keychain-settings -lut 21600 "$keychain_path"
+        security unlock-keychain -p "$MACOS_TEMPORARY_KEYCHAIN_PASSWORD" "$keychain_path"
+        security import "$certificate_path" -k "$keychain_path" -P "$MACOS_CERTIFICATE_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security
+        security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$MACOS_TEMPORARY_KEYCHAIN_PASSWORD" "$keychain_path"
+        security list-keychains -d user -s "$keychain_path"
+        security find-identity -v -p codesigning "$keychain_path" | grep -F "$APPLE_DEVELOPER_IDENTITY"
+
+        xcrun notarytool store-credentials "$notary_profile" \
+          --apple-id "$APPLE_ID" \
+          --team-id "$TEAM_ID" \
+          --password "$APPLE_APP_SPECIFIC_PASSWORD" \
+          --keychain "$keychain_path"
+
+        rm -f "$certificate_path"
+        echo "JAMMERNETZ_CODESIGN_KEYCHAIN=$keychain_path" >> "$GITHUB_ENV"
+        echo "JAMMERNETZ_NOTARY_PROFILE=$notary_profile" >> "$GITHUB_ENV"
+
+    - name: Install dependencies
+      run: brew install gtk+3 glew ninja
+
+    - name: Build Flatbuffers
+      run: |
+        cmake -S third_party/flatbuffers -B third_party/flatbuffers/LinuxBuilds -G Ninja -DCMAKE_BUILD_TYPE=Release
+        cmake --build third_party/flatbuffers/LinuxBuilds --parallel
+
+    - name: Build and test Apple Silicon artifacts
+      env:
+        APPLE_DEVELOPER_IDENTITY: ${{ secrets.APPLE_DEVELOPER_IDENTITY }}
+      run: |
+        cmake -S . -B build -G Ninja \
+          -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+          -DCMAKE_OSX_ARCHITECTURES=arm64 \
+          -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 \
+          -DCMAKE_INSTALL_RPATH_USE_LINK_PATH=ON \
+          -DJAMMERNETZ_ENABLE_LTO=ON \
+          -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+          -DCPACK_BUNDLE_APPLE_CERT_APP="$APPLE_DEVELOPER_IDENTITY" \
+          -DJAMMERNETZ_CODESIGN_KEYCHAIN="$JAMMERNETZ_CODESIGN_KEYCHAIN"
+        cmake --build build --target JammerNetzPlugin_VST3 JammerNetzPlugin_AU JammerNetzPluginTest --parallel
+        ctest --test-dir build -R JammerNetzPluginTest --output-on-failure
+
+        vst3="build/Plugin/JammerNetzPlugin_artefacts/RelWithDebInfo/VST3/JammerNetz.vst3"
+        component="build/Plugin/JammerNetzPlugin_artefacts/RelWithDebInfo/AU/JammerNetz.component"
+        bash scripts/macos-sign-bundle.sh "$vst3" "$APPLE_DEVELOPER_IDENTITY" "$JAMMERNETZ_CODESIGN_KEYCHAIN"
+        bash scripts/macos-sign-bundle.sh "$component" "$APPLE_DEVELOPER_IDENTITY" "$JAMMERNETZ_CODESIGN_KEYCHAIN"
+
+        cmake --build build --target package --parallel
+
+    - name: Validate signed bundles
+      env:
+        APPLE_DEVELOPER_IDENTITY: ${{ secrets.APPLE_DEVELOPER_IDENTITY }}
+      run: |
+        app="build/Client/JammerNetzClient.app"
+        vst3="build/Plugin/JammerNetzPlugin_artefacts/RelWithDebInfo/VST3/JammerNetz.vst3"
+        component="build/Plugin/JammerNetzPlugin_artefacts/RelWithDebInfo/AU/JammerNetz.component"
+        shopt -s nullglob
+        dmgs=(build/JammerNetz-*-Darwin.dmg)
+        if [[ ${#dmgs[@]} -ne 1 ]]; then
+          echo "::error::Expected one JammerNetz DMG, found ${#dmgs[@]}."
+          exit 1
+        fi
+        dmg=${dmgs[0]}
+
+        test "$(lipo -archs "$app/Contents/MacOS/JammerNetzClient")" = "arm64"
+        test "$(lipo -archs "$vst3/Contents/MacOS/JammerNetz")" = "arm64"
+        test "$(lipo -archs "$component/Contents/MacOS/JammerNetz")" = "arm64"
+        codesign --verify --deep --strict --verbose=2 "$app"
+        codesign --verify --deep --strict --verbose=2 "$vst3"
+        codesign --verify --deep --strict --verbose=2 "$component"
+
+        for binary in "$vst3/Contents/MacOS/JammerNetz" "$component/Contents/MacOS/JammerNetz"; do
+          if otool -L "$binary" | tail -n +2 | grep -E "$GITHUB_WORKSPACE|/opt/homebrew|/usr/local"; then
+            echo "::error::Distributed plug-in retains a build-machine dependency: $binary"
+            exit 1
+          fi
+        done
+
+        codesign --force --timestamp --sign "$APPLE_DEVELOPER_IDENTITY" --keychain "$JAMMERNETZ_CODESIGN_KEYCHAIN" "$dmg"
+        codesign --verify --strict --verbose=2 "$dmg"
+
+    - name: Notarize and staple artifacts
+      run: |
+        set -euo pipefail
+        vst3="build/Plugin/JammerNetzPlugin_artefacts/RelWithDebInfo/VST3/JammerNetz.vst3"
+        component="build/Plugin/JammerNetzPlugin_artefacts/RelWithDebInfo/AU/JammerNetz.component"
+        shopt -s nullglob
+        dmgs=(build/JammerNetz-*-Darwin.dmg)
+        if [[ ${#dmgs[@]} -ne 1 ]]; then
+          echo "::error::Expected one JammerNetz DMG, found ${#dmgs[@]}."
+          exit 1
+        fi
+        dmg=${dmgs[0]}
+        submission_dir="$RUNNER_TEMP/jammernetz-notarization"
+        distribution_dir="$GITHUB_WORKSPACE/build/distribution"
+        mkdir -p "$submission_dir" "$distribution_dir"
+
+        ditto -c -k --keepParent --sequesterRsrc "$vst3" "$submission_dir/JammerNetz-macOS-VST3.zip"
+        ditto -c -k --keepParent --sequesterRsrc "$component" "$submission_dir/JammerNetz-macOS-AUv2.zip"
+
+        for artifact in "$dmg" "$submission_dir/JammerNetz-macOS-VST3.zip" "$submission_dir/JammerNetz-macOS-AUv2.zip"; do
+          xcrun notarytool submit "$artifact" \
+            --keychain-profile "$JAMMERNETZ_NOTARY_PROFILE" \
+            --keychain "$JAMMERNETZ_CODESIGN_KEYCHAIN" \
+            --wait \
+            --timeout 30m
+        done
+
+        xcrun stapler staple "$dmg"
+        xcrun stapler validate "$dmg"
+        xcrun stapler staple "$vst3"
+        xcrun stapler validate "$vst3"
+        xcrun stapler staple "$component"
+        xcrun stapler validate "$component"
+
+        spctl --assess --type open --context context:primary-signature --ignore-cache --verbose=2 "$dmg"
+        spctl --assess --type execute --ignore-cache --verbose=2 "$vst3"
+        spctl --assess --type execute --ignore-cache --verbose=2 "$component"
+
+        ditto -c -k --keepParent --sequesterRsrc "$vst3" "$distribution_dir/JammerNetz-macOS-VST3.zip"
+        ditto -c -k --keepParent --sequesterRsrc "$component" "$distribution_dir/JammerNetz-macOS-AUv2.zip"
+        cp "$dmg" "$distribution_dir/"
+
+    - name: Upload notarized distribution
+      uses: actions/upload-artifact@v4
+      with:
+        name: JammerNetz-macOS-notarized
+        path: build/distribution/
+        if-no-files-found: error
+
+    - name: Delete temporary signing keychain
+      if: always()
+      run: |
+        if [[ -n "${JAMMERNETZ_CODESIGN_KEYCHAIN:-}" ]]; then
+          security delete-keychain "$JAMMERNETZ_CODESIGN_KEYCHAIN" || true
+        fi
+        rm -f "$RUNNER_TEMP/jammernetz-developer-id.p12"

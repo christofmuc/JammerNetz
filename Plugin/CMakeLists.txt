@@ -45,6 +45,15 @@ if(MSVC)
 	target_compile_options(JammerNetzPlugin PRIVATE /W4 /WX)
 elseif(APPLE)
 	target_compile_options(JammerNetzPlugin PRIVATE -Wall -Wextra -Werror -Wno-unknown-pragmas)
+	foreach(JAMMERNETZ_PLUGIN_WRAPPER JammerNetzPlugin_VST3 JammerNetzPlugin_AU)
+		add_custom_command(TARGET ${JAMMERNETZ_PLUGIN_WRAPPER} POST_BUILD
+			COMMAND ${CMAKE_COMMAND}
+				"-DJAMMERNETZ_FIXUP_BUNDLE=$<TARGET_BUNDLE_DIR:${JAMMERNETZ_PLUGIN_WRAPPER}>"
+				"-DJAMMERNETZ_FIXUP_SEARCH_DIRECTORIES=$<TARGET_FILE_DIR:tbb>;${CMAKE_BINARY_DIR}"
+				-P "${CMAKE_SOURCE_DIR}/cmake/FixupMacOSBundle.cmake"
+			COMMENT "Bundling macOS runtime dependencies for ${JAMMERNETZ_PLUGIN_WRAPPER}"
+			VERBATIM)
+	endforeach()
 else()
 	target_compile_options(JammerNetzPlugin PRIVATE -Wall -Wextra -Werror -Wno-unknown-pragmas)
 endif()
