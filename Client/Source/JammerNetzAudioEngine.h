@@ -154,8 +154,6 @@ private:
 	std::atomic<float> pendingServerBpm_;
 	ReadOnceLatch<float> serverBpmUpdate_;
 	std::atomic<int64_t> bpmSliderLastMovedTicks_;
-	std::string currentText_;
-
 	FFAU::LevelMeterSource meterSource_; // This is for peak metering
 	FFAU::LevelMeterSource sessionMeterSource_; // This is to display the complete session peak meters
 	FFAU::LevelMeterSource outMeterSource_; // This is for peak metering the output

@@ -123,6 +123,10 @@ void JammerNetzAudioEngine::restartClock(std::vector<MidiDeviceInfo> outputs)
 {
 	// Where to send the Midi Clock signals
 	auto retiredMidiSendThread = midiSendThread_.load(std::memory_order_acquire);
+	midiSendThread_.store(nullptr, std::memory_order_release);
+	if (retiredMidiSendThread) {
+		retiredMidiSendThread->shutdown();
+	}
 	midiSendThread_.store(std::make_shared<MidiSendThread>(outputs), std::memory_order_release);
 	if (retiredMidiSendThread) {
 		const ScopedLock lock(retiredMidiSendThreadsLock_);

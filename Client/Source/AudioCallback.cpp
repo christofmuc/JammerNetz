@@ -18,7 +18,7 @@ void AudioCallback::audioDeviceIOCallbackWithContext(const float* const* inputCh
 {
 	juce::ignoreUnused(context);
 	engine_.process(inputChannelData, numInputChannels, outputChannelData, numOutputChannels, numSamples);
-	if (const auto bpm = engine_.takeServerBpmUpdate()) {
+	if (const auto bpm = engine_.takeServerBpmUpdate(); bpm && serverBpmChanged_) {
 		serverBpmChanged_(*bpm);
 	}
 }

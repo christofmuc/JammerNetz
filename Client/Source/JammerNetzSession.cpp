@@ -6,6 +6,7 @@
 
 #include "JammerNetzSession.h"
 
+#include <iostream>
 
 bool JammerNetzSession::start(std::function<void(std::shared_ptr<JammerNetzAudioData>)> newDataHandler,
 	const JammerNetzSessionConfiguration& configuration)

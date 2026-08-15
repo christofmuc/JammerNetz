@@ -24,10 +24,8 @@ Client::~Client()
 
 void Client::setServer(const juce::String& serverName, int serverPort, bool useLocalhost)
 {
-	{
-		const juce::ScopedLock lock(serverLock_);
-		serverName_ = serverName;
-	}
+	const juce::ScopedLock lock(serverLock_);
+	serverName_ = serverName;
 	serverPort_.store(serverPort > 0 ? serverPort : 7777, std::memory_order_relaxed);
 	useLocalhost_.store(useLocalhost, std::memory_order_relaxed);
 }
@@ -99,12 +97,16 @@ bool Client::sendBufferToServer(size_t totalBytes)
 {
 	// Send off to server
 	String servername;
+	int serverPort;
+	bool useLocalhost;
 	{
 		ScopedLock lock(serverLock_);
 		servername = serverName_;
+		serverPort = serverPort_.load(std::memory_order_relaxed);
+		useLocalhost = useLocalhost_.load(std::memory_order_relaxed);
 	}
 
-	if (useLocalhost_) {
+	if (useLocalhost) {
 		servername = "127.0.0.1";
 	}
 
@@ -116,7 +118,7 @@ bool Client::sendBufferToServer(size_t totalBytes)
 				std::cerr << "Fatal: Couldn't encrypt package, not sending to server!" << std::endl;
 				return false;
 			}
-			const bool sent = sendData(servername, serverPort_, sendBuffer_, encryptedLength);
+			const bool sent = sendData(servername, serverPort, sendBuffer_, encryptedLength);
 			if (sent) {
 				currentBlockSize_ = encryptedLength;
 			}
@@ -131,7 +133,7 @@ bool Client::sendBufferToServer(size_t totalBytes)
 	}
 
 	const int bytesToSend = static_cast<int>(totalBytes);
-	const bool sent = sendData(servername, serverPort_, sendBuffer_, bytesToSend);
+	const bool sent = sendData(servername, serverPort, sendBuffer_, bytesToSend);
 	if (sent) {
 		currentBlockSize_ = bytesToSend;
 	}
