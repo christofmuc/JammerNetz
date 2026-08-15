@@ -15,7 +15,10 @@
 template <typename Item>
 class BoundedSpscQueue {
 public:
-	explicit BoundedSpscQueue(int capacity) : fifo_(capacity), slots_(static_cast<size_t>(capacity)) {}
+	explicit BoundedSpscQueue(int capacity)
+		: fifo_(capacity + 1), slots_(static_cast<size_t>(capacity + 1))
+	{
+	}
 
 	template <typename Writer>
 	bool tryWrite(Writer&& writer)

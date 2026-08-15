@@ -58,8 +58,9 @@ void JammerNetzSession::shutdown()
 	if (socket_) {
 		socket_->shutdown();
 	}
-	if (receiver_ && !receiver_->stopThread(2000)) {
-		std::cerr << "JammerNetz receiver thread did not stop cleanly" << std::endl;
+	if (receiver_ && !receiver_->waitForThreadToExit(2000)) {
+		std::cerr << "JammerNetz receiver thread did not stop within two seconds; waiting for a clean exit" << std::endl;
+		receiver_->waitForThreadToExit(-1);
 	}
 	receiver_.reset();
 	sender_.reset();

@@ -47,9 +47,10 @@ Fix known correctness and lifecycle problems in the existing standalone structur
 
 ### 1.4 Lifetime and shutdown
 
-- Specify destruction order for the audio device, audio callback, receive thread, send path, socket, recorders, and UI observers.
-- Ensure callbacks cannot target an object after destruction has begun.
-- Make shutdown idempotent where practical.
+- The lifecycle owner (`AudioService` in the standalone client, or the host adapter in a plug-in) initiates shutdown and makes the transition idempotent with a shutdown flag.
+- Detach UI observers and reject newly scheduled work, then stop and close the audio device. Device shutdown must not return until every in-flight audio callback has completed; this callback-quiescence point happens before any callback dependency is destroyed.
+- Signal the receive, send, and recording workers, shut down the socket to unblock network waits, and join every worker. Worker completion happens before recorders, network state, and other worker-owned resources are destroyed.
+- Destroy recorders and detached UI observers only after callback and worker quiescence. No callback or queued task may target an object once its destruction has begun.
 - Replace constructor-time UI alerts in networking code with status/error propagation.
 
 ### 1.5 Baseline tests
@@ -57,7 +58,8 @@ Fix known correctness and lifecycle problems in the existing standalone structur
 - Channel setup changes with and without a channel-count change.
 - First initialization with empty and populated saved settings.
 - Empty and unusual device buffer-size lists.
-- Start/stop/restart and failed-open sequences.
+- Start/stop/restart and failed-open sequences, including assertions that `audioDeviceAboutToStart()` and `audioDeviceStopped()` are invoked as expected.
+- Post-shutdown callback guards that prove no audio or worker callback reaches released state.
 - Concurrent publication and reading of session/client snapshots.
 - Receive errors, malformed packets, server changes, and shutdown during network activity.
 

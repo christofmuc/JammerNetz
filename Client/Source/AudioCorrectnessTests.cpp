@@ -18,6 +18,11 @@ TEST(AudioCorrectness, FallsBackToLargestPositiveSizeBelowPreferredMinimum)
 	EXPECT_EQ(AudioCorrectness::selectBufferSize({ 0, -1, 32, 64 }), 64);
 }
 
+TEST(AudioCorrectness, RejectsAListWithoutPositiveSizes)
+{
+	EXPECT_FALSE(AudioCorrectness::selectBufferSize({ 0, -1, -256 }).has_value());
+}
+
 TEST(AudioCorrectness, RequiresInputAndOutputChannels)
 {
 	EXPECT_TRUE(AudioCorrectness::hasUsableChannelSelection({ 0 }, { 0, 1 }));

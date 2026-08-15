@@ -193,6 +193,9 @@ private:
 	std::unique_ptr<AudioTransmitWorker> transmitWorker_;
 	std::unique_ptr<AudioReceiveWorker> receiveWorker_;
 	std::unique_ptr<AudioRecordingWorker> recordingWorker_;
+	CriticalSection retiredMidiSendThreadsLock_;
+	std::vector<std::shared_ptr<MidiSendThread>> retiredMidiSendThreads_;
+	std::atomic<bool> inputChannelMismatchReported_ { false };
 
 	ReadOnceLatch<MidiSignal> midiSignalToSend_;
 	PlayoutQualityInfo lastPlayoutQualityInfo_;
