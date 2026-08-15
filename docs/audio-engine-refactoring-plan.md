@@ -268,6 +268,41 @@ Add a JUCE audio-effect plug-in as a second adapter over the completed engine.
 - Plug-in scanning, project restoration, bypass, editor closure, and shutdown are safe.
 - The plug-in does not weaken the real-time guarantees established in Phase 3.
 
+## Phase 5: macOS AUv2 adapter
+
+Build an Audio Unit v2 wrapper over the existing plug-in processor without
+changing its audio or session behavior.
+
+- Keep VST3 as the primary Ableton Live and cross-platform format.
+- Build AUv2 only on macOS and distribute it as `JammerNetz.component`.
+- Target Apple Silicon explicitly; Intel and Universal 2 artifacts are outside
+  the current support scope.
+- Run the shared processor tests and Apple's `auval` wrapper validation in CI.
+- Verify that both macOS plug-in binaries contain only the intended `arm64`
+  architecture.
+- Upload VST3 and AUv2 as separate CI artifacts.
+
+### Phase 5 completion criteria
+
+- The macOS CI build produces passing Apple Silicon VST3 and AUv2 artifacts.
+- The AUv2 component passes `auval` without starting a network session.
+- Windows and Linux builds remain unchanged by the additional Apple-only
+  format.
+
+## Phase 6: macOS distribution signing
+
+Prepare the standalone application, installer, VST3 bundle, and AUv2 component
+for distribution to other Mac users.
+
+- Sign all distributed executable code with the project's Developer ID.
+- Enable the hardened runtime and apply only the entitlements required by the
+  application and plug-ins.
+- Notarize the final installer or disk image and staple the resulting ticket.
+- Keep signing identities and notarization credentials in protected CI secrets;
+  never store them in the repository or ordinary build artifacts.
+- Test installation and plug-in discovery on a clean Apple Silicon Mac.
+- Treat unsigned CI artifacts as development outputs, not distributable builds.
+
 ## Deferred work
 
 The following are intentionally outside this plan:

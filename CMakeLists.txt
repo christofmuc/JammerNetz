@@ -24,7 +24,7 @@ endif()
 
 OPTION(BUILD_JAMMERNETZ_CLIENT "Option to turn off the client build" ON)
 OPTION(BUILD_JAMMERNETZ_SERVER "Build the server and bundle it with the standalone client" ON)
-OPTION(BUILD_JAMMERNETZ_PLUGIN "Build the JammerNetz VST3 plug-in adapter" ${BUILD_JAMMERNETZ_CLIENT})
+OPTION(BUILD_JAMMERNETZ_PLUGIN "Build the JammerNetz audio plug-in adapters" ${BUILD_JAMMERNETZ_CLIENT})
 OPTION(JAMMERNETZ_ENABLE_LTO "Enable JUCE LTO flags (better runtime performance, slower links)" OFF)
 
 if(BUILD_JAMMERNETZ_PLUGIN AND NOT BUILD_JAMMERNETZ_CLIENT)
