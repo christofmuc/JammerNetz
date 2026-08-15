@@ -125,8 +125,7 @@ nlohmann::json toJson(const HoldFlushResult& result)
 class HoldFlushScenario {
 public:
 	HoldFlushScenario(const std::size_t holdFrames, const bool flushHeldBeforeCurrent)
-		: result_ { holdFrames, flushHeldBeforeCurrent }
-		, clientA_(std::make_shared<ClientState>("client-a"))
+		: clientA_(std::make_shared<ClientState>("client-a"))
 		, clientB_(std::make_shared<ClientState>("client-b"))
 		, scheduler_(stereoMixdown(), {
 			SERVER_INCOMING_JITTER_BUFFER,
@@ -136,6 +135,8 @@ public:
 		, setupA_(monoSetup(JammerNetzChannelTarget::Left))
 		, setupB_(monoSetup(JammerNetzChannelTarget::Right))
 	{
+		result_.holdFrames = holdFrames;
+		result_.flushHeldBeforeCurrent = flushHeldBeforeCurrent;
 		clients_.emplace("client-a", clientA_);
 		clients_.emplace("client-b", clientB_);
 	}
