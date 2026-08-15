@@ -8,6 +8,8 @@
 
 #include <gtest/gtest.h>
 
+#include <cmath>
+#include <limits>
 #include <string>
 #include <tuple>
 #include <vector>
@@ -96,6 +98,24 @@ TEST(SignalOracleTest, CoalescesAdjacentDifferencesIntoSpans)
 	EXPECT_EQ(discrepancies[1].firstSample, 1010U);
 	EXPECT_EQ(discrepancies[1].lastSample, 1010U);
 	EXPECT_FLOAT_EQ(discrepancies[1].observedAtFirst, -0.5f);
+}
+
+TEST(SignalOracleTest, TreatsNonFiniteSamplesAsDiscrepancies)
+{
+	juce::AudioBuffer<float> expectedBuffer(1, 8);
+	expectedBuffer.clear();
+	juce::AudioBuffer<float> observedBuffer(expectedBuffer);
+	expectedBuffer.setSample(0, 2, std::numeric_limits<float>::quiet_NaN());
+	observedBuffer.setSample(0, 5, std::numeric_limits<float>::infinity());
+
+	const auto discrepancies = SignalOracle::compare(capture(expectedBuffer), capture(observedBuffer), 0.0f);
+	ASSERT_EQ(discrepancies.size(), 2U);
+	EXPECT_EQ(discrepancies[0].firstSample, 2U);
+	EXPECT_EQ(discrepancies[0].lastSample, 2U);
+	EXPECT_TRUE(std::isinf(discrepancies[0].maximumAbsoluteError));
+	EXPECT_EQ(discrepancies[1].firstSample, 5U);
+	EXPECT_EQ(discrepancies[1].lastSample, 5U);
+	EXPECT_TRUE(std::isinf(discrepancies[1].maximumAbsoluteError));
 }
 
 TEST(ScenarioTraceTest, WritesDeterministicJsonLinesUnderTheBuildTree)

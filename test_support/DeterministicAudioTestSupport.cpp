@@ -169,10 +169,12 @@ std::vector<DiscrepancySpan> SignalOracle::compare(const CapturedAudio& expected
 			const bool observedExists = channel < observed.channelCount() && sampleIndex < observed.sampleCount();
 			const float expectedValue = expectedExists ? expected.sample(channel, sampleIndex) : missingSample();
 			const float observedValue = observedExists ? observed.sample(channel, sampleIndex) : missingSample();
-			const float error = expectedExists && observedExists
+			const bool samplesAreFinite = expectedExists && observedExists
+				&& std::isfinite(expectedValue) && std::isfinite(observedValue);
+			const float error = samplesAreFinite
 				? std::abs(expectedValue - observedValue)
 				: std::numeric_limits<float>::infinity();
-			const bool differs = !expectedExists || !observedExists || error > epsilon;
+			const bool differs = !samplesAreFinite || error > epsilon;
 
 			if (differs && !spanOpen) {
 				spanOpen = true;
