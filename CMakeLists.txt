@@ -245,6 +245,19 @@ if(WIN32)
 	list(GET VERSION_LIST 1 MSVC_VERSION_MINOR)
 	SET(MY_TBB_BINARY_DIR_BASE msvc_${MSVC_VERSION_MAJOR}.${MSVC_VERSION_MINOR}_cxx20_64_md)
 	message("Determined TBB binary directory base as ${MY_TBB_BINARY_DIR_BASE}")
+
+	function(jammernetz_copy_tbb_runtime target)
+		add_custom_command(
+			TARGET ${target} POST_BUILD
+			COMMAND ${CMAKE_COMMAND} -E copy_if_different
+					${CMAKE_BINARY_DIR}/$<IF:$<CONFIG:Release>,${MY_TBB_BINARY_DIR_BASE}_release/tbb12.dll,$<IF:$<CONFIG:Debug>,${MY_TBB_BINARY_DIR_BASE}_debug/tbb12_debug.dll,${MY_TBB_BINARY_DIR_BASE}_relwithdebinfo/tbb12.dll>>
+					$<TARGET_FILE_DIR:${target}>
+			COMMENT "Deploying the oneTBB runtime for ${target}"
+		)
+	endfunction()
+else()
+	function(jammernetz_copy_tbb_runtime target)
+	endfunction()
 endif()
 
 # Add subdirectories

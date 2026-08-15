@@ -84,7 +84,10 @@ set(TESTNAME CommonTest)
 add_executable(${TESTNAME} JammerCommonTests.cpp)
 target_link_libraries(${TESTNAME} gtest gmock gtest_main juce-utils JammerCommon ${JUCE_LIBRARIES})
 jammernetz_copy_msvc_debug_runtime(${TESTNAME})
+jammernetz_copy_tbb_runtime(${TESTNAME})
 gtest_add_tests(TARGET ${TESTNAME}
 	SOURCES JammerCommonTests.cpp
+	TEST_LIST COMMON_UNIT_TESTS
 )
+set_tests_properties(${COMMON_UNIT_TESTS} PROPERTIES LABELS unit TIMEOUT 30)
 set_target_properties(${TESTNAME} PROPERTIES FOLDER tests)
