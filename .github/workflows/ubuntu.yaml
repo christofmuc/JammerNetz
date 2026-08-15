@@ -92,3 +92,11 @@ jobs:
         name: UbuntuUnitTestResults
         path: builds/test-results.xml
         if-no-files-found: warn
+
+    - name: Upload test failure artifacts
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: UbuntuTestFailureArtifacts
+        path: builds/test-artifacts
+        if-no-files-found: ignore

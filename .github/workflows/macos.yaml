@@ -85,6 +85,14 @@ jobs:
         path: build/test-results.xml
         if-no-files-found: warn
 
+    - name: Upload test failure artifacts
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: MacOSTestFailureArtifacts
+        path: build/test-artifacts
+        if-no-files-found: ignore
+
     - name: Build macOS package
       run: |
         cmake --build build --target package --parallel

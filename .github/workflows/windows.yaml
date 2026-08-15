@@ -110,6 +110,14 @@ jobs:
         path: Builds/Windows/test-results.xml
         if-no-files-found: warn
 
+    - name: Upload test failure artifacts
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: WindowsTestFailureArtifacts
+        path: Builds/Windows/test-artifacts
+        if-no-files-found: ignore
+
     - name: Upload Windows Installer
       uses: actions/upload-artifact@v4
       with:
