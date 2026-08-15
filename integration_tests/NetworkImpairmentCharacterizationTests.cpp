@@ -285,8 +285,10 @@ private:
 			++result_.singleSourceMixes;
 		}
 		else if (step.incoming.size() == 2U) {
-			const auto a = step.incoming.at("client-a")->messageCounter();
-			const auto b = step.incoming.at("client-b")->messageCounter();
+			const auto a = static_cast<std::uint64_t>(
+				step.incoming.at("client-a")->messageCounter());
+			const auto b = static_cast<std::uint64_t>(
+				step.incoming.at("client-b")->messageCounter());
 			const auto skew = a > b ? a - b : b - a;
 			result_.maximumSourceSkew = std::max(result_.maximumSourceSkew, skew);
 			coherent = skew == 0;
