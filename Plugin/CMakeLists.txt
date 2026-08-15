@@ -6,12 +6,17 @@
 
 project("JammerNetzPlugin" VERSION 2.3.0)
 
+set(JAMMERNETZ_PLUGIN_FORMATS VST3)
+if(APPLE)
+	list(APPEND JAMMERNETZ_PLUGIN_FORMATS AU)
+endif()
+
 juce_add_plugin(JammerNetzPlugin
 	COMPANY_NAME "Christof Ruch Beratungs UG"
 	BUNDLE_ID "com.christofmuc.jammernetz.plugin"
 	PLUGIN_MANUFACTURER_CODE JmNz
 	PLUGIN_CODE JnP4
-	FORMATS VST3
+	FORMATS ${JAMMERNETZ_PLUGIN_FORMATS}
 	PRODUCT_NAME "JammerNetz"
 	DESCRIPTION "Low-latency JammerNetz send and remote return"
 	IS_SYNTH FALSE

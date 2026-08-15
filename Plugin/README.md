@@ -1,4 +1,4 @@
-# JammerNetz VST3 plug-in
+# JammerNetz audio plug-ins
 
 The plug-in is a stereo effect adapter for the same audio engine used by the
 standalone client. Insert it on the stereo track or bus that should be sent to
@@ -7,7 +7,7 @@ keeps the host input audible by default.
 
 The first version intentionally has a narrow host contract:
 
-- VST3 format and stereo buses only.
+- VST3 on Windows and macOS, plus AUv2 on macOS; stereo buses only.
 - The host project must run at 48 kHz.
 - Only one plug-in instance can own an active network session in a host process.
 - Connection is explicit; scanning, construction, state restore, and opening the
@@ -30,6 +30,17 @@ Build the plug-in together with the client targets:
 cmake -S . -B builds -DBUILD_JAMMERNETZ_CLIENT=ON -DBUILD_JAMMERNETZ_PLUGIN=ON
 cmake --build builds --config RelWithDebInfo --target JammerNetzPlugin_VST3
 ```
+
+On macOS, build the AUv2 component as an additional wrapper over the same
+processor implementation:
+
+```sh
+cmake --build builds --config RelWithDebInfo --target JammerNetzPlugin_AU
+```
+
+VST3 remains the recommended format for Ableton Live projects that may move
+between Windows and macOS. AUv2 is provided for native macOS workflows and
+hosts such as Logic Pro, MainStage, and GarageBand.
 
 ## Windows Debug workflow
 
