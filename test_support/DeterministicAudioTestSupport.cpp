@@ -97,7 +97,8 @@ float SyntheticAudioSource::valueAt(const std::uint32_t sourceId,
 	}
 	std::uint64_t key = absoluteSample;
 	key ^= static_cast<std::uint64_t>(sourceId) << 32U;
-	key ^= static_cast<std::uint64_t>(channel + 1) * 0xd6e8feb86659fd93ULL;
+	constexpr std::uint64_t channelSalt = static_cast<std::uint64_t>(0xd6e8feb86659fd93ULL);
+	key ^= static_cast<std::uint64_t>(channel + 1) * channelSalt;
 	const std::uint64_t mixed = mixBits(key);
 	const auto bucket = static_cast<std::int32_t>((mixed >> 54U) & 0x3ffU) - 512;
 	return static_cast<float>(bucket) * (1.0f / 2048.0f);
