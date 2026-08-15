@@ -26,6 +26,7 @@ OPTION(BUILD_JAMMERNETZ_CLIENT "Option to turn off the client build" ON)
 OPTION(BUILD_JAMMERNETZ_SERVER "Build the server and bundle it with the standalone client" ON)
 OPTION(BUILD_JAMMERNETZ_PLUGIN "Build the JammerNetz audio plug-in adapters" ${BUILD_JAMMERNETZ_CLIENT})
 OPTION(JAMMERNETZ_ENABLE_LTO "Enable JUCE LTO flags (better runtime performance, slower links)" OFF)
+set(JAMMERNETZ_CODESIGN_KEYCHAIN "" CACHE FILEPATH "Optional macOS keychain containing the distribution signing identity")
 
 if(BUILD_JAMMERNETZ_PLUGIN AND NOT BUILD_JAMMERNETZ_CLIENT)
 	message(FATAL_ERROR "BUILD_JAMMERNETZ_PLUGIN requires BUILD_JAMMERNETZ_CLIENT because both use JammerNetzCore")

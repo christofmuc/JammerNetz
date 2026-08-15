@@ -1,0 +1,79 @@
+foreach(REQUIRED_VARIABLE
+        JAMMERNETZ_FIXUP_EXECUTABLE
+        JAMMERNETZ_FIXUP_BUNDLE
+        JAMMERNETZ_FIXUP_TBB)
+    if(NOT DEFINED ${REQUIRED_VARIABLE} OR "${${REQUIRED_VARIABLE}}" STREQUAL "")
+        message(FATAL_ERROR "${REQUIRED_VARIABLE} is required")
+    endif()
+endforeach()
+
+if(NOT EXISTS "${JAMMERNETZ_FIXUP_EXECUTABLE}")
+    message(FATAL_ERROR "Plug-in executable does not exist: ${JAMMERNETZ_FIXUP_EXECUTABLE}")
+endif()
+if(NOT IS_DIRECTORY "${JAMMERNETZ_FIXUP_BUNDLE}")
+    message(FATAL_ERROR "Plug-in bundle does not exist: ${JAMMERNETZ_FIXUP_BUNDLE}")
+endif()
+if(NOT EXISTS "${JAMMERNETZ_FIXUP_TBB}")
+    message(FATAL_ERROR "TBB runtime does not exist: ${JAMMERNETZ_FIXUP_TBB}")
+endif()
+
+get_filename_component(TBB_NAME "${JAMMERNETZ_FIXUP_TBB}" NAME)
+get_filename_component(TBB_SOURCE_DIRECTORY "${JAMMERNETZ_FIXUP_TBB}" DIRECTORY)
+set(FRAMEWORKS_DIRECTORY "${JAMMERNETZ_FIXUP_BUNDLE}/Contents/Frameworks")
+set(TBB_DESTINATION "${FRAMEWORKS_DIRECTORY}/${TBB_NAME}")
+
+file(MAKE_DIRECTORY "${FRAMEWORKS_DIRECTORY}")
+file(COPY "${JAMMERNETZ_FIXUP_TBB}" DESTINATION "${FRAMEWORKS_DIRECTORY}")
+
+execute_process(
+    COMMAND /usr/bin/otool -L "${JAMMERNETZ_FIXUP_EXECUTABLE}"
+    RESULT_VARIABLE OTOOL_RESULT
+    OUTPUT_VARIABLE OTOOL_OUTPUT)
+if(NOT OTOOL_RESULT EQUAL 0)
+    message(FATAL_ERROR "otool failed for ${JAMMERNETZ_FIXUP_EXECUTABLE}")
+endif()
+
+string(REPLACE "\n" ";" DEPENDENCY_LINES "${OTOOL_OUTPUT}")
+set(TBB_DEPENDENCY_COUNT 0)
+foreach(DEPENDENCY_LINE IN LISTS DEPENDENCY_LINES)
+    string(STRIP "${DEPENDENCY_LINE}" DEPENDENCY_LINE)
+    string(FIND "${DEPENDENCY_LINE}" "libtbb" TBB_NAME_POSITION)
+    string(FIND "${DEPENDENCY_LINE}" " (" METADATA_POSITION)
+    if(NOT TBB_NAME_POSITION EQUAL -1 AND METADATA_POSITION GREATER TBB_NAME_POSITION)
+        string(SUBSTRING "${DEPENDENCY_LINE}" 0 ${METADATA_POSITION} TBB_DEPENDENCY)
+        message(STATUS "Rewriting ${TBB_DEPENDENCY} in ${JAMMERNETZ_FIXUP_EXECUTABLE}")
+        execute_process(
+            COMMAND /usr/bin/install_name_tool
+                -change "${TBB_DEPENDENCY}"
+                "@loader_path/../Frameworks/${TBB_NAME}"
+                "${JAMMERNETZ_FIXUP_EXECUTABLE}"
+            RESULT_VARIABLE INSTALL_NAME_RESULT)
+        if(NOT INSTALL_NAME_RESULT EQUAL 0)
+            message(FATAL_ERROR "install_name_tool failed for ${JAMMERNETZ_FIXUP_EXECUTABLE}")
+        endif()
+        math(EXPR TBB_DEPENDENCY_COUNT "${TBB_DEPENDENCY_COUNT} + 1")
+    endif()
+endforeach()
+
+if(TBB_DEPENDENCY_COUNT EQUAL 0)
+    message(FATAL_ERROR "No linked TBB runtime found in ${JAMMERNETZ_FIXUP_EXECUTABLE}")
+endif()
+
+execute_process(
+    COMMAND /usr/bin/install_name_tool -id "@rpath/${TBB_NAME}" "${TBB_DESTINATION}"
+    RESULT_VARIABLE TBB_ID_RESULT)
+if(NOT TBB_ID_RESULT EQUAL 0)
+    message(FATAL_ERROR "Could not rewrite the bundled TBB install name")
+endif()
+
+execute_process(
+    COMMAND /usr/bin/otool -L "${JAMMERNETZ_FIXUP_EXECUTABLE}"
+    RESULT_VARIABLE VERIFY_RESULT
+    OUTPUT_VARIABLE VERIFY_OUTPUT)
+if(NOT VERIFY_RESULT EQUAL 0)
+    message(FATAL_ERROR "Could not verify ${JAMMERNETZ_FIXUP_EXECUTABLE}")
+endif()
+string(FIND "${VERIFY_OUTPUT}" "${TBB_SOURCE_DIRECTORY}" BUILD_PATH_POSITION)
+if(NOT BUILD_PATH_POSITION EQUAL -1)
+    message(FATAL_ERROR "Build-tree TBB dependency remains in ${JAMMERNETZ_FIXUP_EXECUTABLE}")
+endif()

@@ -303,6 +303,19 @@ for distribution to other Mac users.
 - Test installation and plug-in discovery on a clean Apple Silicon Mac.
 - Treat unsigned CI artifacts as development outputs, not distributable builds.
 
+### Phase 6 completion criteria
+
+- An explicit distribution workflow imports the Developer ID Application
+  certificate into an ephemeral keychain without exposing it to ordinary PR
+  builds.
+- The standalone application, VST3 bundle, and AUv2 component are signed
+  inside-out with a trusted timestamp and the hardened runtime enabled.
+- The standalone DMG and compressed plug-in bundles are accepted by Apple's
+  notarization service; tickets are stapled and validated before upload.
+- `codesign` and Gatekeeper verification pass for every distributed bundle.
+- The required repository secrets and manual/tagged release procedure are
+  documented in [macOS signed distribution](macos-distribution.md).
+
 ## Deferred work
 
 The following are intentionally outside this plan:
