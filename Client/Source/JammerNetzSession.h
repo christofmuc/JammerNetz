@@ -24,6 +24,7 @@ public:
 	JammerNetzSession() = default;
 	virtual ~JammerNetzSession();
 
+	// Lifecycle calls are owned by AudioService and must be serialized on its message thread.
 	bool start(std::function<void(std::shared_ptr<JammerNetzAudioData>)> newDataHandler,
 		const JammerNetzSessionConfiguration& configuration);
 	void updateConfiguration(const JammerNetzSessionConfiguration& configuration);

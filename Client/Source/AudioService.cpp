@@ -36,7 +36,7 @@ AudioService::AudioService()
 	Data::instance().getEphemeral().addListener(this);
 	engine_.start();
 	refreshEngineConfiguration();
-	session_.start([this](std::shared_ptr<JammerNetzAudioData> audio) { engine_.enqueueRemoteAudio(std::move(audio)); }, getSessionConfiguration());
+	refreshSessionConfiguration();
 }
 
 AudioService::~AudioService()
@@ -197,8 +197,10 @@ void AudioService::refreshEngineConfiguration()
 	auto& data = Data::instance().get();
 	auto mixer = data.getOrCreateChildWithName(VALUE_MIXER, nullptr);
 	const auto outputController = mixer.getOrCreateChildWithName(VALUE_MASTER_OUTPUT, nullptr);
-	const auto minimum = static_cast<uint64>(static_cast<int64>(data.getProperty(VALUE_MIN_PLAYOUT_BUFFER, CLIENT_PLAYOUT_JITTER_BUFFER)));
-	const auto maximum = static_cast<uint64>(static_cast<int64>(data.getProperty(VALUE_MAX_PLAYOUT_BUFFER, CLIENT_PLAYOUT_MAX_BUFFER)));
+	const auto configuredMinimum = static_cast<int64>(data.getProperty(VALUE_MIN_PLAYOUT_BUFFER, CLIENT_PLAYOUT_JITTER_BUFFER));
+	const auto configuredMaximum = static_cast<int64>(data.getProperty(VALUE_MAX_PLAYOUT_BUFFER, CLIENT_PLAYOUT_MAX_BUFFER));
+	const auto minimum = static_cast<uint64>(std::max<int64>(1, configuredMinimum));
+	const auto maximum = static_cast<uint64>(std::max<int64>(1, configuredMaximum));
 	engine_.setPlayoutBufferRange(minimum, maximum);
 	engine_.setMasterVolume(static_cast<double>(outputController.getProperty(VALUE_VOLUME, 100.0)) / 100.0);
 	engine_.setMonitorBalance(outputController.getProperty(VALUE_MONITOR_BALANCE, 0.0));
@@ -206,7 +208,7 @@ void AudioService::refreshEngineConfiguration()
 	engine_.setClientBpm(data.getProperty(VALUE_SERVER_BPM, 0.0));
 }
 
-JammerNetzSessionConfiguration AudioService::getSessionConfiguration() const
+std::optional<JammerNetzSessionConfiguration> AudioService::getSessionConfiguration() const
 {
 	const auto& data = Data::instance().get();
 	JammerNetzSessionConfiguration configuration;
@@ -218,16 +220,26 @@ JammerNetzSessionConfiguration AudioService::getSessionConfiguration() const
 	const auto cryptoPath = data.getProperty(VALUE_CRYPTOPATH).toString();
 	if (cryptoPath.isNotEmpty()) {
 		std::shared_ptr<juce::MemoryBlock> key;
-		if (UDPEncryption::loadKeyfile(cryptoPath.toRawUTF8(), &key)) {
-			configuration.cryptoKey = std::move(key);
+		if (!UDPEncryption::loadKeyfile(cryptoPath.toRawUTF8(), &key)) {
+			SimpleLogger::instance()->postMessage("Session configuration rejected: could not load the configured encryption key");
+			return std::nullopt;
 		}
+		configuration.cryptoKey = std::move(key);
 	}
 	return configuration;
 }
 
 void AudioService::refreshSessionConfiguration()
 {
-	session_.updateConfiguration(getSessionConfiguration());
+	const auto configuration = getSessionConfiguration();
+	if (!configuration) {
+		return;
+	}
+	if (session_.isAvailable()) {
+		session_.updateConfiguration(*configuration);
+	} else {
+		session_.start([this](std::shared_ptr<JammerNetzAudioData> audio) { engine_.enqueueRemoteAudio(std::move(audio)); }, *configuration);
+	}
 	engine_.newServer();
 }
 

@@ -28,7 +28,7 @@ void AudioCallback::audioDeviceIOCallbackWithContext(const float* const* inputCh
 
 void AudioCallback::timerCallback()
 {
-	if (const auto bpm = engine_.takeServerBpmUpdate()) {
+	if (const auto bpm = engine_.takeServerBpmUpdate(); bpm && serverBpmChanged_) {
 		serverBpmChanged_(*bpm);
 	}
 }

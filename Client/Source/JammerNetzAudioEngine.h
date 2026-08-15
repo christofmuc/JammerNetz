@@ -181,8 +181,6 @@ private:
 	std::atomic<bool> ignoreNextServerBpmChange_;
 	std::atomic<float> pendingServerBpm_;
 	std::atomic<int64_t> bpmSliderLastMovedTicks_;
-	std::string currentText_;
-
 	FFAU::LevelMeterSource outMeterSource_; // This is for peak metering the output
 
 	std::shared_ptr<Recorder> uploadRecorder_;
