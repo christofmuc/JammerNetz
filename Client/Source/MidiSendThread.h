@@ -21,6 +21,7 @@ class MidiSendThread : juce::Thread {
 public:
 	MidiSendThread(std::vector<juce::MidiDeviceInfo> const outputs);
 	virtual ~MidiSendThread() override;
+	void shutdown();
 
 	void enqueue(std::chrono::high_resolution_clock::duration fromNow, std::vector<MidiMessage> const &messages);
 

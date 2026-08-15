@@ -11,11 +11,23 @@
 
 #include <atomic>
 
-class JammerService {
-public:
-	JammerService(std::function<void(std::shared_ptr<JammerNetzAudioData>)> newDataHandler);
-	virtual ~JammerService();
+struct JammerNetzSessionConfiguration {
+	juce::String serverName;
+	int serverPort { 7777 };
+	bool useLocalhost { false };
+	bool useFEC { false };
+	std::shared_ptr<const juce::MemoryBlock> cryptoKey;
+};
 
+class JammerNetzSession {
+public:
+	JammerNetzSession() = default;
+	virtual ~JammerNetzSession();
+
+	// Lifecycle calls are owned by AudioService and must be serialized on its message thread.
+	bool start(std::function<void(std::shared_ptr<JammerNetzAudioData>)> newDataHandler,
+		const JammerNetzSessionConfiguration& configuration);
+	void updateConfiguration(const JammerNetzSessionConfiguration& configuration);
 	void shutdown();
 
 	Client* sender();
@@ -30,9 +42,9 @@ public:
 	juce::String startupError() const;
 
 private:
-	juce::DatagramSocket socket_;
+	std::unique_ptr<juce::DatagramSocket> socket_;
 	std::unique_ptr<Client> sender_;
 	std::unique_ptr<DataReceiveThread> receiver_;
-	std::atomic<bool> shutdown_ { false };
+	std::atomic<bool> shutdown_ { true };
 	juce::String startupError_;
 };

@@ -7,10 +7,12 @@
 #pragma once
 
 #include "AudioCallback.h"
+#include "JammerNetzSession.h"
 #include "ApplicationState.h"
 #include "DebounceTimer.h"
 
 #include <atomic>
+#include <optional>
 
 
 struct ChannelSetup {
@@ -63,11 +65,16 @@ private:
 	std::shared_ptr<ChannelSetup> getSetup(ValueTree data) const;
 
 	void refreshChannelSetup(std::shared_ptr<ChannelSetup> setup);
+	void refreshEngineConfiguration();
+	void refreshSessionConfiguration();
+	std::optional<JammerNetzSessionConfiguration> getSessionConfiguration() const;
 	void restartAudio();
 	void restartAudio(std::shared_ptr<ChannelSetup> inputSetup, std::shared_ptr<ChannelSetup> outputSetup);
 
 	std::shared_ptr<juce::AudioIODevice> audioDevice_;
 
+	JammerNetzSession session_;
+	JammerNetzAudioEngine engine_;
 	AudioCallback callback_;
 	DebounceTimer debouncer_;
 	std::atomic<bool> shutdown_ { false };

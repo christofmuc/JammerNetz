@@ -23,6 +23,7 @@ if(APPLE AND CMAKE_OSX_DEPLOYMENT_TARGET VERSION_LESS "10.12")
 endif()
 
 OPTION(BUILD_JAMMERNETZ_CLIENT "Option to turn off the client build" ON)
+OPTION(BUILD_JAMMERNETZ_SERVER "Build the server and bundle it with the standalone client" ON)
 OPTION(JAMMERNETZ_ENABLE_LTO "Enable JUCE LTO flags (better runtime performance, slower links)" OFF)
 
 # Since we also build MacOS, we need C++ 17. Which is not a bad thing.
@@ -264,13 +265,17 @@ add_subdirectory("modules/MidiKraft")
 message(${CMAKE_MODULE_PATH})
 add_subdirectory("third_party/oneTBB" EXCLUDE_FROM_ALL)
 add_subdirectory("common")
-add_subdirectory("Server")
+if(BUILD_JAMMERNETZ_SERVER)
+	add_subdirectory("Server")
+endif()
 
 if(BUILD_JAMMERNETZ_CLIENT)
 add_subdirectory("Client")
 
-# The client installer now contains the server as well for local testing - make sure to always build the server
-add_dependencies(JammerNetzClient JammerNetzServer)
+# The standalone installer contains the server as well for local testing when both are enabled.
+if(BUILD_JAMMERNETZ_SERVER)
+	add_dependencies(JammerNetzClient JammerNetzServer)
+endif()
 endif()
 
 # For Windows, we additionally build a little test program to check if ASIO initialization works.
