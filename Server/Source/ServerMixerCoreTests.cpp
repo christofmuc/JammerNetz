@@ -144,4 +144,27 @@ TEST(ServerMixerCoreTest, PreservesAddressingSessionMetadataClockAndControlSelec
 	}
 }
 
+TEST(ServerMixerCoreTest, IgnoresAudioChannelsWithoutMatchingChannelSetup)
+{
+	ServerMixerCore mixer(stereoOutputSetup());
+	auto audio = std::make_shared<AudioBuffer<float>>(2, SAMPLE_BUFFER_SIZE);
+	audio->clear();
+	audio->setSample(0, 0, 0.25f);
+	audio->setSample(1, 0, 0.75f);
+	JammerNetzChannelSetup setup(false);
+	setup.channels.emplace_back(JammerNetzChannelTarget::Left);
+	ServerInputPackets inputs;
+	inputs.emplace("malformed-client", std::make_shared<JammerNetzAudioData>(
+		1, 0.0, setup, SAMPLE_RATE, 0.0f, MidiSignal_None, std::move(audio), nullptr));
+
+	const auto result = mixer.mix(inputs);
+
+	ASSERT_EQ(result.outgoing.size(), 1U);
+	ASSERT_EQ(result.diagnostics.size(), 1U);
+	EXPECT_NE(result.diagnostics.front().find("2 audio channels but declared 1 channel setups"),
+		std::string::npos);
+	EXPECT_FLOAT_EQ(result.outgoing.front().audioBlock.audioBuffer->getSample(0, 0), 0.25f);
+	EXPECT_FLOAT_EQ(result.outgoing.front().audioBlock.audioBuffer->getSample(1, 0), 0.0f);
+}
+
 } // namespace

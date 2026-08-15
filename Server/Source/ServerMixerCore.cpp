@@ -90,7 +90,15 @@ void ServerMixerCore::bufferMixdown(AudioBuffer<float>& output,
 
 	const auto channelSetup = audioData.channelSetup();
 	const bool wantsEcho = !channelSetup.isLocalMonitoringDontSendEcho;
-	for (int channel = 0; channel < audio->getNumChannels(); ++channel) {
+	const auto audioChannelCount = static_cast<size_t>(audio->getNumChannels());
+	const auto configuredChannelCount = channelSetup.channels.size();
+	if (audioChannelCount != configuredChannelCount) {
+		diagnostics.emplace_back("Error: A client sent " + std::to_string(audioChannelCount)
+			+ " audio channels but declared " + std::to_string(configuredChannelCount)
+			+ " channel setups");
+	}
+	const auto channelsToMix = static_cast<int>(std::min(audioChannelCount, configuredChannelCount));
+	for (int channel = 0; channel < channelsToMix; ++channel) {
 		const auto setup = channelSetup.channels[static_cast<size_t>(channel)];
 		switch (setup.target) {
 		case Mute:
