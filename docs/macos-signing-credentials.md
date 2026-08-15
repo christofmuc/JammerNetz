@@ -246,7 +246,8 @@ stages:
 4. sign and verify every application and plug-in bundle;
 5. notarize the DMG and plug-in ZIP archives;
 6. staple and validate the notarization tickets;
-7. pass Gatekeeper assessment;
+7. pass Gatekeeper assessment for the DMG and signature/ticket validation for
+   the non-application plug-in bundles;
 8. upload the notarized artifacts.
 
 After a successful run, download and test the artifacts on an Apple Silicon

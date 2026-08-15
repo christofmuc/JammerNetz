@@ -59,4 +59,6 @@ machine. The workflow never uploads the certificate or keychain.
 
 Before upload, CI verifies the signatures with `codesign`, submits the DMG and
 both plug-in ZIPs with `notarytool`, staples and validates the resulting
-tickets, and asks Gatekeeper to assess every distributed bundle.
+tickets, and asks Gatekeeper to assess the DMG. Audio plug-in bundles are not
+applications, so their final validation uses `codesign` and `stapler` rather
+than Gatekeeper's executable-app assessment.

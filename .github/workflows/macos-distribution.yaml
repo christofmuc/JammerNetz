@@ -179,8 +179,6 @@ jobs:
         xcrun stapler validate "$component"
 
         spctl --assess --type open --context context:primary-signature --ignore-cache --verbose=2 "$dmg"
-        spctl --assess --type execute --ignore-cache --verbose=2 "$vst3"
-        spctl --assess --type execute --ignore-cache --verbose=2 "$component"
 
         ditto -c -k --keepParent --sequesterRsrc "$vst3" "$distribution_dir/JammerNetz-macOS-VST3.zip"
         ditto -c -k --keepParent --sequesterRsrc "$component" "$distribution_dir/JammerNetz-macOS-AUv2.zip"
