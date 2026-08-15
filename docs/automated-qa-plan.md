@@ -272,7 +272,7 @@ The scheduled characterization workflow publishes the complete JSON summary and 
 
 The deterministic transport also mirrors the original manual Clumsy workflow: enable one impairment, increase its severity until the mixer no longer recovers, and then repeat with selected combinations of two or three impairments. Clumsy's throttle operation maps to the existing hold-and-flush model because it blocks traffic for an interval and releases the accumulated packets as one batch.
 
-Each progressive profile impairs client B while client A remains a paced reference. After 16 clean warm-up frames, the impairment runs for 96 generated frames. Normal delivery then continues for at least 64 frames. A profile is reported as having survived when both clients finish connected and the server produces eight consecutive mixes with matching source counters after all delayed impaired packets could have arrived. Survival therefore means bounded recovery, not glitch-free audio during the impairment.
+Each progressive profile impairs client B while client A remains a paced reference. After 16 clean warm-up frames, the impairment runs for 96 generated frames. Normal delivery then continues for at least 64 frames. The first implementation reports **server recovery** when both server-side client states finish connected and the server produces eight consecutive mixes with matching source counters after all delayed impaired packets could have arrived. This is a bounded server queue/mixer recovery measurement, not an end-to-end survival result or a claim of glitch-free audio during the impairment.
 
 The isolated sweeps cover:
 
@@ -294,7 +294,9 @@ The first measured progressive baseline is:
 - Periodic throttle windows recover through four held frames and fail to regain coherence at eight held frames.
 - Four-frame jitter combined with two-frame periodic reordering fails even though each isolated profile recovers. This is the first demonstrated combination-only failure.
 
-Combination families use low, medium, and high profiles for jitter plus loss, jitter plus reordering, hold/throttle plus duplication, lag plus loss, jitter plus loss plus duplication, and jitter plus loss plus reordering. The reports identify the last surviving and first failing named profile in each ordered family.
+Combination families use low, medium, and high profiles for jitter plus loss, jitter plus reordering, hold/throttle plus duplication, lag plus loss, jitter plus loss plus duplication, and jitter plus loss plus reordering. The reports identify the last server-recovered and first server-recovery-failure profile in each ordered family.
+
+The next layer must replay the same named profiles through the headless client receivers and use the signal oracle to require coherent rendered samples, no persistent source skew or rebuffering, and recovery within a bounded number of client frames. Only that receiver-aware result may be described as end-to-end survival.
 
 Clumsy's byte-tampering function is not represented by this object-level injection path. Meaningful tamper coverage must inject serialized datagrams before production deserialization, or use real UDP, so malformed-packet rejection is tested rather than merely changing an already-valid audio object.
 

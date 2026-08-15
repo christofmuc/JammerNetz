@@ -237,8 +237,14 @@ void ScenarioTrace::writeJsonLines(const juce::File& path) const
 	if (!output) {
 		throw std::runtime_error("Could not open scenario trace for writing: " + path.getFullPathName().toStdString());
 	}
-	output->setPosition(0);
-	output->truncate();
+	if (!output->setPosition(0)) {
+		throw std::runtime_error("Could not seek to the start of scenario trace: "
+			+ path.getFullPathName().toStdString());
+	}
+	if (output->truncate().failed()) {
+		throw std::runtime_error("Could not truncate scenario trace: "
+			+ path.getFullPathName().toStdString());
+	}
 	const std::string contents = toJsonLines();
 	if (!output->write(contents.data(), contents.size())) {
 		throw std::runtime_error("Could not write scenario trace: " + path.getFullPathName().toStdString());

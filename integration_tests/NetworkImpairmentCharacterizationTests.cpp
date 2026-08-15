@@ -408,7 +408,7 @@ struct ImpairmentRunResult {
 	std::uint64_t queueMaximumGap { 0 };
 	std::uint64_t queueMaximumReorderSpan { 0 };
 
-	[[nodiscard]] bool survived() const noexcept
+	[[nodiscard]] bool serverRecovered() const noexcept
 	{
 		return finalStateA == ClientConnectionState::Connected
 			&& finalStateB == ClientConnectionState::Connected
@@ -441,7 +441,7 @@ nlohmann::json resultJson(const ImpairmentRunResult& result)
 {
 	return {
 		{ "profile", result.profile },
-		{ "survived", result.survived() },
+		{ "server_recovered", result.serverRecovered() },
 		{ "generated_packets", result.generatedPackets },
 		{ "primary_packets_delivered", result.primaryPacketsDelivered },
 		{ "injected_drops", result.injectedDrops },
@@ -749,18 +749,18 @@ private:
 	std::size_t coherentRun_ { 0 };
 };
 
-struct FamilyBoundary {
-	std::optional<std::string> lastSurviving;
-	std::optional<std::string> firstFailing;
+struct ServerRecoveryBoundary {
+	std::optional<std::string> lastRecovered;
+	std::optional<std::string> firstFailure;
 };
 
-nlohmann::json boundaryJson(const FamilyBoundary& boundary)
+nlohmann::json boundaryJson(const ServerRecoveryBoundary& boundary)
 {
 	return {
-		{ "last_surviving_profile", boundary.lastSurviving
-			? nlohmann::json(*boundary.lastSurviving) : nlohmann::json(nullptr) },
-		{ "first_failing_profile", boundary.firstFailing
-			? nlohmann::json(*boundary.firstFailing) : nlohmann::json(nullptr) }
+		{ "last_server_recovered_profile", boundary.lastRecovered
+			? nlohmann::json(*boundary.lastRecovered) : nlohmann::json(nullptr) },
+		{ "first_server_recovery_failure_profile", boundary.firstFailure
+			? nlohmann::json(*boundary.firstFailure) : nlohmann::json(nullptr) }
 	};
 }
 
@@ -906,7 +906,7 @@ std::vector<ImpairmentProfile> combinedProfiles()
 	return profiles;
 }
 
-TEST(NetworkImpairmentCharacterizationTest, IsolatedClumsyStyleSweepsReportSurvivalBoundaries)
+TEST(NetworkImpairmentCharacterizationTest, IsolatedClumsyStyleSweepsReportServerRecoveryBoundaries)
 {
 	nlohmann::json summary {
 		{ "scenario", "isolated_progressive_impairments" },
@@ -914,21 +914,21 @@ TEST(NetworkImpairmentCharacterizationTest, IsolatedClumsyStyleSweepsReportSurvi
 		{ "frame_samples", SAMPLE_BUFFER_SIZE },
 		{ "server_jitter_frames", SERVER_INCOMING_JITTER_BUFFER },
 		{ "server_maximum_frames", SERVER_INCOMING_MAXIMUM_BUFFER },
-		{ "survival_definition", "both clients connected and eight consecutive coherent mixes after impairment" },
+		{ "server_recovery_definition", "both server-side client states connected and eight consecutive coherent server mixes after impairment" },
 		{ "results", nlohmann::json::array() },
 		{ "boundaries", nlohmann::json::object() }
 	};
 	const juce::File artifactDirectory(JAMMERNETZ_TEST_ARTIFACT_DIR);
 	const auto scenarioDirectory = artifactDirectory.getChildFile("network-impairments").getChildFile("isolated");
-	std::map<std::string, FamilyBoundary> boundaries;
+	std::map<std::string, ServerRecoveryBoundary> boundaries;
 	for (const auto& profile : isolatedProfiles()) {
 		const auto result = runAndRecord(profile, scenarioDirectory, summary["results"]);
 		auto& boundary = boundaries[profile.family];
-		if (result.survived() && !boundary.firstFailing) {
-			boundary.lastSurviving = profile.name;
+		if (result.serverRecovered() && !boundary.firstFailure) {
+			boundary.lastRecovered = profile.name;
 		}
-		else if (!result.survived() && !boundary.firstFailing) {
-			boundary.firstFailing = profile.name;
+		else if (!result.serverRecovered() && !boundary.firstFailure) {
+			boundary.firstFailure = profile.name;
 		}
 	}
 	for (const auto& [family, boundary] : boundaries) {
@@ -945,21 +945,21 @@ TEST(NetworkImpairmentCharacterizationTest, CombinedClumsyStyleProfilesRemainDet
 		{ "scenario", "combined_impairments" },
 		{ "sample_rate", SAMPLE_RATE },
 		{ "frame_samples", SAMPLE_BUFFER_SIZE },
-		{ "survival_definition", "both clients connected and eight consecutive coherent mixes after impairment" },
+		{ "server_recovery_definition", "both server-side client states connected and eight consecutive coherent server mixes after impairment" },
 		{ "results", nlohmann::json::array() },
 		{ "boundaries", nlohmann::json::object() }
 	};
 	const juce::File artifactDirectory(JAMMERNETZ_TEST_ARTIFACT_DIR);
 	const auto scenarioDirectory = artifactDirectory.getChildFile("network-impairments").getChildFile("combined");
-	std::map<std::string, FamilyBoundary> boundaries;
+	std::map<std::string, ServerRecoveryBoundary> boundaries;
 	for (const auto& profile : combinedProfiles()) {
 		const auto result = runAndRecord(profile, scenarioDirectory, summary["results"]);
 		auto& boundary = boundaries[profile.family];
-		if (result.survived() && !boundary.firstFailing) {
-			boundary.lastSurviving = profile.name;
+		if (result.serverRecovered() && !boundary.firstFailure) {
+			boundary.lastRecovered = profile.name;
 		}
-		else if (!result.survived() && !boundary.firstFailing) {
-			boundary.firstFailing = profile.name;
+		else if (!result.serverRecovered() && !boundary.firstFailure) {
+			boundary.firstFailure = profile.name;
 		}
 	}
 	for (const auto& [family, boundary] : boundaries) {

@@ -37,8 +37,12 @@ inline void writeJsonArtifact(const juce::File& path, const nlohmann::json& docu
 	if (!output) {
 		throw std::runtime_error("Could not create " + std::string(description) + " artifact");
 	}
-	output->setPosition(0);
-	output->truncate();
+	if (!output->setPosition(0)) {
+		throw std::runtime_error("Could not seek to the start of " + std::string(description) + " artifact");
+	}
+	if (output->truncate().failed()) {
+		throw std::runtime_error("Could not truncate " + std::string(description) + " artifact");
+	}
 	const auto text = document.dump(2);
 	if (!output->write(text.data(), text.size())) {
 		throw std::runtime_error("Could not write " + std::string(description) + " artifact");
