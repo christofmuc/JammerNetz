@@ -32,7 +32,8 @@ void AudioRecordingWorker::shutdown()
 bool AudioRecordingWorker::enqueue(RecordingTarget target, const float* const* channels, int numChannels, int numSamples) noexcept
 {
 	const auto& recorder = target == RecordingTarget::local ? localRecorder_ : masterRecorder_;
-	if (!recorder || !recorder->isRecording()) {
+	const auto recordingGeneration = recorder ? recorder->recordingGeneration() : 0;
+	if (recordingGeneration == 0) {
 		return true;
 	}
 	if (!channels || numChannels <= 0 || numChannels > JAMMERNETZ_MAX_AUDIO_CHANNELS
@@ -42,6 +43,7 @@ bool AudioRecordingWorker::enqueue(RecordingTarget target, const float* const* c
 	}
 	const bool queued = queue_.tryWrite([&](RecordingAudioFrame& frame) {
 		frame.target = target;
+		frame.recordingGeneration = recordingGeneration;
 		frame.channels = numChannels;
 		frame.samplesPerChannel = numSamples;
 		for (int channel = 0; channel < numChannels; ++channel) {
@@ -63,7 +65,7 @@ uint64_t AudioRecordingWorker::droppedFrames() const noexcept { return dropped_.
 
 void AudioRecordingWorker::run()
 {
-	while (!threadShouldExit()) {
+	while (!threadShouldExit() || queue_.size() > 0) {
 		const bool hadFrame = queue_.tryRead([this](RecordingAudioFrame& frame) { writeFrame(frame); });
 		if (!hadFrame) {
 			juce::Thread::sleep(2);
@@ -74,7 +76,7 @@ void AudioRecordingWorker::run()
 void AudioRecordingWorker::writeFrame(RecordingAudioFrame& frame)
 {
 	const auto& recorder = frame.target == RecordingTarget::local ? localRecorder_ : masterRecorder_;
-	if (!recorder || !recorder->isRecording()) {
+	if (!recorder || frame.recordingGeneration != recorder->recordingGeneration()) {
 		return;
 	}
 	std::array<const float*, JAMMERNETZ_MAX_AUDIO_CHANNELS> pointers {};

@@ -31,7 +31,7 @@ struct PlayoutQualityInfo {
 		: currentPlayQueueLength_(0), playUnderruns_(0), discardedPackageCounter_(0),
 		toPlayLatency_(0.0), numSamplesSinceStart_(-1), measuredSampleRate(0.0) {}
 
-	uint64 currentPlayQueueLength_;
+	uint64 currentPlayQueueLength_; // Prepared PCM frames waiting in AudioReceiveWorker.
 	uint64 playUnderruns_;
 	uint64 discardedPackageCounter_;
 	double toPlayLatency_; // in ms
