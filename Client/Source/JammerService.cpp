@@ -10,10 +10,16 @@
 JammerService::JammerService(std::function<void(std::shared_ptr<JammerNetzAudioData>)> newDataHandler)
 {
 	// We will send data to the server via this port
-	int randomPort = 8888 + (Random().nextInt() % 64);
-	if (!socket_.bindToPort(randomPort, "0.0.0.0")) {
-		//TODO - there should be no UI initiated from here, probably more something like a fatal log message that should be handled elsewhere.
-		AlertWindow::showMessageBox(AlertWindow::WarningIcon, "Fatal error", "Couldn't bind to port " + String(randomPort));
+	const int firstPortOffset = Random().nextInt(64);
+	bool bound = false;
+	for (int attempt = 0; attempt < 64 && !bound; ++attempt) {
+		const int port = 8888 + ((firstPortOffset + attempt) % 64);
+		bound = socket_.bindToPort(port, "0.0.0.0");
+	}
+	if (!bound) {
+		startupError_ = "Could not bind to any JammerNetz client port (8888-8951)";
+		std::cerr << startupError_ << std::endl;
+		return;
 	}
 
 	// Create the sender
@@ -26,18 +32,22 @@ JammerService::JammerService(std::function<void(std::shared_ptr<JammerNetzAudioD
 
 JammerService::~JammerService()
 {
-	// Please call shuwdown first before destroying the JammerService
-	if (receiver_->isThreadRunning()) {
-		jassertfalse;
-		receiver_->stopThread(2000);
-	}
+	shutdown();
 }
 
 void JammerService::shutdown()
 {
-	// Give the network thread a moment to exit
-	receiver_->stopThread(2000);
+	if (shutdown_.exchange(true, std::memory_order_acq_rel)) {
+		return;
+	}
+	if (receiver_) {
+		receiver_->signalThreadShouldExit();
+	}
 	socket_.shutdown();
+	if (receiver_ && !receiver_->waitForThreadToExit(2000)) {
+		std::cerr << "JammerNetz receiver thread did not stop within two seconds; waiting for a clean exit" << std::endl;
+		receiver_->waitForThreadToExit(-1);
+	}
 }
 
 Client* JammerService::sender()
@@ -52,20 +62,35 @@ DataReceiveThread* JammerService::receiver()
 
 bool JammerService::isReceivingData() const
 {
-	return receiver_->isReceivingData();
+	return receiver_ && receiver_->isReceivingData();
 }
 
 double JammerService::currentRTT() const
 {
-	return receiver_->currentRTT();
+	return receiver_ ? receiver_->currentRTT() : 0.0;
 }
 
 std::shared_ptr<JammerNetzClientInfoMessage> JammerService::getClientInfo() const
 {
-	return receiver_->getClientInfo();
+	return receiver_ ? receiver_->getClientInfo() : nullptr;
 }
 
 JammerNetzChannelSetup JammerService::getCurrentSessionSetup() const
 {
-	return receiver_->sessionSetup();
+	return receiver_ ? receiver_->sessionSetup() : JammerNetzChannelSetup(false);
+}
+
+uint64_t JammerService::receiveErrorCount() const
+{
+	return receiver_ ? receiver_->receiveErrorCount() : 0;
+}
+
+bool JammerService::isAvailable() const
+{
+	return !shutdown_.load(std::memory_order_acquire) && sender_ != nullptr && receiver_ != nullptr;
+}
+
+juce::String JammerService::startupError() const
+{
+	return startupError_;
 }

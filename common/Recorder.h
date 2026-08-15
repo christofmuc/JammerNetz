@@ -36,7 +36,7 @@ public:
 	void setDirectory(File &directory);
 
 private:
-	void updateChannelInfo(int sampleRate, JammerNetzChannelSetup const &channelSetup);
+	bool updateChannelInfo(int sampleRate, JammerNetzChannelSetup const &channelSetup);
 	void launchWriter();
 
 	Time startTime_;
@@ -51,4 +51,5 @@ private:
 
 	int lastSampleRate_;
 	JammerNetzChannelSetup lastChannelSetup_;
+	mutable CriticalSection stateLock_;
 };

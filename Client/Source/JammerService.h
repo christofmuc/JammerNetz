@@ -9,6 +9,8 @@
 #include "Client.h"
 #include "DataReceiveThread.h"
 
+#include <atomic>
+
 class JammerService {
 public:
 	JammerService(std::function<void(std::shared_ptr<JammerNetzAudioData>)> newDataHandler);
@@ -23,9 +25,14 @@ public:
 	double currentRTT() const;
 	std::shared_ptr<JammerNetzClientInfoMessage> getClientInfo() const;
 	JammerNetzChannelSetup getCurrentSessionSetup() const;
+	uint64_t receiveErrorCount() const;
+	bool isAvailable() const;
+	juce::String startupError() const;
 
 private:
 	juce::DatagramSocket socket_;
 	std::unique_ptr<Client> sender_;
 	std::unique_ptr<DataReceiveThread> receiver_;
+	std::atomic<bool> shutdown_ { false };
+	juce::String startupError_;
 };

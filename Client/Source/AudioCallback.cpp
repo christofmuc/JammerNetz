@@ -26,11 +26,13 @@ AudioCallback::AudioCallback() :
     , serverBpm_(0.0)
     , ignoreNextServerBpmChange_(false)
     , pendingServerBpm_(0.0f)
-    , channelSetup_(false)
+	, bpmSliderLastMovedTicks_(0)
     , midiSignalToSend_(MidiSignal_None)
     , midiSignalToGenerate_(MidiSignal_None)
 {
+	inputState_.store(std::make_shared<const InputState>(InputState { JammerNetzChannelSetup(false), nullptr }), std::memory_order_release);
 	isPlaying_ = false;
+	resetQualityInfo_ = false;
 	minPlayoutBufferLength_ = CLIENT_PLAYOUT_JITTER_BUFFER;
 	maxPlayoutBufferLength_ = CLIENT_PLAYOUT_MAX_BUFFER;
 	playoutBuffer_ = std::make_unique<RingBuffer>(2, PLAYOUT_RINGBUFFER_SIZE);
@@ -92,23 +94,38 @@ AudioCallback::AudioCallback() :
 				ignoreNextServerBpmChange_.store(false, std::memory_order_release);
 			}
 			clientBpm_.setValue(bpmValue);
-			bpmSliderLastMoved_ = std::chrono::steady_clock::now();
+			bpmSliderLastMovedTicks_.store(std::chrono::steady_clock::now().time_since_epoch().count(), std::memory_order_release);
 	}));
 }
 
 AudioCallback::~AudioCallback()
 {
+	shutdown();
 }
 
 void AudioCallback::shutdown()
 {
+	auto activeMidiSendThread = midiSendThread_.load(std::memory_order_acquire);
+	midiSendThread_.store(nullptr, std::memory_order_release);
+	{
+		const ScopedLock lock(retiredMidiSendThreadsLock_);
+		if (activeMidiSendThread) {
+			retiredMidiSendThreads_.push_back(std::move(activeMidiSendThread));
+		}
+		retiredMidiSendThreads_.clear();
+	}
 	jammerService_.shutdown();
 }
 
 void AudioCallback::restartClock(std::vector<MidiDeviceInfo> outputs)
 {
 	// Where to send the Midi Clock signals
-	midiSendThread_.reset(new MidiSendThread(outputs));
+	auto retiredMidiSendThread = midiSendThread_.load(std::memory_order_acquire);
+	midiSendThread_.store(std::make_shared<MidiSendThread>(outputs), std::memory_order_release);
+	if (retiredMidiSendThread) {
+		const ScopedLock lock(retiredMidiSendThreadsLock_);
+		retiredMidiSendThreads_.push_back(std::move(retiredMidiSendThread));
+	}
 }
 
 void AudioCallback::setMidiSignalToSend(MidiSignal signal)
@@ -120,8 +137,8 @@ void AudioCallback::newServer()
 {
 	// Reset counters etc
 	PlayoutQualityInfo pqi;
-	lastPlayoutQualityInfo_ = pqi;
 	while (playoutQualityInfo_.try_pop(pqi));
+	resetQualityInfo_.store(true, std::memory_order_release);
 	isPlaying_ = false;
 	std::shared_ptr<JammerNetzAudioData> elem;
 	bool isFillIn;
@@ -145,25 +162,23 @@ void AudioCallback::measureSamplesPerTime(PlayoutQualityInfo &qualityInfo, int n
 }
 
 // https://dsp.stackexchange.com/questions/14754/equal-power-crossfade
-static std::pair<double, double> calcMonitorGain() {
-	auto mixer = Data::instance().get().getChildWithName(VALUE_MIXER);
-	double t = mixer.getProperty(VALUE_MONITOR_BALANCE);
-
+static std::pair<double, double> calcMonitorGain(double t) {
 	double left = sqrt(0.5 * (1.0 - t));
 	double right = sqrt(0.5 * (1.0 + t));
 
 	return { left, right };
 }
 
-void AudioCallback::calcLocalMonitoring(std::shared_ptr<AudioBuffer<float>> inputBuffer, AudioBuffer<float>& outputBuffer) {
+void AudioCallback::calcLocalMonitoring(const AudioBuffer<float>& inputBuffer, AudioBuffer<float>& outputBuffer, const JammerNetzChannelSetup& channelSetup) {
 
 	outputBuffer.clear();
-	if (monitorIsLocal_ && inputBuffer->getNumChannels() > 0) {
-		auto [monitorVolume, _] = calcMonitorGain();
+	if (monitorIsLocal_ && inputBuffer.getNumChannels() > 0) {
+		auto [monitorVolume, _] = calcMonitorGain(monitorBalance_.load(std::memory_order_relaxed));
 		// Apply gain to our channels and do a stereo mixdown
-		jassert(inputBuffer->getNumSamples() == outputBuffer.getNumSamples());
-		for (size_t channel = 0; channel < (size_t) inputBuffer->getNumChannels(); channel++) {
-			const JammerNetzSingleChannelSetup& setup = channelSetup_.channels[channel];
+		jassert(inputBuffer.getNumSamples() == outputBuffer.getNumSamples());
+		const auto channelsToMix = std::min(static_cast<size_t>(inputBuffer.getNumChannels()), channelSetup.channels.size());
+		for (size_t channel = 0; channel < channelsToMix; channel++) {
+			const JammerNetzSingleChannelSetup& setup = channelSetup.channels[channel];
 			float input_volume = (float) (setup.volume * monitorVolume * masterVolume_);
 			switch (setup.target) {
 			case Mute:
@@ -172,13 +187,13 @@ void AudioCallback::calcLocalMonitoring(std::shared_ptr<AudioBuffer<float>> inpu
 			case Left:
 				// This is a left channel, going into the left.
 				if (outputBuffer.getNumChannels() > 0) {
-					outputBuffer.addFrom(0, 0, *inputBuffer, (int) channel, 0, inputBuffer->getNumSamples(), input_volume);
+					outputBuffer.addFrom(0, 0, inputBuffer, (int) channel, 0, inputBuffer.getNumSamples(), input_volume);
 				}
 				break;
 			case Right:
 				// And the same for the right channel
 				if (outputBuffer.getNumChannels() > 1) {
-					outputBuffer.addFrom(1, 0, *inputBuffer, (int) channel, 0, inputBuffer->getNumSamples(), input_volume);
+					outputBuffer.addFrom(1, 0, inputBuffer, (int) channel, 0, inputBuffer.getNumSamples(), input_volume);
 				}
 				break;
 			case SendLeft:
@@ -188,10 +203,10 @@ void AudioCallback::calcLocalMonitoring(std::shared_ptr<AudioBuffer<float>> inpu
 				break;
 			case Mono:
 				if (outputBuffer.getNumChannels() > 0) {
-					outputBuffer.addFrom(0, 0, *inputBuffer, (int) channel, 0, inputBuffer->getNumSamples(), input_volume);
+					outputBuffer.addFrom(0, 0, inputBuffer, (int) channel, 0, inputBuffer.getNumSamples(), input_volume);
 				}
 				if (outputBuffer.getNumChannels() > 1) {
-					outputBuffer.addFrom(1, 0, *inputBuffer, (int) channel, 0, inputBuffer->getNumSamples(), input_volume);
+					outputBuffer.addFrom(1, 0, inputBuffer, (int) channel, 0, inputBuffer.getNumSamples(), input_volume);
 				}
 				break;
 			}
@@ -282,30 +297,45 @@ void AudioCallback::audioDeviceIOCallbackWithContext(const float* const* inputCh
 	ignoreUnused(context);
 	float* const* constnessCorrection = const_cast<float* const*>(inputChannelData);
 	PlayoutQualityInfo qualityInfo = lastPlayoutQualityInfo_;
+	if (resetQualityInfo_.exchange(false, std::memory_order_acq_rel)) {
+		qualityInfo = PlayoutQualityInfo();
+	}
+	const auto inputState = inputState_.load(std::memory_order_acquire);
 
 	// Measure time passed
 	measureSamplesPerTime(qualityInfo, numSamples);
 
+	const bool inputStateMatchesDevice = inputState && inputState->ingestBuffer
+		&& inputState->setup.channels.size() == static_cast<size_t>(numInputChannels);
+	if (numInputChannels > 0 && !inputStateMatchesDevice
+		&& !inputChannelMismatchReported_.exchange(true, std::memory_order_acq_rel)) {
+		const auto configuredChannels = inputState ? inputState->setup.channels.size() : 0;
+		MessageManager::callAsync([numInputChannels, configuredChannels]() {
+			SimpleLogger::instance()->postMessage("Audio input channel mismatch: device provides " + String(numInputChannels)
+				+ " channels, but " + String(configuredChannels) + " are configured");
+		});
+	}
+
 	// If we have at least one input channel, do something with the data!
-	if (numInputChannels > 0) {
+	if (numInputChannels > 0 && inputStateMatchesDevice) {
 		// Hard disk recording
 		if (uploadRecorder_ && uploadRecorder_->isRecording()) {
 			uploadRecorder_->saveBlock(inputChannelData, numSamples);
 		}
 
 		// Pump the new data into the ingest ring buffer, if it has space. Else that's possibly an assert
-		if (numSamples <= ingestBuffer_->getFreeSpace()) {
-			ingestBuffer_->write(constnessCorrection, numInputChannels, numSamples);
+		if (numSamples <= inputState->ingestBuffer->getFreeSpace()) {
+			inputState->ingestBuffer->write(constnessCorrection, numInputChannels, numSamples);
 		}
 		else {
 			jassertfalse;
 		}
 
 		// Ok, now we can exhaust the ring buffer by reading network packet sized chunks and sending them to the server one by one
-		while (ingestBuffer_->getNumReady() >= SAMPLE_BUFFER_SIZE) {
+		while (inputState->ingestBuffer->getNumReady() >= SAMPLE_BUFFER_SIZE) {
 			// Allocate an audio buffer and read a buffer full from the ring buffer
 			auto audioBuffer = std::make_shared<AudioBuffer<float>>(numInputChannels, SAMPLE_BUFFER_SIZE);
-			ingestBuffer_->read(audioBuffer->getArrayOfWritePointers(), numInputChannels, SAMPLE_BUFFER_SIZE);
+			inputState->ingestBuffer->read(audioBuffer->getArrayOfWritePointers(), numInputChannels, SAMPLE_BUFFER_SIZE);
 
 			// Send it to pitch detection
 			tuner_->detectPitch(audioBuffer);
@@ -314,15 +344,11 @@ void AudioCallback::audioDeviceIOCallbackWithContext(const float* const* inputCh
 			meterSource_.measureBlock(*audioBuffer);
 
 			// Send the MAG, RMS values and the pitch to the server, which will forward it to the other clients so they can show my levels even if they have only the mixed audio
-			for (size_t c = 0; c < (size_t) numInputChannels; c++) {
-				if (c < channelSetup_.channels.size()) {
-					channelSetup_.channels[c].mag = meterSource_.getMaxLevel((int) c);
-					channelSetup_.channels[c].rms = meterSource_.getRMSLevel((int) c);
-					channelSetup_.channels[c].pitch = tuner_->getPitch(c);
-				}
-				else {
-					jassertfalse;
-				}
+			JammerNetzChannelSetup outgoingSetup = inputState->setup;
+			for (size_t c = 0; c < static_cast<size_t>(numInputChannels); c++) {
+				outgoingSetup.channels[c].mag = meterSource_.getMaxLevel(static_cast<int>(c));
+				outgoingSetup.channels[c].rms = meterSource_.getRMSLevel(static_cast<int>(c));
+				outgoingSetup.channels[c].pitch = tuner_->getPitch(c);
 			}
 
 			// Get play-along data. The MIDI Buffer should be ready to be played out now, but we will only look at the text events for now
@@ -341,13 +367,15 @@ void AudioCallback::audioDeviceIOCallbackWithContext(const float* const* inputCh
 			ControlData controllers;
 			controllers.bpm = clientBpm_.readOnce();
 			controllers.midiSignal = midiSignalToSend_.readOnce();
-			jammerService_.sender()->sendData(channelSetup_, audioBuffer, controllers); //TODO offload the real sending to a different thread
+			if (auto* sender = jammerService_.sender()) {
+				sender->sendData(outgoingSetup, audioBuffer, controllers); //TODO offload the real sending to a different thread
+			}
 		}
 	}
 
 	// Create a better access structure for the output data
 	AudioBuffer<float> outputBuffer(outputChannelData, numOutputChannels, numSamples);
-	auto inputBufferNotOwned = std::make_shared<AudioBuffer<float>>(constnessCorrection, numInputChannels, numSamples);
+	AudioBuffer<float> inputBufferNotOwned(constnessCorrection, numInputChannels, numSamples);
 
 	// Don't start playing before the desired play-out buffer size is reached
 	if (!isPlaying_ && playBuffer_.size() >= minPlayoutBufferLength_) {
@@ -365,7 +393,12 @@ void AudioCallback::audioDeviceIOCallbackWithContext(const float* const* inputCh
 	}
 
 	// Prepare the output buffer with the local monitoring signal
-	calcLocalMonitoring(inputBufferNotOwned, outputBuffer);
+	if (inputState) {
+		calcLocalMonitoring(inputBufferNotOwned, outputBuffer, inputState->setup);
+	}
+	else {
+		outputBuffer.clear();
+	}
 
 	// For playout, we have to have enough bytes in the out ringbuffer to fill the output audio block.
 	// Let's see if we have enough data from the network!
@@ -398,7 +431,7 @@ void AudioCallback::audioDeviceIOCallbackWithContext(const float* const* inputCh
 
 			double bpm = toPlay->bpm();
 			serverBpm_ = bpm;
-			if (midiSendThread_) {
+			if (auto midiSendThread = midiSendThread_.load(std::memory_order_acquire)) {
 				// Play a MIDI clock at the speed given
 				constexpr double pulsesPerQuarterNote = 24.0; // This is fairly standard
 				double pulsesPerSecond = bpm * pulsesPerQuarterNote / 60.0;
@@ -416,16 +449,19 @@ void AudioCallback::audioDeviceIOCallbackWithContext(const float* const* inputCh
 					double pulseFractionInSamples = bufferEndPulseNumber * samplesPerPulse - serverTimeInSamplesAsDouble;
 					jassert(pulseFractionInSamples <= SAMPLE_BUFFER_SIZE);
 					auto signalToGenerate = midiSignalToGenerate_.readOnce();
-					midiSendThread_->enqueue(std::chrono::nanoseconds(int(1e9 * pulseFractionInSamples / SAMPLE_RATE)), createMidiBeatMessage(bpm, signalToGenerate, true));
+					midiSendThread->enqueue(std::chrono::nanoseconds(int(1e9 * pulseFractionInSamples / SAMPLE_RATE)), createMidiBeatMessage(bpm, signalToGenerate, true));
 				}
 			}
 
 			// Check if the slider wasn't updated for a while, then take the server value and update the slider
-			if (!bpmSliderLastMoved_.has_value() || (std::chrono::steady_clock::now() - *bpmSliderLastMoved_) > std::chrono::seconds(1)) {
+			const auto now = std::chrono::steady_clock::now();
+			const auto lastMovedTicks = bpmSliderLastMovedTicks_.load(std::memory_order_acquire);
+			const auto lastMoved = std::chrono::steady_clock::time_point(std::chrono::steady_clock::duration(lastMovedTicks));
+			if (lastMovedTicks == 0 || now - lastMoved > std::chrono::seconds(1)) {
 				pendingServerBpm_.store((float) bpm, std::memory_order_release);
 				ignoreNextServerBpmChange_.store(true, std::memory_order_release);
-				Data::getPropertyAsValue(VALUE_SERVER_BPM).setValue(bpm);
-				bpmSliderLastMoved_ = std::chrono::steady_clock::now();
+				MessageManager::callAsync([bpm]() { Data::getPropertyAsValue(VALUE_SERVER_BPM).setValue(bpm); });
+				bpmSliderLastMovedTicks_.store(now.time_since_epoch().count(), std::memory_order_release);
 			}
 		}
 		else {
@@ -445,7 +481,7 @@ void AudioCallback::audioDeviceIOCallbackWithContext(const float* const* inputCh
 			AudioBuffer<float> sessionAudio(2, numSamples);
 			playoutBuffer_->read(sessionAudio.getArrayOfWritePointers(), 2, numSamples);
 
-			auto [_, remoteVolume] = calcMonitorGain();
+			auto [_, remoteVolume] = calcMonitorGain(monitorBalance_.load(std::memory_order_relaxed));
 			float volume = (float) (remoteVolume * masterVolume_);
 			for (int c = 0; c < std::min(2, outputBuffer.getNumChannels()); c++) {
 				outputBuffer.addFrom(c, 0, sessionAudio.getReadPointer(c), numSamples, volume);
@@ -453,7 +489,7 @@ void AudioCallback::audioDeviceIOCallbackWithContext(const float* const* inputCh
 		}
 
 		// Calculate the RMS and mag displays for the other session participants
-		auto session = jammerService_.receiver()->sessionSetup();
+		auto session = jammerService_.getCurrentSessionSetup();
 		std::vector<float> magnitudes;
 		std::vector<float> rmss;
 		for (const auto& channel : session.channels) {
@@ -475,8 +511,9 @@ void AudioCallback::audioDeviceIOCallbackWithContext(const float* const* inputCh
 
 void AudioCallback::audioDeviceAboutToStart(AudioIODevice* device)
 {
-	MessageManager::callAsync([device]() {
-		SimpleLogger::instance()->postMessage("Audio device " + device->getName() + " starting with " + String(device->getCurrentSampleRate()) + "Hz, buffer size " + String(device->getCurrentBufferSizeSamples()));
+	const String deviceDescription = "Audio device " + device->getName() + " starting with " + String(device->getCurrentSampleRate()) + "Hz, buffer size " + String(device->getCurrentBufferSizeSamples());
+	MessageManager::callAsync([deviceDescription]() {
+		SimpleLogger::instance()->postMessage(deviceDescription);
 	});
 	lastPlayoutQualityInfo_ = PlayoutQualityInfo();
 }
@@ -490,15 +527,24 @@ void AudioCallback::audioDeviceStopped()
 
 void AudioCallback::setChannelSetup(JammerNetzChannelSetup const &channelSetup)
 {
-	if (!(channelSetup_.isEqualEnough(channelSetup))) {
-		ingestBuffer_.reset(new RingBuffer((int) channelSetup.channels.size(), INGEST_RINGBUFFER_SIZE));
-		channelSetup_ = channelSetup;
-		if (uploadRecorder_) {
-			uploadRecorder_->setChannelInfo(SAMPLE_RATE, channelSetup_);
-		}
-		if (midiRecorder_) {
-			midiRecorder_->startRecording();
-		}
+	const auto previousState = inputState_.load(std::memory_order_acquire);
+	if (previousState && previousState->setup.isEqualEnough(channelSetup)) {
+		return;
+	}
+
+	const bool channelCountChanged = !previousState || previousState->setup.channels.size() != channelSetup.channels.size();
+	std::shared_ptr<RingBuffer> ingestBuffer = previousState ? previousState->ingestBuffer : nullptr;
+	if (channelCountChanged) {
+		ingestBuffer = channelSetup.channels.empty() ? nullptr : std::make_shared<RingBuffer>(static_cast<int>(channelSetup.channels.size()), INGEST_RINGBUFFER_SIZE);
+	}
+	if (uploadRecorder_) {
+		uploadRecorder_->setChannelInfo(SAMPLE_RATE, channelSetup);
+	}
+
+	inputChannelMismatchReported_.store(false, std::memory_order_release);
+	inputState_.store(std::make_shared<const InputState>(InputState { channelSetup, std::move(ingestBuffer) }), std::memory_order_release);
+	if (channelCountChanged && midiRecorder_) {
+		midiRecorder_->startRecording();
 	}
 }
 
@@ -519,7 +565,7 @@ FFAU::LevelMeterSource* AudioCallback::getOutputMeterSource()
 
 std::weak_ptr<MidiClocker> AudioCallback::getClocker()
 {
-	return midiRecorder_->getClocker();
+	return midiRecorder_ ? midiRecorder_->getClocker() : std::weak_ptr<MidiClocker>();
 }
 
 MidiPlayAlong *AudioCallback::getPlayalong()
@@ -542,7 +588,8 @@ uint64 AudioCallback::currentBufferSize() const
 
 int AudioCallback::currentPacketSize()
 {
-	return jammerService_.sender()->getCurrentBlockSize();
+	auto* sender = jammerService_.sender();
+	return sender ? sender->getCurrentBlockSize() : 0;
 }
 
 std::string AudioCallback::currentReceptionQuality() const
@@ -552,12 +599,12 @@ std::string AudioCallback::currentReceptionQuality() const
 
 bool AudioCallback::isReceivingData()
 {
-	return jammerService_.receiver()->isReceivingData();
+	return jammerService_.isReceivingData();
 }
 
 double AudioCallback::currentRTT()
 {
-	return jammerService_.receiver()->currentRTT();
+	return jammerService_.currentRTT();
 }
 
 float AudioCallback::channelPitch(size_t channel) const
@@ -584,10 +631,10 @@ std::shared_ptr<Recorder> AudioCallback::getLocalRecorder() const
 
 std::shared_ptr<JammerNetzClientInfoMessage> AudioCallback::getClientInfo()
 {
-	return jammerService_.receiver()->getClientInfo();
+	return jammerService_.getClientInfo();
 }
 
 JammerNetzChannelSetup AudioCallback::getSessionSetup()
 {
-	return jammerService_.receiver()->sessionSetup();
+	return jammerService_.getCurrentSessionSetup();
 }

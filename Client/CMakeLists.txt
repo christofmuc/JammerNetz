@@ -55,6 +55,8 @@ set(RESOURCE_FILES
 source_group(Source\\Resources FILES ${RESOURCE_FILES})
 
 set(AUDIO_PROCESSING_FILES
+	Source/AtomicSharedPtr.h
+	Source/AudioCorrectness.h
 	Source/AudioCallback.cpp
 	Source/AudioCallback.h
 	Source/AudioService.cpp
@@ -127,6 +129,14 @@ if(SENTRY_CRASH_REPORTING)
 	set(SENTRY_LIB sentry)
 	target_link_directories(JammerNetzClient PRIVATE "${SENTRY_INSTALL_PATH}/lib")
 endif()
+
+set(TESTNAME ClientCorrectnessTest)
+add_executable(${TESTNAME} Source/AudioCorrectnessTests.cpp Source/AudioCorrectness.h)
+target_include_directories(${TESTNAME} PRIVATE Source)
+target_link_libraries(${TESTNAME} PRIVATE gtest gtest_main)
+jammernetz_copy_msvc_debug_runtime(${TESTNAME})
+gtest_add_tests(TARGET ${TESTNAME} SOURCES Source/AudioCorrectnessTests.cpp)
+set_target_properties(${TESTNAME} PROPERTIES FOLDER tests)
 
 target_include_directories(JammerNetzClient PRIVATE "${SENTRY_INCLUDE_DIR}"  "${CMAKE_CURRENT_BINARY_DIR}/Source")
 IF(WIN32)

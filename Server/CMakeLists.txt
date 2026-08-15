@@ -39,10 +39,8 @@ endif()
 add_executable(ClientStateTest Source/ClientStateTests.cpp Source/ClientState.cpp Source/ClientState.h Source/SharedServerTypes.h)
 target_include_directories(ClientStateTest PRIVATE "${CMAKE_CURRENT_LIST_DIR}/Source")
 target_link_libraries(ClientStateTest PRIVATE gtest gmock gtest_main juce-utils JammerCommon ${JUCE_LIBRARIES})
-gtest_discover_tests(ClientStateTest
-	WORKING_DIRECTORY ${TEST_WORKING_DIRECTORY}
-	PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY "${TEST_WORKING_DIRECTORY}"
-)
+jammernetz_copy_msvc_debug_runtime(ClientStateTest)
+gtest_add_tests(TARGET ClientStateTest SOURCES Source/ClientStateTests.cpp)
 set_target_properties(ClientStateTest PROPERTIES FOLDER tests)
 
 set(TESTNAME ServerTest)

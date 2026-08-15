@@ -9,17 +9,20 @@
 #include "Logger.h"
 
 void AudioDeviceDiscovery::listInputChannels(AudioIODevice *device, std::stringstream &list) {
+	if (device == nullptr) return;
 	auto inputs = device->getInputChannelNames();
 	for (auto input : inputs) list << "      Input " << input << std::endl;
 
 }
 
 void AudioDeviceDiscovery::listOutputChannels(AudioIODevice *device, std::stringstream &list) {
+	if (device == nullptr) return;
 	auto outputs = device->getOutputChannelNames();
 	for (auto output : outputs) list << "      Output " << output << std::endl;
 }
 
 void AudioDeviceDiscovery::listBufferSizes(AudioIODevice *device, std::stringstream &list) {
+	if (device == nullptr) return;
 	auto bufferSizes = device->getAvailableBufferSizes();
 	for (auto bufferSize : bufferSizes) {
 		list << "      Buffer " << bufferSize << std::endl;
@@ -136,6 +139,7 @@ juce::AudioIODeviceType* AudioDeviceDiscovery::deviceTypeByName(String const& na
 void AudioDeviceDiscovery::shutdown()
 {
 	deviceTypes_.reset();
+	sIsInitialized = false;
 }
 
 void AudioDeviceDiscovery::init()
