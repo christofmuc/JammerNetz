@@ -8,23 +8,20 @@
 
 #include "JuceHeader.h"
 
+#include "AudioPacketSink.h"
 #include "DataReceiveThread.h"
 
 #include "RingOfAudioBuffers.h"
 #include "nlohmann/json.hpp"
 
-struct ControlData
-{
-	std::optional<float> bpm;
-	std::optional<MidiSignal> midiSignal;
-};
-
-class Client {
+class Client : public AudioPacketSink {
 public:
 	Client(DatagramSocket& socket);
-	~Client();
+	~Client() override;
 
-	bool sendData(JammerNetzChannelSetup const &channelSetup, std::shared_ptr<AudioBuffer<float>> audioBuffer, ControlData controllers);
+	bool sendData(JammerNetzChannelSetup const& channelSetup,
+		std::shared_ptr<AudioBuffer<float>> audioBuffer,
+		ControlData controllers) override;
 	bool sendControl(nlohmann::json &json);
 	void setServer(const juce::String& serverName, int serverPort, bool useLocalhost);
 	void setUseFEC(bool enabled);

@@ -12,6 +12,7 @@
 
 #include "Pool.h"
 #include "RingBuffer.h"
+#include "AudioPacketSink.h"
 #include "JammerNetzSession.h"
 
 #include "PacketStreamQueue.h"
@@ -78,7 +79,9 @@ private:
 
 class JammerNetzAudioEngine {
 public:
-	JammerNetzAudioEngine(JammerNetzSession& session, const juce::File& recordingDirectory);
+	JammerNetzAudioEngine(JammerNetzSession& session,
+		const juce::File& recordingDirectory,
+		std::shared_ptr<AudioPacketSink> packetSink = {});
 	~JammerNetzAudioEngine();
 	void start();
 	void shutdown();
@@ -135,6 +138,7 @@ private:
 	void calcLocalMonitoring(const AudioBuffer<float>& inputBuffer, AudioBuffer<float>& outputBuffer, const JammerNetzChannelSetup& channelSetup);
 
 	JammerNetzSession& session_;
+	std::shared_ptr<AudioPacketSink> packetSink_;
 	juce::File recordingDirectory_;
 
 	AtomicSharedPtr<const InputState> inputState_;

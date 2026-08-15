@@ -56,6 +56,7 @@ source_group(Source\\Resources FILES ${RESOURCE_FILES})
 
 set(CORE_AUDIO_PROCESSING_FILES
 	Source/AtomicSharedPtr.h
+	Source/AudioPacketSink.h
 	Source/JammerNetzAudioEngine.cpp
 	Source/JammerNetzAudioEngine.h
 	Source/MidiSendThread.cpp Source/MidiSendThread.h
@@ -152,7 +153,7 @@ set_target_properties(${TESTNAME} PROPERTIES FOLDER tests)
 
 set(CORE_TEST_NAME JammerNetzCoreTest)
 add_executable(${CORE_TEST_NAME} Source/JammerNetzAudioEngineTests.cpp)
-target_link_libraries(${CORE_TEST_NAME} PRIVATE JammerNetzCore gtest gtest_main)
+target_link_libraries(${CORE_TEST_NAME} PRIVATE JammerNetzCore JammerNetzTestSupport gtest gtest_main)
 jammernetz_copy_msvc_debug_runtime(${CORE_TEST_NAME})
 jammernetz_copy_tbb_runtime(${CORE_TEST_NAME})
 gtest_discover_tests(${CORE_TEST_NAME} PROPERTIES LABELS unit TIMEOUT 30)

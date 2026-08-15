@@ -13,8 +13,11 @@
 
 #include <cmath>
 
-JammerNetzAudioEngine::JammerNetzAudioEngine(JammerNetzSession& session, const juce::File& recordingDirectory) :
+JammerNetzAudioEngine::JammerNetzAudioEngine(JammerNetzSession& session,
+	const juce::File& recordingDirectory,
+	std::shared_ptr<AudioPacketSink> packetSink) :
     session_(session)
+	, packetSink_(std::move(packetSink))
 	, recordingDirectory_(recordingDirectory)
     , playBuffer_("server")
     , masterVolume_(1.0)
@@ -372,8 +375,9 @@ void JammerNetzAudioEngine::process(const float* const* inputChannelData, int nu
 			ControlData controllers;
 			controllers.bpm = clientBpm_.readOnce();
 			controllers.midiSignal = midiSignalToSend_.readOnce();
-			if (auto* sender = session_.sender()) {
-				sender->sendData(outgoingSetup, audioBuffer, controllers); //TODO offload the real sending to a different thread
+			auto* packetSink = packetSink_ ? packetSink_.get() : session_.sender();
+			if (packetSink) {
+				packetSink->sendData(outgoingSetup, audioBuffer, controllers); //TODO offload the real sending to a different thread
 			}
 		}
 	}
