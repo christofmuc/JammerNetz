@@ -605,7 +605,7 @@ private:
 		const auto deliverySample = (frame + delayFrames)
 			* static_cast<std::uint64_t>(SAMPLE_BUFFER_SIZE) + duplicateOffsetSamples;
 		events_.scheduleAt(deliverySample, "packet_delivery",
-			[this, clientIndex, frame, packet = std::move(packet), action, duplicate, delayFrames] {
+			[this, clientIndex, frame, capturedPacket = std::move(packet), action, duplicate, delayFrames] {
 				if (duplicate) {
 					++result_.injectedDuplicates;
 				}
@@ -615,7 +615,7 @@ private:
 				if (clientIndex == 1U && delayFrames > 0) {
 					++result_.delayedPackets;
 				}
-				deliver(clientIndex, frame, packet, action);
+				deliver(clientIndex, frame, capturedPacket, action);
 			}, {
 				{ "client", clientIndex == 0 ? "client-a" : "client-b" },
 				{ "frame", frame }, { "action", action }, { "delay_frames", delayFrames }
