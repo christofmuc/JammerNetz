@@ -56,6 +56,14 @@ source_group(Source\\Resources FILES ${RESOURCE_FILES})
 
 set(CORE_AUDIO_PROCESSING_FILES
 	Source/AtomicSharedPtr.h
+	Source/BoundedSpscQueue.h
+	Source/RealtimeAudioFrames.h
+	Source/AudioTransmitWorker.cpp
+	Source/AudioTransmitWorker.h
+	Source/AudioReceiveWorker.cpp
+	Source/AudioReceiveWorker.h
+	Source/AudioRecordingWorker.cpp
+	Source/AudioRecordingWorker.h
 	Source/JammerNetzAudioEngine.cpp
 	Source/JammerNetzAudioEngine.h
 	Source/MidiSendThread.cpp Source/MidiSendThread.h

@@ -10,28 +10,28 @@
 
 #include "IncludeFFMeters.h"
 
-#include "Pool.h"
 #include "RingBuffer.h"
 #include "JammerNetzSession.h"
 
-#include "PacketStreamQueue.h"
+#include "AudioReceiveWorker.h"
+#include "AudioRecordingWorker.h"
+#include "AudioTransmitWorker.h"
 #include "Recorder.h"
-#include "Tuner.h"
 #include "MidiRecorder.h"
 #include "MidiPlayAlong.h"
 #include "MidiSendThread.h"
 
 #include "AtomicSharedPtr.h"
 
+#include <array>
 #include <chrono>
-#include <tbb/concurrent_queue.h>
 
 struct PlayoutQualityInfo {
 	PlayoutQualityInfo()
 		: currentPlayQueueLength_(0), playUnderruns_(0), discardedPackageCounter_(0),
 		toPlayLatency_(0.0), numSamplesSinceStart_(-1), measuredSampleRate(0.0) {}
 
-	uint64 currentPlayQueueLength_;
+	uint64 currentPlayQueueLength_; // Prepared PCM frames waiting in AudioReceiveWorker.
 	uint64 playUnderruns_;
 	uint64 discardedPackageCounter_;
 	double toPlayLatency_; // in ms
@@ -40,6 +40,20 @@ struct PlayoutQualityInfo {
 	std::chrono::time_point<std::chrono::steady_clock> startTime_;
 	std::chrono::time_point<std::chrono::steady_clock> lastTime_;
 	double measuredSampleRate; // in Hz
+};
+
+struct RealtimeWorkerStats {
+	uint64_t callbackCount { 0 };
+	uint64_t maximumCallbackNanoseconds { 0 };
+	uint64_t callbackDeadlineMisses { 0 };
+	uint64_t inputBlocksDropped { 0 };
+	uint64_t transmitFramesQueued { 0 };
+	uint64_t transmitFramesSent { 0 };
+	uint64_t transmitFramesDropped { 0 };
+	uint64_t receiveFramesDiscarded { 0 };
+	uint64_t receiveQueueOverruns { 0 };
+	uint64_t recordingFramesWritten { 0 };
+	uint64_t recordingFramesDropped { 0 };
 };
 
 template <typename T>
@@ -109,6 +123,7 @@ public:
 
 	// Statistics
 	PlayoutQualityInfo getPlayoutQualityInfo();
+	RealtimeWorkerStats getRealtimeWorkerStats() const;
 
 	uint64 currentBufferSize() const;
 	int currentPacketSize();
@@ -129,33 +144,43 @@ private:
 		JammerNetzChannelSetup setup;
 		std::shared_ptr<RingBuffer> ingestBuffer;
 	};
+	struct RetiredInputState {
+		std::shared_ptr<const InputState> state;
+		uint64_t retireEpoch { 0 };
+	};
 
 	void measureSamplesPerTime(PlayoutQualityInfo &qualityInfo, int numSamples) const;
+	void processChunk(const float* const* inputChannelData, int numInputChannels, float* const* outputChannelData,
+		int numOutputChannels, int numSamples);
 
-	void calcLocalMonitoring(const AudioBuffer<float>& inputBuffer, AudioBuffer<float>& outputBuffer, const JammerNetzChannelSetup& channelSetup);
+	void calcLocalMonitoring(const float* const* inputChannels, int numInputChannels, AudioBuffer<float>& outputBuffer,
+		const JammerNetzChannelSetup& channelSetup);
 
 	JammerNetzSession& session_;
 	juce::File recordingDirectory_;
 
-	AtomicSharedPtr<const InputState> inputState_;
+	std::atomic<const InputState*> inputState_ { nullptr };
+	std::shared_ptr<const InputState> configuredInputState_;
+	std::vector<RetiredInputState> retiredInputStates_;
+	std::atomic<uint64_t> completedAudioEpoch_ { 0 };
 	std::unique_ptr<RingBuffer> playoutBuffer_;
+	juce::AudioBuffer<float> remoteScratch_;
+	std::array<float, JAMMERNETZ_MAX_CALLBACK_SAMPLES> silentMeterChannel_ {};
 
-	PacketStreamQueue playBuffer_;
-	std::atomic_bool isPlaying_;
-	std::atomic_bool resetQualityInfo_;
+	std::atomic_bool isPlaying_ { false };
+	std::atomic_bool resetQualityInfo_ { false };
+	std::atomic_bool resetPlayoutRequested_ { false };
+	std::atomic<uint64_t> expectedRemoteGeneration_ { 0 };
 	std::atomic_uint64_t minPlayoutBufferLength_;
 	std::atomic_uint64_t maxPlayoutBufferLength_;
 	std::atomic<double> masterVolume_;
 	std::atomic<double> monitorBalance_;
-	std::atomic<bool> monitorIsLocal_;
+	std::atomic<bool> monitorIsLocal_ { false };
 	ReadOnceLatch<float> clientBpm_;
 	std::atomic<double> serverBpm_;
 	std::atomic<bool> ignoreNextServerBpmChange_;
 	std::atomic<float> pendingServerBpm_;
-	ReadOnceLatch<float> serverBpmUpdate_;
 	std::atomic<int64_t> bpmSliderLastMovedTicks_;
-	FFAU::LevelMeterSource meterSource_; // This is for peak metering
-	FFAU::LevelMeterSource sessionMeterSource_; // This is to display the complete session peak meters
 	FFAU::LevelMeterSource outMeterSource_; // This is for peak metering the output
 
 	std::shared_ptr<Recorder> uploadRecorder_;
@@ -163,17 +188,24 @@ private:
 	std::unique_ptr<MidiRecorder> midiRecorder_;
 	std::unique_ptr<MidiPlayAlong> midiPlayalong_;
 	AtomicSharedPtr<MidiSendThread> midiSendThread_;
+	std::unique_ptr<AudioTransmitWorker> transmitWorker_;
+	std::unique_ptr<AudioReceiveWorker> receiveWorker_;
+	std::unique_ptr<AudioRecordingWorker> recordingWorker_;
 	CriticalSection retiredMidiSendThreadsLock_;
 	std::vector<std::shared_ptr<MidiSendThread>> retiredMidiSendThreads_;
 	std::atomic<bool> inputChannelMismatchReported_ { false };
 
 	ReadOnceLatch<MidiSignal> midiSignalToSend_;
-	ReadOnceLatch<MidiSignal> midiSignalToGenerate_;
-
-	std::unique_ptr<Tuner> tuner_;
-
-	// Use this to hand out statistics from the audio/real time callback to other interested threads
-	tbb::concurrent_queue<PlayoutQualityInfo> playoutQualityInfo_;
 	PlayoutQualityInfo lastPlayoutQualityInfo_;
+	std::atomic<uint64_t> publishedQueueLength_ { 0 };
+	std::atomic<uint64_t> publishedUnderruns_ { 0 };
+	std::atomic<uint64_t> publishedDiscarded_ { 0 };
+	std::atomic<double> publishedLatency_ { 0.0 };
+	std::atomic<double> publishedSampleRate_ { 0.0 };
+	std::atomic<double> preparedSampleRate_ { SAMPLE_RATE };
+	std::atomic<uint64_t> callbackCount_ { 0 };
+	std::atomic<uint64_t> maximumCallbackNanoseconds_ { 0 };
+	std::atomic<uint64_t> callbackDeadlineMisses_ { 0 };
+	std::atomic<uint64_t> inputBlocksDropped_ { 0 };
 
 };

@@ -33,11 +33,22 @@ void MidiSendThread::shutdown()
 	stopThread(1000);
 }
 
-void MidiSendThread::enqueue(std::chrono::high_resolution_clock::duration fromNow, std::vector<MidiMessage> const &messages)
+bool MidiSendThread::enqueue(std::chrono::high_resolution_clock::duration fromNow, std::vector<MidiMessage> const &messages)
 {
-	ignoreUnused(fromNow);
 	auto now = std::chrono::high_resolution_clock::now() + fromNow;
-	midiMessages.push({ now, messages });
+	const bool queued = midiMessages.tryWrite([&](MessageQueueItem& item) {
+		item.whenToSend = now;
+		item.whatToSend = messages;
+	});
+	if (!queued) {
+		droppedMessages_.fetch_add(1, std::memory_order_relaxed);
+	}
+	return queued;
+}
+
+uint64_t MidiSendThread::droppedMessages() const noexcept
+{
+	return droppedMessages_.load(std::memory_order_relaxed);
 }
 
 void MidiSendThread::run()
@@ -48,15 +59,23 @@ void MidiSendThread::run()
 	// The problem is that the Audio thread is only running at e.g. 4 milliseconds clock, and that is about my current jitter - no surprise there.
 	while (!threadShouldExit()) {
 		try {
-			MessageQueueItem item;
-			while (midiMessages.try_pop(item) && !threadShouldExit()) {
+			bool sentAny = false;
+			while (midiMessages.tryRead([&](MessageQueueItem& item) {
 				// Wait until the time has come
-				while (std::chrono::high_resolution_clock::now() < item.whenToSend) {
+				while (!threadShouldExit() && std::chrono::high_resolution_clock::now() < item.whenToSend) {
+					juce::Thread::yield();
+				}
+				if (threadShouldExit()) {
+					return;
 				}
 				// Send the F8 MIDI Clock message to all devices registered
 				for (auto &out : f8_outputs) {
 					out->sendBlockOfMessagesFullSpeed(item.whatToSend);
 				}
+				sentAny = true;
+			}) && !threadShouldExit()) {}
+			if (!sentAny) {
+				juce::Thread::sleep(1);
 			}
 		} catch (std::exception &e) {
 			spdlog::error("Failed to send MIDI Clock: {}", e.what());

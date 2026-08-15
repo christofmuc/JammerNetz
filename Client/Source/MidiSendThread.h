@@ -3,18 +3,9 @@
 #include "JuceHeader.h"
 
 #include "MidiController.h"
-
-#ifdef __GNUC__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wextra-semi"
-#endif
-#include "tbb/concurrent_queue.h"
-#ifdef __GNUC__
-#pragma GCC diagnostic pop
-#endif
+#include "BoundedSpscQueue.h"
 
 #include <chrono>
-#include <deque>
 
 
 class MidiSendThread : juce::Thread {
@@ -23,17 +14,18 @@ public:
 	virtual ~MidiSendThread() override;
 	void shutdown();
 
-	void enqueue(std::chrono::high_resolution_clock::duration fromNow, std::vector<MidiMessage> const &messages);
+	bool enqueue(std::chrono::high_resolution_clock::duration fromNow, std::vector<MidiMessage> const &messages);
+	uint64_t droppedMessages() const noexcept;
 
 	void run() override;
 
 private:
-	juce::CriticalSection lock_;
-
 	struct MessageQueueItem {
 		std::chrono::high_resolution_clock::time_point whenToSend;
 		std::vector<MidiMessage> whatToSend;
 	};
-	tbb::concurrent_queue<MessageQueueItem> midiMessages;
+	// MIDI clock remains timely by dropping new messages after 256 are pending.
+	BoundedSpscQueue<MessageQueueItem> midiMessages { 256 };
+	std::atomic<uint64_t> droppedMessages_ { 0 };
 	std::vector<std::shared_ptr<midikraft::SafeMidiOutput>> f8_outputs;
 };

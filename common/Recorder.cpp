@@ -25,6 +25,8 @@ Recorder::~Recorder()
 	// Stop writing, make sure to finalize file
 	{
 		ScopedLock lock(stateLock_);
+		recording_.store(false, std::memory_order_release);
+		recordingGeneration_.store(0, std::memory_order_release);
 		writeThread_.reset();
 	}
 	// Give it a second to flush and exit
@@ -34,6 +36,7 @@ Recorder::~Recorder()
 void Recorder::setRecording(bool recordOn)
 {
 	ScopedLock lock(stateLock_);
+	const bool wasRecording = writeThread_ != nullptr;
 	if (recordOn && writeThread_ == nullptr) {
 		if (updateChannelInfo(lastSampleRate_, lastChannelSetup_)) {
 			launchWriter();
@@ -41,12 +44,27 @@ void Recorder::setRecording(bool recordOn)
 	} else if (!recordOn && writeThread_ != nullptr) {
 		writeThread_.reset();
 	}
+	const bool isNowRecording = writeThread_ != nullptr;
+	if (isNowRecording && !wasRecording) {
+		++nextRecordingGeneration_;
+		if (nextRecordingGeneration_ == 0) {
+			++nextRecordingGeneration_;
+		}
+		recordingGeneration_.store(nextRecordingGeneration_, std::memory_order_release);
+	} else if (!isNowRecording) {
+		recordingGeneration_.store(0, std::memory_order_release);
+	}
+	recording_.store(isNowRecording, std::memory_order_release);
 }
 
 bool Recorder::isRecording() const
 {
-	ScopedLock lock(stateLock_);
-	return writeThread_ != nullptr;
+	return recording_.load(std::memory_order_acquire);
+}
+
+uint64_t Recorder::recordingGeneration() const noexcept
+{
+	return recordingGeneration_.load(std::memory_order_acquire);
 }
 
 RelativeTime Recorder::getElapsedTime() const
@@ -193,6 +211,8 @@ void Recorder::setDirectory(File &directory)
 {
 	ScopedLock lock(stateLock_);
 	// Stop writing if any
+	recording_.store(false, std::memory_order_release);
+	recordingGeneration_.store(0, std::memory_order_release);
 	writeThread_.reset();
 	directory_ = directory;
 }
