@@ -24,6 +24,12 @@ MidiSendThread::MidiSendThread(std::vector<juce::MidiDeviceInfo> const outputs) 
 
 MidiSendThread::~MidiSendThread()
 {
+	shutdown();
+}
+
+void MidiSendThread::shutdown()
+{
+	signalThreadShouldExit();
 	stopThread(1000);
 }
 

@@ -181,8 +181,6 @@ private:
 	std::atomic<bool> ignoreNextServerBpmChange_;
 	std::atomic<float> pendingServerBpm_;
 	std::atomic<int64_t> bpmSliderLastMovedTicks_;
-	std::string currentText_;
-
 	FFAU::LevelMeterSource outMeterSource_; // This is for peak metering the output
 
 	std::shared_ptr<Recorder> uploadRecorder_;
@@ -194,6 +192,9 @@ private:
 	std::unique_ptr<AudioReceiveWorker> receiveWorker_;
 	std::unique_ptr<AudioRecordingWorker> recordingWorker_;
 	bool started_ { false };
+	CriticalSection retiredMidiSendThreadsLock_;
+	std::vector<std::shared_ptr<MidiSendThread>> retiredMidiSendThreads_;
+	std::atomic<bool> inputChannelMismatchReported_ { false };
 
 	ReadOnceLatch<MidiSignal> midiSignalToSend_;
 	PlayoutQualityInfo lastPlayoutQualityInfo_;

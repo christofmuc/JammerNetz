@@ -16,6 +16,8 @@
 
 #include "Logger.h"
 
+#include <cmath>
+
 AudioService::AudioService()
 	: engine_(session_, Settings::instance().getSessionStorageDir())
 	, callback_(engine_, [](float bpm) {
@@ -34,7 +36,7 @@ AudioService::AudioService()
 	Data::instance().getEphemeral().addListener(this);
 	engine_.start();
 	refreshEngineConfiguration();
-	session_.start([this](std::shared_ptr<JammerNetzAudioData> audio) { engine_.enqueueRemoteAudio(std::move(audio)); }, getSessionConfiguration());
+	refreshSessionConfiguration();
 }
 
 AudioService::~AudioService()
@@ -195,8 +197,10 @@ void AudioService::refreshEngineConfiguration()
 	auto& data = Data::instance().get();
 	auto mixer = data.getOrCreateChildWithName(VALUE_MIXER, nullptr);
 	const auto outputController = mixer.getOrCreateChildWithName(VALUE_MASTER_OUTPUT, nullptr);
-	const auto minimum = static_cast<uint64>(static_cast<int64>(data.getProperty(VALUE_MIN_PLAYOUT_BUFFER, CLIENT_PLAYOUT_JITTER_BUFFER)));
-	const auto maximum = static_cast<uint64>(static_cast<int64>(data.getProperty(VALUE_MAX_PLAYOUT_BUFFER, CLIENT_PLAYOUT_MAX_BUFFER)));
+	const auto configuredMinimum = static_cast<int64>(data.getProperty(VALUE_MIN_PLAYOUT_BUFFER, CLIENT_PLAYOUT_JITTER_BUFFER));
+	const auto configuredMaximum = static_cast<int64>(data.getProperty(VALUE_MAX_PLAYOUT_BUFFER, CLIENT_PLAYOUT_MAX_BUFFER));
+	const auto minimum = static_cast<uint64>(std::max<int64>(1, configuredMinimum));
+	const auto maximum = static_cast<uint64>(std::max<int64>(1, configuredMaximum));
 	engine_.setPlayoutBufferRange(minimum, maximum);
 	engine_.setMasterVolume(static_cast<double>(outputController.getProperty(VALUE_VOLUME, 100.0)) / 100.0);
 	engine_.setMonitorBalance(outputController.getProperty(VALUE_MONITOR_BALANCE, 0.0));
@@ -204,7 +208,7 @@ void AudioService::refreshEngineConfiguration()
 	engine_.setClientBpm(data.getProperty(VALUE_SERVER_BPM, 0.0));
 }
 
-JammerNetzSessionConfiguration AudioService::getSessionConfiguration() const
+std::optional<JammerNetzSessionConfiguration> AudioService::getSessionConfiguration() const
 {
 	const auto& data = Data::instance().get();
 	JammerNetzSessionConfiguration configuration;
@@ -216,26 +220,43 @@ JammerNetzSessionConfiguration AudioService::getSessionConfiguration() const
 	const auto cryptoPath = data.getProperty(VALUE_CRYPTOPATH).toString();
 	if (cryptoPath.isNotEmpty()) {
 		std::shared_ptr<juce::MemoryBlock> key;
-		if (UDPEncryption::loadKeyfile(cryptoPath.toRawUTF8(), &key)) {
-			configuration.cryptoKey = std::move(key);
+		if (!UDPEncryption::loadKeyfile(cryptoPath.toRawUTF8(), &key)) {
+			SimpleLogger::instance()->postMessage("Session configuration rejected: could not load the configured encryption key");
+			return std::nullopt;
 		}
+		configuration.cryptoKey = std::move(key);
 	}
 	return configuration;
 }
 
 void AudioService::refreshSessionConfiguration()
 {
-	session_.updateConfiguration(getSessionConfiguration());
+	const auto configuration = getSessionConfiguration();
+	if (!configuration) {
+		return;
+	}
+	if (session_.isAvailable()) {
+		session_.updateConfiguration(*configuration);
+	} else {
+		session_.start([this](std::shared_ptr<JammerNetzAudioData> audio) { engine_.enqueueRemoteAudio(std::move(audio)); }, *configuration);
+	}
 	engine_.newServer();
 }
 
 void AudioService::valueTreePropertyChanged(ValueTree& treeWhosePropertyHasChanged, const Identifier& property)
 {
+	if (shutdown_.load(std::memory_order_acquire)) {
+		return;
+	}
+
 	if (//ValueTreeUtils::isChildOf(VALUE_INPUT_SETUP, treeWhosePropertyHasChanged) ||
 		//ValueTreeUtils::isChildOf(VALUE_OUTPUT_SETUP, treeWhosePropertyHasChanged) ||
 		property == Identifier(EPHEMERAL_VALUE_AUDIO_SHOULD_RUN)) {
 		debouncer_.callDebounced(
 		    [this]() {
+			    if (shutdown_.load(std::memory_order_acquire)) {
+				    return;
+			    }
 			    bool shouldRun = Data::getEphemeralProperty(EPHEMERAL_VALUE_AUDIO_SHOULD_RUN);
 			    if (shouldRun) {
 				    restartAudio();
@@ -303,6 +324,10 @@ static BigInteger makeChannelMask(std::vector<int> const& indices) {
 
 void AudioService::restartAudio(std::shared_ptr<ChannelSetup> inputSetup, std::shared_ptr<ChannelSetup> outputSetup)
 {
+	if (shutdown_.load(std::memory_order_acquire)) {
+		return;
+	}
+
 	auto failStartup = [this](const String& message) {
 		SimpleLogger::instance()->postMessage("Audio startup failed: " + message);
 		Data::instance().getEphemeral().setProperty(EPHEMERAL_VALUE_AUDIO_RUNNING, false, nullptr);
@@ -323,7 +348,7 @@ void AudioService::restartAudio(std::shared_ptr<ChannelSetup> inputSetup, std::s
 		return;
 	}
 
-	juce::AudioIODeviceType* selectedType = AudioDeviceDiscovery::deviceTypeByName(inputSetup ? inputSetup->typeName : "");
+	juce::AudioIODeviceType* selectedType = AudioDeviceDiscovery::deviceTypeByName(inputSetup->typeName);
 	// Sample rate and buffer size are hard coded for now
 	if (!selectedType) {
 		failStartup("the selected audio device type is unavailable");
@@ -334,13 +359,11 @@ void AudioService::restartAudio(std::shared_ptr<ChannelSetup> inputSetup, std::s
 	{
 		if (selectedType->hasSeparateInputsAndOutputs()) {
 			// This is for other Audio types like DirectSound
-			audioDevice_.reset(selectedType->createDevice(outputSetup ? outputSetup->device : "", inputSetup ? inputSetup->device : ""));
+			audioDevice_.reset(selectedType->createDevice(outputSetup->device, inputSetup->device));
 		}
 		else {
 			// Try to create the device purely from the input name, this would be the path for ASIO)
-			if (inputSetup) {
-				audioDevice_.reset(selectedType->createDevice("", inputSetup->device));
-			}
+			audioDevice_.reset(selectedType->createDevice("", inputSetup->device));
 		}
 
 		if (!audioDevice_) {
@@ -349,8 +372,8 @@ void AudioService::restartAudio(std::shared_ptr<ChannelSetup> inputSetup, std::s
 		}
 
 		{
-			BigInteger inputChannelMask = inputSetup ? makeChannelMask(inputSetup->activeChannelIndices) : 0;
-			BigInteger outputChannelMask = outputSetup ? makeChannelMask(outputSetup->activeChannelIndices) : 0;
+			BigInteger inputChannelMask = makeChannelMask(inputSetup->activeChannelIndices);
+			BigInteger outputChannelMask = makeChannelMask(outputSetup->activeChannelIndices);
 
 			// Prefer the network block size, or the smallest supported size above it.
 			auto buffers = audioDevice_->getAvailableBufferSizes();
@@ -368,6 +391,10 @@ void AudioService::restartAudio(std::shared_ptr<ChannelSetup> inputSetup, std::s
 			}
 
 			const double actualSampleRate = audioDevice_->getCurrentSampleRate();
+			if (!std::isfinite(actualSampleRate) || actualSampleRate <= 0.0) {
+				failStartup("the device reported an invalid sample rate");
+				return;
+			}
 			if (std::abs(actualSampleRate - static_cast<double>(SAMPLE_RATE)) > 0.5) {
 				failStartup("the device opened at " + String(actualSampleRate) + " Hz instead of " + String(SAMPLE_RATE) + " Hz");
 				return;
@@ -380,10 +407,8 @@ void AudioService::restartAudio(std::shared_ptr<ChannelSetup> inputSetup, std::s
 
 			refreshChannelSetup(inputSetup);
 			audioDevice_->start(&callback_);
-			if (!audioDevice_->isPlaying()) {
-				failStartup("the device opened but did not start");
-				return;
-			}
+			// Some JUCE backends only report isPlaying() after their callback thread
+			// has started, so a synchronous check here can reject a valid startup.
 			Data::instance().getEphemeral().setProperty(EPHEMERAL_VALUE_AUDIO_RUNNING, true, nullptr);
 		}
 	}
@@ -393,6 +418,9 @@ void AudioService::restartAudio()
 {
 	// Build the data structures required to properly restart the audio objects
 	jassert(juce::MessageManager::getInstance()->isThisTheMessageThread());
+	if (shutdown_.load(std::memory_order_acquire)) {
+		return;
+	}
 
 	stopAudioIfRunning();
 

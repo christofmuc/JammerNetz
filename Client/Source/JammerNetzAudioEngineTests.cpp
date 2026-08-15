@@ -126,6 +126,9 @@ TEST(JammerNetzAudioEngineTest, MixesASimulatedRemoteFrame)
 	const float expectedGain = static_cast<float>(0.25 * std::sqrt(0.5));
 	EXPECT_NEAR(left.front(), expectedGain, 1.0e-5f);
 	EXPECT_NEAR(right.front(), expectedGain, 1.0e-5f);
+	const auto serverBpm = engine.takeServerBpmUpdate();
+	ASSERT_TRUE(serverBpm.has_value());
+	EXPECT_FLOAT_EQ(*serverBpm, 120.0f);
 	engine.shutdown();
 }
 
