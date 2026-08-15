@@ -38,7 +38,7 @@ public:
 	void setDirectory(File &directory);
 
 private:
-	void updateChannelInfo(int sampleRate, JammerNetzChannelSetup const &channelSetup);
+	bool updateChannelInfo(int sampleRate, JammerNetzChannelSetup const &channelSetup);
 	void launchWriter();
 
 	Time startTime_;

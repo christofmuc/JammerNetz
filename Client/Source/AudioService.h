@@ -12,6 +12,7 @@
 #include "DebounceTimer.h"
 
 #include <atomic>
+#include <optional>
 
 
 struct ChannelSetup {
@@ -66,7 +67,7 @@ private:
 	void refreshChannelSetup(std::shared_ptr<ChannelSetup> setup);
 	void refreshEngineConfiguration();
 	void refreshSessionConfiguration();
-	JammerNetzSessionConfiguration getSessionConfiguration() const;
+	std::optional<JammerNetzSessionConfiguration> getSessionConfiguration() const;
 	void restartAudio();
 	void restartAudio(std::shared_ptr<ChannelSetup> inputSetup, std::shared_ptr<ChannelSetup> outputSetup);
 
