@@ -14,6 +14,8 @@
 
 #include "Logger.h"
 
+#include <cmath>
+
 AudioService::AudioService()
 {
 	// Put the list into the ephemeral app data (not stored across runs of the software)
@@ -272,7 +274,7 @@ void AudioService::restartAudio(std::shared_ptr<ChannelSetup> inputSetup, std::s
 		return;
 	}
 
-	juce::AudioIODeviceType* selectedType = AudioDeviceDiscovery::deviceTypeByName(inputSetup ? inputSetup->typeName : "");
+	juce::AudioIODeviceType* selectedType = AudioDeviceDiscovery::deviceTypeByName(inputSetup->typeName);
 	// Sample rate and buffer size are hard coded for now
 	if (!selectedType) {
 		failStartup("the selected audio device type is unavailable");
@@ -283,13 +285,11 @@ void AudioService::restartAudio(std::shared_ptr<ChannelSetup> inputSetup, std::s
 	{
 		if (selectedType->hasSeparateInputsAndOutputs()) {
 			// This is for other Audio types like DirectSound
-			audioDevice_.reset(selectedType->createDevice(outputSetup ? outputSetup->device : "", inputSetup ? inputSetup->device : ""));
+			audioDevice_.reset(selectedType->createDevice(outputSetup->device, inputSetup->device));
 		}
 		else {
 			// Try to create the device purely from the input name, this would be the path for ASIO)
-			if (inputSetup) {
-				audioDevice_.reset(selectedType->createDevice("", inputSetup->device));
-			}
+			audioDevice_.reset(selectedType->createDevice("", inputSetup->device));
 		}
 
 		if (!audioDevice_) {
@@ -298,8 +298,8 @@ void AudioService::restartAudio(std::shared_ptr<ChannelSetup> inputSetup, std::s
 		}
 
 		{
-			BigInteger inputChannelMask = inputSetup ? makeChannelMask(inputSetup->activeChannelIndices) : 0;
-			BigInteger outputChannelMask = outputSetup ? makeChannelMask(outputSetup->activeChannelIndices) : 0;
+			BigInteger inputChannelMask = makeChannelMask(inputSetup->activeChannelIndices);
+			BigInteger outputChannelMask = makeChannelMask(outputSetup->activeChannelIndices);
 
 			// Prefer the network block size, or the smallest supported size above it.
 			auto buffers = audioDevice_->getAvailableBufferSizes();
@@ -317,6 +317,10 @@ void AudioService::restartAudio(std::shared_ptr<ChannelSetup> inputSetup, std::s
 			}
 
 			const double actualSampleRate = audioDevice_->getCurrentSampleRate();
+			if (!std::isfinite(actualSampleRate) || actualSampleRate <= 0.0) {
+				failStartup("the device reported an invalid sample rate");
+				return;
+			}
 			if (std::abs(actualSampleRate - static_cast<double>(SAMPLE_RATE)) > 0.5) {
 				failStartup("the device opened at " + String(actualSampleRate) + " Hz instead of " + String(SAMPLE_RATE) + " Hz");
 				return;
