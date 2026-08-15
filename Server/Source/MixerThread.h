@@ -13,6 +13,7 @@
 #include "BuffersConfig.h"
 
 #include "Recorder.h"
+#include "ServerMixerCore.h"
 
 class MixerThread : public Thread {
 public:
@@ -23,14 +24,10 @@ public:
 	virtual void run() override;
 
 private:
-	void bufferMixdown(std::shared_ptr<AudioBuffer<float>> &outBuffer, std::shared_ptr<JammerNetzAudioData> const &audioData, bool isForSender);
-
-	uint64 serverTime_;
-	float lastBpm_;
 	TPacketStreamBundle &incoming_;
 	TOutgoingQueue &outgoing_;
 	TMessageQueue &wakeUpQueue_;
-	JammerNetzChannelSetup mixdownSetup_;
+	ServerMixerCore mixerCore_;
 	//Recorder &recorder_;
 	ServerBufferConfig bufferConfig_;
 };
