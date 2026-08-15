@@ -76,5 +76,5 @@ if(WIN32)
 			$<TARGET_FILE_DIR:JammerNetzPlugin_VST3>)
 endif()
 
-gtest_discover_tests(${PLUGIN_TEST_NAME})
+gtest_discover_tests(${PLUGIN_TEST_NAME} DISCOVERY_MODE PRE_TEST)
 set_target_properties(${PLUGIN_TEST_NAME} PROPERTIES FOLDER tests)

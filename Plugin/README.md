@@ -19,7 +19,7 @@ The first version intentionally has a narrow host contract:
 - The Windows VST3 bundle includes its required oneTBB runtime beside the plug-in
   binary.
 
-With **Dry passthrough / suppress self return** enabled, the host input is mixed
+With **Dry passthrough / suppress own return** enabled, the host input is mixed
 locally and the server is asked not to return the sender's own channels. Until
 remote audio actually arrives, processing remains transparent so a failed or
 stalled connection does not mute the host signal.
@@ -58,12 +58,15 @@ Plugin\windows-debug.cmd ableton
 ```
 
 `build` builds the Debug VST3, matching server, and plug-in tests, then runs the
-tests. Run `server` and `ableton` in separate terminals. If Ableton is installed
-somewhere other than the default Live 12 Suite location, pass its executable:
+tests. Run `server` and `ableton` in separate terminals. Pass the Ableton
+executable explicitly:
 
 ```bat
 Plugin\windows-debug.cmd ableton "C:\path\to\Ableton Live.exe"
 ```
+
+Alternatively, set `JAMMERNETZ_ABLETON_EXE` to that full path before running
+the `ableton` action.
 
 Run `Plugin\windows-debug.cmd help` for all available actions. Do not distribute
 the Debug CRT; use a Release or RelWithDebInfo build for distributable binaries.

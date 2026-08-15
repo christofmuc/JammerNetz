@@ -26,6 +26,7 @@ void AudioRecordingWorker::shutdown()
 {
 	signalThreadShouldExit();
 	stopThread(2000);
+	// The owning engine stops its audio callback producer before shutdown.
 	queue_.reset();
 }
 

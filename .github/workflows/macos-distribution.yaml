@@ -26,6 +26,7 @@ jobs:
       uses: actions/checkout@v4
       with:
         submodules: recursive
+        persist-credentials: false
 
     - name: Validate signing secrets
       env:
@@ -101,7 +102,7 @@ jobs:
           -DCPACK_BUNDLE_APPLE_CERT_APP="$APPLE_DEVELOPER_IDENTITY" \
           -DJAMMERNETZ_CODESIGN_KEYCHAIN="$JAMMERNETZ_CODESIGN_KEYCHAIN"
         cmake --build build --target JammerNetzPlugin_VST3 JammerNetzPlugin_AU JammerNetzPluginTest --parallel
-        ctest --test-dir build -R JammerNetzPluginTest --output-on-failure
+        ctest --test-dir build -R JammerNetzPluginTest --no-tests=error --output-on-failure
 
         vst3="build/Plugin/JammerNetzPlugin_artefacts/RelWithDebInfo/VST3/JammerNetz.vst3"
         component="build/Plugin/JammerNetzPlugin_artefacts/RelWithDebInfo/AU/JammerNetz.component"

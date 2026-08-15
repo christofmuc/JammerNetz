@@ -75,7 +75,7 @@ jobs:
       run: |
         cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 -DCMAKE_INSTALL_RPATH_USE_LINK_PATH="ON" -DJAMMERNETZ_ENABLE_LTO=ON -DCMAKE_POLICY_VERSION_MINIMUM=3.5
         cmake --build build --target JammerNetzPlugin_VST3 JammerNetzPlugin_AU JammerNetzPluginTest --parallel
-        ctest --test-dir build -R JammerNetzPluginTest --output-on-failure
+        ctest --test-dir build -R JammerNetzPluginTest --no-tests=error --output-on-failure
         cmake --build build --target package --parallel
 
     - name: Validate macOS plug-ins
@@ -93,7 +93,8 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: MacInstaller
-        path: build/JammerNetz-2.3.0-Darwin.dmg
+        path: build/JammerNetz-*-Darwin.dmg
+        if-no-files-found: error
 
     - name: Upload macOS VST3
       uses: actions/upload-artifact@v4

@@ -158,6 +158,25 @@ TEST(BoundedSpscQueueTest, RejectsWritesWhenFullAndPreservesOrder)
 	EXPECT_FALSE(queue.tryRead([&](int& queued) { value = queued; }));
 }
 
+TEST(BoundedSpscQueueTest, ResetReleasesRetainedItemsAndMakesQueueReusable)
+{
+	BoundedSpscQueue<std::shared_ptr<int>> queue(1);
+	auto retained = std::make_shared<int>(42);
+	const std::weak_ptr<int> observer = retained;
+	EXPECT_TRUE(queue.tryWrite([&](std::shared_ptr<int>& slot) { slot = retained; }));
+	retained.reset();
+	EXPECT_FALSE(observer.expired());
+
+	queue.reset();
+
+	EXPECT_TRUE(observer.expired());
+	EXPECT_EQ(queue.size(), 0);
+	EXPECT_TRUE(queue.tryWrite([](std::shared_ptr<int>& slot) { slot = std::make_shared<int>(7); }));
+	int value = 0;
+	EXPECT_TRUE(queue.tryRead([&](std::shared_ptr<int>& slot) { value = *slot; }));
+	EXPECT_EQ(value, 7);
+}
+
 TEST(PacketStreamQueueTest, ResetAcceptsANewPacketSequence)
 {
 	PacketStreamQueue queue("test");

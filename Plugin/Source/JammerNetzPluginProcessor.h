@@ -82,6 +82,12 @@ public:
 	double remoteLevel(int channel);
 
 private:
+	enum class ErrorSource {
+		none,
+		sampleRate,
+		session
+	};
+
 	static constexpr uint32_t closingMask = uint32_t { 1 } << 31;
 	static constexpr uint32_t processCountMask = ~closingMask;
 
@@ -89,14 +95,16 @@ private:
 	void leaveProcess() noexcept;
 	void configureEngine(const JammerNetzPluginConfiguration& configuration);
 	JammerNetzSessionConfiguration makeSessionConfiguration(const JammerNetzPluginConfiguration& configuration) const;
-	void setError(const juce::String& error);
+	void setError(const juce::String& error, ErrorSource source = ErrorSource::session);
 	void clearError();
+	void clearError(ErrorSource source);
 	static JammerNetzPluginConfiguration sanitise(JammerNetzPluginConfiguration configuration);
 
 	mutable juce::CriticalSection configurationLock_;
 	JammerNetzPluginConfiguration configuration_;
 	mutable juce::CriticalSection statusLock_;
 	juce::String error_;
+	ErrorSource errorSource_ { ErrorSource::none };
 
 	JammerNetzSession session_;
 	JammerNetzAudioEngine engine_;

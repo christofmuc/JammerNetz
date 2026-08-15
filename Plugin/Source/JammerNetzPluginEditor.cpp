@@ -33,6 +33,15 @@ JammerNetzPluginEditor::JammerNetzPluginEditor(JammerNetzPluginProcessor& plugin
 	maximumJitterLabel_.setText("Maximum jitter frames", juce::dontSendNotification);
 	inputMeterLabel_.setText("Input", juce::dontSendNotification);
 	remoteMeterLabel_.setText("Remote return", juce::dontSendNotification);
+	serverLabel_.attachToComponent(&server_, true);
+	portLabel_.attachToComponent(&port_, true);
+	usernameLabel_.attachToComponent(&username_, true);
+	keyLabel_.attachToComponent(&keyPath_, true);
+	sendGainLabel_.attachToComponent(&sendGain_, true);
+	dryGainLabel_.attachToComponent(&dryGain_, true);
+	remoteGainLabel_.attachToComponent(&remoteGain_, true);
+	minimumJitterLabel_.attachToComponent(&minimumJitter_, true);
+	maximumJitterLabel_.attachToComponent(&maximumJitter_, true);
 	status_.setColour(juce::Label::textColourId, juce::Colours::lightgrey);
 	status_.setJustificationType(juce::Justification::centredLeft);
 	status_.setMinimumHorizontalScale(0.7f);

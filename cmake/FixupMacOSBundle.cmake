@@ -60,7 +60,9 @@ if(TBB_DEPENDENCY_COUNT EQUAL 0)
 endif()
 
 execute_process(
-    COMMAND /usr/bin/install_name_tool -id "@rpath/${TBB_NAME}" "${TBB_DESTINATION}"
+    COMMAND /usr/bin/install_name_tool
+        -id "@loader_path/../Frameworks/${TBB_NAME}"
+        "${TBB_DESTINATION}"
     RESULT_VARIABLE TBB_ID_RESULT)
 if(NOT TBB_ID_RESULT EQUAL 0)
     message(FATAL_ERROR "Could not rewrite the bundled TBB install name")
@@ -76,4 +78,24 @@ endif()
 string(FIND "${VERIFY_OUTPUT}" "${TBB_SOURCE_DIRECTORY}" BUILD_PATH_POSITION)
 if(NOT BUILD_PATH_POSITION EQUAL -1)
     message(FATAL_ERROR "Build-tree TBB dependency remains in ${JAMMERNETZ_FIXUP_EXECUTABLE}")
+endif()
+
+# install_name_tool invalidates existing signatures. Ad-hoc-sign the nested
+# runtime first and the containing plug-in second so development builds can be
+# loaded by AU validation and plug-in hosts. Distribution signing replaces
+# these signatures later.
+execute_process(
+    COMMAND /usr/bin/codesign --force --sign - "${TBB_DESTINATION}"
+    RESULT_VARIABLE TBB_CODESIGN_RESULT
+    ERROR_VARIABLE TBB_CODESIGN_ERROR)
+if(NOT TBB_CODESIGN_RESULT EQUAL 0)
+    message(FATAL_ERROR "Could not ad-hoc sign bundled TBB: ${TBB_CODESIGN_ERROR}")
+endif()
+
+execute_process(
+    COMMAND /usr/bin/codesign --force --sign - "${JAMMERNETZ_FIXUP_BUNDLE}"
+    RESULT_VARIABLE BUNDLE_CODESIGN_RESULT
+    ERROR_VARIABLE BUNDLE_CODESIGN_ERROR)
+if(NOT BUNDLE_CODESIGN_RESULT EQUAL 0)
+    message(FATAL_ERROR "Could not ad-hoc sign plug-in bundle: ${BUNDLE_CODESIGN_ERROR}")
 endif()

@@ -68,6 +68,9 @@ void AudioReceiveWorker::shutdown()
 {
 	signalThreadShouldExit();
 	stopThread(2000);
+	// The owner stops the audio callback and network receive callback before
+	// shutdown, so neither queue has a producer or consumer at this point.
+	inboundQueue_.reset();
 	outputQueue_.reset();
 	packetQueue_.reset();
 	midiSender_.store(nullptr, std::memory_order_release);

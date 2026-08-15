@@ -50,7 +50,18 @@ public:
 
 	int size() const noexcept { return fifo_.getNumReady(); }
 	int freeSpace() const noexcept { return fifo_.getFreeSpace(); }
-	void reset() noexcept { fifo_.reset(); }
+
+	// AbstractFifo::reset() is not synchronised with prepare/finished calls.
+	// The owner must stop both the producer and consumer before calling reset().
+	// Clearing the backing slots also releases resources retained by consumed or
+	// abandoned items, such as shared_ptr payloads.
+	void reset()
+	{
+		fifo_.reset();
+		const auto slotCount = slots_.size();
+		slots_.clear();
+		slots_.resize(slotCount);
+	}
 
 private:
 	juce::AbstractFifo fifo_;

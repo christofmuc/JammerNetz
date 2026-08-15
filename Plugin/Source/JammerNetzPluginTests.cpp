@@ -99,6 +99,18 @@ TEST(JammerNetzPluginTest, RepeatedHostPreparationDoesNotStartASession)
 	EXPECT_EQ(processor.statusText(), "Disconnected");
 }
 
+TEST(JammerNetzPluginTest, SameRateHostPreparationPreservesUnrelatedConnectionError)
+{
+	JammerNetzPluginProcessor processor;
+	processor.prepareToPlay(48000.0, 64);
+	EXPECT_FALSE(processor.connectSession());
+	ASSERT_EQ(processor.statusText(), "Enter a JammerNetz server before connecting");
+
+	processor.prepareToPlay(48000.0, 2048);
+
+	EXPECT_EQ(processor.statusText(), "Enter a JammerNetz server before connecting");
+}
+
 TEST(JammerNetzPluginTest, BypassAndOfflineRenderingRemainTransparent)
 {
 	JammerNetzPluginProcessor processor;

@@ -65,13 +65,15 @@ JammerNetzPluginProcessor::~JammerNetzPluginProcessor()
 
 void JammerNetzPluginProcessor::prepareToPlay(double sampleRate, int maximumExpectedSamplesPerBlock)
 {
-	disconnectSession();
-	preparedSampleRate_.store(sampleRate, std::memory_order_release);
+	const auto previousSampleRate = preparedSampleRate_.exchange(sampleRate, std::memory_order_acq_rel);
+	if (isSessionActive() && std::abs(previousSampleRate - sampleRate) > 0.5) {
+		disconnectSession();
+	}
 	engine_.prepare(sampleRate, std::min(maximumExpectedSamplesPerBlock, JAMMERNETZ_MAX_CALLBACK_SAMPLES));
 	if (std::abs(sampleRate - static_cast<double>(SAMPLE_RATE)) > 0.5) {
-		setError("JammerNetz currently requires a 48 kHz host sample rate");
+		setError("JammerNetz currently requires a 48 kHz host sample rate", ErrorSource::sampleRate);
 	} else {
-		clearError();
+		clearError(ErrorSource::sampleRate);
 	}
 }
 
@@ -248,7 +250,7 @@ bool JammerNetzPluginProcessor::connectSession()
 		return true;
 	}
 	if (std::abs(preparedSampleRate_.load(std::memory_order_acquire) - static_cast<double>(SAMPLE_RATE)) > 0.5) {
-		setError("Set the host project to 48 kHz before connecting");
+		setError("Set the host project to 48 kHz before connecting", ErrorSource::sampleRate);
 		return false;
 	}
 	const auto config = configuration();
@@ -291,8 +293,10 @@ void JammerNetzPluginProcessor::disconnectSession() noexcept
 	while ((processGate_.load(std::memory_order_acquire) & processCountMask) != 0) {
 		juce::Thread::sleep(1);
 	}
-	engine_.shutdown();
+	// The process gate above quiesces audio; stop the network receive producer
+	// before the engine resets its worker queues.
 	session_.shutdown();
+	engine_.shutdown();
 	processGate_.store(0, std::memory_order_release);
 	instanceLease_.release();
 }
@@ -302,15 +306,25 @@ bool JammerNetzPluginProcessor::isReceivingAudio() const
 	return isSessionActive() && session_.isReceivingData();
 }
 
-void JammerNetzPluginProcessor::setError(const juce::String& error)
+void JammerNetzPluginProcessor::setError(const juce::String& error, ErrorSource source)
 {
 	const juce::ScopedLock lock(statusLock_);
 	error_ = error;
+	errorSource_ = error.isEmpty() ? ErrorSource::none : source;
 }
 
 void JammerNetzPluginProcessor::clearError()
 {
 	setError({});
+}
+
+void JammerNetzPluginProcessor::clearError(ErrorSource source)
+{
+	const juce::ScopedLock lock(statusLock_);
+	if (errorSource_ == source) {
+		error_.clear();
+		errorSource_ = ErrorSource::none;
+	}
 }
 
 juce::String JammerNetzPluginProcessor::statusText() const

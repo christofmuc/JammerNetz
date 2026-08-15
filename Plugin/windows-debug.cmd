@@ -42,17 +42,18 @@ exit /b %JAMMERNETZ_RESULT%
 :ableton
 set "ABLETON_EXE=%~2"
 if defined ABLETON_EXE goto :start_ableton
-set "ABLETON_EXE=%ProgramData%\Ableton\Live 12 Suite\Program\Ableton Live 12 Suite.exe"
+set "ABLETON_EXE=%JAMMERNETZ_ABLETON_EXE%"
 :start_ableton
-if not exist "%ABLETON_EXE%" (
-	echo Ableton executable not found:
-	echo   %ABLETON_EXE%
-	echo Pass its full path as the second argument, for example:
-	echo   Plugin\windows-debug.cmd ableton "C:\path\to\Ableton Live.exe"
-	exit /b 1
-)
+if not defined ABLETON_EXE goto :ableton_not_found
+if not exist "%ABLETON_EXE%" goto :ableton_not_found
 start "" "%ABLETON_EXE%"
 exit /b 0
+:ableton_not_found
+echo Ableton executable not configured or not found.
+echo Pass its full path as the second argument:
+echo   Plugin\windows-debug.cmd ableton "C:\path\to\Ableton Live.exe"
+echo Or set JAMMERNETZ_ABLETON_EXE to that full path.
+exit /b 1
 
 :visual_studio
 set "DEVENV_EXE=%VS_INSTALL%\Common7\IDE\devenv.exe"
@@ -131,6 +132,7 @@ echo   build              Build the Debug VST3, server, and tests; then run the 
 echo   test               Build and run only the plug-in tests.
 echo   server             Run the Debug server on port 7777 with RandomNumbers.bin.
 echo   ableton [exe]      Start Ableton with the Debug CRT available to the plug-in.
+echo                      The path is required here or in JAMMERNETZ_ABLETON_EXE.
 echo   vs                 Open the generated solution with the Debug runtime environment.
 echo   env                Locate and print the Debug runtime directories.
 echo   help               Show this help.
