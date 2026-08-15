@@ -71,6 +71,22 @@ jobs:
     - name: Build with CMake
       run: |
         cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_RPATH_USE_LINK_PATH="ON" -DJAMMERNETZ_ENABLE_LTO=ON -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+        cmake --build build --parallel
+
+    - name: Run unit tests
+      run: |
+        ctest --test-dir build --output-on-failure --no-tests=error --output-junit build/test-results.xml -L unit
+
+    - name: Upload unit test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: MacOSUnitTestResults
+        path: build/test-results.xml
+        if-no-files-found: warn
+
+    - name: Build macOS package
+      run: |
         cmake --build build --target package --parallel
 
     - name: Upload Mac Installer

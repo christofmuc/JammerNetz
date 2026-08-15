@@ -80,3 +80,15 @@ jobs:
       run: |
         cmake -S . -B builds -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DJAMMERNETZ_ENABLE_LTO=ON -DCMAKE_POLICY_VERSION_MINIMUM=3.5
         cmake --build builds --parallel
+
+    - name: Run unit tests
+      run: |
+        ctest --test-dir builds --output-on-failure --no-tests=error --output-junit builds/test-results.xml -L unit
+
+    - name: Upload unit test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: UbuntuUnitTestResults
+        path: builds/test-results.xml
+        if-no-files-found: warn
