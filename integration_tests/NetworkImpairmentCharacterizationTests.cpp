@@ -840,7 +840,7 @@ std::vector<ImpairmentProfile> isolatedProfiles()
 std::vector<ImpairmentProfile> combinedProfiles()
 {
 	std::vector<ImpairmentProfile> profiles;
-	for (const auto [jitter, dropEvery] : std::array<std::pair<std::size_t, std::size_t>, 3> {
+	for (const auto& [jitter, dropEvery] : std::array<std::pair<std::size_t, std::size_t>, 3> {
 		std::pair { 2U, 64U }, std::pair { 4U, 32U }, std::pair { 8U, 16U }
 	}) {
 		ImpairmentProfile profile { "jitter+drop", "jitter-" + std::to_string(jitter)
@@ -849,7 +849,7 @@ std::vector<ImpairmentProfile> combinedProfiles()
 		profile.dropEveryFrames = dropEvery;
 		profiles.push_back(profile);
 	}
-	for (const auto [jitter, displacement] : std::array<std::pair<std::size_t, std::size_t>, 3> {
+	for (const auto& [jitter, displacement] : std::array<std::pair<std::size_t, std::size_t>, 3> {
 		std::pair { 2U, 1U }, std::pair { 4U, 2U }, std::pair { 8U, 4U }
 	}) {
 		ImpairmentProfile profile { "jitter+reorder", "jitter-" + std::to_string(jitter)
@@ -859,7 +859,7 @@ std::vector<ImpairmentProfile> combinedProfiles()
 		profile.reorderDelayFrames = displacement;
 		profiles.push_back(profile);
 	}
-	for (const auto [hold, duplicateEvery] : std::array<std::pair<std::size_t, std::size_t>, 3> {
+	for (const auto& [hold, duplicateEvery] : std::array<std::pair<std::size_t, std::size_t>, 3> {
 		std::pair { 2U, 16U }, std::pair { 4U, 8U }, std::pair { 8U, 4U }
 	}) {
 		ImpairmentProfile profile { "hold+duplicate", "hold-" + std::to_string(hold)
@@ -869,7 +869,7 @@ std::vector<ImpairmentProfile> combinedProfiles()
 		profile.duplicateEveryFrames = duplicateEvery;
 		profiles.push_back(profile);
 	}
-	for (const auto [lag, dropEvery] : std::array<std::pair<std::size_t, std::size_t>, 3> {
+	for (const auto& [lag, dropEvery] : std::array<std::pair<std::size_t, std::size_t>, 3> {
 		std::pair { 2U, 32U }, std::pair { 4U, 16U }, std::pair { 8U, 8U }
 	}) {
 		ImpairmentProfile profile { "lag+drop", "lag-" + std::to_string(lag)
@@ -878,7 +878,7 @@ std::vector<ImpairmentProfile> combinedProfiles()
 		profile.dropEveryFrames = dropEvery;
 		profiles.push_back(profile);
 	}
-	for (const auto [jitter, dropEvery, duplicateEvery] :
+	for (const auto& [jitter, dropEvery, duplicateEvery] :
 		std::array<std::tuple<std::size_t, std::size_t, std::size_t>, 3> {
 			std::tuple { 2U, 64U, 32U }, std::tuple { 4U, 32U, 16U }, std::tuple { 8U, 16U, 8U }
 		}) {
@@ -890,7 +890,7 @@ std::vector<ImpairmentProfile> combinedProfiles()
 		profile.duplicateEveryFrames = duplicateEvery;
 		profiles.push_back(profile);
 	}
-	for (const auto [jitter, dropEvery, displacement] :
+	for (const auto& [jitter, dropEvery, displacement] :
 		std::array<std::tuple<std::size_t, std::size_t, std::size_t>, 3> {
 			std::tuple { 2U, 64U, 1U }, std::tuple { 4U, 32U, 2U }, std::tuple { 8U, 16U, 4U }
 		}) {
