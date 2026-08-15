@@ -16,6 +16,8 @@
 
 #include "Logger.h"
 
+#include <cmath>
+
 AudioService::AudioService()
 	: engine_(session_, Settings::instance().getSessionStorageDir())
 	, callback_(engine_, [](float bpm) {
@@ -231,11 +233,18 @@ void AudioService::refreshSessionConfiguration()
 
 void AudioService::valueTreePropertyChanged(ValueTree& treeWhosePropertyHasChanged, const Identifier& property)
 {
+	if (shutdown_.load(std::memory_order_acquire)) {
+		return;
+	}
+
 	if (//ValueTreeUtils::isChildOf(VALUE_INPUT_SETUP, treeWhosePropertyHasChanged) ||
 		//ValueTreeUtils::isChildOf(VALUE_OUTPUT_SETUP, treeWhosePropertyHasChanged) ||
 		property == Identifier(EPHEMERAL_VALUE_AUDIO_SHOULD_RUN)) {
 		debouncer_.callDebounced(
 		    [this]() {
+			    if (shutdown_.load(std::memory_order_acquire)) {
+				    return;
+			    }
 			    bool shouldRun = Data::getEphemeralProperty(EPHEMERAL_VALUE_AUDIO_SHOULD_RUN);
 			    if (shouldRun) {
 				    restartAudio();
@@ -303,6 +312,10 @@ static BigInteger makeChannelMask(std::vector<int> const& indices) {
 
 void AudioService::restartAudio(std::shared_ptr<ChannelSetup> inputSetup, std::shared_ptr<ChannelSetup> outputSetup)
 {
+	if (shutdown_.load(std::memory_order_acquire)) {
+		return;
+	}
+
 	auto failStartup = [this](const String& message) {
 		SimpleLogger::instance()->postMessage("Audio startup failed: " + message);
 		Data::instance().getEphemeral().setProperty(EPHEMERAL_VALUE_AUDIO_RUNNING, false, nullptr);
@@ -323,7 +336,7 @@ void AudioService::restartAudio(std::shared_ptr<ChannelSetup> inputSetup, std::s
 		return;
 	}
 
-	juce::AudioIODeviceType* selectedType = AudioDeviceDiscovery::deviceTypeByName(inputSetup ? inputSetup->typeName : "");
+	juce::AudioIODeviceType* selectedType = AudioDeviceDiscovery::deviceTypeByName(inputSetup->typeName);
 	// Sample rate and buffer size are hard coded for now
 	if (!selectedType) {
 		failStartup("the selected audio device type is unavailable");
@@ -334,13 +347,11 @@ void AudioService::restartAudio(std::shared_ptr<ChannelSetup> inputSetup, std::s
 	{
 		if (selectedType->hasSeparateInputsAndOutputs()) {
 			// This is for other Audio types like DirectSound
-			audioDevice_.reset(selectedType->createDevice(outputSetup ? outputSetup->device : "", inputSetup ? inputSetup->device : ""));
+			audioDevice_.reset(selectedType->createDevice(outputSetup->device, inputSetup->device));
 		}
 		else {
 			// Try to create the device purely from the input name, this would be the path for ASIO)
-			if (inputSetup) {
-				audioDevice_.reset(selectedType->createDevice("", inputSetup->device));
-			}
+			audioDevice_.reset(selectedType->createDevice("", inputSetup->device));
 		}
 
 		if (!audioDevice_) {
@@ -349,8 +360,8 @@ void AudioService::restartAudio(std::shared_ptr<ChannelSetup> inputSetup, std::s
 		}
 
 		{
-			BigInteger inputChannelMask = inputSetup ? makeChannelMask(inputSetup->activeChannelIndices) : 0;
-			BigInteger outputChannelMask = outputSetup ? makeChannelMask(outputSetup->activeChannelIndices) : 0;
+			BigInteger inputChannelMask = makeChannelMask(inputSetup->activeChannelIndices);
+			BigInteger outputChannelMask = makeChannelMask(outputSetup->activeChannelIndices);
 
 			// Prefer the network block size, or the smallest supported size above it.
 			auto buffers = audioDevice_->getAvailableBufferSizes();
@@ -368,6 +379,10 @@ void AudioService::restartAudio(std::shared_ptr<ChannelSetup> inputSetup, std::s
 			}
 
 			const double actualSampleRate = audioDevice_->getCurrentSampleRate();
+			if (!std::isfinite(actualSampleRate) || actualSampleRate <= 0.0) {
+				failStartup("the device reported an invalid sample rate");
+				return;
+			}
 			if (std::abs(actualSampleRate - static_cast<double>(SAMPLE_RATE)) > 0.5) {
 				failStartup("the device opened at " + String(actualSampleRate) + " Hz instead of " + String(SAMPLE_RATE) + " Hz");
 				return;
@@ -380,10 +395,8 @@ void AudioService::restartAudio(std::shared_ptr<ChannelSetup> inputSetup, std::s
 
 			refreshChannelSetup(inputSetup);
 			audioDevice_->start(&callback_);
-			if (!audioDevice_->isPlaying()) {
-				failStartup("the device opened but did not start");
-				return;
-			}
+			// Some JUCE backends only report isPlaying() after their callback thread
+			// has started, so a synchronous check here can reject a valid startup.
 			Data::instance().getEphemeral().setProperty(EPHEMERAL_VALUE_AUDIO_RUNNING, true, nullptr);
 		}
 	}
@@ -393,6 +406,9 @@ void AudioService::restartAudio()
 {
 	// Build the data structures required to properly restart the audio objects
 	jassert(juce::MessageManager::getInstance()->isThisTheMessageThread());
+	if (shutdown_.load(std::memory_order_acquire)) {
+		return;
+	}
 
 	stopAudioIfRunning();
 

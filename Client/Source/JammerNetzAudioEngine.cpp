@@ -62,7 +62,15 @@ void JammerNetzAudioEngine::start()
 
 void JammerNetzAudioEngine::shutdown()
 {
+	auto activeMidiSendThread = midiSendThread_.load(std::memory_order_acquire);
 	midiSendThread_.store(nullptr, std::memory_order_release);
+	{
+		const ScopedLock lock(retiredMidiSendThreadsLock_);
+		if (activeMidiSendThread) {
+			retiredMidiSendThreads_.push_back(std::move(activeMidiSendThread));
+		}
+		retiredMidiSendThreads_.clear();
+	}
 	masterRecorder_.reset();
 	uploadRecorder_.reset();
 }
@@ -114,7 +122,12 @@ std::optional<float> JammerNetzAudioEngine::takeServerBpmUpdate()
 void JammerNetzAudioEngine::restartClock(std::vector<MidiDeviceInfo> outputs)
 {
 	// Where to send the Midi Clock signals
+	auto retiredMidiSendThread = midiSendThread_.load(std::memory_order_acquire);
 	midiSendThread_.store(std::make_shared<MidiSendThread>(outputs), std::memory_order_release);
+	if (retiredMidiSendThread) {
+		const ScopedLock lock(retiredMidiSendThreadsLock_);
+		retiredMidiSendThreads_.push_back(std::move(retiredMidiSendThread));
+	}
 }
 
 void JammerNetzAudioEngine::setMidiSignalToSend(MidiSignal signal)
@@ -293,8 +306,19 @@ void JammerNetzAudioEngine::process(const float* const* inputChannelData, int nu
 	// Measure time passed
 	measureSamplesPerTime(qualityInfo, numSamples);
 
+	const bool inputStateMatchesDevice = inputState && inputState->ingestBuffer
+		&& inputState->setup.channels.size() == static_cast<size_t>(numInputChannels);
+	if (numInputChannels > 0 && !inputStateMatchesDevice
+		&& !inputChannelMismatchReported_.exchange(true, std::memory_order_acq_rel)) {
+		const auto configuredChannels = inputState ? inputState->setup.channels.size() : 0;
+		MessageManager::callAsync([numInputChannels, configuredChannels]() {
+			SimpleLogger::instance()->postMessage("Audio input channel mismatch: device provides " + String(numInputChannels)
+				+ " channels, but " + String(configuredChannels) + " are configured");
+		});
+	}
+
 	// If we have at least one input channel, do something with the data!
-	if (numInputChannels > 0 && inputState && inputState->ingestBuffer && inputState->setup.channels.size() == static_cast<size_t>(numInputChannels)) {
+	if (numInputChannels > 0 && inputStateMatchesDevice) {
 		// Hard disk recording
 		if (uploadRecorder_ && uploadRecorder_->isRecording()) {
 			uploadRecorder_->saveBlock(inputChannelData, numSamples);
@@ -507,11 +531,12 @@ void JammerNetzAudioEngine::setChannelSetup(JammerNetzChannelSetup const &channe
 	std::shared_ptr<RingBuffer> ingestBuffer = previousState ? previousState->ingestBuffer : nullptr;
 	if (channelCountChanged) {
 		ingestBuffer = channelSetup.channels.empty() ? nullptr : std::make_shared<RingBuffer>(static_cast<int>(channelSetup.channels.size()), INGEST_RINGBUFFER_SIZE);
-		if (uploadRecorder_) {
-			uploadRecorder_->setChannelInfo(SAMPLE_RATE, channelSetup);
-		}
+	}
+	if (uploadRecorder_) {
+		uploadRecorder_->setChannelInfo(SAMPLE_RATE, channelSetup);
 	}
 
+	inputChannelMismatchReported_.store(false, std::memory_order_release);
 	inputState_.store(std::make_shared<const InputState>(InputState { channelSetup, std::move(ingestBuffer) }), std::memory_order_release);
 	if (channelCountChanged && midiRecorder_) {
 		midiRecorder_->startRecording();

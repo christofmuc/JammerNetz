@@ -35,8 +35,9 @@ void Recorder::setRecording(bool recordOn)
 {
 	ScopedLock lock(stateLock_);
 	if (recordOn && writeThread_ == nullptr) {
-		updateChannelInfo(lastSampleRate_, lastChannelSetup_);
-		launchWriter();
+		if (updateChannelInfo(lastSampleRate_, lastChannelSetup_)) {
+			launchWriter();
+		}
 	} else if (!recordOn && writeThread_ != nullptr) {
 		writeThread_.reset();
 	}
@@ -73,13 +74,14 @@ void Recorder::setChannelInfo(int sampleRate, JammerNetzChannelSetup const &chan
 	lastChannelSetup_ = channelSetup;
 }
 
-void Recorder::updateChannelInfo(int sampleRate, JammerNetzChannelSetup const &channelSetup) {
+bool Recorder::updateChannelInfo(int sampleRate, JammerNetzChannelSetup const &channelSetup) {
 	lastSampleRate_ = sampleRate;
 	lastChannelSetup_ = channelSetup;
 
 	// We have changed the channel setup - as our output files do like a varying number of channels (you need a DAW project for that)
 	// let's close the current file and start a new one
 	writeThread_.reset();
+	writer_ = nullptr;
 
 	// Create the audio format writer
 	std::unique_ptr<AudioFormat> audioFormat;
@@ -97,7 +99,7 @@ void Recorder::updateChannelInfo(int sampleRate, JammerNetzChannelSetup const &c
 	if (!bitsOk) {
 		jassert(false);
 		std::cerr << "Error: trying to create a file with a bit depth that is not supported by the format: " << bitDepthRequested << std::endl;
-		return;
+		return false;
 	}
 
 	bool rateOk = false;
@@ -105,7 +107,7 @@ void Recorder::updateChannelInfo(int sampleRate, JammerNetzChannelSetup const &c
 	if (!rateOk) {
 		jassert(false);
 		std::cerr << "Error: trying to create a file with a sample rate that is not supported by the format: " << sampleRate << std::endl;
-		return;
+		return false;
 	}
 
 	// Setup the channel layout
@@ -140,7 +142,7 @@ void Recorder::updateChannelInfo(int sampleRate, JammerNetzChannelSetup const &c
 
 	// Check if WAV likes it
 	if (!audioFormat->isChannelLayoutSupported(channels)) {
-		return;
+		return false;
 	}
 
 	// Setup a new audio file to write to
@@ -158,8 +160,9 @@ void Recorder::updateChannelInfo(int sampleRate, JammerNetzChannelSetup const &c
 	if (!writer_) {
 		jassert(false);
 		std::cerr << "Fatal: Could not create writer for Audio file, can't record to disk" << std::endl;
-		return;
+		return false;
 	}
+	return true;
 }
 
 void Recorder::launchWriter() {
