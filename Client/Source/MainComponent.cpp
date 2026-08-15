@@ -19,6 +19,36 @@
 #include "LayoutConstants.h"
 
 #include "BuffersConfig.h"
+#include "SpectrogramWidget.h"
+
+namespace {
+class SpectrumPanel final : public juce::Component, private juce::Timer {
+public:
+	explicit SpectrumPanel(std::weak_ptr<Spectrogram> analyzer)
+		: display_(std::move(analyzer))
+	{
+		group_.setText("Master Spectrum");
+		addAndMakeVisible(group_);
+		addAndMakeVisible(display_);
+		startTimerHz(30);
+	}
+
+	void resized() override
+	{
+		group_.setBounds(getLocalBounds());
+		display_.setBounds(getLocalBounds().reduced(kNormalInset));
+	}
+
+private:
+	void timerCallback() override
+	{
+		display_.refreshData();
+	}
+
+	juce::GroupComponent group_;
+	SpectrogramWidget display_;
+};
+}
 
 MainComponent::MainComponent(std::shared_ptr<AudioService> audioService, std::shared_ptr<Recorder> masterRecorder, std::shared_ptr<Recorder> localRecorder) :
 	audioService_(audioService),
@@ -40,6 +70,7 @@ MainComponent::MainComponent(std::shared_ptr<AudioService> audioService, std::sh
 	recordingInfo_ = std::make_unique<RecordingInfo>(masterRecorder, "Press to record master mix");
 	//playalongDisplay_ = std::make_unique<PlayalongDisplay>(callback_.getPlayalong());
 	localRecordingInfo_ = std::make_unique<RecordingInfo>(localRecorder, "Press to record yourself only");
+	spectrogramPanel_ = std::make_unique<SpectrumPanel>(audioService_->getSpectrogram());
 
 	// MidiClock
 	addAndMakeVisible(bpmSlider_);
@@ -116,6 +147,7 @@ MainComponent::MainComponent(std::shared_ptr<AudioService> audioService, std::sh
 	addAndMakeVisible(*recordingInfo_);
 	//addAndMakeVisible(*playalongDisplay_);
 	addAndMakeVisible(*localRecordingInfo_);
+	addAndMakeVisible(*spectrogramPanel_);
 	addAndMakeVisible(logGroup_);
 	addAndMakeVisible(logView_);
 	addAndMakeVisible(clockSelector_);
@@ -124,7 +156,7 @@ MainComponent::MainComponent(std::shared_ptr<AudioService> audioService, std::sh
 
 	// Make sure you set the size of the component after
 	// you add any child components.
-	setSize(1536, 800);
+	setSize(1680, 800);
 
 	clockSelector_.onSelectionChanged = [this](std::vector<juce::MidiDeviceInfo> activeOutputs) {
 		if (audioService_) {
@@ -197,6 +229,18 @@ void MainComponent::resized()
 	logGroup_.setBounds(logArea);
 	logArea.reduce(kNormalInset, kNormalInset);
 	logView_.setBounds(logArea.reduced(kNormalInset));
+
+	// Keep the spectrum useful on wide windows without making it a minimum-size
+	// requirement. Narrow windows devote the available space to the mixer.
+	const int mixerAndSessionMinimum = inputMixerWidth + 2 * deviceSelectorWidth + masterMixerWidth + 160;
+	const int availableSpectrumWidth = area.getWidth() - mixerAndSessionMinimum;
+	const bool showSpectrum = availableSpectrumWidth >= 260;
+	spectrogramPanel_->setVisible(showSpectrum);
+	if (showSpectrum) {
+		const int spectrumWidth = juce::jlimit(260, 380, availableSpectrumWidth);
+		auto spectrumArea = area.removeFromRight(spectrumWidth);
+		spectrogramPanel_->setBounds(spectrumArea.withTrimmedLeft(kSmallInset));
+	}
 
 	// To the left, the input selector
 	auto inputArea = area.removeFromLeft(inputMixerWidth);

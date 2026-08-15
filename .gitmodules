@@ -41,3 +41,7 @@
 [submodule "modules/MidiKraft"]
 	path = modules/MidiKraft
 	url = https://github.com/christofmuc/MidiKraft.git
+[submodule "modules/juce-spectroscope19"]
+	path = modules/juce-spectroscope19
+	url = https://github.com/christofmuc/juce-spectroscope19.git
+	branch = master

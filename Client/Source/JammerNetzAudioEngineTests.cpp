@@ -17,6 +17,34 @@
 
 namespace {
 
+class CapturingOutputTap final : public AudioOutputTap {
+public:
+	void prepare(double sampleRate, int maximumBlockSize) override
+	{
+		preparedSampleRate = sampleRate;
+		preparedBlockSize = maximumBlockSize;
+	}
+
+	void release() override { ++releaseCalls; }
+
+	bool enqueue(const float* const* channels, int numChannels, int numSamples) noexcept override
+	{
+		++enqueueCalls;
+		if (channels != nullptr && numChannels >= 2 && numSamples > 0) {
+			left = channels[0][0];
+			right = channels[1][0];
+		}
+		return true;
+	}
+
+	double preparedSampleRate { 0.0 };
+	int preparedBlockSize { 0 };
+	int releaseCalls { 0 };
+	int enqueueCalls { 0 };
+	float left { 0.0f };
+	float right { 0.0f };
+};
+
 JammerNetzChannelSetup monoLocalSetup()
 {
 	JammerNetzChannelSetup setup(true);
@@ -90,6 +118,38 @@ TEST(JammerNetzAudioEngineTest, ConfigurationChangesDoNotRequireReconstruction)
 	const float expectedGain = static_cast<float>(0.5 * std::sqrt(0.5));
 	EXPECT_NEAR(left.front(), expectedGain, 1.0e-5f);
 	EXPECT_NEAR(right.front(), expectedGain, 1.0e-5f);
+}
+
+TEST(JammerNetzAudioEngineTest, OutputTapReceivesTheFinalStereoMix)
+{
+	JammerNetzSession session;
+	CapturingOutputTap tap;
+	JammerNetzAudioEngine engine(session, juce::File());
+	engine.setOutputTap(&tap);
+	engine.setChannelSetup(monoLocalSetup());
+	engine.setLocalMonitoring(true);
+	engine.setMasterVolume(0.5);
+	engine.setMonitorBalance(0.0);
+	engine.prepare(48000.0, 64);
+
+	std::array<float, 64> input;
+	std::array<float, 64> left {};
+	std::array<float, 64> right {};
+	input.fill(1.0f);
+	const float* inputs[] { input.data() };
+	float* outputs[] { left.data(), right.data() };
+	engine.process(inputs, 1, outputs, 2, static_cast<int>(input.size()));
+
+	const float expectedGain = static_cast<float>(0.5 * std::sqrt(0.5));
+	EXPECT_DOUBLE_EQ(tap.preparedSampleRate, 48000.0);
+	EXPECT_EQ(tap.preparedBlockSize, 64);
+	EXPECT_EQ(tap.enqueueCalls, 1);
+	EXPECT_NEAR(tap.left, expectedGain, 1.0e-5f);
+	EXPECT_NEAR(tap.right, expectedGain, 1.0e-5f);
+
+	engine.release();
+	EXPECT_EQ(tap.releaseCalls, 1);
+	engine.setOutputTap(nullptr);
 }
 
 TEST(JammerNetzAudioEngineTest, MixesASimulatedRemoteFrame)

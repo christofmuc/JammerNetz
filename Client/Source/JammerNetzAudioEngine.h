@@ -15,6 +15,7 @@
 
 #include "AudioReceiveWorker.h"
 #include "AudioRecordingWorker.h"
+#include "AudioOutputTap.h"
 #include "AudioTransmitWorker.h"
 #include "Recorder.h"
 #include "MidiRecorder.h"
@@ -103,6 +104,7 @@ public:
 	void process(const float* const* inputChannelData, int numInputChannels, float* const* outputChannelData, int numOutputChannels, int numSamples);
 	void prepare(double sampleRate, int maximumBlockSize);
 	void release();
+	void setOutputTap(AudioOutputTap* tap) noexcept;
 	void enqueueRemoteAudio(std::shared_ptr<JammerNetzAudioData> buffer);
 
 	void setPlayoutBufferRange(uint64 minimumLength, uint64 maximumLength);
@@ -166,6 +168,7 @@ private:
 	std::unique_ptr<RingBuffer> playoutBuffer_;
 	juce::AudioBuffer<float> remoteScratch_;
 	std::array<float, JAMMERNETZ_MAX_CALLBACK_SAMPLES> silentMeterChannel_ {};
+	std::atomic<AudioOutputTap*> outputTap_ { nullptr };
 
 	std::atomic_bool isPlaying_ { false };
 	std::atomic_bool resetQualityInfo_ { false };

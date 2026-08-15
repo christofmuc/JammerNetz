@@ -74,6 +74,7 @@ private:
 	std::unique_ptr<RecordingInfo> recordingInfo_; // For the master files
 	std::unique_ptr<RecordingInfo> localRecordingInfo_; // For the local data
 	std::unique_ptr<PlayalongDisplay> playalongDisplay_;
+	std::unique_ptr<Component> spectrogramPanel_;
 	GroupComponent logGroup_;
 	LogView logView_;
 	// END OF WIDGET LIST
