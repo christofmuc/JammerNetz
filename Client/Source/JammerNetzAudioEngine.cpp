@@ -98,6 +98,11 @@ bool JammerNetzAudioEngine::processNextOutgoingPacket()
 	return transmitWorker_ && transmitWorker_->processNextPendingFrame();
 }
 
+bool JammerNetzAudioEngine::processNextIncomingPacket()
+{
+	return receiveWorker_ && receiveWorker_->processNextPendingFrame();
+}
+
 void JammerNetzAudioEngine::setPlayoutBufferRange(uint64 minimumLength, uint64 maximumLength)
 {
 	minPlayoutBufferLength_.store(minimumLength, std::memory_order_relaxed);

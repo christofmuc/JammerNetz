@@ -98,15 +98,15 @@ jobs:
       run: |
         cmake --build Builds\Windows --parallel
 
-    - name: Run unit tests
+    - name: Run unit and system tests
       run: |
-        ctest --test-dir Builds\Windows -C RelWithDebInfo --output-on-failure --no-tests=error --output-junit Builds\Windows\test-results.xml -L unit
+        ctest --test-dir Builds\Windows -C RelWithDebInfo --output-on-failure --no-tests=error --output-junit Builds\Windows\test-results.xml -L "unit|system"
 
-    - name: Upload unit test results
+    - name: Upload test results
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: WindowsUnitTestResults
+        name: WindowsTestResults
         path: Builds/Windows/test-results.xml
         if-no-files-found: warn
 

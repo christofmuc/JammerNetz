@@ -283,6 +283,7 @@ add_subdirectory("Server")
 
 if(BUILD_JAMMERNETZ_CLIENT)
 add_subdirectory("Client")
+add_subdirectory("integration_tests")
 
 # The standalone installer contains the server as well for local testing when both are enabled.
 if(BUILD_JAMMERNETZ_SERVER)

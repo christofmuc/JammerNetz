@@ -127,29 +127,41 @@ FFAU::LevelMeterSource* AudioReceiveWorker::meterSource() noexcept { return &ses
 void AudioReceiveWorker::run()
 {
 	while (!threadShouldExit()) {
-		applyResetIfRequested();
-		drainInbound();
-		if (rebufferRequested_.exchange(false, std::memory_order_acq_rel)) {
-			streamStarted_.store(false, std::memory_order_release);
-		}
-
-		const auto minimum = minimumFrames_.load(std::memory_order_relaxed);
-		if (!streamStarted_.load(std::memory_order_acquire) && packetQueue_.size() >= minimum) {
-			streamStarted_.store(true, std::memory_order_release);
-		}
-
-		const auto maximum = maximumFrames_.load(std::memory_order_relaxed);
-		std::shared_ptr<JammerNetzAudioData> discardedPacket;
-		bool fillIn = false;
-		while (packetQueue_.size() > maximum && packetQueue_.try_pop(discardedPacket, fillIn)) {
-			discarded_.fetch_add(1, std::memory_order_relaxed);
-		}
-
-		const bool prepared = streamStarted_.load(std::memory_order_acquire) && prepareOneFrame();
-		if (!prepared) {
+		if (!processNextFrame()) {
 			juce::Thread::sleep(1);
 		}
 	}
+}
+
+bool AudioReceiveWorker::processNextPendingFrame()
+{
+	if (isThreadRunning()) {
+		return false;
+	}
+	return processNextFrame();
+}
+
+bool AudioReceiveWorker::processNextFrame()
+{
+	applyResetIfRequested();
+	drainInbound();
+	if (rebufferRequested_.exchange(false, std::memory_order_acq_rel)) {
+		streamStarted_.store(false, std::memory_order_release);
+	}
+
+	const auto minimum = minimumFrames_.load(std::memory_order_relaxed);
+	if (!streamStarted_.load(std::memory_order_acquire) && packetQueue_.size() >= minimum) {
+		streamStarted_.store(true, std::memory_order_release);
+	}
+
+	const auto maximum = maximumFrames_.load(std::memory_order_relaxed);
+	std::shared_ptr<JammerNetzAudioData> discardedPacket;
+	bool fillIn = false;
+	while (packetQueue_.size() > maximum && packetQueue_.try_pop(discardedPacket, fillIn)) {
+		discarded_.fetch_add(1, std::memory_order_relaxed);
+	}
+
+	return streamStarted_.load(std::memory_order_acquire) && prepareOneFrame();
 }
 
 void AudioReceiveWorker::applyResetIfRequested()

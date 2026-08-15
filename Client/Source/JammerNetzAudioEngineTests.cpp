@@ -9,6 +9,7 @@
 #include "DeterministicAudioTestSupport.h"
 #include "BoundedSpscQueue.h"
 #include "PacketStreamQueue.h"
+#include "RingBuffer.h"
 
 #include <gtest/gtest.h>
 
@@ -50,6 +51,27 @@ private:
 };
 
 static_assert(std::is_base_of_v<AudioPacketSink, Client>);
+
+TEST(RingBufferTest, ReadsFromTheFifoStartAfterWrapping)
+{
+	RingBuffer ringBuffer(1, 8);
+	const std::array<float, 6> firstWrite { 0.0f, 1.0f, 2.0f, 3.0f, 4.0f, 5.0f };
+	const float* firstWriteChannels[] { firstWrite.data() };
+	ringBuffer.write(firstWriteChannels, 1, static_cast<int>(firstWrite.size()));
+
+	std::array<float, 5> discarded {};
+	float* discardedChannels[] { discarded.data() };
+	ringBuffer.read(discardedChannels, 1, static_cast<int>(discarded.size()));
+
+	const std::array<float, 5> secondWrite { 6.0f, 7.0f, 8.0f, 9.0f, 10.0f };
+	const float* secondWriteChannels[] { secondWrite.data() };
+	ringBuffer.write(secondWriteChannels, 1, static_cast<int>(secondWrite.size()));
+
+	std::array<float, 6> observed {};
+	float* observedChannels[] { observed.data() };
+	ringBuffer.read(observedChannels, 1, static_cast<int>(observed.size()));
+	EXPECT_EQ(observed, (std::array<float, 6> { 5.0f, 6.0f, 7.0f, 8.0f, 9.0f, 10.0f }));
+}
 
 TEST(JammerNetzSessionTest, ConstructionHasNoExternalSideEffects)
 {
@@ -159,7 +181,6 @@ TEST(JammerNetzAudioEngineTest, MixesASimulatedRemoteFrame)
 {
 	JammerNetzSession session;
 	JammerNetzAudioEngine engine(session, juce::File());
-	engine.start();
 	engine.setPlayoutBufferRange(1, 4);
 	engine.setLocalMonitoring(false);
 
@@ -175,16 +196,14 @@ TEST(JammerNetzAudioEngineTest, MixesASimulatedRemoteFrame)
 	});
 	engine.enqueueRemoteAudio(std::make_shared<JammerNetzAudioData>(
 		1, juce::Time::getMillisecondCounterHiRes(), remoteSetup, SAMPLE_RATE, 120.0f, MidiSignal_None, remoteAudio, nullptr));
+	ASSERT_TRUE(engine.processNextIncomingPacket());
 
 	std::array<float, SAMPLE_BUFFER_SIZE> left {};
 	std::array<float, SAMPLE_BUFFER_SIZE> right {};
 	float unusedInput = 0.0f;
 	const float* inputs[] { &unusedInput };
 	float* outputs[] { left.data(), right.data() };
-	for (int attempt = 0; attempt < 100 && left.front() == 0.0f; ++attempt) {
-		engine.process(inputs, 0, outputs, 2, SAMPLE_BUFFER_SIZE);
-		juce::Thread::sleep(2);
-	}
+	engine.process(inputs, 0, outputs, 2, SAMPLE_BUFFER_SIZE);
 
 	const float expectedGain = static_cast<float>(0.25 * std::sqrt(0.5));
 	EXPECT_NEAR(left.front(), expectedGain, 1.0e-5f);
@@ -192,7 +211,6 @@ TEST(JammerNetzAudioEngineTest, MixesASimulatedRemoteFrame)
 	const auto serverBpm = engine.takeServerBpmUpdate();
 	ASSERT_TRUE(serverBpm.has_value());
 	EXPECT_FLOAT_EQ(*serverBpm, 120.0f);
-	engine.shutdown();
 }
 
 TEST(BoundedSpscQueueTest, RejectsWritesWhenFullAndPreservesOrder)

@@ -109,6 +109,8 @@ public:
 	void enqueueRemoteAudio(std::shared_ptr<JammerNetzAudioData> buffer);
 	// Headless callers use this instead of starting the background transmit thread.
 	bool processNextOutgoingPacket();
+	// Headless callers use this instead of starting the background receive thread.
+	bool processNextIncomingPacket();
 
 	void setPlayoutBufferRange(uint64 minimumLength, uint64 maximumLength);
 	void setMasterVolume(double volume);
