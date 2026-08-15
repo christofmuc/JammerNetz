@@ -210,4 +210,14 @@ TEST(JammerNetzAudioEngineTest, BoundsReceiveBurstsBeforeTheWorkerStarts)
 	EXPECT_EQ(stats.receiveFramesDiscarded, 88u);
 }
 
+TEST(MidiSendThreadTest, ShutdownInterruptsAFutureScheduledMessage)
+{
+	MidiSendThread sender(std::vector<juce::MidiDeviceInfo> {});
+	ASSERT_TRUE(sender.enqueue(std::chrono::seconds(5), { juce::MidiMessage::midiClock() }));
+	juce::Thread::sleep(20);
+	const auto started = std::chrono::steady_clock::now();
+	sender.shutdown();
+	EXPECT_LT(std::chrono::steady_clock::now() - started, std::chrono::milliseconds(500));
+}
+
 } // namespace

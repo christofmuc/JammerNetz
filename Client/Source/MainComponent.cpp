@@ -306,7 +306,7 @@ void MainComponent::timerCallback()
 	status << "Input latency: " << inputLatency << "ms" << std::endl;
 	status << "Output latency: " << outputLatency << "ms" << std::endl;
 	status << "Roundtrip: " << audioService_->currentRTT() << "ms" << std::endl;
-	status << "PlayQ: " << qualityInfo.currentPlayQueueLength_ << std::endl;
+	status << "PreparedQ: " << qualityInfo.currentPlayQueueLength_ << std::endl;
 	status << "Discarded: " << qualityInfo.discardedPackageCounter_ << std::endl;
 	status << "Latency without I/O: " << qualityInfo.toPlayLatency_ << " ms" << std::endl;
 	status << "Total: " <<  qualityInfo.toPlayLatency_ + inputLatency + outputLatency << " ms" << std::endl;
