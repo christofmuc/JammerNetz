@@ -13,7 +13,7 @@
 #include "BuffersConfig.h"
 
 #include "Recorder.h"
-#include "ServerMixerCore.h"
+#include "ServerMixScheduler.h"
 
 class MixerThread : public Thread {
 public:
@@ -27,7 +27,6 @@ private:
 	TPacketStreamBundle &incoming_;
 	TOutgoingQueue &outgoing_;
 	TMessageQueue &wakeUpQueue_;
-	ServerMixerCore mixerCore_;
+	ServerMixScheduler mixScheduler_;
 	//Recorder &recorder_;
-	ServerBufferConfig bufferConfig_;
 };

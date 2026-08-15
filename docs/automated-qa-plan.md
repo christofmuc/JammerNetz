@@ -255,6 +255,19 @@ In addition to deterministic ordering tests, a bounded threaded stress test repe
 
 The race investigation is successful when it yields either a deterministic failing ordering or a bounded explored matrix with no failure and enough trace detail to identify the next missing dimension. A flaky test with no replay artifact is not an acceptable reproducer.
 
+### 7.3 Initial deterministic baseline
+
+The first automated characterization uses the production defaults of three server jitter frames and five maximum server queue frames. It records, but does not treat as a merge-gating failure, the following current behavior:
+
+- Holds of one, two, and four frames return to coherent source counters.
+- At eight held frames, maximum-buffer-pressure mixing produces persistent source skew and does not achieve eight consecutive coherent frames during the following 64-frame observation window.
+- Sixteen- and 32-frame holds increase the maximum observed source skew and the number of single-source mixes.
+- If grace expiry is processed before a same-endpoint packet whose counter restarted, the packet establishes a fresh reconnection.
+- If that reset-counter packet wins the exact-deadline ordering, it is classified as grace recovery but rejected by the retained old queue, leaving the client connected with an empty queue.
+- A delayed packet from the old counter generation is currently accepted by a newly established same-endpoint queue.
+
+The scheduled characterization workflow publishes the complete JSON summary and per-scenario JSONL traces. These observations are baselines for later mitigation changes, not assertions that preserve the defects.
+
 ## 8. Observability and artifacts
 
 The harness records structured events such as:

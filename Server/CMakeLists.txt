@@ -17,7 +17,7 @@ endif()
 
 set(SOURCES
 	Source/Main.cpp
-	Source/ClientState.cpp Source/ClientState.h
+	Source/ClientState.h
 	Source/AcceptThread.cpp Source/AcceptThread.h
 	Source/MixerThread.cpp Source/MixerThread.h
 	Source/SendThread.cpp Source/SendThread.h
@@ -28,6 +28,10 @@ set(SOURCES
 )
 
 add_library(JammerNetzServerCore STATIC
+	Source/ClientState.cpp
+	Source/ClientState.h
+	Source/ServerMixScheduler.cpp
+	Source/ServerMixScheduler.h
 	Source/ServerMixerCore.cpp
 	Source/ServerMixerCore.h
 	Source/SharedServerTypes.h
@@ -46,15 +50,19 @@ if(BUILD_JAMMERNETZ_SERVER)
 	endif()
 endif()
 
-add_executable(ServerMixerCoreTest Source/ServerMixerCoreTests.cpp)
+add_executable(ServerMixerCoreTest
+	Source/ServerMixerCoreTests.cpp
+	Source/ServerMixSchedulerTests.cpp
+)
 target_link_libraries(ServerMixerCoreTest PRIVATE JammerNetzServerCore gtest gtest_main)
 jammernetz_copy_msvc_debug_runtime(ServerMixerCoreTest)
+jammernetz_copy_tbb_runtime(ServerMixerCoreTest)
 gtest_discover_tests(ServerMixerCoreTest PROPERTIES LABELS unit TIMEOUT 30)
 set_target_properties(ServerMixerCoreTest PROPERTIES FOLDER tests)
 
-add_executable(ClientStateTest Source/ClientStateTests.cpp Source/ClientState.cpp Source/ClientState.h Source/SharedServerTypes.h)
+add_executable(ClientStateTest Source/ClientStateTests.cpp)
 target_include_directories(ClientStateTest PRIVATE "${CMAKE_CURRENT_LIST_DIR}/Source")
-target_link_libraries(ClientStateTest PRIVATE gtest gmock gtest_main juce-utils JammerCommon ${JUCE_LIBRARIES})
+target_link_libraries(ClientStateTest PRIVATE JammerNetzServerCore gtest gmock gtest_main)
 jammernetz_copy_msvc_debug_runtime(ClientStateTest)
 jammernetz_copy_tbb_runtime(ClientStateTest)
 gtest_add_tests(TARGET ClientStateTest SOURCES Source/ClientStateTests.cpp TEST_LIST CLIENT_STATE_UNIT_TESTS)
