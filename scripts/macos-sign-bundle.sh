@@ -26,18 +26,25 @@ sign_item() {
     /usr/bin/codesign "${codesign_args[@]}" "$1"
 }
 
-# Sign copied dynamic code before its containing bundle. CMake's bundle fix-up
-# step places third-party libraries below Contents/Frameworks.
-frameworks="$bundle/Contents/Frameworks"
+# Sign copied dynamic code before its containing bundle. AU/VST3 fix-up puts
+# dylibs beside the plug-in executable, while application fix-up normally uses
+# Contents/Frameworks.
+contents="$bundle/Contents"
+if [[ -d "$contents" ]]; then
+    while IFS= read -r -d '' item; do
+        sign_item "$item"
+    done < <(/usr/bin/find "$contents" -type f \( -name '*.dylib' -o -name '*.so' \) -print0)
+fi
+
+frameworks="$contents/Frameworks"
 if [[ -d "$frameworks" ]]; then
     while IFS= read -r -d '' item; do
         sign_item "$item"
-    done < <(/usr/bin/find "$frameworks" -type f \( -perm -111 -o -name '*.dylib' -o -name '*.so' \) -print0)
+    done < <(/usr/bin/find "$frameworks" -type f -perm -111 ! -name '*.dylib' ! -name '*.so' -print0)
 fi
 
 # Nested executable bundles must be signed inside-out. `find -depth` visits
 # children before their parents.
-contents="$bundle/Contents"
 if [[ -d "$contents" ]]; then
     while IFS= read -r -d '' item; do
         sign_item "$item"
