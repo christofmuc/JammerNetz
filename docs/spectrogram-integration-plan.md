@@ -6,7 +6,7 @@
 - JammerNetz base: `origin/master` at `e4973d0`
 - Spectroscope repository: `https://github.com/christofmuc/juce-spectroscope19`
 - Spectroscope development branch: `master`
-- Pinned spectroscope commit: `b749df6` (`Fix macOS spectroscope compilation`)
+- Pinned spectroscope commit: `ea176a3` (`Use native MSVC generator in CI`)
 - Initial JammerNetz prototype branches inspected:
   - local `features/spectrogram` at `b32ff6c`
   - remote `origin/spectrogram` at `175a519`
@@ -25,10 +25,12 @@ pinned submodule commit from that branch.
 - `master` was fast-forwarded through the existing `fix2025` JUCE compatibility work.
 - Analyzer and UI targets were separated, deterministic analyzer tests were added, and the
   initial memory, cross-thread rendering, shader, OpenGL cleanup, and build-system defects
-  were corrected in commits culminating in `b749df6`.
+  were corrected in commits culminating in `ea176a3`.
 - A disposable Visual Studio smoke build against JammerNetz's JUCE revision compiled both
   targets with `/W4 /WX`; the RelWithDebInfo analyzer test passed.
-- JammerNetz pins the pushed `juce-spectroscope19/master` commit `b749df6`.
+- JammerNetz pins the pushed `juce-spectroscope19/master` commit `ea176a3`.
+- The historical demo and AppVeyor responsibilities were consolidated into the module repository;
+  its standalone demo and analyzer tests now pass GitHub Actions on Windows, Ubuntu, and macOS.
 - JammerNetz now copies the final stereo mix into a bounded preallocated SPSC queue and
   performs FFT analysis on a dedicated worker thread.
 - The standalone client owns a 30 Hz responsive spectrum/waterfall panel that disappears
