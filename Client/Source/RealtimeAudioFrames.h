@@ -33,6 +33,7 @@ enum class RecordingTarget : uint8_t { local, master };
 
 struct RecordingAudioFrame {
 	RecordingTarget target { RecordingTarget::local };
+	uint64_t recordingGeneration { 0 };
 	int channels { 0 };
 	int samplesPerChannel { 0 };
 	std::array<std::array<float, JAMMERNETZ_MAX_CALLBACK_SAMPLES>, JAMMERNETZ_MAX_AUDIO_CHANNELS> samples {};

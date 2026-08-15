@@ -181,10 +181,10 @@ void JammerNetzAudioEngine::setMidiSignalToSend(MidiSignal signal)
 void JammerNetzAudioEngine::newServer()
 {
 	resetQualityInfo_.store(true, std::memory_order_release);
-	resetPlayoutRequested_.store(true, std::memory_order_release);
 	if (receiveWorker_) {
 		expectedRemoteGeneration_.store(receiveWorker_->requestReset(), std::memory_order_release);
 	}
+	resetPlayoutRequested_.store(true, std::memory_order_release);
 }
 
 void JammerNetzAudioEngine::measureSamplesPerTime(PlayoutQualityInfo &qualityInfo, int numSamples) const {
@@ -344,8 +344,10 @@ void JammerNetzAudioEngine::processChunk(const float* const* inputChannelData, i
 
 		while (inputState->ingestBuffer->getNumReady() >= SAMPLE_BUFFER_SIZE) {
 			if (transmitWorker_ && transmitWorker_->hasCapacity()) {
-				transmitWorker_->enqueueFrom(*inputState->ingestBuffer, numInputChannels,
-					clientBpm_.readOnce(), midiSignalToSend_.readOnce());
+				if (!transmitWorker_->enqueueFrom(*inputState->ingestBuffer, numInputChannels,
+						clientBpm_.readOnce(), midiSignalToSend_.readOnce())) {
+					inputState->ingestBuffer->discard(SAMPLE_BUFFER_SIZE);
+				}
 			} else {
 				inputState->ingestBuffer->discard(SAMPLE_BUFFER_SIZE);
 				if (transmitWorker_) {
@@ -436,7 +438,6 @@ void JammerNetzAudioEngine::processChunk(const float* const* inputChannelData, i
 void JammerNetzAudioEngine::prepare(double sampleRate, int maximumBlockSize)
 {
 	ignoreUnused(maximumBlockSize);
-	jassert(maximumBlockSize <= JAMMERNETZ_MAX_CALLBACK_SAMPLES);
 	preparedSampleRate_.store(sampleRate, std::memory_order_relaxed);
 	lastPlayoutQualityInfo_ = PlayoutQualityInfo();
 	resetPlayoutRequested_.store(true, std::memory_order_release);
