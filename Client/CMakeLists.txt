@@ -260,13 +260,24 @@ IF(APPLE)
 		MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/Info.plist
 		)
 
+	# BundleUtilities must run before signing because it copies and rewrites
+	# dynamic libraries inside the application bundle.
+	SET(DIRS "${CMAKE_BINARY_DIR}")
 	IF(CPACK_BUNDLE_APPLE_CERT_APP)
-	message("Certifing!!!!!!")
-    INSTALL(CODE "include(BundleUtilities)
-	set(BU_CHMOD_BUNDLE_ITEMS TRUE)
-			message(STATUS \"Integrating dynlibs and signing app bundle \$<TARGET_BUNDLE_DIR:JammerNetzClient>\")
-			fixup_bundle(\"\$<TARGET_BUNDLE_DIR:JammerNetzClient>\"  \"\"  \"\" IGNORE_ITEM \"Python\")
-			execute_process(COMMAND codesign --force --deep --sign \"${CPACK_BUNDLE_APPLE_CERT_APP}\" \"\$<TARGET_BUNDLE_DIR:JammerNetzClient>\" COMMENT \"Signing app bundle\")
+		message(STATUS "The packaged macOS application will be signed with '${CPACK_BUNDLE_APPLE_CERT_APP}'")
+		INSTALL(CODE "include(BundleUtilities)
+			set(BU_CHMOD_BUNDLE_ITEMS TRUE)
+			message(STATUS \"Integrating dynlibs into app bundle \$<TARGET_BUNDLE_DIR:JammerNetzClient>\")
+			fixup_bundle(\"\$<TARGET_BUNDLE_DIR:JammerNetzClient>\" \"\" \"${DIRS}\" IGNORE_ITEM \"Python\")
+			execute_process(
+				COMMAND /bin/bash \"${CMAKE_SOURCE_DIR}/scripts/macos-sign-bundle.sh\"
+					\"\$<TARGET_BUNDLE_DIR:JammerNetzClient>\"
+					\"${CPACK_BUNDLE_APPLE_CERT_APP}\"
+					\"${JAMMERNETZ_CODESIGN_KEYCHAIN}\"
+				RESULT_VARIABLE JAMMERNETZ_CODESIGN_RESULT)
+			if(NOT JAMMERNETZ_CODESIGN_RESULT EQUAL 0)
+				message(FATAL_ERROR \"Failed to sign JammerNetzClient.app\")
+			endif()
 		")
 	ELSE()
 		INSTALL(CODE "include(InstallRequiredSystemLibraries)
@@ -279,7 +290,6 @@ IF(APPLE)
 
 	# This is supposed to build a relocatable macOS DMG installer when you specify
     # --target package
-    SET(DIRS "${CMAKE_BINARY_DIR}")
     INSTALL(TARGETS JammerNetzClient
         BUNDLE DESTINATION .
         #RUNTIME # This would be a regular install like for Unix

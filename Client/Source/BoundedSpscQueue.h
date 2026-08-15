@@ -15,10 +15,10 @@
 template <typename Item>
 class BoundedSpscQueue {
 public:
+	// AbstractFifo keeps one backing slot empty to distinguish full from empty,
+	// so allocate one extra slot to make this wrapper's capacity exact.
 	explicit BoundedSpscQueue(int capacity)
-		: fifo_(capacity + 1), slots_(static_cast<size_t>(capacity + 1))
-	{
-	}
+		: fifo_(capacity + 1), slots_(static_cast<size_t>(capacity + 1)) {}
 
 	template <typename Writer>
 	bool tryWrite(Writer&& writer)
@@ -50,6 +50,18 @@ public:
 
 	int size() const noexcept { return fifo_.getNumReady(); }
 	int freeSpace() const noexcept { return fifo_.getFreeSpace(); }
+
+	// AbstractFifo::reset() is not synchronised with prepare/finished calls.
+	// The owner must stop both the producer and consumer before calling reset().
+	// Clearing the backing slots also releases resources retained by consumed or
+	// abandoned items, such as shared_ptr payloads.
+	void reset()
+	{
+		fifo_.reset();
+		const auto slotCount = slots_.size();
+		slots_.clear();
+		slots_.resize(slotCount);
+	}
 
 private:
 	juce::AbstractFifo fifo_;

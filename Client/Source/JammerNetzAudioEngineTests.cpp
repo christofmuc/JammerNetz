@@ -5,6 +5,7 @@
 */
 
 #include "JammerNetzAudioEngine.h"
+#include "AudioReceiveWorker.h"
 #include "BuffersConfig.h"
 #include "BoundedSpscQueue.h"
 #include "PacketStreamQueue.h"
@@ -22,6 +23,17 @@ JammerNetzChannelSetup monoLocalSetup()
 	JammerNetzChannelSetup setup(true);
 	setup.channels.emplace_back(JammerNetzChannelTarget::Mono);
 	return setup;
+}
+
+std::shared_ptr<JammerNetzAudioData> remotePacket(uint64 counter)
+{
+	auto audio = std::make_shared<juce::AudioBuffer<float>>(2, SAMPLE_BUFFER_SIZE);
+	JammerNetzChannelSetup setup(false, {
+		JammerNetzSingleChannelSetup(JammerNetzChannelTarget::Left),
+		JammerNetzSingleChannelSetup(JammerNetzChannelTarget::Right)
+	});
+	return std::make_shared<JammerNetzAudioData>(
+		counter, juce::Time::getMillisecondCounterHiRes(), setup, SAMPLE_RATE, 120.0f, MidiSignal_None, audio, nullptr);
 }
 
 TEST(JammerNetzSessionTest, ConstructionHasNoExternalSideEffects)
@@ -146,6 +158,25 @@ TEST(BoundedSpscQueueTest, RejectsWritesWhenFullAndPreservesOrder)
 	EXPECT_FALSE(queue.tryRead([&](int& queued) { value = queued; }));
 }
 
+TEST(BoundedSpscQueueTest, ResetReleasesRetainedItemsAndMakesQueueReusable)
+{
+	BoundedSpscQueue<std::shared_ptr<int>> queue(1);
+	auto retained = std::make_shared<int>(42);
+	const std::weak_ptr<int> observer = retained;
+	EXPECT_TRUE(queue.tryWrite([&](std::shared_ptr<int>& slot) { slot = retained; }));
+	retained.reset();
+	EXPECT_FALSE(observer.expired());
+
+	queue.reset();
+
+	EXPECT_TRUE(observer.expired());
+	EXPECT_EQ(queue.size(), 0);
+	EXPECT_TRUE(queue.tryWrite([](std::shared_ptr<int>& slot) { slot = std::make_shared<int>(7); }));
+	int value = 0;
+	EXPECT_TRUE(queue.tryRead([&](std::shared_ptr<int>& slot) { value = *slot; }));
+	EXPECT_EQ(value, 7);
+}
+
 TEST(PacketStreamQueueTest, ResetAcceptsANewPacketSequence)
 {
 	PacketStreamQueue queue("test");
@@ -208,6 +239,36 @@ TEST(JammerNetzAudioEngineTest, BoundsReceiveBurstsBeforeTheWorkerStarts)
 	const auto stats = engine.getRealtimeWorkerStats();
 	EXPECT_EQ(stats.receiveQueueOverruns, 88u);
 	EXPECT_EQ(stats.receiveFramesDiscarded, 88u);
+}
+
+TEST(AudioReceiveWorkerTest, CapsPreparedPlayoutAfterAConsumerHiccup)
+{
+	JammerNetzSession session;
+	AudioReceiveWorker worker(session);
+	worker.setPlayoutRange(1, 4);
+	worker.start();
+
+	// Feed at approximately the normal network cadence while deliberately not
+	// consuming. The old worker filled its separate prepared queue indefinitely
+	// because the configured maximum was enforced only on the ordering queue.
+	for (uint64 counter = 1; counter <= 12; ++counter) {
+		worker.enqueue(remotePacket(counter));
+		juce::Thread::sleep(4);
+	}
+	for (int attempt = 0; attempt < 100 && worker.discardedFrames() == 0; ++attempt) {
+		juce::Thread::sleep(2);
+	}
+
+	EXPECT_LE(worker.readyFrames(), 4);
+	EXPECT_GT(worker.discardedFrames(), 0u);
+
+	RemoteAudioFrame frame;
+	while (worker.readyFrames() > 1) {
+		EXPECT_TRUE(worker.tryPop(frame));
+	}
+	juce::Thread::sleep(10);
+	EXPECT_LE(worker.readyFrames(), 1);
+	worker.shutdown();
 }
 
 TEST(MidiSendThreadTest, ShutdownInterruptsAFutureScheduledMessage)
