@@ -242,6 +242,7 @@ Add a JUCE audio-effect plug-in as a second adapter over the completed engine.
 - Initially allow only one active JammerNetz session per host process and warn clearly in additional instances.
 - Do not attempt per-track aggregation in the first plug-in version.
 - Treat multi-instance send aggregation as a separate future architecture project.
+- Preserve the open design space in [Multi-instance Plug-in and Audio Distribution Architecture](multi-instance-plugin-architecture.md).
 
 ### 4.5 Formats and compatibility
 
