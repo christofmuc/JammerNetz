@@ -157,6 +157,9 @@ private:
 	std::unique_ptr<MidiRecorder> midiRecorder_;
 	std::unique_ptr<MidiPlayAlong> midiPlayalong_;
 	AtomicSharedPtr<MidiSendThread> midiSendThread_;
+	CriticalSection retiredMidiSendThreadsLock_;
+	std::vector<std::shared_ptr<MidiSendThread>> retiredMidiSendThreads_;
+	std::atomic<bool> inputChannelMismatchReported_ { false };
 
 	ReadOnceLatch<MidiSignal> midiSignalToSend_;
 	ReadOnceLatch<MidiSignal> midiSignalToGenerate_;

@@ -143,20 +143,26 @@ bool Client::sendBufferToServer(size_t totalBytes)
 				std::cerr << "Fatal: Couldn't encrypt package, not sending to server!" << std::endl;
 				return false;
 			}
-			sendData(servername, serverPort_, sendBuffer_, encryptedLength);
-			currentBlockSize_ = encryptedLength;
-			return true;
+			const bool sent = sendData(servername, serverPort_, sendBuffer_, encryptedLength);
+			if (sent) {
+				currentBlockSize_ = encryptedLength;
+			}
+			return sent;
 		}
 	}
 
 	// No encryption key loaded - send unencrypted Audio stream through the Internet. This is for testing only,
 	// and probably at some point should be disabled again ;-O
-	if (sizet_is_safe_as_int(totalBytes)) {
-		sendData(servername, serverPort_, sendBuffer_, static_cast<int>(totalBytes));
-		currentBlockSize_ = static_cast<int>(totalBytes);
+	if (!sizet_is_safe_as_int(totalBytes)) {
+		return false;
 	}
 
-	return true;
+	const int bytesToSend = static_cast<int>(totalBytes);
+	const bool sent = sendData(servername, serverPort_, sendBuffer_, bytesToSend);
+	if (sent) {
+		currentBlockSize_ = bytesToSend;
+	}
+	return sent;
 }
 
 bool Client::sendControl(nlohmann::json &json)

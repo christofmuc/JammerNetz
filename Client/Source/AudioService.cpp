@@ -179,11 +179,18 @@ FFAU::LevelMeterSource* AudioService::getSessionMeterSource()
 
 void AudioService::valueTreePropertyChanged(ValueTree& treeWhosePropertyHasChanged, const Identifier& property)
 {
+	if (shutdown_.load(std::memory_order_acquire)) {
+		return;
+	}
+
 	if (//ValueTreeUtils::isChildOf(VALUE_INPUT_SETUP, treeWhosePropertyHasChanged) ||
 		//ValueTreeUtils::isChildOf(VALUE_OUTPUT_SETUP, treeWhosePropertyHasChanged) ||
 		property == Identifier(EPHEMERAL_VALUE_AUDIO_SHOULD_RUN)) {
 		debouncer_.callDebounced(
 		    [this]() {
+			    if (shutdown_.load(std::memory_order_acquire)) {
+				    return;
+			    }
 			    bool shouldRun = Data::getEphemeralProperty(EPHEMERAL_VALUE_AUDIO_SHOULD_RUN);
 			    if (shouldRun) {
 				    restartAudio();
@@ -241,6 +248,10 @@ static BigInteger makeChannelMask(std::vector<int> const& indices) {
 
 void AudioService::restartAudio(std::shared_ptr<ChannelSetup> inputSetup, std::shared_ptr<ChannelSetup> outputSetup)
 {
+	if (shutdown_.load(std::memory_order_acquire)) {
+		return;
+	}
+
 	auto failStartup = [this](const String& message) {
 		SimpleLogger::instance()->postMessage("Audio startup failed: " + message);
 		Data::instance().getEphemeral().setProperty(EPHEMERAL_VALUE_AUDIO_RUNNING, false, nullptr);
@@ -318,10 +329,8 @@ void AudioService::restartAudio(std::shared_ptr<ChannelSetup> inputSetup, std::s
 
 			refreshChannelSetup(inputSetup);
 			audioDevice_->start(&callback_);
-			if (!audioDevice_->isPlaying()) {
-				failStartup("the device opened but did not start");
-				return;
-			}
+			// Some JUCE backends only report isPlaying() after their callback thread
+			// has started, so a synchronous check here can reject a valid startup.
 			Data::instance().getEphemeral().setProperty(EPHEMERAL_VALUE_AUDIO_RUNNING, true, nullptr);
 		}
 	}
@@ -331,6 +340,9 @@ void AudioService::restartAudio()
 {
 	// Build the data structures required to properly restart the audio objects
 	jassert(juce::MessageManager::getInstance()->isThisTheMessageThread());
+	if (shutdown_.load(std::memory_order_acquire)) {
+		return;
+	}
 
 	stopAudioIfRunning();
 

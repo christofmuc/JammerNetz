@@ -44,8 +44,9 @@ void JammerService::shutdown()
 		receiver_->signalThreadShouldExit();
 	}
 	socket_.shutdown();
-	if (receiver_ && !receiver_->stopThread(2000)) {
-		std::cerr << "JammerNetz receiver thread did not stop cleanly" << std::endl;
+	if (receiver_ && !receiver_->waitForThreadToExit(2000)) {
+		std::cerr << "JammerNetz receiver thread did not stop within two seconds; waiting for a clean exit" << std::endl;
+		receiver_->waitForThreadToExit(-1);
 	}
 }
 
@@ -86,7 +87,7 @@ uint64_t JammerService::receiveErrorCount() const
 
 bool JammerService::isAvailable() const
 {
-	return sender_ != nullptr && receiver_ != nullptr;
+	return !shutdown_.load(std::memory_order_acquire) && sender_ != nullptr && receiver_ != nullptr;
 }
 
 juce::String JammerService::startupError() const
