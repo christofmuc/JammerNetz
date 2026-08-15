@@ -97,6 +97,7 @@ jobs:
     - name: Build Windows
       run: |
         cmake --build Builds\Windows --parallel
+        ctest --test-dir Builds\Windows -R JammerNetzPluginTest --no-tests=error --output-on-failure
 
     - name: Run unit and system tests
       run: |
@@ -123,3 +124,10 @@ jobs:
       with:
         name: WindowsInstaller
         path: Builds/Windows/Client/jammernetz_setup_2.3.0.exe
+
+    - name: Upload Windows VST3
+      uses: actions/upload-artifact@v4
+      with:
+        name: JammerNetz-Windows-VST3
+        path: Builds/Windows/Plugin/JammerNetzPlugin_artefacts/RelWithDebInfo/VST3/JammerNetz.vst3
+        if-no-files-found: error

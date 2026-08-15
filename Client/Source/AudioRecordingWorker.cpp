@@ -26,6 +26,8 @@ void AudioRecordingWorker::shutdown()
 {
 	signalThreadShouldExit();
 	stopThread(2000);
+	// The owning engine stops its audio callback producer before shutdown.
+	queue_.reset();
 }
 
 bool AudioRecordingWorker::enqueue(RecordingTarget target, const float* const* channels, int numChannels, int numSamples) noexcept
