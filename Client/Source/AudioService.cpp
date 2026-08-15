@@ -53,8 +53,8 @@ void AudioService::shutdown()
 		return;
 	}
 	stopAudioIfRunning();
-	session_.shutdown();
 	engine_.shutdown();
+	session_.shutdown();
 }
 
 bool AudioService::isConnected()

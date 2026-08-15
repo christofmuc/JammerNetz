@@ -17,8 +17,8 @@ struct ControlData
 	std::optional<MidiSignal> midiSignal;
 };
 
-// Boundary between audio processing and packet construction/transport. Implementations
-// may send the packet over the network or retain it for deterministic headless tests.
+// Boundary between audio processing and packet construction/transport. The audio
+// buffer is valid for the duration of sendData; implementations that retain it must copy it.
 class AudioPacketSink {
 public:
 	virtual ~AudioPacketSink() = default;

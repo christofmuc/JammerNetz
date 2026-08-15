@@ -10,6 +10,8 @@
 
 #include "JammerNetzPackage.h"
 
+#include <atomic>
+
 enum class RecordingType {
 	WAV,
 	FLAC,
@@ -23,6 +25,7 @@ public:
 
 	void setRecording(bool recordOn);
 	bool isRecording() const;
+	uint64_t recordingGeneration() const noexcept;
 
 	RelativeTime getElapsedTime() const;
 	String getFilename() const;
@@ -48,6 +51,9 @@ private:
 	AudioFormatWriter *writer_;
 	std::unique_ptr<TimeSliceThread> thread_;
 	std::unique_ptr<AudioFormatWriter::ThreadedWriter> writeThread_;
+	std::atomic<bool> recording_ { false };
+	std::atomic<uint64_t> recordingGeneration_ { 0 };
+	uint64_t nextRecordingGeneration_ { 0 };
 
 	int lastSampleRate_;
 	JammerNetzChannelSetup lastChannelSetup_;

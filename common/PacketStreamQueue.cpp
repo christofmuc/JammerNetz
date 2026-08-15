@@ -105,6 +105,30 @@ bool PacketStreamQueue::try_pop(std::shared_ptr<JammerNetzAudioData> &element, b
 	}
 }
 
+void PacketStreamQueue::reset()
+{
+	std::shared_ptr<JammerNetzAudioData> packet;
+	while (packetQueue.try_pop(packet)) {}
+	currentlyInQueue_.clear();
+	lastPushedMessage_.store(0, std::memory_order_relaxed);
+	lastPoppedMessage_.store(0, std::memory_order_relaxed);
+	lastPoppedMessageData_.reset();
+	currentGap_.store(0, std::memory_order_relaxed);
+	runningMeanClockDelta_.Clear();
+	runningMeanJitter_.Clear();
+	qualityData_.tooLateOrDuplicate.store(0, std::memory_order_relaxed);
+	qualityData_.droppedPacketCounter.store(0, std::memory_order_relaxed);
+	qualityData_.outOfOrderPacketCounter.store(0, std::memory_order_relaxed);
+	qualityData_.duplicatePacketCounter.store(0, std::memory_order_relaxed);
+	qualityData_.dropsHealed.store(0, std::memory_order_relaxed);
+	qualityData_.packagesPushed.store(0, std::memory_order_relaxed);
+	qualityData_.packagesPopped.store(0, std::memory_order_relaxed);
+	qualityData_.maxLengthOfGap.store(0, std::memory_order_relaxed);
+	qualityData_.maxWrongOrderSpan.store(0, std::memory_order_relaxed);
+	qualityData_.jitterMeanMillis.store(0.0, std::memory_order_relaxed);
+	qualityData_.jitterSDMillis.store(0.0, std::memory_order_relaxed);
+}
+
 size_t PacketStreamQueue::size() const
 {
 	return packetQueue.size();
