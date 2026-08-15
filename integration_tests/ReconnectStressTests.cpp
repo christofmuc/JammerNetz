@@ -9,9 +9,10 @@
 
 #include <gtest/gtest.h>
 
-#include <barrier>
+#include <condition_variable>
 #include <cstdint>
 #include <memory>
+#include <mutex>
 #include <thread>
 
 namespace {
@@ -26,25 +27,54 @@ std::shared_ptr<JammerNetzAudioData> makeStressPacket(const std::uint64_t counte
 		SAMPLE_RATE, 0.0f, MidiSignal_None, std::move(audio), nullptr);
 }
 
+class ReusableBarrier {
+public:
+	explicit ReusableBarrier(const std::size_t participants)
+		: participants_(participants)
+	{
+	}
+
+	void arriveAndWait()
+	{
+		std::unique_lock lock(mutex_);
+		const auto generation = generation_;
+		if (++arrived_ == participants_) {
+			arrived_ = 0;
+			++generation_;
+			lock.unlock();
+			condition_.notify_all();
+			return;
+		}
+		condition_.wait(lock, [this, generation] { return generation_ != generation; });
+	}
+
+private:
+	const std::size_t participants_;
+	std::mutex mutex_;
+	std::condition_variable condition_;
+	std::size_t arrived_ { 0 };
+	std::size_t generation_ { 0 };
+};
+
 TEST(ReconnectStressTest, ConcurrentPacketAndStaleUnderrunDecisionAlwaysLeaveAConnectedClient)
 {
 	constexpr std::size_t iterations = 2000;
-	std::barrier phase(3);
+	ReusableBarrier phase(3);
 	std::shared_ptr<ClientState> client;
 	std::uint64_t observedGeneration = 0;
 
 	std::thread packetThread([&] {
 		for (std::size_t iteration = 0; iteration < iterations; ++iteration) {
-			phase.arrive_and_wait();
+			phase.arriveAndWait();
 			client->push(makeStressPacket(101), 0);
-			phase.arrive_and_wait();
+			phase.arriveAndWait();
 		}
 	});
 	std::thread mixerThread([&] {
 		for (std::size_t iteration = 0; iteration < iterations; ++iteration) {
-			phase.arrive_and_wait();
+			phase.arriveAndWait();
 			client->markUnderrun(observedGeneration);
-			phase.arrive_and_wait();
+			phase.arriveAndWait();
 		}
 	});
 
@@ -58,8 +88,8 @@ TEST(ReconnectStressTest, ConcurrentPacketAndStaleUnderrunDecisionAlwaysLeaveACo
 		if (!primed) {
 			observedGeneration = client->snapshot().activityGeneration;
 		}
-		phase.arrive_and_wait();
-		phase.arrive_and_wait();
+		phase.arriveAndWait();
+		phase.arriveAndWait();
 
 		const auto snapshot = client->snapshot();
 		EXPECT_EQ(snapshot.state, ClientConnectionState::Connected) << "iteration=" << iteration;

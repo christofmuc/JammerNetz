@@ -5,6 +5,7 @@
 */
 
 #include "BuffersConfig.h"
+#include "CharacterizationTestSupport.h"
 #include "ClientState.h"
 
 #include <gtest/gtest.h>
@@ -27,16 +28,6 @@ std::shared_ptr<JammerNetzAudioData> makeReconnectPacket(const std::uint64_t cou
 		SAMPLE_RATE, 0.0f, MidiSignal_None, std::move(audio), nullptr);
 }
 
-const char* stateName(const ClientConnectionState state)
-{
-	switch (state) {
-	case ClientConnectionState::Disconnected: return "disconnected";
-	case ClientConnectionState::Connected: return "connected";
-	case ClientConnectionState::Disconnecting: return "disconnecting";
-	}
-	return "unknown";
-}
-
 const char* transitionName(const ClientConnectionTransition transition)
 {
 	switch (transition) {
@@ -46,25 +37,6 @@ const char* transitionName(const ClientConnectionTransition transition)
 	case ClientConnectionTransition::Reconnection: return "reconnection";
 	}
 	return "unknown";
-}
-
-void writeJson(const juce::File& path, const nlohmann::json& document)
-{
-	const auto parent = path.getParentDirectory();
-	if (!parent.exists() && parent.createDirectory().failed()) {
-		throw std::runtime_error("Could not create reconnect artifact directory");
-	}
-	auto output = path.createOutputStream();
-	if (!output) {
-		throw std::runtime_error("Could not create reconnect artifact");
-	}
-	output->setPosition(0);
-	output->truncate();
-	const auto text = document.dump(2);
-	if (!output->write(text.data(), text.size())) {
-		throw std::runtime_error("Could not write reconnect artifact");
-	}
-	output->flush();
 }
 
 struct PrimedClient {
@@ -100,7 +72,7 @@ nlohmann::json characterizeReconnectMatrix()
 			{ "packet_queued", push.queued },
 			{ "transition", transitionName(push.transition) },
 			{ "underrun_marked", marked },
-			{ "final_state", stateName(snapshot.state) },
+			{ "final_state", jammernetz::test::connectionStateName(snapshot.state) },
 			{ "queue_size", snapshot.size }
 		});
 	}
@@ -115,7 +87,7 @@ nlohmann::json characterizeReconnectMatrix()
 			{ "packet_queued", push.queued },
 			{ "transition", transitionName(push.transition) },
 			{ "underrun_marked", marked },
-			{ "final_state", stateName(snapshot.state) },
+			{ "final_state", jammernetz::test::connectionStateName(snapshot.state) },
 			{ "queue_size", snapshot.size }
 		});
 	}
@@ -131,7 +103,7 @@ nlohmann::json characterizeReconnectMatrix()
 			{ "grace_expired", expired },
 			{ "packet_queued", push.queued },
 			{ "transition", transitionName(push.transition) },
-			{ "final_state", stateName(snapshot.state) },
+			{ "final_state", jammernetz::test::connectionStateName(snapshot.state) },
 			{ "queue_size", snapshot.size }
 		});
 	}
@@ -147,7 +119,7 @@ nlohmann::json characterizeReconnectMatrix()
 			{ "grace_expired", expired },
 			{ "packet_queued", push.queued },
 			{ "transition", transitionName(push.transition) },
-			{ "final_state", stateName(snapshot.state) },
+			{ "final_state", jammernetz::test::connectionStateName(snapshot.state) },
 			{ "queue_size", snapshot.size },
 			{ "stalled_reset_counter", !push.queued && snapshot.state == ClientConnectionState::Connected }
 		});
@@ -166,7 +138,7 @@ nlohmann::json characterizeReconnectMatrix()
 			{ "ordering", "delayed_old_packet_after_completed_reconnect" },
 			{ "reconnect_queued", reconnect.queued },
 			{ "old_packet_queued", delayedOld.queued },
-			{ "final_state", stateName(snapshot.state) },
+			{ "final_state", jammernetz::test::connectionStateName(snapshot.state) },
 			{ "queue_size", snapshot.size },
 			{ "old_generation_contamination", delayedOld.queued },
 			{ "out_of_order_packets", quality.outOfOrderPacketCounter }
@@ -190,7 +162,7 @@ TEST(ReconnectCharacterizationTest, EventOrderMatrixIsDeterministicAndWritesObse
 
 	const juce::File artifactDirectory(JAMMERNETZ_TEST_ARTIFACT_DIR);
 	const auto path = artifactDirectory.getChildFile("disconnect-reconnect").getChildFile("summary.json");
-	writeJson(path, first);
+	jammernetz::test::writeJsonArtifact(path, first, "reconnect characterization");
 	RecordProperty("characterization_summary", first.dump());
 }
 

@@ -5,6 +5,7 @@
 */
 
 #include "BuffersConfig.h"
+#include "CharacterizationTestSupport.h"
 #include "DeterministicAudioTestSupport.h"
 #include "ServerMixScheduler.h"
 
@@ -44,16 +45,6 @@ const char* triggerName(const ServerMixTrigger trigger)
 	return "unknown";
 }
 
-const char* connectionStateName(const ClientConnectionState state)
-{
-	switch (state) {
-	case ClientConnectionState::Disconnected: return "disconnected";
-	case ClientConnectionState::Connected: return "connected";
-	case ClientConnectionState::Disconnecting: return "disconnecting";
-	}
-	return "unknown";
-}
-
 JammerNetzChannelSetup monoSetup(const JammerNetzChannelTarget target)
 {
 	JammerNetzChannelSetup setup(true);
@@ -89,31 +80,12 @@ nlohmann::json queueJson(const std::map<std::string, ServerQueueObservation>& qu
 	nlohmann::json result = nlohmann::json::object();
 	for (const auto& [name, queue] : queues) {
 		result[name] = {
-			{ "state", connectionStateName(queue.state) },
+			{ "state", jammernetz::test::connectionStateName(queue.state) },
 			{ "size", queue.size },
 			{ "activity_generation", queue.activityGeneration }
 		};
 	}
 	return result;
-}
-
-void writeJson(const juce::File& path, const nlohmann::json& document)
-{
-	const auto parent = path.getParentDirectory();
-	if (!parent.exists() && parent.createDirectory().failed()) {
-		throw std::runtime_error("Could not create characterization artifact directory");
-	}
-	auto output = path.createOutputStream();
-	if (!output) {
-		throw std::runtime_error("Could not create characterization artifact");
-	}
-	output->setPosition(0);
-	output->truncate();
-	const auto text = document.dump(2);
-	if (!output->write(text.data(), text.size())) {
-		throw std::runtime_error("Could not write characterization artifact");
-	}
-	output->flush();
 }
 
 struct HoldFlushResult {
@@ -253,7 +225,13 @@ private:
 
 	void processWakeups(std::size_t count)
 	{
-		while (count-- > 0) {
+		constexpr std::size_t maximumSteps = 4096;
+		std::size_t steps = 0;
+		while (count > 0) {
+			--count;
+			if (++steps > maximumSteps) {
+				throw std::runtime_error("The scheduler kept requesting wake-ups without settling");
+			}
 			const auto step = scheduler_.process(clients_, now());
 			recordStep(step);
 			if (step.shouldWakeAgain) {
@@ -373,7 +351,8 @@ TEST(NetworkImpairmentCharacterizationTest, HoldAndFlushSweepProducesDeterminist
 			firstScenario.trace().writeJsonLines(scenarioDirectory.getChildFile(traceName));
 		}
 	}
-	writeJson(scenarioDirectory.getChildFile("summary.json"), summary);
+	jammernetz::test::writeJsonArtifact(scenarioDirectory.getChildFile("summary.json"),
+		summary, "characterization");
 	RecordProperty("characterization_summary", summary.dump());
 }
 

@@ -22,6 +22,7 @@ endif()
 
 set(CHARACTERIZATION_TEST_TARGET NetworkImpairmentCharacterizationTest)
 add_executable(${CHARACTERIZATION_TEST_TARGET}
+	CharacterizationTestSupport.h
 	NetworkImpairmentCharacterizationTests.cpp
 	ReconnectCharacterizationTests.cpp
 )
