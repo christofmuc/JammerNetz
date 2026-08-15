@@ -268,6 +268,38 @@ The first automated characterization uses the production defaults of three serve
 
 The scheduled characterization workflow publishes the complete JSON summary and per-scenario JSONL traces. These observations are baselines for later mitigation changes, not assertions that preserve the defects.
 
+### 7.4 Progressive Clumsy-style impairment matrix
+
+The deterministic transport also mirrors the original manual Clumsy workflow: enable one impairment, increase its severity until the mixer no longer recovers, and then repeat with selected combinations of two or three impairments. Clumsy's throttle operation maps to the existing hold-and-flush model because it blocks traffic for an interval and releases the accumulated packets as one batch.
+
+Each progressive profile impairs client B while client A remains a paced reference. After 16 clean warm-up frames, the impairment runs for 96 generated frames. Normal delivery then continues for at least 64 frames. A profile is reported as having survived when both clients finish connected and the server produces eight consecutive mixes with matching source counters after all delayed impaired packets could have arrived. Survival therefore means bounded recovery, not glitch-free audio during the impairment.
+
+The isolated sweeps cover:
+
+- fixed lag of one, two, four, eight, 16, and 32 frames;
+- deterministic variable lag from zero through the same maximum frame delays;
+- periodic single-packet drops from one per 64 frames through one per two frames;
+- consecutive drop bursts of one, two, three, four, and eight frames every 32 frames;
+- duplicates from one per 64 frames through one per two frames;
+- periodic out-of-order displacement of one, two, four, eight, and 16 frames;
+- periodic throttle windows holding one, two, four, eight, 16, and 32 frames before batch release;
+- the separate one-shot hold-and-flush sweep described in 7.1.
+
+The first measured progressive baseline is:
+
+- Fixed and variable lag recover through a four-frame maximum and fail to regain coherence at eight frames.
+- Periodic isolated losses recover even when every second packet is removed. One- and two-packet loss bursts recover, while the first three-packet burst leaves a persistent one-frame source offset.
+- Immediate duplicates recover at every tested rate, including every second packet.
+- Periodic reordering recovers through the tested 16-frame displacement. At displacements of eight frames and above, the delayed packets are classified as missing and later too old, but paced traffic still regains alignment.
+- Periodic throttle windows recover through four held frames and fail to regain coherence at eight held frames.
+- Four-frame jitter combined with two-frame periodic reordering fails even though each isolated profile recovers. This is the first demonstrated combination-only failure.
+
+Combination families use low, medium, and high profiles for jitter plus loss, jitter plus reordering, hold/throttle plus duplication, lag plus loss, jitter plus loss plus duplication, and jitter plus loss plus reordering. The reports identify the last surviving and first failing named profile in each ordered family.
+
+Clumsy's byte-tampering function is not represented by this object-level injection path. Meaningful tamper coverage must inject serialized datagrams before production deserialization, or use real UDP, so malformed-packet rejection is tested rather than merely changing an already-valid audio object.
+
+The JSON summaries and per-profile JSONL traces are written below `test-artifacts/network-impairments`. Current behavioral boundaries remain characterization data rather than merge-gating assertions; deterministic replay, artifact generation, and harness accounting are the gates.
+
 ## 8. Observability and artifacts
 
 The harness records structured events such as:
