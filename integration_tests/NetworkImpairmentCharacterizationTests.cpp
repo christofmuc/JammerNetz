@@ -14,6 +14,7 @@
 
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
@@ -133,7 +134,7 @@ struct ReceiverQualityResult {
 	std::size_t glitchFrames { 0 };
 	std::size_t discrepancySpans { 0 };
 	std::size_t mismatchedChannelSamples { 0 };
-	float maximumAbsoluteError { 0.0f };
+	std::uint32_t maximumAbsoluteErrorBits { 0 };
 	std::optional<std::size_t> firstGlitchFrame;
 	std::optional<std::size_t> lastGlitchFrame;
 	std::size_t longestGlitchRunFrames { 0 };
@@ -177,7 +178,7 @@ nlohmann::json receiverQualityJson(const ReceiverQualityResult& result)
 		{ "mismatched_channel_samples", result.mismatchedChannelSamples },
 		{ "mismatched_channel_sample_percent", percentage(
 			result.mismatchedChannelSamples, comparedChannelSamples) },
-		{ "maximum_absolute_error", result.maximumAbsoluteError },
+		{ "maximum_absolute_error", std::bit_cast<float>(result.maximumAbsoluteErrorBits) },
 		{ "first_glitch_frame", result.firstGlitchFrame
 			? nlohmann::json(*result.firstGlitchFrame) : nlohmann::json(nullptr) },
 		{ "last_glitch_frame", result.lastGlitchFrame
@@ -310,7 +311,7 @@ public:
 		const auto discrepancies = SignalOracle::compare(expectedAudio_, observedAudio_, comparisonEpsilon);
 		result_.discrepancySpans = discrepancies.size();
 		result_.mismatchedChannelSamples = differingSamples(discrepancies);
-		result_.maximumAbsoluteError = maximumError(discrepancies);
+		result_.maximumAbsoluteErrorBits = std::bit_cast<std::uint32_t>(maximumError(discrepancies));
 		const auto playout = engine_.getPlayoutQualityInfo();
 		const auto workers = engine_.getRealtimeWorkerStats();
 		result_.playoutUnderruns = playout.playUnderruns_;
@@ -337,7 +338,10 @@ private:
 		const float firstSample = observed.getSample(signalChannel, 0);
 		for (std::uint64_t frame = 0; frame <= maximumSearchFrame_; ++frame) {
 			const auto source = receiver_ == "client-a" ? 2U : 1U;
-			if (SyntheticAudioSource::valueAt(source, 0, frame * SAMPLE_BUFFER_SIZE) != firstSample) {
+			const auto candidateFirstSample = SyntheticAudioSource::valueAt(source, 0,
+				frame * SAMPLE_BUFFER_SIZE);
+			if (!std::isfinite(firstSample)
+				|| std::abs(candidateFirstSample - firstSample) > comparisonEpsilon) {
 				continue;
 			}
 			const auto candidate = idealReceiverFrame(receiver_, frame);
