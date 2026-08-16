@@ -296,11 +296,38 @@ The first measured progressive baseline is:
 
 Combination families use low, medium, and high profiles for jitter plus loss, jitter plus reordering, hold/throttle plus duplication, lag plus loss, jitter plus loss plus duplication, and jitter plus loss plus reordering. The reports identify the last server-recovered and first server-recovery-failure profile in each ordered family.
 
-The next layer must replay the same named profiles through the headless client receivers and use the signal oracle to require coherent rendered samples, no persistent source skew or rebuffering, and recovery within a bounded number of client frames. Only that receiver-aware result may be described as end-to-end survival.
+The named profiles now also pass each receiver-specific server mix through a real headless `JammerNetzAudioEngine`. The receiver probe drives the production playout queue without an audio device, ignores only the defined startup prefill, and compares every subsequent rendered sample with the ideal receiver-specific signal. This receiver-aware result is the end-to-end survival measurement; server recovery remains a separate diagnostic.
+
+Each receiver records output and compared frames, glitch frames and spans, mismatched samples, maximum absolute error, discontinuities, silent runs after startup, playout skew, underruns, discarded frames, receive-queue overruns, and the prepared-queue high-water mark. A profile is classified as:
+
+- `sample_exact` (score 2): both receivers render every observed post-start sample exactly and never underrun;
+- `glitched_but_recovered` (score 1): at least one receiver glitches, but both later render eight identifiable sequential frames;
+- `persistent_failure` (score 0): at least one receiver does not regain that eight-frame coherent window.
+
+The first receiver-aware baseline adds an important distinction to the server-only results:
+
+- Clean traffic is sample-exact at both receivers.
+- Fixed lag, jitter, periodic reordering, and periodic hold-and-flush remain sample-exact through four frames, but first produce receiver glitches at eight frames.
+- Every tested non-zero unhealed packet-loss rate produces a sample discrepancy at the receiver whose mix contains the impaired source. The other receiver remains exact because self-echo is excluded. Thus there is currently no non-zero lossless drop-rate boundary; server recovery after loss does not mean glitch-free audio.
+- Immediate duplicates remain sample-exact at every tested rate, including every second packet.
+- All existing progressive isolated and combination profiles regain at least eight sequential receiver frames after their glitches during the bounded observation window. That is recovery, not lossless operation.
+
+### 7.5 Receiver quality surface
+
+A Cartesian characterization dataset describes the current lossless boundary over jitter, periodic packet loss, and slotting/hold-and-flush. It sweeps maximum jitter of zero, two, four, six, and eight frames against loss rates of 0%, 1.5625%, 3.125%, 6.25%, 12.5%, 25%, and 50%, with separate facets holding zero, two, four, or eight frames every 32 frames. Each cell contains the quality class and numeric score plus the full server and per-receiver metrics, so CI artifacts can be plotted without parsing textual test output.
+
+The initial surface shows:
+
+- without slotting, or with two-frame slotting, only zero-loss cells up to four jitter frames are sample-exact;
+- with four-frame slotting, only the zero-loss/zero-jitter cell is sample-exact;
+- eight-frame slotting produces receiver glitches even at zero jitter and zero loss;
+- every other tested cell glitches but regains an eight-frame coherent window; no persistent-failure cell occurs in this bounded matrix.
+
+These are empirical boundaries for the current frame size, sample rate, buffer constants, impairment cadence, seed, and observation window—not general Internet service-level guarantees. A stable-lossless claim means a `sample_exact` cell, not merely a connected server or later recovery.
 
 Clumsy's byte-tampering function is not represented by this object-level injection path. Meaningful tamper coverage must inject serialized datagrams before production deserialization, or use real UDP, so malformed-packet rejection is tested rather than merely changing an already-valid audio object.
 
-The JSON summaries and per-profile JSONL traces are written below `test-artifacts/network-impairments`. Current behavioral boundaries remain characterization data rather than merge-gating assertions; deterministic replay, artifact generation, and harness accounting are the gates.
+The JSON summaries and per-profile JSONL traces are written below `test-artifacts/network-impairments`. Plot-ready surface facets live below `quality-surface/hold-N/summary.json`. Current behavioral boundaries remain characterization data rather than merge-gating assertions; deterministic replay, artifact generation, harness accounting, and the clean receiver control are the gates.
 
 ## 8. Observability and artifacts
 

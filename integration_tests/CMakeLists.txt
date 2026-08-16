@@ -28,6 +28,7 @@ add_executable(${CHARACTERIZATION_TEST_TARGET}
 )
 target_link_libraries(${CHARACTERIZATION_TEST_TARGET}
 	PRIVATE
+		JammerNetzCore
 		JammerNetzServerCore
 		JammerNetzTestSupport
 		gtest

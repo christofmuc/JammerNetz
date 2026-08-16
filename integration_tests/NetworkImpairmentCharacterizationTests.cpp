@@ -7,6 +7,7 @@
 #include "BuffersConfig.h"
 #include "CharacterizationTestSupport.h"
 #include "DeterministicAudioTestSupport.h"
+#include "JammerNetzAudioEngine.h"
 #include "ServerMixScheduler.h"
 
 #include <gtest/gtest.h>
@@ -14,7 +15,9 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
+#include <cmath>
 #include <cstdint>
+#include <limits>
 #include <map>
 #include <memory>
 #include <optional>
@@ -27,11 +30,13 @@ namespace {
 
 using jammernetz::test::SampleIndex;
 using jammernetz::test::ScenarioTrace;
+using jammernetz::test::SignalOracle;
 using jammernetz::test::SyntheticAudioSource;
 
 constexpr std::size_t warmupFrames = 16;
 constexpr std::size_t recoveryFrames = 64;
 constexpr std::size_t coherentRecoveryWindow = 8;
+constexpr float comparisonEpsilon = 1.0e-5f;
 
 const char* triggerName(const ServerMixTrigger trigger)
 {
@@ -75,6 +80,290 @@ std::shared_ptr<JammerNetzAudioData> makePacket(const std::uint32_t sourceId,
 	return std::make_shared<JammerNetzAudioData>(100 + frameIndex, timestamp, setup,
 		SAMPLE_RATE, 0.0f, MidiSignal_None, std::move(audio), nullptr);
 }
+
+AudioBuffer<float> idealReceiverFrame(const std::string& receiver,
+	const std::uint64_t frameIndex)
+{
+	AudioBuffer<float> result(2, SAMPLE_BUFFER_SIZE);
+	result.clear();
+	const bool receiverIsA = receiver == "client-a";
+	const std::uint32_t remoteSource = receiverIsA ? 2U : 1U;
+	const int outputChannel = receiverIsA ? 1 : 0;
+	for (int sample = 0; sample < SAMPLE_BUFFER_SIZE; ++sample) {
+		result.setSample(outputChannel, sample, SyntheticAudioSource::valueAt(remoteSource, 0,
+			frameIndex * SAMPLE_BUFFER_SIZE + static_cast<std::uint64_t>(sample)));
+	}
+	return result;
+}
+
+std::size_t differingSamples(const std::vector<jammernetz::test::DiscrepancySpan>& spans)
+{
+	std::size_t result = 0;
+	for (const auto& span : spans) {
+		result += static_cast<std::size_t>(span.lastSample - span.firstSample + 1U);
+	}
+	return result;
+}
+
+float maximumError(const std::vector<jammernetz::test::DiscrepancySpan>& spans)
+{
+	float result = 0.0f;
+	for (const auto& span : spans) {
+		result = std::max(result, span.maximumAbsoluteError);
+	}
+	return result;
+}
+
+double percentage(const std::size_t numerator, const std::size_t denominator)
+{
+	return denominator == 0 ? 0.0
+		: 100.0 * static_cast<double>(numerator) / static_cast<double>(denominator);
+}
+
+double framesToMilliseconds(const std::size_t frames)
+{
+	return 1000.0 * static_cast<double>(frames * SAMPLE_BUFFER_SIZE)
+		/ static_cast<double>(SAMPLE_RATE);
+}
+
+struct ReceiverQualityResult {
+	bool playbackStarted { false };
+	std::size_t outputFrames { 0 };
+	std::size_t comparedFrames { 0 };
+	std::size_t glitchFrames { 0 };
+	std::size_t discrepancySpans { 0 };
+	std::size_t mismatchedChannelSamples { 0 };
+	float maximumAbsoluteError { 0.0f };
+	std::optional<std::size_t> firstGlitchFrame;
+	std::optional<std::size_t> lastGlitchFrame;
+	std::size_t longestGlitchRunFrames { 0 };
+	std::size_t unmatchedOutputFrames { 0 };
+	std::size_t outputDiscontinuities { 0 };
+	std::uint64_t maximumPlayoutSkewFrames { 0 };
+	std::size_t silentOutputFramesAfterStart { 0 };
+	std::size_t longestSilentRunFrames { 0 };
+	std::optional<std::size_t> recoveryFrames;
+	std::uint64_t playoutUnderruns { 0 };
+	std::uint64_t discardedFrames { 0 };
+	std::uint64_t receiveQueueOverruns { 0 };
+	std::uint64_t maximumPreparedQueueFrames { 0 };
+
+	[[nodiscard]] bool sampleExact() const noexcept
+	{
+		return playbackStarted && glitchFrames == 0 && playoutUnderruns == 0;
+	}
+
+	[[nodiscard]] bool recovered() const noexcept
+	{
+		return playbackStarted && recoveryFrames.has_value();
+	}
+
+	bool operator==(const ReceiverQualityResult&) const = default;
+};
+
+nlohmann::json receiverQualityJson(const ReceiverQualityResult& result)
+{
+	const auto comparedChannelSamples = result.comparedFrames * 2U
+		* static_cast<std::size_t>(SAMPLE_BUFFER_SIZE);
+	return {
+		{ "playback_started", result.playbackStarted },
+		{ "sample_exact", result.sampleExact() },
+		{ "recovered", result.recovered() },
+		{ "output_frames", result.outputFrames },
+		{ "compared_frames", result.comparedFrames },
+		{ "glitch_frames", result.glitchFrames },
+		{ "glitch_frame_percent", percentage(result.glitchFrames, result.comparedFrames) },
+		{ "discrepancy_spans", result.discrepancySpans },
+		{ "mismatched_channel_samples", result.mismatchedChannelSamples },
+		{ "mismatched_channel_sample_percent", percentage(
+			result.mismatchedChannelSamples, comparedChannelSamples) },
+		{ "maximum_absolute_error", result.maximumAbsoluteError },
+		{ "first_glitch_frame", result.firstGlitchFrame
+			? nlohmann::json(*result.firstGlitchFrame) : nlohmann::json(nullptr) },
+		{ "last_glitch_frame", result.lastGlitchFrame
+			? nlohmann::json(*result.lastGlitchFrame) : nlohmann::json(nullptr) },
+		{ "longest_glitch_run_frames", result.longestGlitchRunFrames },
+		{ "unmatched_output_frames", result.unmatchedOutputFrames },
+		{ "output_discontinuities", result.outputDiscontinuities },
+		{ "maximum_playout_skew_frames", result.maximumPlayoutSkewFrames },
+		{ "silent_output_frames_after_start", result.silentOutputFramesAfterStart },
+		{ "longest_silent_run_frames", result.longestSilentRunFrames },
+		{ "recovery_frames", result.recoveryFrames
+			? nlohmann::json(*result.recoveryFrames) : nlohmann::json(nullptr) },
+		{ "playout_underruns", result.playoutUnderruns },
+		{ "discarded_frames", result.discardedFrames },
+		{ "receive_queue_overruns", result.receiveQueueOverruns },
+		{ "maximum_prepared_queue_frames", result.maximumPreparedQueueFrames }
+	};
+}
+
+class ReceiverQualityProbe {
+public:
+	ReceiverQualityProbe(std::string receiver,
+		const SampleIndex recoveryEligibleSample,
+		const std::uint64_t maximumSearchFrame)
+		: receiver_(std::move(receiver))
+		, engine_(session_, juce::File())
+		, recoveryEligibleSample_(recoveryEligibleSample)
+		, maximumSearchFrame_(maximumSearchFrame)
+	{
+		engine_.setLocalMonitoring(false);
+		engine_.setMasterVolume(1.0);
+		engine_.setMonitorBalance(1.0);
+		engine_.setPlayoutBufferRange(CLIENT_PLAYOUT_JITTER_BUFFER, CLIENT_PLAYOUT_MAX_BUFFER);
+		engine_.prepare(SAMPLE_RATE, SAMPLE_BUFFER_SIZE);
+	}
+
+	void deliver(const OutgoingPackage& package)
+	{
+		if (!firstSignalMessageCounter_
+			&& package.audioBlock.audioBuffer->getMagnitude(0, SAMPLE_BUFFER_SIZE) > comparisonEpsilon) {
+			firstSignalMessageCounter_ = package.audioBlock.messageCounter;
+		}
+		engine_.enqueueRemoteAudio(std::make_shared<JammerNetzAudioData>(package.audioBlock, nullptr));
+		while (engine_.processNextIncomingPacket()) {}
+	}
+
+	void processCallback(const SampleIndex virtualSample)
+	{
+		AudioBuffer<float> observed(2, SAMPLE_BUFFER_SIZE);
+		observed.clear();
+		float* outputs[] { observed.getWritePointer(0), observed.getWritePointer(1) };
+		engine_.process(nullptr, 0, outputs, 2, SAMPLE_BUFFER_SIZE);
+		++result_.outputFrames;
+
+		const auto playout = engine_.getPlayoutQualityInfo();
+		result_.maximumPreparedQueueFrames = std::max(result_.maximumPreparedQueueFrames,
+			playout.currentPlayQueueLength_);
+
+		const bool silent = observed.getMagnitude(0, SAMPLE_BUFFER_SIZE) <= comparisonEpsilon;
+		if (!result_.playbackStarted && !silent && firstSignalMessageCounter_) {
+			result_.playbackStarted = true;
+			continuousFrame_ = *firstSignalMessageCounter_ - 100U;
+		}
+
+		AudioBuffer<float> expected(2, SAMPLE_BUFFER_SIZE);
+		expected.clear();
+		bool exact = true;
+		if (result_.playbackStarted) {
+			expected = idealReceiverFrame(receiver_, continuousFrame_++);
+			++result_.comparedFrames;
+			const auto frameDifferences = compare(expected, observed);
+			exact = frameDifferences.empty();
+			if (!exact) {
+				++result_.glitchFrames;
+				if (!result_.firstGlitchFrame) {
+					result_.firstGlitchFrame = result_.comparedFrames - 1U;
+				}
+				result_.lastGlitchFrame = result_.comparedFrames - 1U;
+				currentGlitchRunFrames_++;
+				result_.longestGlitchRunFrames = std::max(result_.longestGlitchRunFrames,
+					currentGlitchRunFrames_);
+			}
+			else {
+				currentGlitchRunFrames_ = 0;
+			}
+			if (silent) {
+				++result_.silentOutputFramesAfterStart;
+				currentSilentRunFrames_++;
+				result_.longestSilentRunFrames = std::max(result_.longestSilentRunFrames,
+					currentSilentRunFrames_);
+			}
+			else {
+				currentSilentRunFrames_ = 0;
+			}
+
+			const auto matchedFrame = findMatchingIdealFrame(observed);
+			if (!matchedFrame) {
+				++result_.unmatchedOutputFrames;
+				matchedRecoveryRun_ = 0;
+				lastMatchedFrame_.reset();
+			}
+			else {
+				const auto expectedFrame = continuousFrame_ - 1U;
+				const auto skew = *matchedFrame > expectedFrame
+					? *matchedFrame - expectedFrame : expectedFrame - *matchedFrame;
+				result_.maximumPlayoutSkewFrames = std::max(result_.maximumPlayoutSkewFrames, skew);
+				const bool continuous = !lastMatchedFrame_ || *matchedFrame == *lastMatchedFrame_ + 1U;
+				if (lastMatchedFrame_ && !continuous) {
+					++result_.outputDiscontinuities;
+				}
+				if (virtualSample >= recoveryEligibleSample_) {
+					if (!recoveryObservationFrame_) {
+						recoveryObservationFrame_ = result_.outputFrames;
+					}
+					matchedRecoveryRun_ = continuous ? matchedRecoveryRun_ + 1U : 1U;
+					if (!result_.recoveryFrames && matchedRecoveryRun_ >= coherentRecoveryWindow) {
+						result_.recoveryFrames = result_.outputFrames - *recoveryObservationFrame_ + 1U;
+					}
+				}
+				lastMatchedFrame_ = matchedFrame;
+			}
+		}
+
+		expectedAudio_.append(expected);
+		observedAudio_.append(observed);
+	}
+
+	ReceiverQualityResult finish()
+	{
+		const auto discrepancies = SignalOracle::compare(expectedAudio_, observedAudio_, comparisonEpsilon);
+		result_.discrepancySpans = discrepancies.size();
+		result_.mismatchedChannelSamples = differingSamples(discrepancies);
+		result_.maximumAbsoluteError = maximumError(discrepancies);
+		const auto playout = engine_.getPlayoutQualityInfo();
+		const auto workers = engine_.getRealtimeWorkerStats();
+		result_.playoutUnderruns = playout.playUnderruns_;
+		result_.discardedFrames = playout.discardedPackageCounter_;
+		result_.receiveQueueOverruns = workers.receiveQueueOverruns;
+		return result_;
+	}
+
+private:
+	static std::vector<jammernetz::test::DiscrepancySpan> compare(
+		const AudioBuffer<float>& expected,
+		const AudioBuffer<float>& observed)
+	{
+		jammernetz::test::CapturedAudio expectedCapture;
+		jammernetz::test::CapturedAudio observedCapture;
+		expectedCapture.append(expected);
+		observedCapture.append(observed);
+		return SignalOracle::compare(expectedCapture, observedCapture, comparisonEpsilon);
+	}
+
+	std::optional<std::uint64_t> findMatchingIdealFrame(const AudioBuffer<float>& observed) const
+	{
+		const int signalChannel = receiver_ == "client-a" ? 1 : 0;
+		const float firstSample = observed.getSample(signalChannel, 0);
+		for (std::uint64_t frame = 0; frame <= maximumSearchFrame_; ++frame) {
+			const auto source = receiver_ == "client-a" ? 2U : 1U;
+			if (SyntheticAudioSource::valueAt(source, 0, frame * SAMPLE_BUFFER_SIZE) != firstSample) {
+				continue;
+			}
+			const auto candidate = idealReceiverFrame(receiver_, frame);
+			if (compare(candidate, observed).empty()) {
+				return frame;
+			}
+		}
+		return std::nullopt;
+	}
+
+	std::string receiver_;
+	JammerNetzSession session_;
+	JammerNetzAudioEngine engine_;
+	SampleIndex recoveryEligibleSample_ { 0 };
+	std::uint64_t maximumSearchFrame_ { 0 };
+	std::optional<std::uint64_t> firstSignalMessageCounter_;
+	std::uint64_t continuousFrame_ { 0 };
+	std::optional<std::uint64_t> lastMatchedFrame_;
+	std::optional<std::size_t> recoveryObservationFrame_;
+	std::size_t matchedRecoveryRun_ { 0 };
+	std::size_t currentGlitchRunFrames_ { 0 };
+	std::size_t currentSilentRunFrames_ { 0 };
+	jammernetz::test::CapturedAudio expectedAudio_;
+	jammernetz::test::CapturedAudio observedAudio_;
+	ReceiverQualityResult result_;
+};
 
 nlohmann::json queueJson(const std::map<std::string, ServerQueueObservation>& queues)
 {
@@ -407,6 +696,8 @@ struct ImpairmentRunResult {
 	std::uint64_t queueDropsHealed { 0 };
 	std::uint64_t queueMaximumGap { 0 };
 	std::uint64_t queueMaximumReorderSpan { 0 };
+	ReceiverQualityResult receiverA;
+	ReceiverQualityResult receiverB;
 
 	[[nodiscard]] bool serverRecovered() const noexcept
 	{
@@ -415,33 +706,60 @@ struct ImpairmentRunResult {
 			&& recoveryMixes.has_value();
 	}
 
+	[[nodiscard]] bool receiverSampleExact() const noexcept
+	{
+		return receiverA.sampleExact() && receiverB.sampleExact();
+	}
+
+	[[nodiscard]] bool receiversRecovered() const noexcept
+	{
+		return receiverA.recovered() && receiverB.recovered();
+	}
+
 	bool operator==(const ImpairmentRunResult&) const = default;
 };
 
 nlohmann::json profileJson(const ImpairmentProfile& profile)
 {
+	const double dropRatePercent = profile.dropEveryFrames == 0 ? 0.0
+		: 100.0 * static_cast<double>(profile.dropBurstFrames)
+			/ static_cast<double>(profile.dropEveryFrames);
 	return {
 		{ "family", profile.family },
 		{ "name", profile.name },
 		{ "seed", profile.seed },
 		{ "fixed_delay_frames", profile.fixedDelayFrames },
+		{ "fixed_delay_ms", framesToMilliseconds(profile.fixedDelayFrames) },
 		{ "jitter_frames", profile.jitterFrames },
+		{ "jitter_ms", framesToMilliseconds(profile.jitterFrames) },
 		{ "drop_every_frames", profile.dropEveryFrames },
 		{ "drop_burst_frames", profile.dropBurstFrames },
+		{ "configured_drop_rate_percent", dropRatePercent },
 		{ "duplicate_every_frames", profile.duplicateEveryFrames },
 		{ "duplicate_copies", profile.duplicateCopies },
 		{ "reorder_every_frames", profile.reorderEveryFrames },
 		{ "reorder_delay_frames", profile.reorderDelayFrames },
+		{ "reorder_delay_ms", framesToMilliseconds(profile.reorderDelayFrames) },
 		{ "hold_every_frames", profile.holdEveryFrames },
-		{ "hold_frames", profile.holdFrames }
+		{ "hold_frames", profile.holdFrames },
+		{ "hold_ms", framesToMilliseconds(profile.holdFrames) }
 	};
 }
 
 nlohmann::json resultJson(const ImpairmentRunResult& result)
 {
+	const char* receiverQuality = result.receiverSampleExact()
+		? "sample_exact"
+		: (result.receiversRecovered() ? "glitched_but_recovered" : "persistent_failure");
+	const int receiverQualityScore = result.receiverSampleExact() ? 2
+		: (result.receiversRecovered() ? 1 : 0);
 	return {
 		{ "profile", result.profile },
 		{ "server_recovered", result.serverRecovered() },
+		{ "receiver_quality", receiverQuality },
+		{ "receiver_quality_score", receiverQualityScore },
+		{ "receiver_sample_exact", result.receiverSampleExact() },
+		{ "receivers_recovered", result.receiversRecovered() },
 		{ "generated_packets", result.generatedPackets },
 		{ "primary_packets_delivered", result.primaryPacketsDelivered },
 		{ "injected_drops", result.injectedDrops },
@@ -466,7 +784,9 @@ nlohmann::json resultJson(const ImpairmentRunResult& result)
 		{ "queue_too_late_or_duplicate", result.queueTooLateOrDuplicate },
 		{ "queue_drops_healed", result.queueDropsHealed },
 		{ "queue_maximum_gap", result.queueMaximumGap },
-		{ "queue_maximum_reorder_span", result.queueMaximumReorderSpan }
+		{ "queue_maximum_reorder_span", result.queueMaximumReorderSpan },
+		{ "receiver_a", receiverQualityJson(result.receiverA) },
+		{ "receiver_b", receiverQualityJson(result.receiverB) }
 	};
 }
 
@@ -501,6 +821,12 @@ public:
 			+ maximumDelayFrames;
 		recoveryEligibleSample_ = (firstRecoveryFrame + maximumDelayFrames + 1U)
 			* static_cast<std::uint64_t>(SAMPLE_BUFFER_SIZE);
+		const auto receiverRecoverySample = recoveryEligibleSample_
+			+ static_cast<SampleIndex>(CLIENT_PLAYOUT_JITTER_BUFFER * SAMPLE_BUFFER_SIZE);
+		receiverA_ = std::make_unique<ReceiverQualityProbe>("client-a", receiverRecoverySample,
+			finalFrame + maximumDelayFrames);
+		receiverB_ = std::make_unique<ReceiverQualityProbe>("client-b", receiverRecoverySample,
+			finalFrame + maximumDelayFrames);
 
 		for (std::uint64_t frame = 0; frame <= finalFrame; ++frame) {
 			scheduleDelivery(0, frame, 0, "paced", false);
@@ -527,6 +853,13 @@ public:
 				}
 			}
 		}
+		for (std::uint64_t frame = 0; frame <= finalFrame; ++frame) {
+			const auto callbackSample = frame * static_cast<std::uint64_t>(SAMPLE_BUFFER_SIZE);
+			events_.scheduleAt(callbackSample, "receiver_audio_callback", [this, callbackSample] {
+				receiverA_->processCallback(callbackSample);
+				receiverB_->processCallback(callbackSample);
+			}, { { "frame", frame } });
+		}
 
 		events_.runUntilIdle();
 		const auto snapshotA = clientA_->snapshot();
@@ -543,6 +876,8 @@ public:
 			result_.queueMaximumGap = quality.maxLengthOfGap;
 			result_.queueMaximumReorderSpan = quality.maxWrongOrderSpan;
 		}
+		result_.receiverA = receiverA_->finish();
+		result_.receiverB = receiverB_->finish();
 		return result_;
 	}
 
@@ -703,6 +1038,14 @@ private:
 		if (step.incoming.empty()) {
 			return;
 		}
+		for (const auto& outgoing : step.mix.outgoing) {
+			if (outgoing.targetAddress == "client-a") {
+				receiverA_->deliver(outgoing);
+			}
+			else if (outgoing.targetAddress == "client-b") {
+				receiverB_->deliver(outgoing);
+			}
+		}
 		++result_.mixCount;
 		bool coherent = false;
 		if (step.incoming.size() == 1U) {
@@ -747,11 +1090,19 @@ private:
 	SampleIndex recoveryEligibleSample_ { 0 };
 	std::size_t recoveryObservationMix_ { 0 };
 	std::size_t coherentRun_ { 0 };
+	std::unique_ptr<ReceiverQualityProbe> receiverA_;
+	std::unique_ptr<ReceiverQualityProbe> receiverB_;
 };
 
 struct ServerRecoveryBoundary {
 	std::optional<std::string> lastRecovered;
 	std::optional<std::string> firstFailure;
+};
+
+struct ReceiverQualityBoundary {
+	std::optional<std::string> lastSampleExact;
+	std::optional<std::string> firstGlitch;
+	std::optional<std::string> firstPersistentFailure;
 };
 
 nlohmann::json boundaryJson(const ServerRecoveryBoundary& boundary)
@@ -762,6 +1113,32 @@ nlohmann::json boundaryJson(const ServerRecoveryBoundary& boundary)
 		{ "first_server_recovery_failure_profile", boundary.firstFailure
 			? nlohmann::json(*boundary.firstFailure) : nlohmann::json(nullptr) }
 	};
+}
+
+nlohmann::json boundaryJson(const ReceiverQualityBoundary& boundary)
+{
+	return {
+		{ "last_receiver_sample_exact_profile", boundary.lastSampleExact
+			? nlohmann::json(*boundary.lastSampleExact) : nlohmann::json(nullptr) },
+		{ "first_receiver_glitch_profile", boundary.firstGlitch
+			? nlohmann::json(*boundary.firstGlitch) : nlohmann::json(nullptr) },
+		{ "first_receiver_persistent_failure_profile", boundary.firstPersistentFailure
+			? nlohmann::json(*boundary.firstPersistentFailure) : nlohmann::json(nullptr) }
+	};
+}
+
+void observeReceiverBoundary(ReceiverQualityBoundary& boundary,
+	const ImpairmentRunResult& result)
+{
+	if (result.receiverSampleExact() && !boundary.firstGlitch) {
+		boundary.lastSampleExact = result.profile;
+	}
+	else if (!result.receiverSampleExact() && !boundary.firstGlitch) {
+		boundary.firstGlitch = result.profile;
+	}
+	if (!result.receiversRecovered() && !boundary.firstPersistentFailure) {
+		boundary.firstPersistentFailure = result.profile;
+	}
 }
 
 ImpairmentRunResult runAndRecord(const ImpairmentProfile& profile,
@@ -906,6 +1283,65 @@ std::vector<ImpairmentProfile> combinedProfiles()
 	return profiles;
 }
 
+std::vector<ImpairmentProfile> qualitySurfaceProfiles(const std::size_t holdFrames)
+{
+	std::vector<ImpairmentProfile> profiles;
+	for (const std::size_t jitter : { 0U, 2U, 4U, 6U, 8U }) {
+		for (const std::size_t dropEvery : { 0U, 64U, 32U, 16U, 8U, 4U, 2U }) {
+			const std::string dropName = dropEvery == 0
+				? "none" : "every-" + std::to_string(dropEvery);
+			ImpairmentProfile profile {
+				"quality-surface-hold-" + std::to_string(holdFrames),
+				"jitter-" + std::to_string(jitter) + "_drop-" + dropName
+					+ "_hold-" + std::to_string(holdFrames)
+			};
+			profile.jitterFrames = jitter;
+			profile.dropEveryFrames = dropEvery;
+			if (holdFrames > 0) {
+				profile.holdEveryFrames = 32;
+				profile.holdFrames = holdFrames;
+			}
+			profiles.push_back(std::move(profile));
+		}
+	}
+	return profiles;
+}
+
+void runQualitySurfaceFacet(const std::size_t holdFrames)
+{
+	nlohmann::json summary {
+		{ "scenario", "receiver_quality_surface" },
+		{ "sample_rate", SAMPLE_RATE },
+		{ "frame_samples", SAMPLE_BUFFER_SIZE },
+		{ "frame_ms", framesToMilliseconds(1) },
+		{ "hold_frames", holdFrames },
+		{ "hold_ms", framesToMilliseconds(holdFrames) },
+		{ "axis_definition", {
+			{ "x", "jitter_frames" },
+			{ "y", "configured_drop_rate_percent" },
+			{ "facet", "hold_frames" },
+			{ "quality", "receiver_quality" }
+		} },
+		{ "quality_classes", {
+			{ "sample_exact", { { "score", 2 }, { "definition", "both receivers rendered every post-start sample exactly with no underrun" } } },
+			{ "glitched_but_recovered", { { "score", 1 }, { "definition", "at least one receiver glitched, then both rendered eight identifiable sequential frames" } } },
+			{ "persistent_failure", { { "score", 0 }, { "definition", "at least one receiver did not regain eight identifiable sequential frames" } } }
+		} },
+		{ "jitter_axis_frames", { 0, 2, 4, 6, 8 } },
+		{ "drop_every_axis_frames", { 0, 64, 32, 16, 8, 4, 2 } },
+		{ "results", nlohmann::json::array() }
+	};
+	const juce::File artifactDirectory(JAMMERNETZ_TEST_ARTIFACT_DIR);
+	const auto scenarioDirectory = artifactDirectory.getChildFile("network-impairments")
+		.getChildFile("quality-surface")
+		.getChildFile("hold-" + std::to_string(holdFrames));
+	for (const auto& profile : qualitySurfaceProfiles(holdFrames)) {
+		runAndRecord(profile, scenarioDirectory, summary["results"]);
+	}
+	jammernetz::test::writeJsonArtifact(scenarioDirectory.getChildFile("summary.json"),
+		summary, "characterization");
+}
+
 TEST(NetworkImpairmentCharacterizationTest, IsolatedClumsyStyleSweepsReportServerRecoveryBoundaries)
 {
 	nlohmann::json summary {
@@ -915,14 +1351,22 @@ TEST(NetworkImpairmentCharacterizationTest, IsolatedClumsyStyleSweepsReportServe
 		{ "server_jitter_frames", SERVER_INCOMING_JITTER_BUFFER },
 		{ "server_maximum_frames", SERVER_INCOMING_MAXIMUM_BUFFER },
 		{ "server_recovery_definition", "both server-side client states connected and eight consecutive coherent server mixes after impairment" },
+		{ "receiver_quality_definition", "sample-exact compares every rendered receiver sample after playout starts with the ideal sequential two-client mix; recovered requires eight consecutive identifiable sequential receiver frames after impairment" },
 		{ "results", nlohmann::json::array() },
-		{ "boundaries", nlohmann::json::object() }
+		{ "boundaries", nlohmann::json::object() },
+		{ "receiver_boundaries", nlohmann::json::object() }
 	};
 	const juce::File artifactDirectory(JAMMERNETZ_TEST_ARTIFACT_DIR);
 	const auto scenarioDirectory = artifactDirectory.getChildFile("network-impairments").getChildFile("isolated");
 	std::map<std::string, ServerRecoveryBoundary> boundaries;
+	std::map<std::string, ReceiverQualityBoundary> receiverBoundaries;
 	for (const auto& profile : isolatedProfiles()) {
 		const auto result = runAndRecord(profile, scenarioDirectory, summary["results"]);
+		if (profile.family == "control") {
+			EXPECT_TRUE(result.receiverSampleExact());
+			EXPECT_EQ(result.receiverA.playoutUnderruns, 0U);
+			EXPECT_EQ(result.receiverB.playoutUnderruns, 0U);
+		}
 		auto& boundary = boundaries[profile.family];
 		if (result.serverRecovered() && !boundary.firstFailure) {
 			boundary.lastRecovered = profile.name;
@@ -930,9 +1374,13 @@ TEST(NetworkImpairmentCharacterizationTest, IsolatedClumsyStyleSweepsReportServe
 		else if (!result.serverRecovered() && !boundary.firstFailure) {
 			boundary.firstFailure = profile.name;
 		}
+		observeReceiverBoundary(receiverBoundaries[profile.family], result);
 	}
 	for (const auto& [family, boundary] : boundaries) {
 		summary["boundaries"][family] = boundaryJson(boundary);
+	}
+	for (const auto& [family, boundary] : receiverBoundaries) {
+		summary["receiver_boundaries"][family] = boundaryJson(boundary);
 	}
 	jammernetz::test::writeJsonArtifact(scenarioDirectory.getChildFile("summary.json"),
 		summary, "characterization");
@@ -946,12 +1394,15 @@ TEST(NetworkImpairmentCharacterizationTest, CombinedClumsyStyleProfilesRemainDet
 		{ "sample_rate", SAMPLE_RATE },
 		{ "frame_samples", SAMPLE_BUFFER_SIZE },
 		{ "server_recovery_definition", "both server-side client states connected and eight consecutive coherent server mixes after impairment" },
+		{ "receiver_quality_definition", "sample-exact compares every rendered receiver sample after playout starts with the ideal sequential two-client mix; recovered requires eight consecutive identifiable sequential receiver frames after impairment" },
 		{ "results", nlohmann::json::array() },
-		{ "boundaries", nlohmann::json::object() }
+		{ "boundaries", nlohmann::json::object() },
+		{ "receiver_boundaries", nlohmann::json::object() }
 	};
 	const juce::File artifactDirectory(JAMMERNETZ_TEST_ARTIFACT_DIR);
 	const auto scenarioDirectory = artifactDirectory.getChildFile("network-impairments").getChildFile("combined");
 	std::map<std::string, ServerRecoveryBoundary> boundaries;
+	std::map<std::string, ReceiverQualityBoundary> receiverBoundaries;
 	for (const auto& profile : combinedProfiles()) {
 		const auto result = runAndRecord(profile, scenarioDirectory, summary["results"]);
 		auto& boundary = boundaries[profile.family];
@@ -961,13 +1412,37 @@ TEST(NetworkImpairmentCharacterizationTest, CombinedClumsyStyleProfilesRemainDet
 		else if (!result.serverRecovered() && !boundary.firstFailure) {
 			boundary.firstFailure = profile.name;
 		}
+		observeReceiverBoundary(receiverBoundaries[profile.family], result);
 	}
 	for (const auto& [family, boundary] : boundaries) {
 		summary["boundaries"][family] = boundaryJson(boundary);
 	}
+	for (const auto& [family, boundary] : receiverBoundaries) {
+		summary["receiver_boundaries"][family] = boundaryJson(boundary);
+	}
 	jammernetz::test::writeJsonArtifact(scenarioDirectory.getChildFile("summary.json"),
 		summary, "characterization");
 	RecordProperty("combined_impairment_summary", summary.dump());
+}
+
+TEST(NetworkImpairmentCharacterizationTest, ReceiverQualitySurfaceWithoutSlottingIsDeterministic)
+{
+	runQualitySurfaceFacet(0);
+}
+
+TEST(NetworkImpairmentCharacterizationTest, ReceiverQualitySurfaceWithTwoFrameSlottingIsDeterministic)
+{
+	runQualitySurfaceFacet(2);
+}
+
+TEST(NetworkImpairmentCharacterizationTest, ReceiverQualitySurfaceWithFourFrameSlottingIsDeterministic)
+{
+	runQualitySurfaceFacet(4);
+}
+
+TEST(NetworkImpairmentCharacterizationTest, ReceiverQualitySurfaceWithEightFrameSlottingIsDeterministic)
+{
+	runQualitySurfaceFacet(8);
 }
 
 } // namespace
