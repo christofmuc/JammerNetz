@@ -27,15 +27,16 @@
 
 class OutgoingPackage {
 public:
-	OutgoingPackage() : targetAddress(""), audioBlock(), sessionSetup(false) {}
+	OutgoingPackage() : targetAddress(""), audioBlock(), sessionSetup(false), receiverProtocolVersion(JammerNetzProtocol::Current) {}
 
-	OutgoingPackage(std::string const &targetAddress_, AudioBlock const &audioBlock_, JammerNetzChannelSetup sessionSetup_) :
-		targetAddress(targetAddress_), audioBlock(audioBlock_), sessionSetup(sessionSetup_) {
+	OutgoingPackage(std::string const &targetAddress_, AudioBlock const &audioBlock_, JammerNetzChannelSetup sessionSetup_, uint16 receiverProtocolVersion_) :
+		targetAddress(targetAddress_), audioBlock(audioBlock_), sessionSetup(sessionSetup_), receiverProtocolVersion(receiverProtocolVersion_) {
 	}
 
 	std::string targetAddress;
 	AudioBlock audioBlock;
     JammerNetzChannelSetup sessionSetup;
+	uint16 receiverProtocolVersion;
 };
 
 #if WIN32

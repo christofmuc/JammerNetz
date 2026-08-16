@@ -149,7 +149,8 @@ void MixerThread::run() {
 					48000,
 					mixdownSetup_,
 					outBuffer),
-                    sessionSetup
+					sessionSetup,
+					receiver.second->protocolVersion()
 					);
 				if (!outgoing_.try_push(package)) {
 					// That's a bad sign - I would assume the sender thread died and that's possibly because the network is down.

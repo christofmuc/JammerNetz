@@ -106,11 +106,15 @@ JammerNetzAudioData::JammerNetzAudioData(uint8 *data, size_t bytes) {
 	flatbuffers::Verifier verifier(data + sizeof(JammerNetzHeader), bytes - sizeof(JammerNetzHeader));
 	if (VerifyJammerNetzPNPAudioDataBuffer(verifier)) {
 		auto root = GetJammerNetzPNPAudioData(data + sizeof(JammerNetzHeader));
+		protocolVersion_ = root->protocolVersion();
 		int blockNo = 0;
 		for (auto block = root->audioBlocks()->cbegin(); block != root->audioBlocks()->cend(); block++) {
 			if (blockNo == 0) {
 				audioBlock_ = readAudioHeaderAndBytes(*block);
 				activeBlock_ = audioBlock_;
+				if ((*block)->allChannels() != nullptr) {
+					legacySessionSetup_ = readChannelSetup((*block)->allChannels());
+				}
 			}
 			else if (blockNo == 1) {
 				fecBlock_ = readAudioHeaderAndBytes(*block);
@@ -155,14 +159,20 @@ JammerNetzAudioData::JammerNetzAudioData(AudioBlock const &audioBlock, std::shar
 
 std::shared_ptr<JammerNetzAudioData> JammerNetzAudioData::createFillInPackage(uint64 messageNumber, bool &outHadFEC) const
 {
+	std::shared_ptr<JammerNetzAudioData> result;
 	if (fecBlock_) {
 		outHadFEC = true;
-		return std::make_shared<JammerNetzAudioData>(messageNumber, fecBlock_->timestamp, fecBlock_->channelSetup, SAMPLE_RATE, fecBlock_->bpm, fecBlock_->midiSignal, fecBlock_->audioBuffer, nullptr);
+		result = std::make_shared<JammerNetzAudioData>(messageNumber, fecBlock_->timestamp, fecBlock_->channelSetup, SAMPLE_RATE, fecBlock_->bpm, fecBlock_->midiSignal, fecBlock_->audioBuffer, nullptr);
 	}
-	// No FEC data available, fall back to "repeat last package"
-	//TODO - fake timestamp?
-	outHadFEC = false;
-	return std::make_shared<JammerNetzAudioData>(messageNumber, audioBlock_->timestamp, audioBlock_->channelSetup, SAMPLE_RATE, audioBlock_->bpm, audioBlock_->midiSignal, audioBlock_->audioBuffer, nullptr);
+	else {
+		// No FEC data available, fall back to "repeat last package"
+		//TODO - fake timestamp?
+		outHadFEC = false;
+		result = std::make_shared<JammerNetzAudioData>(messageNumber, audioBlock_->timestamp, audioBlock_->channelSetup, SAMPLE_RATE, audioBlock_->bpm, audioBlock_->midiSignal, audioBlock_->audioBuffer, nullptr);
+	}
+	result->protocolVersion_ = protocolVersion_;
+	result->legacySessionSetup_ = legacySessionSetup_;
+	return result;
 }
 
 std::shared_ptr<JammerNetzAudioData> JammerNetzAudioData::createPrePaddingPackage() const
@@ -171,9 +181,12 @@ std::shared_ptr<JammerNetzAudioData> JammerNetzAudioData::createPrePaddingPackag
 	auto silence = std::make_shared<AudioBuffer<float>>();
 	*silence = *audioBlock_->audioBuffer; // Deep copy
 	silence->clear();
-	return std::make_shared<JammerNetzAudioData>(audioBlock_->messageCounter - 1, audioBlock_->timestamp, audioBlock_->channelSetup, SAMPLE_RATE, std::optional<float>(),
+	auto result = std::make_shared<JammerNetzAudioData>(audioBlock_->messageCounter - 1, audioBlock_->timestamp, audioBlock_->channelSetup, SAMPLE_RATE, std::optional<float>(),
 		MidiSignal_None,
 	    silence, nullptr);
+	result->protocolVersion_ = protocolVersion_;
+	result->legacySessionSetup_ = legacySessionSetup_;
+	return result;
 }
 
 JammerNetzMessage::MessageType JammerNetzAudioData::getType() const
@@ -187,29 +200,38 @@ void JammerNetzAudioData::serialize(uint8 *output, size_t &byteswritten) const {
 
 	flatbuffers::FlatBufferBuilder fbb;
 	std::vector<flatbuffers::Offset<JammerNetzPNPAudioBlock>> audioBlocks;
+	const JammerNetzChannelSetup emptyLegacySession(false);
+	const auto &legacySessionSetup = legacySessionSetup_.has_value() ? *legacySessionSetup_ : emptyLegacySession;
 
-	audioBlocks.push_back(serializeAudioBlock(fbb, audioBlock_, 48000, 1));
+	audioBlocks.push_back(serializeAudioBlock(fbb, audioBlock_, 48000, 1, legacySessionSetup));
 	if (fecBlock_) {
-		audioBlocks.push_back(serializeAudioBlock(fbb, fecBlock_, 48000, FEC_SAMPLERATE_REDUCTION));
+		audioBlocks.push_back(serializeAudioBlock(fbb, fecBlock_, 48000, FEC_SAMPLERATE_REDUCTION, legacySessionSetup));
 	}
 
 	auto blockVec = fbb.CreateVector(audioBlocks);
 	JammerNetzPNPAudioDataBuilder audioData(fbb);
 	audioData.add_audioBlocks(blockVec);
+	audioData.add_protocolVersion(protocolVersion_);
 
 	fbb.Finish(audioData.Finish());
 	memcpy(output + byteswritten, fbb.GetBufferPointer(), fbb.GetSize());
 	byteswritten += fbb.GetSize();
 }
 
-flatbuffers::Offset<JammerNetzPNPAudioBlock> JammerNetzAudioData::serializeAudioBlock(flatbuffers::FlatBufferBuilder &fbb, std::shared_ptr<AudioBlock> src, uint16 sampleRate, uint16 reductionFactor) const
+flatbuffers::Offset<JammerNetzPNPAudioBlock> JammerNetzAudioData::serializeAudioBlock(flatbuffers::FlatBufferBuilder &fbb, std::shared_ptr<AudioBlock> src, uint16 sampleRate, uint16 reductionFactor, JammerNetzChannelSetup const &legacySessionSetup) const
 {
 	std::vector<flatbuffers::Offset<JammerNetzPNPChannelSetup>> channelSetup;
 	for (const auto& channel : src->channelSetup.channels) {
 		auto fb_name = fbb.CreateString(channel.name);
 		channelSetup.push_back(CreateJammerNetzPNPChannelSetup(fbb, channel.target, channel.volume, channel.mag, channel.rms, channel.pitch, fb_name));
 	}
+	std::vector<flatbuffers::Offset<JammerNetzPNPChannelSetup>> legacySessionChannels;
+	for (const auto& channel : legacySessionSetup.channels) {
+		auto fb_name = fbb.CreateString(channel.name);
+		legacySessionChannels.push_back(CreateJammerNetzPNPChannelSetup(fbb, channel.target, channel.volume, channel.mag, channel.rms, channel.pitch, fb_name));
+	}
 	auto channelSetupVector = fbb.CreateVector(channelSetup);
+	auto legacySessionVector = fbb.CreateVector(legacySessionChannels);
 	auto audioSamples = appendAudioBuffer(fbb, *src->audioBuffer, reductionFactor);
 
 	JammerNetzPNPAudioBlockBuilder audioBlock(fbb);
@@ -223,6 +245,7 @@ flatbuffers::Offset<JammerNetzPNPAudioBlock> JammerNetzAudioData::serializeAudio
 	audioBlock.add_sampleRate(sampleRate / reductionFactor);
 	audioBlock.add_channelSetup(channelSetupVector);
 	audioBlock.add_channels(audioSamples);
+	audioBlock.add_allChannels(legacySessionVector);
 	audioBlock.add_wantEcho(!src->channelSetup.isLocalMonitoringDontSendEcho);
 
 	return audioBlock.Finish();
@@ -292,6 +315,39 @@ MidiSignal JammerNetzAudioData::midiSignal() const
 JammerNetzChannelSetup JammerNetzAudioData::channelSetup() const
 {
 	return activeBlock_->channelSetup;
+}
+
+uint16 JammerNetzAudioData::protocolVersion() const
+{
+	return protocolVersion_;
+}
+
+std::optional<JammerNetzChannelSetup> JammerNetzAudioData::legacySessionSetup() const
+{
+	return legacySessionSetup_;
+}
+
+void JammerNetzAudioData::setLegacySessionSetup(JammerNetzChannelSetup const &sessionSetup)
+{
+	legacySessionSetup_ = sessionSetup;
+}
+
+JammerNetzChannelSetup JammerNetzAudioData::readChannelSetup(flatbuffers::Vector<flatbuffers::Offset<JammerNetzPNPChannelSetup>> const *channels)
+{
+	JammerNetzChannelSetup result(false);
+	if (channels == nullptr) {
+		return result;
+	}
+	for (const auto channel : *channels) {
+		JammerNetzSingleChannelSetup setup(channel->target());
+		setup.volume = channel->volume();
+		setup.mag = channel->mag();
+		setup.rms = channel->rms();
+		setup.pitch = channel->pitch();
+		setup.name = channel->name()->str();
+		result.channels.push_back(setup);
+	}
+	return result;
 }
 
 std::shared_ptr<AudioBlock> JammerNetzAudioData::readAudioHeaderAndBytes(JammerNetzPNPAudioBlock const *block) {

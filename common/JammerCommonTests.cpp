@@ -4,19 +4,91 @@
 
 #include "gtest/gtest.h"
 
-TEST(TestSerialization, TestAudioData) {
+#include <cstring>
+
+namespace {
+
+std::shared_ptr<AudioBuffer<float>> makeAudioBuffer()
+{
 	auto buffer = std::make_shared<AudioBuffer<float>>(2, SAMPLE_BUFFER_SIZE);
-	// Create some AudioBuffer
-	for (int channel = 0; channel < 2; channel++) {
+	for (int channel = 0; channel < buffer->getNumChannels(); ++channel) {
 		auto samples = buffer->getWritePointer(channel);
-		for (int i = 0; i < SAMPLE_BUFFER_SIZE; i++) {
-			samples[i] = (float)i / 3.0f;
+		for (int i = 0; i < buffer->getNumSamples(); ++i) {
+			samples[i] = static_cast<float>(i) / 3.0f;
 		}
 	}
+	return buffer;
+}
 
-	// Create a setup for this
+JammerNetzChannelSetup makeChannelSetup(std::string const &name = {})
+{
 	JammerNetzChannelSetup setup(false);
-	setup.channels.push_back(JammerNetzSingleChannelSetup(JammerNetzChannelTarget::Left));
+	JammerNetzSingleChannelSetup channel(JammerNetzChannelTarget::Left);
+	channel.name = name;
+	setup.channels.push_back(channel);
+	return setup;
+}
+
+std::vector<uint8> makeLegacyPacket(JammerNetzChannelSetup const &sessionSetup)
+{
+	flatbuffers::FlatBufferBuilder fbb;
+
+	std::vector<flatbuffers::Offset<JammerNetzPNPChannelSetup>> inputChannels;
+	const auto inputName = fbb.CreateString("Legacy input");
+	inputChannels.push_back(CreateJammerNetzPNPChannelSetup(fbb, JammerNetzChannelTarget::Left, 1.0f, 0.0f, 0.0f, 0.0f, inputName));
+	const auto inputChannelVector = fbb.CreateVector(inputChannels);
+
+	std::vector<flatbuffers::Offset<JammerNetzPNPChannelSetup>> sessionChannels;
+	for (const auto &channel : sessionSetup.channels) {
+		const auto name = fbb.CreateString(channel.name);
+		sessionChannels.push_back(CreateJammerNetzPNPChannelSetup(fbb, channel.target, channel.volume, channel.mag, channel.rms, channel.pitch, name));
+	}
+	const auto sessionChannelVector = fbb.CreateVector(sessionChannels);
+
+	std::vector<uint16> silence(SAMPLE_BUFFER_SIZE, 0);
+	const auto sampleVector = fbb.CreateVector(silence);
+	std::vector<flatbuffers::Offset<JammerNetzPNPAudioSamples>> audioChannels;
+	audioChannels.push_back(CreateJammerNetzPNPAudioSamples(fbb, sampleVector));
+	const auto audioChannelVector = fbb.CreateVector(audioChannels);
+
+	JammerNetzPNPAudioBlockBuilder audioBlock(fbb);
+	audioBlock.add_timestamp(1234.0);
+	audioBlock.add_messageCounter(7);
+	audioBlock.add_numChannels(1);
+	audioBlock.add_numberOfSamples(static_cast<uint16>(SAMPLE_BUFFER_SIZE));
+	audioBlock.add_sampleRate(static_cast<uint16>(SAMPLE_RATE));
+	audioBlock.add_channelSetup(inputChannelVector);
+	audioBlock.add_channels(audioChannelVector);
+	audioBlock.add_allChannels(sessionChannelVector);
+	const auto finishedAudioBlock = audioBlock.Finish();
+
+	std::vector<flatbuffers::Offset<JammerNetzPNPAudioBlock>> audioBlocks { finishedAudioBlock };
+	const auto audioBlockVector = fbb.CreateVector(audioBlocks);
+	JammerNetzPNPAudioDataBuilder audioData(fbb);
+	audioData.add_audioBlocks(audioBlockVector);
+	// Deliberately omit protocolVersion: rc4 packets predate the marker and read as version 0.
+	fbb.Finish(audioData.Finish());
+
+	std::vector<uint8> packet(sizeof(JammerNetzHeader) + fbb.GetSize());
+	auto *header = reinterpret_cast<JammerNetzHeader *>(packet.data());
+	header->magic0 = '1';
+	header->magic1 = '2';
+	header->magic2 = '3';
+	header->messageType = JammerNetzMessage::AUDIODATA;
+	std::memcpy(packet.data() + sizeof(JammerNetzHeader), fbb.GetBufferPointer(), fbb.GetSize());
+	return packet;
+}
+
+const JammerNetzPNPAudioData *audioRoot(uint8 const *packet)
+{
+	return GetJammerNetzPNPAudioData(packet + sizeof(JammerNetzHeader));
+}
+
+}
+
+TEST(TestSerialization, TestAudioData) {
+	auto buffer = makeAudioBuffer();
+	auto setup = makeChannelSetup();
 
 	JammerNetzAudioData  message(0, 1234.0, setup, SAMPLE_RATE, 0.0f, MidiSignal_None, buffer, nullptr);
 	ASSERT_EQ(message.messageCounter(), 0);
@@ -46,4 +118,73 @@ TEST(TestSerialization, TestAudioData) {
 		}
 	}
 
+}
+
+TEST(TestProtocolCompatibility, CurrentPacketsAdvertiseSplitSessionProtocol)
+{
+	JammerNetzAudioData message(0, 1234.0, makeChannelSetup(), SAMPLE_RATE, 0.0f, MidiSignal_None, makeAudioBuffer(), nullptr);
+	uint8 packet[16384];
+	size_t packetSize = 0;
+	message.serialize(packet, packetSize);
+
+	flatbuffers::Verifier verifier(packet + sizeof(JammerNetzHeader), packetSize - sizeof(JammerNetzHeader));
+	ASSERT_TRUE(VerifyJammerNetzPNPAudioDataBuffer(verifier));
+	const auto *root = audioRoot(packet);
+	ASSERT_NE(root, nullptr);
+	EXPECT_EQ(root->protocolVersion(), JammerNetzProtocol::Current);
+	EXPECT_TRUE(JammerNetzProtocol::supportsSplitSessionInfo(root->protocolVersion()));
+}
+
+TEST(TestProtocolCompatibility, CurrentPacketsKeepRc4LegacyVectorPresent)
+{
+	JammerNetzAudioData message(0, 1234.0, makeChannelSetup(), SAMPLE_RATE, 0.0f, MidiSignal_None, makeAudioBuffer(), nullptr);
+	uint8 packet[16384];
+	size_t packetSize = 0;
+	message.serialize(packet, packetSize);
+
+	const auto *root = audioRoot(packet);
+	ASSERT_NE(root, nullptr);
+	ASSERT_NE(root->audioBlocks(), nullptr);
+	for (const auto *block : *root->audioBlocks()) {
+		// rc4 dereferences allChannels() without checking it for null.
+		ASSERT_NE(block->allChannels(), nullptr);
+		EXPECT_EQ(block->allChannels()->size(), 0u);
+	}
+}
+
+TEST(TestProtocolCompatibility, LegacyPacketsDefaultToVersionZeroAndExposeSessionSetup)
+{
+	auto legacySession = makeChannelSetup("Remote legacy participant");
+	auto packet = makeLegacyPacket(legacySession);
+	auto message = std::dynamic_pointer_cast<JammerNetzAudioData>(
+		JammerNetzMessage::deserialize(packet.data(), packet.size()));
+
+	ASSERT_NE(message, nullptr);
+	EXPECT_EQ(message->protocolVersion(), JammerNetzProtocol::Legacy);
+	EXPECT_FALSE(JammerNetzProtocol::supportsSplitSessionInfo(message->protocolVersion()));
+	const auto decodedSession = message->legacySessionSetup();
+	ASSERT_TRUE(decodedSession.has_value());
+	ASSERT_EQ(decodedSession->channels.size(), 1u);
+	EXPECT_EQ(decodedSession->channels.front().name, "Remote legacy participant");
+
+	const auto prePadding = message->createPrePaddingPackage();
+	EXPECT_EQ(prePadding->protocolVersion(), JammerNetzProtocol::Legacy);
+}
+
+TEST(TestProtocolCompatibility, ServerCanPopulateLegacySessionForRc4Client)
+{
+	JammerNetzAudioData message(0, 1234.0, makeChannelSetup(), SAMPLE_RATE, 0.0f, MidiSignal_None, makeAudioBuffer(), nullptr);
+	message.setLegacySessionSetup(makeChannelSetup("Remote current participant"));
+	uint8 packet[16384];
+	size_t packetSize = 0;
+	message.serialize(packet, packetSize);
+
+	const auto *root = audioRoot(packet);
+	ASSERT_NE(root, nullptr);
+	ASSERT_NE(root->audioBlocks(), nullptr);
+	ASSERT_GT(root->audioBlocks()->size(), 0u);
+	const auto *legacyChannels = root->audioBlocks()->Get(0)->allChannels();
+	ASSERT_NE(legacyChannels, nullptr);
+	ASSERT_EQ(legacyChannels->size(), 1u);
+	EXPECT_EQ(legacyChannels->Get(0)->name()->str(), "Remote current participant");
 }
