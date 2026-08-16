@@ -4,7 +4,6 @@
 
 #include <spdlog/spdlog.h>
 
-#include <algorithm>
 #include <cmath>
 
 namespace {
@@ -123,19 +122,20 @@ void MidiSendThread::run()
 				continue;
 			}
 
-			// Sleep for most of the interval, then yield only near the deadline.
+			// Thread::wait is an interruptible event wait, not an unconditional
+			// sleep. Wait once for the coarse interval and keep a conservative
+			// window for high-priority yielding because OS timer wakeups can be late.
 			// Copying the item out above releases its queue slot before this wait.
-			constexpr auto spinWindow = std::chrono::microseconds(200);
-			constexpr auto sleepGranularity = std::chrono::milliseconds(1);
+			constexpr auto precisionWindow = std::chrono::milliseconds(2);
 			while (!threadShouldExit() && outputEnabled_.load(std::memory_order_acquire)) {
 				const auto remaining = item.whenToSend - std::chrono::steady_clock::now();
 				if (remaining <= std::chrono::steady_clock::duration::zero()) {
 					break;
 				}
-				if (remaining > spinWindow + sleepGranularity) {
-					const auto sleepMilliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(
-						remaining - spinWindow).count();
-					wait(static_cast<int>(std::clamp<int64_t>(sleepMilliseconds, 1, 5)));
+				if (remaining > precisionWindow) {
+					const auto waitMilliseconds = std::chrono::duration<double, std::milli>(
+						remaining - precisionWindow).count();
+					wait(waitMilliseconds);
 				} else {
 					juce::Thread::yield();
 				}
