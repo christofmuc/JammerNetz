@@ -27,6 +27,12 @@ struct RemoteAudioFrame {
 	std::array<std::array<float, SAMPLE_BUFFER_SIZE>, 2> samples {};
 	double sourceTimestamp { 0.0 };
 	uint64 generation { 0 };
+	// The server stamps frames with the sample position immediately after the
+	// final sample in this block. Keep the timing and transport data beside the
+	// PCM until the frame is actually consumed by local playout.
+	uint64 serverSampleEnd { 0 };
+	float bpm { 0.0f };
+	MidiSignal midiSignal { MidiSignal_None };
 };
 
 enum class RecordingTarget : uint8_t { local, master };

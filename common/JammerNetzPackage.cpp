@@ -10,6 +10,8 @@
 
 #include "JammerNetzClientInfoMessage.h"
 
+#include <limits>
+
 JammerNetzSingleChannelSetup::JammerNetzSingleChannelSetup() :
 	target(JammerNetzChannelTarget::Mono), volume(1.0f), mag(0.0f), rms(0.0f), pitch(0.0f), name("")
 {
@@ -160,15 +162,29 @@ JammerNetzAudioData::JammerNetzAudioData(AudioBlock const &audioBlock, std::shar
 std::shared_ptr<JammerNetzAudioData> JammerNetzAudioData::createFillInPackage(uint64 messageNumber, bool &outHadFEC) const
 {
 	std::shared_ptr<JammerNetzAudioData> result;
-	if (fecBlock_) {
+	if (fecBlock_ && fecBlock_->messageCounter == messageNumber) {
 		outHadFEC = true;
-		result = std::make_shared<JammerNetzAudioData>(messageNumber, fecBlock_->timestamp, fecBlock_->channelSetup, SAMPLE_RATE, fecBlock_->bpm, fecBlock_->midiSignal, fecBlock_->audioBuffer, nullptr);
+		auto recovered = *fecBlock_;
+		recovered.messageCounter = messageNumber;
+		result = std::make_shared<JammerNetzAudioData>(recovered, nullptr);
 	}
 	else {
 		// No FEC data available, fall back to "repeat last package"
-		//TODO - fake timestamp?
 		outHadFEC = false;
-		result = std::make_shared<JammerNetzAudioData>(messageNumber, audioBlock_->timestamp, audioBlock_->channelSetup, SAMPLE_RATE, audioBlock_->bpm, audioBlock_->midiSignal, audioBlock_->audioBuffer, nullptr);
+		auto repeated = *audioBlock_;
+		const auto sourceMessageCounter = repeated.messageCounter;
+		repeated.messageCounter = messageNumber;
+		// This method is invoked on the first packet after the gap. Infer the end
+		// sample of the missing predecessor, and never duplicate a transient MIDI
+		// Start/Stop command from the later packet.
+		const auto samples = repeated.audioBuffer ? static_cast<uint64>(repeated.audioBuffer->getNumSamples()) : 0;
+		const auto missingFrames = sourceMessageCounter > messageNumber ? sourceMessageCounter - messageNumber : 1;
+		const auto missingSamples = samples <= std::numeric_limits<uint64>::max() / missingFrames
+			? samples * missingFrames
+			: std::numeric_limits<uint64>::max();
+		repeated.serverTime = repeated.serverTime >= missingSamples ? repeated.serverTime - missingSamples : 0;
+		repeated.midiSignal = MidiSignal_None;
+		result = std::make_shared<JammerNetzAudioData>(repeated, nullptr);
 	}
 	result->protocolVersion_ = protocolVersion_;
 	result->legacySessionSetup_ = legacySessionSetup_;

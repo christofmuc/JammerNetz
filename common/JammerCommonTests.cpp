@@ -51,20 +51,22 @@ std::vector<uint8> makeLegacyPacket(JammerNetzChannelSetup const &sessionSetup, 
 	audioChannels.push_back(CreateJammerNetzPNPAudioSamples(fbb, sampleVector));
 	const auto audioChannelVector = fbb.CreateVector(audioChannels);
 
-	JammerNetzPNPAudioBlockBuilder audioBlock(fbb);
-	audioBlock.add_timestamp(1234.0);
-	audioBlock.add_messageCounter(7);
-	audioBlock.add_numChannels(1);
-	audioBlock.add_numberOfSamples(static_cast<uint16>(SAMPLE_BUFFER_SIZE));
-	audioBlock.add_sampleRate(static_cast<uint16>(SAMPLE_RATE));
-	audioBlock.add_channelSetup(inputChannelVector);
-	audioBlock.add_channels(audioChannelVector);
-	audioBlock.add_allChannels(sessionChannelVector);
-	const auto finishedAudioBlock = audioBlock.Finish();
+	const auto makeAudioBlock = [&](uint64 messageCounter) {
+		JammerNetzPNPAudioBlockBuilder audioBlock(fbb);
+		audioBlock.add_timestamp(1234.0);
+		audioBlock.add_messageCounter(messageCounter);
+		audioBlock.add_numChannels(1);
+		audioBlock.add_numberOfSamples(static_cast<uint16>(SAMPLE_BUFFER_SIZE));
+		audioBlock.add_sampleRate(static_cast<uint16>(SAMPLE_RATE));
+		audioBlock.add_channelSetup(inputChannelVector);
+		audioBlock.add_channels(audioChannelVector);
+		audioBlock.add_allChannels(sessionChannelVector);
+		return audioBlock.Finish();
+	};
 
-	std::vector<flatbuffers::Offset<JammerNetzPNPAudioBlock>> audioBlocks { finishedAudioBlock };
+	std::vector<flatbuffers::Offset<JammerNetzPNPAudioBlock>> audioBlocks { makeAudioBlock(7) };
 	if (includeFec) {
-		audioBlocks.push_back(finishedAudioBlock);
+		audioBlocks.push_back(makeAudioBlock(6));
 	}
 	const auto audioBlockVector = fbb.CreateVector(audioBlocks);
 	JammerNetzPNPAudioDataBuilder audioData(fbb);
