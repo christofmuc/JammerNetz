@@ -4,6 +4,8 @@
 
 - Removed the oneTBB runtime dependency from the standalone client and audio
   plug-ins while retaining it privately for the server.
+- Added an optional, default-selected Windows installer task for the complete
+  JammerNetz VST3 bundle.
 
 ## 2.4.0 - 2026-08-16
 

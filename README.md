@@ -38,7 +38,7 @@ It should be noted that due to the design of the system, we have a few limitatio
 
 ## Usage
 
-We provide installers for Windows and Mac client to download here in the release section. The server executable is also installed by the Windows installer for you to test it e.g. locally, but for real life application you'd need to run the server somewhere in the cloud.
+We provide installers for Windows and Mac client to download here in the release section. The Windows installer includes the server executable for local testing and offers the JammerNetz VST3 plug-in as a default-selected task. For real life application you'd need to run the server somewhere in the cloud.
 
 you will need some experience in compiling a C++ application and starting an AWS (or Azure or self-hosted or...) instance and deploying the Linux build of the server there to run it. Depending on the interest in this system, we might be able to provide more help.
 
@@ -110,7 +110,7 @@ For CI/release builds with symbols, explicitly enable LTO:
     cmake -S . -B Builds\Windows -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DJAMMERNETZ_ENABLE_LTO=ON
     cmake --build Builds\Windows --parallel
 
-The build will take a few minutes, and produce optimized Client and Server binaries with debug symbols, as well as a client installer in case you have InnoSetup installed before kicking off. The installer executable is created as `<JammerNetzDir>\Builds\Client\jammernetz_setup_x.x.x.exe`
+The build will take a few minutes and produce optimized Client, Server, and VST3 binaries with debug symbols, as well as a client installer if Inno Setup was installed before configuring CMake. The installer offers the complete VST3 bundle as a default-selected task and is created as `<JammerNetzDir>\Builds\Client\jammernetz_setup_x.x.x.exe`.
 
 To test it, you can launch the server on your local machine with
 

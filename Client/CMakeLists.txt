@@ -215,6 +215,14 @@ ENDIF()
 
 IF(WIN32)
 	 # Parse Inno Setup config file
+	if(BUILD_JAMMERNETZ_PLUGIN)
+		set(JAMMERNETZ_INSTALL_VST3 1)
+		set(JAMMERNETZ_VST3_BUNDLE_DIR
+			"$<TARGET_GENEX_EVAL:JammerNetzPlugin_VST3,$<TARGET_PROPERTY:JammerNetzPlugin_VST3,JUCE_PLUGIN_ARTEFACT_FILE>>")
+	else()
+		set(JAMMERNETZ_INSTALL_VST3 0)
+		set(JAMMERNETZ_VST3_BUNDLE_DIR "")
+	endif()
 	if(CMAKE_CONFIGURATION_TYPES)
 		file(TO_NATIVE_PATH "${CMAKE_CURRENT_BINARY_DIR}/RelWithDebInfo" JAMMERNETZ_CLIENT_OUTPUT_DIR)
 		file(TO_NATIVE_PATH "${CMAKE_CURRENT_BINARY_DIR}/../Server/RelWithDebInfo" JAMMERNETZ_SERVER_OUTPUT_DIR)
@@ -225,13 +233,17 @@ IF(WIN32)
 		file(TO_NATIVE_PATH "${CMAKE_CURRENT_BINARY_DIR}/.." JAMMERNETZ_ROOT_OUTPUT_DIR)
 	endif()
 	configure_file("${CMAKE_CURRENT_LIST_DIR}/setup_client.iss.in"
-				   "${CMAKE_CURRENT_BINARY_DIR}/setup_client.iss")
+				   "${CMAKE_CURRENT_BINARY_DIR}/setup_client.iss.genex")
+	file(GENERATE
+		OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/setup_client-$<CONFIG>.iss"
+		INPUT "${CMAKE_CURRENT_BINARY_DIR}/setup_client.iss.genex")
 	set(no_copy $<NOT:$<CONFIG:RelWithDebInfo>>)
-	add_custom_command(
-		TARGET JammerNetzClient POST_BUILD
-		COMMAND  "${CMAKE_COMMAND}" -E $<${no_copy}:echo> $<${no_copy}:"Not building Installer with "> chdir . ${INNOSETUP} "${CMAKE_CURRENT_BINARY_DIR}/setup_client.iss"
-		DEPENDS setup_client.iss
-	)
+	if(INNOSETUP)
+		add_custom_command(
+			TARGET JammerNetzClient POST_BUILD
+			COMMAND "${CMAKE_COMMAND}" -E $<${no_copy}:echo> $<${no_copy}:"Not building Installer with "> chdir . ${INNOSETUP} "${CMAKE_CURRENT_BINARY_DIR}/setup_client-$<CONFIG>.iss"
+		)
+	endif()
 ENDIF()
 
 IF(APPLE)
