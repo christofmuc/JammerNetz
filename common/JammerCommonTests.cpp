@@ -1,4 +1,5 @@
 #include "JammerNetzPackage.h"
+#include "PacketStreamQueue.h"
 
 #include "BuffersConfig.h"
 
@@ -27,6 +28,12 @@ JammerNetzChannelSetup makeChannelSetup(std::string const &name = {})
 	channel.name = name;
 	setup.channels.push_back(channel);
 	return setup;
+}
+
+std::shared_ptr<JammerNetzAudioData> makeQueuePacket(std::uint64_t counter)
+{
+	return std::make_shared<JammerNetzAudioData>(
+		counter, 0.0, makeChannelSetup(), SAMPLE_RATE, 120.0f, MidiSignal_None, makeAudioBuffer(), nullptr);
 }
 
 std::vector<uint8> makeLegacyPacket(JammerNetzChannelSetup const &sessionSetup, bool includeFec = false, bool omitSessionName = false)
@@ -218,4 +225,114 @@ TEST(TestProtocolCompatibility, ServerCanPopulateLegacySessionForRc4Client)
 	ASSERT_NE(legacyChannels, nullptr);
 	ASSERT_EQ(legacyChannels->size(), 1u);
 	EXPECT_EQ(legacyChannels->Get(0)->name()->str(), "Remote current participant");
+}
+
+TEST(PacketStreamQueueTest, PopsOrderedPacketsInSequence)
+{
+	PacketStreamQueue queue("test");
+	ASSERT_TRUE(queue.push(makeQueuePacket(1)));
+	ASSERT_TRUE(queue.push(makeQueuePacket(2)));
+	EXPECT_EQ(queue.size(), 2u);
+
+	std::shared_ptr<JammerNetzAudioData> packet;
+	bool isFillIn = false;
+	ASSERT_TRUE(queue.try_pop(packet, isFillIn));
+	EXPECT_EQ(packet->messageCounter(), 1u);
+	EXPECT_FALSE(isFillIn);
+	ASSERT_TRUE(queue.try_pop(packet, isFillIn));
+	EXPECT_EQ(packet->messageCounter(), 2u);
+	EXPECT_FALSE(isFillIn);
+	EXPECT_EQ(queue.size(), 0u);
+	EXPECT_FALSE(queue.try_pop(packet, isFillIn));
+}
+
+TEST(PacketStreamQueueTest, ReordersOutOfOrderPackets)
+{
+	PacketStreamQueue queue("test");
+	ASSERT_TRUE(queue.push(makeQueuePacket(12)));
+	ASSERT_TRUE(queue.push(makeQueuePacket(11)));
+
+	std::shared_ptr<JammerNetzAudioData> packet;
+	bool isFillIn = false;
+	ASSERT_TRUE(queue.try_pop(packet, isFillIn));
+	EXPECT_EQ(packet->messageCounter(), 11u);
+	ASSERT_TRUE(queue.try_pop(packet, isFillIn));
+	EXPECT_EQ(packet->messageCounter(), 12u);
+
+	const auto quality = queue.qualityInfoPackage();
+	EXPECT_EQ(quality.outOfOrderPacketCounter, 1u);
+	EXPECT_EQ(quality.maxWrongOrderSpan, 1u);
+}
+
+TEST(PacketStreamQueueTest, RejectsDuplicatesAlreadyInTheQueue)
+{
+	PacketStreamQueue queue("test");
+	ASSERT_TRUE(queue.push(makeQueuePacket(7)));
+	EXPECT_FALSE(queue.push(makeQueuePacket(7)));
+	EXPECT_EQ(queue.size(), 1u);
+
+	const auto quality = queue.qualityInfoPackage();
+	EXPECT_EQ(quality.duplicatePacketCounter, 1u);
+	EXPECT_EQ(quality.packagesPushed, 1u);
+}
+
+TEST(PacketStreamQueueTest, RejectsPacketsOlderThanTheLastPoppedPacket)
+{
+	PacketStreamQueue queue("test");
+	ASSERT_TRUE(queue.push(makeQueuePacket(10)));
+	std::shared_ptr<JammerNetzAudioData> packet;
+	bool isFillIn = false;
+	ASSERT_TRUE(queue.try_pop(packet, isFillIn));
+
+	EXPECT_FALSE(queue.push(makeQueuePacket(9)));
+	EXPECT_EQ(queue.size(), 0u);
+	EXPECT_EQ(queue.qualityInfoPackage().tooLateOrDuplicate, 1u);
+}
+
+TEST(PacketStreamQueueTest, FillsOnePacketGapWithoutConsumingTheLaterPacket)
+{
+	PacketStreamQueue queue("test");
+	ASSERT_TRUE(queue.push(makeQueuePacket(20)));
+	std::shared_ptr<JammerNetzAudioData> packet;
+	bool isFillIn = false;
+	ASSERT_TRUE(queue.try_pop(packet, isFillIn));
+
+	ASSERT_TRUE(queue.push(makeQueuePacket(22)));
+	EXPECT_EQ(queue.size(), 1u);
+	ASSERT_TRUE(queue.try_pop(packet, isFillIn));
+	EXPECT_EQ(packet->messageCounter(), 21u);
+	EXPECT_TRUE(isFillIn);
+	EXPECT_EQ(queue.size(), 1u);
+
+	ASSERT_TRUE(queue.try_pop(packet, isFillIn));
+	EXPECT_EQ(packet->messageCounter(), 22u);
+	EXPECT_FALSE(isFillIn);
+	EXPECT_EQ(queue.size(), 0u);
+	const auto quality = queue.qualityInfoPackage();
+	EXPECT_EQ(quality.droppedPacketCounter, 1u);
+	EXPECT_EQ(quality.maxLengthOfGap, 1u);
+	EXPECT_EQ(quality.packagesPushed, 2u);
+	EXPECT_EQ(quality.packagesPopped, 2u);
+}
+
+TEST(PacketStreamQueueTest, ResetClearsPacketsStatisticsAndSequenceState)
+{
+	PacketStreamQueue queue("test");
+	ASSERT_TRUE(queue.push(makeQueuePacket(42)));
+	ASSERT_TRUE(queue.push(makeQueuePacket(44)));
+	queue.reset();
+
+	EXPECT_EQ(queue.size(), 0u);
+	const auto resetQuality = queue.qualityInfoPackage();
+	EXPECT_EQ(resetQuality.packagesPushed, 0u);
+	EXPECT_EQ(resetQuality.packagesPopped, 0u);
+	EXPECT_EQ(resetQuality.outOfOrderPacketCounter, 0u);
+	EXPECT_EQ(resetQuality.duplicatePacketCounter, 0u);
+
+	ASSERT_TRUE(queue.push(makeQueuePacket(1)));
+	std::shared_ptr<JammerNetzAudioData> packet;
+	bool isFillIn = true;
+	ASSERT_TRUE(queue.try_pop(packet, isFillIn));
+	EXPECT_EQ(packet->messageCounter(), 1u);
+	EXPECT_FALSE(isFillIn);
 }

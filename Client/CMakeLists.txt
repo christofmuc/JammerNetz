@@ -12,8 +12,7 @@ configure_file("Source/version.cpp.in" "Source/version.cpp")
 include(BinaryResources)
 
 # Setup some additional include directories for our header only libraries and those without CMake support
-include_directories("${INTEL_TBB_DIRECTORY}/include/"
-	"${asiosdk_SOURCE_DIR}/common"
+include_directories("${asiosdk_SOURCE_DIR}/common"
 	"${CMAKE_CURRENT_LIST_DIR}/../third_party/infra/include"
 	"${CMAKE_CURRENT_LIST_DIR}/../third_party/Q/q_lib/include"
 	"${CMAKE_CURRENT_LIST_DIR}/../third_party")
@@ -132,9 +131,6 @@ set(INSTALLER_BASE_NAME "JammerNetz")
 add_library(JammerNetzCore STATIC ${CORE_AUDIO_PROCESSING_FILES} ${NETWORK_FILES})
 target_include_directories(JammerNetzCore PUBLIC Source "${CMAKE_CURRENT_BINARY_DIR}/Source")
 target_link_libraries(JammerNetzCore PUBLIC ${JUCE_LIBRARIES} JammerCommon juce-utils midikraft-base ff_meters)
-if(APPLE OR UNIX)
-	target_link_libraries(JammerNetzCore PUBLIC tbb)
-endif()
 
 add_executable(JammerNetzClient MACOSX_BUNDLE WIN32 ${SOURCES} ${DS_SOURCES} ${UICOMPONENT_FILES} ${PLAYALONG_FILES} ${AUDIO_PROCESSING_FILES} ${MIDI_FILES} ${RESOURCE_FILES} ${INSTALLER_FILES})
 set(JammerNetz_VersionedName "JammerNetz 2")
@@ -180,7 +176,6 @@ ELSE()
 		freetype
 		curl
 		asound
-		tbb
 		${SENTRY_LIB}
 		juce-widgets)
 ENDIF()
@@ -198,13 +193,14 @@ else()
 endif()
 
 IF(WIN32)
-	# Post build commands - copy the DLLs (Windows only I guess). Due to the directory format of the oneTBB output directory, we need to parse the MSVC compiler version and use it appropriately
-	add_custom_command(
-			TARGET JammerNetzClient POST_BUILD
-			COMMAND ${CMAKE_COMMAND} -E copy_if_different
-					${SENTRY_DISTRIBUTION_FILES}
-					${CMAKE_BINARY_DIR}/$<IF:$<CONFIG:Release>,${MY_TBB_BINARY_DIR_BASE}_release/tbb12.dll,$<IF:$<CONFIG:Debug>,${MY_TBB_BINARY_DIR_BASE}_debug/tbb12_debug.dll,${MY_TBB_BINARY_DIR_BASE}_relwithdebinfo/tbb12.dll>>
-					$<TARGET_FILE_DIR:JammerNetzClient>)
+	if(SENTRY_CRASH_REPORTING)
+		# Post build commands - copy the optional crash-reporting runtime.
+		add_custom_command(
+				TARGET JammerNetzClient POST_BUILD
+				COMMAND ${CMAKE_COMMAND} -E copy_if_different
+						${SENTRY_DISTRIBUTION_FILES}
+						$<TARGET_FILE_DIR:JammerNetzClient>)
+	endif()
 	jammernetz_copy_msvc_debug_runtime(JammerNetzClient)
 ENDIF()
 

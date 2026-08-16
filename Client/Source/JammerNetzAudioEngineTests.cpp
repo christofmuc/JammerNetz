@@ -8,7 +8,6 @@
 #include "AudioReceiveWorker.h"
 #include "BuffersConfig.h"
 #include "BoundedSpscQueue.h"
-#include "PacketStreamQueue.h"
 
 #include <gtest/gtest.h>
 
@@ -224,31 +223,6 @@ TEST(JammerNetzAudioEngineTest, CountsOverflowOfOrderedMidiTransportCommands)
 	EXPECT_EQ(engine.getRealtimeWorkerStats().midiTransportCommandsDropped, 0u);
 	engine.setMidiSignalToSend(MidiSignal_Start);
 	EXPECT_EQ(engine.getRealtimeWorkerStats().midiTransportCommandsDropped, 1u);
-}
-
-TEST(PacketStreamQueueTest, ResetAcceptsANewPacketSequence)
-{
-	PacketStreamQueue queue("test");
-	auto audio = std::make_shared<juce::AudioBuffer<float>>(2, SAMPLE_BUFFER_SIZE);
-	JammerNetzChannelSetup setup(false, {
-		JammerNetzSingleChannelSetup(JammerNetzChannelTarget::Left),
-		JammerNetzSingleChannelSetup(JammerNetzChannelTarget::Right)
-	});
-	const auto makePacket = [&](uint64 counter) {
-		return std::make_shared<JammerNetzAudioData>(
-			counter, 0.0, setup, SAMPLE_RATE, 120.0f, MidiSignal_None, audio, nullptr);
-	};
-	std::shared_ptr<JammerNetzAudioData> popped;
-	bool fillIn = false;
-
-	ASSERT_TRUE(queue.push(makePacket(42)));
-	ASSERT_TRUE(queue.try_pop(popped, fillIn));
-	EXPECT_EQ(popped->messageCounter(), 42u);
-	queue.reset();
-	ASSERT_TRUE(queue.push(makePacket(1)));
-	ASSERT_TRUE(queue.try_pop(popped, fillIn));
-	EXPECT_EQ(popped->messageCounter(), 1u);
-	EXPECT_FALSE(fillIn);
 }
 
 TEST(JammerNetzAudioDataTest, FillInPreservesRecoveredTimingAndDoesNotDuplicateCommands)
