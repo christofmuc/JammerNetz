@@ -22,7 +22,7 @@
 #include "SpectrogramWidget.h"
 
 namespace {
-class SpectrumPanel final : public juce::Component, private juce::Timer {
+class SpectrumPanel final : public juce::Component {
 public:
 	explicit SpectrumPanel(std::weak_ptr<Spectrogram> analyzer)
 		: display_(std::move(analyzer))
@@ -30,23 +30,98 @@ public:
 		group_.setText("Master Spectrum");
 		addAndMakeVisible(group_);
 		addAndMakeVisible(display_);
-		startTimerHz(30);
+		addAndMakeVisible(logarithmicButton_);
+		addAndMakeVisible(horizontalButton_);
+		addAndMakeVisible(pitchColourButton_);
+		addAndMakeVisible(trackedNotesButton_);
+		addAndMakeVisible(trackingPresetBox_);
+		addAndMakeVisible(concertALabel_);
+		addAndMakeVisible(concertASlider_);
+
+		logarithmicButton_.setToggleState(true, juce::dontSendNotification);
+		pitchColourButton_.setToggleState(true, juce::dontSendNotification);
+		trackedNotesButton_.setToggleState(true, juce::dontSendNotification);
+		trackingPresetBox_.addItem("Fast", 1);
+		trackingPresetBox_.addItem("Balanced", 2);
+		trackingPresetBox_.addItem("Stable", 3);
+		trackingPresetBox_.setSelectedId(2, juce::dontSendNotification);
+		trackingPresetBox_.setTooltip("Pitch response: Fast, Balanced, or Stable");
+		concertALabel_.setText("A4", juce::dontSendNotification);
+		concertALabel_.setJustificationType(juce::Justification::centredRight);
+		concertASlider_.setRange(415.0, 466.0, 0.1);
+		concertASlider_.setValue(440.0, juce::dontSendNotification);
+		concertASlider_.setTextValueSuffix(" Hz");
+		concertASlider_.setSliderStyle(juce::Slider::LinearHorizontal);
+		concertASlider_.setTextBoxStyle(juce::Slider::TextBoxRight, false, 68, 22);
+
+		display_.setPitchColourMode(true);
+		display_.setTrackedNoteOverlayEnabled(true);
+		logarithmicButton_.onClick = [this] {
+			display_.setXAxis(logarithmicButton_.getToggleState());
+		};
+		horizontalButton_.onClick = [this] {
+			display_.setHorizontalMode(horizontalButton_.getToggleState());
+		};
+		pitchColourButton_.onClick = [this] {
+			display_.setPitchColourMode(pitchColourButton_.getToggleState());
+		};
+		trackedNotesButton_.onClick = [this] {
+			display_.setTrackedNoteOverlayEnabled(trackedNotesButton_.getToggleState());
+		};
+		trackingPresetBox_.onChange = [this] {
+			switch (trackingPresetBox_.getSelectedId()) {
+			case 1:
+				display_.setPitchTrackingPreset(PitchTracker::Preset::fast);
+				break;
+			case 3:
+				display_.setPitchTrackingPreset(PitchTracker::Preset::stable);
+				break;
+			case 2:
+			default:
+				display_.setPitchTrackingPreset(PitchTracker::Preset::balanced);
+				break;
+			}
+		};
+		concertASlider_.onValueChange = [this] {
+			display_.setConcertAHz(static_cast<float>(concertASlider_.getValue()));
+		};
+
+		// The waterfall and its GL note cards share the display's VSync-paced
+		// render pass. No message-thread repaint timer is needed here.
+		display_.setContinuousRedrawing(true);
 	}
 
 	void resized() override
 	{
 		group_.setBounds(getLocalBounds());
-		display_.setBounds(getLocalBounds().reduced(kNormalInset));
+		auto content = getLocalBounds().reduced(kNormalInset);
+		auto controls = content.removeFromBottom(58);
+		content.removeFromBottom(kSmallInset);
+		display_.setBounds(content);
+
+		auto modeRow = controls.removeFromTop(28);
+		const auto modeWidth = modeRow.getWidth() / 4;
+		logarithmicButton_.setBounds(modeRow.removeFromLeft(modeWidth));
+		horizontalButton_.setBounds(modeRow.removeFromLeft(modeWidth));
+		pitchColourButton_.setBounds(modeRow.removeFromLeft(modeWidth));
+		trackedNotesButton_.setBounds(modeRow);
+
+		auto tuningRow = controls.removeFromBottom(28);
+		trackingPresetBox_.setBounds(tuningRow.removeFromLeft(96).reduced(2));
+		concertALabel_.setBounds(tuningRow.removeFromLeft(28));
+		concertASlider_.setBounds(tuningRow);
 	}
 
 private:
-	void timerCallback() override
-	{
-		display_.refreshData();
-	}
-
 	juce::GroupComponent group_;
 	SpectrogramWidget display_;
+	juce::ToggleButton logarithmicButton_ { "Log" };
+	juce::ToggleButton horizontalButton_ { "History" };
+	juce::ToggleButton pitchColourButton_ { "Colours" };
+	juce::ToggleButton trackedNotesButton_ { "Notes" };
+	juce::ComboBox trackingPresetBox_;
+	juce::Label concertALabel_;
+	juce::Slider concertASlider_;
 };
 }
 

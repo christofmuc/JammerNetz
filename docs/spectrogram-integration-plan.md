@@ -6,7 +6,7 @@
 - JammerNetz base: `origin/master` at `e4973d0`
 - Spectroscope repository: `https://github.com/christofmuc/juce-spectroscope19`
 - Spectroscope development branch: `master`
-- Pinned spectroscope commit: `ea176a3` (`Use native MSVC generator in CI`)
+- Pinned spectroscope commit: `26f033f` (`Document pitch tracker design and limits`)
 - Initial JammerNetz prototype branches inspected:
   - local `features/spectrogram` at `b32ff6c`
   - remote `origin/spectrogram` at `175a519`
@@ -28,14 +28,20 @@ pinned submodule commit from that branch.
   were corrected in commits culminating in `ea176a3`.
 - A disposable Visual Studio smoke build against JammerNetz's JUCE revision compiled both
   targets with `/W4 /WX`; the RelWithDebInfo analyzer test passed.
-- JammerNetz pins the pushed `juce-spectroscope19/master` commit `ea176a3`.
+- JammerNetz pins the pushed `juce-spectroscope19/master` commit `26f033f`.
 - The historical demo and AppVeyor responsibilities were consolidated into the module repository;
   its standalone demo and analyzer tests now pass GitHub Actions on Windows, Ubuntu, and macOS.
 - JammerNetz now copies the final stereo mix into a bounded preallocated SPSC queue and
   performs FFT analysis on a dedicated worker thread.
-- The standalone client owns a 30 Hz responsive spectrum/waterfall panel that disappears
-  before narrow windows squeeze the existing mixer controls.
-- The full Debug build completed and all 16 configured JammerNetz tests passed, including
+- The standalone client owns a responsive spectrum/waterfall panel that disappears before
+  narrow windows squeeze the existing mixer controls. Its waterfall and horizontal note
+  cards share one VSync-paced OpenGL render pass.
+- The panel exposes logarithmic axis, horizontal history, circle-of-fifths pitch colours,
+  tracked-note annotations, Fast/Balanced/Stable tracking, and concert-A reference controls.
+- The current tracker behaviour, assumptions, preset values, and known limits are documented
+  in the pinned module. Tracker refinement is deferred until the JammerNetz client has been
+  evaluated with a real synthesizer.
+- The full Debug client-plus-server build completed and all 22 configured JammerNetz tests passed, including
   a new assertion that the output tap receives the post-mix stereo signal.
 
 ## Product decision
