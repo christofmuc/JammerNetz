@@ -235,7 +235,7 @@ public:
 
 		const auto playout = engine_.getPlayoutQualityInfo();
 		result_.maximumPreparedQueueFrames = std::max(result_.maximumPreparedQueueFrames,
-			playout.currentPlayQueueLength_);
+			static_cast<std::uint64_t>(playout.currentPlayQueueLength_));
 
 		const bool silent = observed.getMagnitude(0, SAMPLE_BUFFER_SIZE) <= comparisonEpsilon;
 		if (!result_.playbackStarted && !silent && firstSignalMessageCounter_) {
