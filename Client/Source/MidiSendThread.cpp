@@ -4,6 +4,7 @@
 
 #include <spdlog/spdlog.h>
 
+#include <algorithm>
 #include <cmath>
 
 namespace {
@@ -80,12 +81,14 @@ MidiSendThread::~MidiSendThread()
 void MidiSendThread::shutdown()
 {
 	signalThreadShouldExit();
+	notify();
 	stopThread(1000);
 }
 
 void MidiSendThread::disableOutput() noexcept
 {
 	outputEnabled_.store(false, std::memory_order_release);
+	notify();
 }
 
 bool MidiSendThread::enqueueAt(std::chrono::steady_clock::time_point whenToSend, float bpm, MidiSignal signal, bool sendClock)
@@ -109,33 +112,41 @@ uint64_t MidiSendThread::droppedMessages() const noexcept
 
 void MidiSendThread::run()
 {
-
-	// New algorithm to be written - use a MidiClocker to calculate the average BPM that should be generated. Then run a high priority thread to generate a stable
-	// Midi Clock *and* synchronize it with the clock timestamps coming from the audio clock.
-	// The problem is that the Audio thread is only running at e.g. 4 milliseconds clock, and that is about my current jitter - no surprise there.
 	while (!threadShouldExit()) {
 		try {
-			bool sentAny = false;
-			while (midiMessages.tryRead([&](MessageQueueItem& item) {
-				if (!outputEnabled_.load(std::memory_order_acquire)) {
-					return;
+			MessageQueueItem item;
+			if (!midiMessages.tryRead([&item](MessageQueueItem& queued) { item = queued; })) {
+				wait(1);
+				continue;
+			}
+			if (!outputEnabled_.load(std::memory_order_acquire)) {
+				continue;
+			}
+
+			// Sleep for most of the interval, then yield only near the deadline.
+			// Copying the item out above releases its queue slot before this wait.
+			constexpr auto spinWindow = std::chrono::microseconds(200);
+			constexpr auto sleepGranularity = std::chrono::milliseconds(1);
+			while (!threadShouldExit() && outputEnabled_.load(std::memory_order_acquire)) {
+				const auto remaining = item.whenToSend - std::chrono::steady_clock::now();
+				if (remaining <= std::chrono::steady_clock::duration::zero()) {
+					break;
 				}
-				// Wait until the time has come
-				while (!threadShouldExit() && outputEnabled_.load(std::memory_order_acquire)
-					&& std::chrono::steady_clock::now() < item.whenToSend) {
+				if (remaining > spinWindow + sleepGranularity) {
+					const auto sleepMilliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(
+						remaining - spinWindow).count();
+					wait(static_cast<int>(std::clamp<int64_t>(sleepMilliseconds, 1, 5)));
+				} else {
 					juce::Thread::yield();
 				}
-				if (threadShouldExit() || !outputEnabled_.load(std::memory_order_acquire)) {
-					return;
-				}
-				const auto messages = createOutputMessages(item.bpm, item.signal, item.sendClock);
-				for (auto &out : f8_outputs) {
-					out->sendBlockOfMessagesFullSpeed(messages);
-				}
-				sentAny = true;
-			}) && !threadShouldExit()) {}
-			if (!sentAny) {
-				juce::Thread::sleep(1);
+			}
+			if (threadShouldExit() || !outputEnabled_.load(std::memory_order_acquire)) {
+				continue;
+			}
+
+			const auto messages = createOutputMessages(item.bpm, item.signal, item.sendClock);
+			for (auto &out : f8_outputs) {
+				out->sendBlockOfMessagesFullSpeed(messages);
 			}
 		} catch (std::exception &e) {
 			spdlog::error("Failed to send MIDI Clock: {}", e.what());

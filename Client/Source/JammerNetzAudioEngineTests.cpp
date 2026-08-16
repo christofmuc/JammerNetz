@@ -104,6 +104,25 @@ TEST(JammerNetzAudioEngineTest, ConfigurationChangesDoNotRequireReconstruction)
 	EXPECT_NEAR(right.front(), expectedGain, 1.0e-5f);
 }
 
+TEST(JammerNetzAudioEngineTest, ShutdownSilencesLateAudioCallbacks)
+{
+	JammerNetzSession session;
+	JammerNetzAudioEngine engine(session, juce::File());
+	engine.shutdown();
+
+	std::array<float, 32> left;
+	std::array<float, 32> right;
+	left.fill(1.0f);
+	right.fill(1.0f);
+	float* outputs[] { left.data(), right.data() };
+	engine.process(nullptr, 0, outputs, 2, static_cast<int>(left.size()));
+
+	EXPECT_FLOAT_EQ(left.front(), 0.0f);
+	EXPECT_FLOAT_EQ(left.back(), 0.0f);
+	EXPECT_FLOAT_EQ(right.front(), 0.0f);
+	EXPECT_FLOAT_EQ(right.back(), 0.0f);
+}
+
 TEST(JammerNetzAudioEngineTest, MixesASimulatedRemoteFrame)
 {
 	JammerNetzSession session;
@@ -343,6 +362,20 @@ TEST(MidiSendThreadTest, ShutdownInterruptsAFutureScheduledMessage)
 	const auto started = std::chrono::steady_clock::now();
 	sender.shutdown();
 	EXPECT_LT(std::chrono::steady_clock::now() - started, std::chrono::milliseconds(500));
+}
+
+TEST(MidiSendThreadTest, FutureMessageDoesNotReserveAQueueSlotWhileWaiting)
+{
+	MidiSendThread sender(std::vector<juce::MidiDeviceInfo> {});
+	const auto future = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+	ASSERT_TRUE(sender.enqueueAt(future, 120.0f, MidiSignal_None, true));
+	juce::Thread::sleep(20);
+
+	for (int message = 0; message < 256; ++message) {
+		ASSERT_TRUE(sender.enqueueAt(future, 120.0f, MidiSignal_None, true));
+	}
+	EXPECT_FALSE(sender.enqueueAt(future, 120.0f, MidiSignal_None, true));
+	sender.shutdown();
 }
 
 } // namespace

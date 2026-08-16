@@ -163,6 +163,7 @@ private:
 		MidiSignal signal, uint64_t frameOffsetSamples,
 		std::chrono::steady_clock::time_point playoutStart) noexcept;
 	std::optional<MidiSignal> takeMidiSignalToSend() noexcept;
+	void retireMidiSender(std::shared_ptr<MidiSendThread> sender);
 
 	JammerNetzSession& session_;
 	juce::File recordingDirectory_;
@@ -171,6 +172,8 @@ private:
 	std::shared_ptr<const InputState> configuredInputState_;
 	std::vector<RetiredInputState> retiredInputStates_;
 	std::atomic<uint64_t> completedAudioEpoch_ { 0 };
+	std::atomic<uint32_t> activeAudioCallbacks_ { 0 };
+	std::atomic<bool> shutdownRequested_ { false };
 	std::unique_ptr<RingBuffer> playoutBuffer_;
 	juce::AudioBuffer<float> remoteScratch_;
 	std::array<float, JAMMERNETZ_MAX_CALLBACK_SAMPLES> silentMeterChannel_ {};
@@ -197,12 +200,12 @@ private:
 	std::unique_ptr<MidiPlayAlong> midiPlayalong_;
 	AtomicSharedPtr<MidiSendThread> midiSendThread_;
 	std::atomic<MidiSendThread*> realtimeMidiSender_ { nullptr };
+	std::atomic<MidiSendThread*> realtimeMidiSenderHazard_ { nullptr };
 	std::unique_ptr<AudioTransmitWorker> transmitWorker_;
 	std::unique_ptr<AudioReceiveWorker> receiveWorker_;
 	std::unique_ptr<AudioRecordingWorker> recordingWorker_;
 	bool started_ { false };
-	CriticalSection retiredMidiSendThreadsLock_;
-	std::vector<std::shared_ptr<MidiSendThread>> retiredMidiSendThreads_;
+	std::atomic<uint64_t> retiredMidiOutputEventsDropped_ { 0 };
 	std::atomic<bool> inputChannelMismatchReported_ { false };
 
 	// Message-thread producer, audio-thread consumer. Start/Stop are edge events,
