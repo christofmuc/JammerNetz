@@ -12,6 +12,8 @@
 
 #include "RingBuffer.h"
 #include "JammerNetzSession.h"
+#include "BoundedSpscQueue.h"
+#include "BuffersConfig.h"
 
 #include "AudioReceiveWorker.h"
 #include "AudioRecordingWorker.h"
@@ -25,6 +27,8 @@
 
 #include <array>
 #include <chrono>
+#include <cmath>
+#include <limits>
 
 struct PlayoutQualityInfo {
 	PlayoutQualityInfo()
@@ -54,39 +58,36 @@ struct RealtimeWorkerStats {
 	uint64_t receiveQueueOverruns { 0 };
 	uint64_t recordingFramesWritten { 0 };
 	uint64_t recordingFramesDropped { 0 };
+	uint64_t midiTransportCommandsDropped { 0 };
+	uint64_t midiOutputEventsDropped { 0 };
+	uint64_t midiTimingMarkersDropped { 0 };
 };
 
-template <typename T>
-class ReadOnceLatch
+// A single atomic exchange makes taking the latest BPM linearizable: a write
+// racing the exchange is observed either now or by the next read, never erased
+// by a separate "present" flag.
+class LatestBpmMailbox
 {
 public:
-	ReadOnceLatch(T default_value) : value(default_value), is_value_set(false)
+	void setValue(float newValue) noexcept
 	{
+		value_.store(newValue, std::memory_order_release);
 	}
 
-	void setValue(T newValue)
+	std::optional<float> takeLatest() noexcept
 	{
-		// Store the new value and mark it as set
-		value.store(newValue, std::memory_order_release);
-		is_value_set.store(true, std::memory_order_release);
-	}
-
-	std::optional<T> readOnce()
-	{
-		// Check if the value has been set
-		if (is_value_set.load(std::memory_order_acquire)) {
-			// Read the value
-			T result = value.load(std::memory_order_relaxed);
-			// Reset the latch
-			is_value_set.store(false, std::memory_order_release);
+		const float result = value_.exchange(noValue(), std::memory_order_acq_rel);
+		if (!std::isnan(result)) {
 			return result;
 		}
 		return {};
 	}
 
 private:
-	std::atomic<T> value;
-	std::atomic<bool> is_value_set;
+	static constexpr float noValue() noexcept { return std::numeric_limits<float>::quiet_NaN(); }
+	static_assert(std::atomic<float>::is_always_lock_free,
+		"The real-time BPM handoff requires lock-free float atomics");
+	std::atomic<float> value_ { noValue() };
 };
 
 
@@ -155,6 +156,13 @@ private:
 
 	void calcLocalMonitoring(const float* const* inputChannels, int numInputChannels, AudioBuffer<float>& outputBuffer,
 		const JammerNetzChannelSetup& channelSetup);
+	void resetPlayoutState() noexcept;
+	void appendPlayoutTiming(const RemoteAudioFrame& frame) noexcept;
+	void scheduleMidiForPlayout(int numSamples) noexcept;
+	void scheduleMidiFrame(MidiSendThread* sender, uint64 serverSampleEnd, float bpm,
+		MidiSignal signal, uint64_t frameOffsetSamples,
+		std::chrono::steady_clock::time_point playoutStart) noexcept;
+	std::optional<MidiSignal> takeMidiSignalToSend() noexcept;
 
 	JammerNetzSession& session_;
 	juce::File recordingDirectory_;
@@ -176,7 +184,7 @@ private:
 	std::atomic<double> masterVolume_;
 	std::atomic<double> monitorBalance_;
 	std::atomic<bool> monitorIsLocal_ { false };
-	ReadOnceLatch<float> clientBpm_;
+	LatestBpmMailbox clientBpm_;
 	std::atomic<double> serverBpm_;
 	std::atomic<bool> ignoreNextServerBpmChange_;
 	std::atomic<float> pendingServerBpm_;
@@ -188,6 +196,7 @@ private:
 	std::unique_ptr<MidiRecorder> midiRecorder_;
 	std::unique_ptr<MidiPlayAlong> midiPlayalong_;
 	AtomicSharedPtr<MidiSendThread> midiSendThread_;
+	std::atomic<MidiSendThread*> realtimeMidiSender_ { nullptr };
 	std::unique_ptr<AudioTransmitWorker> transmitWorker_;
 	std::unique_ptr<AudioReceiveWorker> receiveWorker_;
 	std::unique_ptr<AudioRecordingWorker> recordingWorker_;
@@ -196,7 +205,24 @@ private:
 	std::vector<std::shared_ptr<MidiSendThread>> retiredMidiSendThreads_;
 	std::atomic<bool> inputChannelMismatchReported_ { false };
 
-	ReadOnceLatch<MidiSignal> midiSignalToSend_;
+	// Message-thread producer, audio-thread consumer. Start/Stop are edge events,
+	// so preserve their order instead of coalescing them like BPM.
+	BoundedSpscQueue<MidiSignal> midiSignalsToSend_ { 32 };
+	std::atomic<uint64_t> midiTransportCommandsDropped_ { 0 };
+	struct PlayoutTimingMarker {
+		uint64_t playoutSample { 0 };
+		uint64 serverSampleEnd { 0 };
+		float bpm { 0.0f };
+		MidiSignal midiSignal { MidiSignal_None };
+	};
+	static constexpr size_t maxPlayoutTimingMarkers = PLAYOUT_RINGBUFFER_SIZE / SAMPLE_BUFFER_SIZE + 1;
+	std::array<PlayoutTimingMarker, maxPlayoutTimingMarkers> playoutTimingMarkers_ {};
+	size_t playoutTimingRead_ { 0 };
+	size_t playoutTimingWrite_ { 0 };
+	size_t playoutTimingCount_ { 0 };
+	uint64_t playoutSamplesWritten_ { 0 };
+	uint64_t playoutSamplesRead_ { 0 };
+	std::atomic<uint64_t> midiTimingMarkersDropped_ { 0 };
 	PlayoutQualityInfo lastPlayoutQualityInfo_;
 	std::atomic<uint64_t> publishedQueueLength_ { 0 };
 	std::atomic<uint64_t> publishedUnderruns_ { 0 };

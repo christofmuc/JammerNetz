@@ -177,6 +177,36 @@ TEST(BoundedSpscQueueTest, ResetReleasesRetainedItemsAndMakesQueueReusable)
 	EXPECT_EQ(value, 7);
 }
 
+TEST(LatestBpmMailboxTest, CoalescesToLatestValueWithoutClearingANewerWrite)
+{
+	LatestBpmMailbox mailbox;
+	mailbox.setValue(120.0f);
+	mailbox.setValue(127.5f);
+	const auto latest = mailbox.takeLatest();
+	ASSERT_TRUE(latest.has_value());
+	EXPECT_FLOAT_EQ(*latest, 127.5f);
+	EXPECT_FALSE(mailbox.takeLatest().has_value());
+
+	// A value published after the atomic take remains pending for the next take;
+	// there is no separate presence flag for the reader to clear.
+	mailbox.setValue(98.0f);
+	const auto next = mailbox.takeLatest();
+	ASSERT_TRUE(next.has_value());
+	EXPECT_FLOAT_EQ(*next, 98.0f);
+}
+
+TEST(JammerNetzAudioEngineTest, CountsOverflowOfOrderedMidiTransportCommands)
+{
+	JammerNetzSession session;
+	JammerNetzAudioEngine engine(session, juce::File());
+	for (int command = 0; command < 32; ++command) {
+		engine.setMidiSignalToSend(command % 2 == 0 ? MidiSignal_Start : MidiSignal_Stop);
+	}
+	EXPECT_EQ(engine.getRealtimeWorkerStats().midiTransportCommandsDropped, 0u);
+	engine.setMidiSignalToSend(MidiSignal_Start);
+	EXPECT_EQ(engine.getRealtimeWorkerStats().midiTransportCommandsDropped, 1u);
+}
+
 TEST(PacketStreamQueueTest, ResetAcceptsANewPacketSequence)
 {
 	PacketStreamQueue queue("test");
@@ -200,6 +230,39 @@ TEST(PacketStreamQueueTest, ResetAcceptsANewPacketSequence)
 	ASSERT_TRUE(queue.try_pop(popped, fillIn));
 	EXPECT_EQ(popped->messageCounter(), 1u);
 	EXPECT_FALSE(fillIn);
+}
+
+TEST(JammerNetzAudioDataTest, FillInPreservesRecoveredTimingAndDoesNotDuplicateCommands)
+{
+	auto audio = std::make_shared<juce::AudioBuffer<float>>(2, SAMPLE_BUFFER_SIZE);
+	JammerNetzChannelSetup setup(false, {
+		JammerNetzSingleChannelSetup(JammerNetzChannelTarget::Left),
+		JammerNetzSingleChannelSetup(JammerNetzChannelTarget::Right)
+	});
+	AudioBlock current(0.0, 2, 256, 120.0f, MidiSignal_Start, SAMPLE_RATE, setup, audio);
+	JammerNetzAudioData withoutFec(current, nullptr);
+	bool hadFec = true;
+	const auto repeated = withoutFec.createFillInPackage(1, hadFec);
+	EXPECT_FALSE(hadFec);
+	EXPECT_EQ(repeated->serverTime(), 128u);
+	EXPECT_EQ(repeated->midiSignal(), MidiSignal_None);
+
+	AudioBlock afterLongGap(0.0, 5, 640, 120.0f, MidiSignal_Stop, SAMPLE_RATE, setup, audio);
+	auto unrelatedFec = std::make_shared<AudioBlock>(
+		0.0, 4, 512, 120.0f, MidiSignal_Stop, SAMPLE_RATE, setup, audio);
+	JammerNetzAudioData longGap(afterLongGap, unrelatedFec);
+	const auto inferred = longGap.createFillInPackage(2, hadFec);
+	EXPECT_FALSE(hadFec);
+	EXPECT_EQ(inferred->serverTime(), 256u);
+	EXPECT_EQ(inferred->midiSignal(), MidiSignal_None);
+
+	auto recoveredBlock = std::make_shared<AudioBlock>(
+		0.0, 1, 128, 120.0f, MidiSignal_Start, SAMPLE_RATE, setup, audio);
+	JammerNetzAudioData withFec(current, recoveredBlock);
+	const auto recovered = withFec.createFillInPackage(1, hadFec);
+	EXPECT_TRUE(hadFec);
+	EXPECT_EQ(recovered->serverTime(), 128u);
+	EXPECT_EQ(recovered->midiSignal(), MidiSignal_Start);
 }
 
 TEST(JammerNetzAudioEngineTest, DropsFramesInsteadOfBlockingWhenTransmitWorkerIsStalled)
@@ -274,7 +337,8 @@ TEST(AudioReceiveWorkerTest, CapsPreparedPlayoutAfterAConsumerHiccup)
 TEST(MidiSendThreadTest, ShutdownInterruptsAFutureScheduledMessage)
 {
 	MidiSendThread sender(std::vector<juce::MidiDeviceInfo> {});
-	ASSERT_TRUE(sender.enqueue(std::chrono::seconds(5), { juce::MidiMessage::midiClock() }));
+	ASSERT_TRUE(sender.enqueueAt(std::chrono::steady_clock::now() + std::chrono::seconds(5),
+		120.0f, MidiSignal_None, true));
 	juce::Thread::sleep(20);
 	const auto started = std::chrono::steady_clock::now();
 	sender.shutdown();
