@@ -26,8 +26,20 @@
 #include <string>
 #include <vector>
 #include <memory>
+#include <optional>
 
 const size_t MAXFRAMESIZE = 65536;
+
+namespace JammerNetzProtocol {
+constexpr uint16 Legacy = 0;
+constexpr uint16 SplitSessionInfo = 1;
+constexpr uint16 Current = SplitSessionInfo;
+
+[[nodiscard]] constexpr bool supportsSplitSessionInfo(uint16 protocolVersion) noexcept
+{
+	return protocolVersion >= SplitSessionInfo;
+}
+}
 
 /*
  For lazi-ness and stateless-ness Jammernetz works with only a single message type for now. This is the format:
@@ -258,16 +270,22 @@ public:
 	float bpm() const;
 	MidiSignal midiSignal() const;
 	JammerNetzChannelSetup channelSetup() const;
+	uint16 protocolVersion() const;
+	std::optional<JammerNetzChannelSetup> legacySessionSetup() const;
+	void setLegacySessionSetup(JammerNetzChannelSetup const &sessionSetup);
 
 private:
-	flatbuffers::Offset<JammerNetzPNPAudioBlock> serializeAudioBlock(flatbuffers::FlatBufferBuilder &fbb, std::shared_ptr<AudioBlock> src, uint16 sampleRate, uint16 reductionFactor) const;
+	flatbuffers::Offset<JammerNetzPNPAudioBlock> serializeAudioBlock(flatbuffers::FlatBufferBuilder &fbb, std::shared_ptr<AudioBlock> src, uint16 sampleRate, uint16 reductionFactor, JammerNetzChannelSetup const &legacySessionSetup) const;
 	flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<JammerNetzPNPAudioSamples>>> appendAudioBuffer(flatbuffers::FlatBufferBuilder &fbb, AudioBuffer<float> &buffer, uint16 reductionFactor) const;
 	std::shared_ptr<AudioBlock> readAudioHeaderAndBytes(JammerNetzPNPAudioBlock const *block);
+	static JammerNetzChannelSetup readChannelSetup(flatbuffers::Vector<flatbuffers::Offset<JammerNetzPNPChannelSetup>> const *channels);
 	void readAudioBytes(flatbuffers::Vector<flatbuffers::Offset<JammerNetzPNPAudioSamples >> const *samples, std::shared_ptr<AudioBuffer<float>> destBuffer, size_t upsampleRate);
 
 	std::shared_ptr<AudioBlock> audioBlock_;
 	std::shared_ptr<AudioBlock> fecBlock_;
 	std::shared_ptr<AudioBlock> activeBlock_;
+	uint16 protocolVersion_{JammerNetzProtocol::Current};
+	std::optional<JammerNetzChannelSetup> legacySessionSetup_;
 };
 
 class JammerNetzAudioOrder {

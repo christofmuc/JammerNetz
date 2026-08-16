@@ -23,7 +23,7 @@ private:
 	void sendWriteBuffer(String ipAddress, int port, size_t size);
     void sendSessionInfoPackage(std::string const &targetAddress, JammerNetzChannelSetup &sessionSetup);
     void sendClientInfoPackage(std::string const &targetAddress);
-	void sendAudioBlock(std::string const &targetAddress, AudioBlock &audioBlock);
+	void sendAudioBlock(OutgoingPackage const &package);
 
 	TOutgoingQueue& sendQueue_;
 	TPacketStreamBundle &incomingData_;
