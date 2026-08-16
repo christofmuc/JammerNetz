@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Removed the oneTBB runtime dependency from the standalone client and audio
+  plug-ins while retaining it privately for the server.
+
 ## 2.4.0 - 2026-08-16
 
 - Added VST3 and AUv2 plug-ins backed by the reusable JammerNetz audio engine.

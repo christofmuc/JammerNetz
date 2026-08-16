@@ -16,8 +16,8 @@ The first version intentionally has a narrow host contract:
   input.
 - Project state contains connection and mix settings, but not the cryptographic
   key. The key-file path is stored in the machine-local JammerNetz settings.
-- The Windows VST3 bundle includes its required oneTBB runtime beside the plug-in
-  binary.
+- The plug-in has no external oneTBB runtime dependency, so hosts can load the
+  VST3 bundle without modifying `PATH`.
 
 With **Dry passthrough / suppress own return** enabled, the host input is mixed
 locally and the server is asked not to return the sender's own channels. Until
@@ -46,8 +46,8 @@ hosts such as Logic Pro, MainStage, and GarageBand.
 
 MSVC Debug binaries require the non-redistributable Debug CRT to be available
 while JUCE generates VST3 metadata, while tests run, and while Ableton scans the
-plug-in. The helper script locates Visual Studio's Debug CRT and the matching
-oneTBB runtime and adds both to the child process environment.
+plug-in. The helper script locates Visual Studio's Debug CRT and adds it to the
+child process environment.
 
 After configuring the Visual Studio CMake build in `builds`, use:
 

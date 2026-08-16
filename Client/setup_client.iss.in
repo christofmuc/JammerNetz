@@ -3,7 +3,7 @@
 
 #define MyAppName "${JammerNetz_VersionedName}"
 #define MyAppVersion "${JammerNetzClient_VERSION}"
-#define MyAppPublisher "Christof Ruch Beratungs UG (haftungsbeschr‰nkt)"
+#define MyAppPublisher "Christof Ruch Beratungs UG (haftungsbeschr√§nkt)"
 #define MyAppURL "https://github.com/christofmuc/JammerNetz"
 #define MyAppExeName "${JammerNetz_ApplicationName}.exe"
 #define MyAppPdbName "${JammerNetz_ApplicationName}.pdb"
@@ -42,7 +42,9 @@ Source: "@JAMMERNETZ_CLIENT_OUTPUT_DIR@\{#MyAppExeName}"; DestDir: "{app}"; Flag
 Source: "@JAMMERNETZ_CLIENT_OUTPUT_DIR@\{#MyAppPdbName}"; DestDir: "{app}"; Flags: ignoreversion
 Source: "@JAMMERNETZ_SERVER_OUTPUT_DIR@\JammerNetzServer.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "@JAMMERNETZ_SERVER_OUTPUT_DIR@\JammerNetzServer.pdb"; DestDir: "{app}"; Flags: ignoreversion
-Source: "@JAMMERNETZ_CLIENT_OUTPUT_DIR@\tbb12.dll"; DestDir: "{app}"; Flags: ignoreversion
+Source: "@JAMMERNETZ_SERVER_OUTPUT_DIR@\tbb12.dll"; DestDir: "{app}"; Flags: ignoreversion
+Source: "${CMAKE_CURRENT_SOURCE_DIR}/../third_party/oneTBB/LICENSE.txt"; DestDir: "{app}\licenses\oneTBB"; Flags: ignoreversion
+Source: "${CMAKE_CURRENT_SOURCE_DIR}/../third_party/oneTBB/third-party-programs.txt"; DestDir: "{app}\licenses\oneTBB"; Flags: ignoreversion
 Source: "${VCREDIST_PATH}\{#VCRedistFileName}"; DestDir: {tmp}; Flags: dontcopy
 Source: "@JAMMERNETZ_CLIENT_OUTPUT_DIR@\sentry.dll"; DestDir: "{app}"; Flags: skipifsourcedoesntexist
 Source: "@JAMMERNETZ_CLIENT_OUTPUT_DIR@\crashpad_handler.exe"; DestDir: "{app}"; Flags: skipifsourcedoesntexist

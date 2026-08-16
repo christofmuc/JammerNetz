@@ -95,26 +95,9 @@ if not defined DEBUG_CRT (
 	exit /b 1
 )
 
-call :find_tbb
-if defined TBB_DEBUG goto :environment_ready
-echo Building the oneTBB Debug runtime first...
-cmake --build "%JAMMERNETZ_BUILD%" --config Debug --parallel --target tbb
-if errorlevel 1 exit /b %errorlevel%
-call :find_tbb
-if not defined TBB_DEBUG (
-	echo Could not locate tbb12_debug.dll below "%JAMMERNETZ_BUILD%".
-	exit /b 1
-)
-
 :environment_ready
-set "PATH=%DEBUG_CRT%;%TBB_DEBUG%;%PATH%"
+set "PATH=%DEBUG_CRT%;%PATH%"
 echo Using Debug CRT: %DEBUG_CRT%
-echo Using Debug TBB: %TBB_DEBUG%
-exit /b 0
-
-:find_tbb
-set "TBB_DEBUG="
-for /d %%D in ("%JAMMERNETZ_BUILD%\msvc_*_cxx20_64_md_debug") do if exist "%%~fD\tbb12_debug.dll" set "TBB_DEBUG=%%~fD"
 exit /b 0
 
 :usage_error

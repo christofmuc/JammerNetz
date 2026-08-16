@@ -37,8 +37,8 @@ endif()
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-IF(APPLE)
-# -fno-aligned-allocation is required for macOS 10.13 and the newer Intel TBBs
+IF(APPLE AND BUILD_JAMMERNETZ_SERVER)
+# -fno-aligned-allocation is required for macOS 10.13 and the newer oneTBB releases used by the server.
 add_compile_options(-Wno-unused-command-line-argument -fno-aligned-allocation)
 ENDIF()
 
@@ -243,14 +243,16 @@ set_target_properties(juce-static PROPERTIES
 	CXX_VISIBILITY_PRESET hidden)
 
 
-# Configure TBB
-set(TBB_TEST OFF)
-if(WIN32)
-	string(REPLACE "." ";" VERSION_LIST ${CMAKE_CXX_COMPILER_VERSION})
-	list(GET VERSION_LIST 0 MSVC_VERSION_MAJOR)
-	list(GET VERSION_LIST 1 MSVC_VERSION_MINOR)
-	SET(MY_TBB_BINARY_DIR_BASE msvc_${MSVC_VERSION_MAJOR}.${MSVC_VERSION_MINOR}_cxx20_64_md)
-	message("Determined TBB binary directory base as ${MY_TBB_BINARY_DIR_BASE}")
+# Configure oneTBB only for the server targets that still use its concurrent containers.
+if(BUILD_JAMMERNETZ_SERVER)
+	set(TBB_TEST OFF)
+	if(WIN32)
+		string(REPLACE "." ";" VERSION_LIST ${CMAKE_CXX_COMPILER_VERSION})
+		list(GET VERSION_LIST 0 MSVC_VERSION_MAJOR)
+		list(GET VERSION_LIST 1 MSVC_VERSION_MINOR)
+		SET(MY_TBB_BINARY_DIR_BASE msvc_${MSVC_VERSION_MAJOR}.${MSVC_VERSION_MINOR}_cxx20_64_md)
+		message("Determined TBB binary directory base as ${MY_TBB_BINARY_DIR_BASE}")
+	endif()
 endif()
 
 # Add subdirectories
@@ -269,7 +271,9 @@ if(BUILD_JAMMERNETZ_CLIENT)
 endif()
 add_subdirectory("modules/MidiKraft")
 message(${CMAKE_MODULE_PATH})
-add_subdirectory("third_party/oneTBB" EXCLUDE_FROM_ALL)
+if(BUILD_JAMMERNETZ_SERVER)
+	add_subdirectory("third_party/oneTBB" EXCLUDE_FROM_ALL)
+endif()
 add_subdirectory("common")
 if(BUILD_JAMMERNETZ_SERVER)
 	add_subdirectory("Server")

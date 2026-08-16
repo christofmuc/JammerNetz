@@ -6,8 +6,6 @@
 
 project("JammerNetzServer" VERSION 2.4.0)
 
-include_directories("${INTEL_TBB_DIRECTORY}/include/")
-
 configure_file("Source/version.cpp.in" "Source/version.cpp")
 
 if(WIN32)
@@ -38,7 +36,7 @@ endif()
 
 add_executable(ClientStateTest Source/ClientStateTests.cpp Source/ClientState.cpp Source/ClientState.h Source/SharedServerTypes.h)
 target_include_directories(ClientStateTest PRIVATE "${CMAKE_CURRENT_LIST_DIR}/Source")
-target_link_libraries(ClientStateTest PRIVATE gtest gmock gtest_main juce-utils JammerCommon ${JUCE_LIBRARIES})
+target_link_libraries(ClientStateTest PRIVATE gtest gmock gtest_main juce-utils JammerCommon TBB::tbb ${JUCE_LIBRARIES})
 jammernetz_copy_msvc_debug_runtime(ClientStateTest)
 gtest_add_tests(TARGET ClientStateTest SOURCES Source/ClientStateTests.cpp)
 set_target_properties(ClientStateTest PROPERTIES FOLDER tests)
@@ -49,8 +47,9 @@ target_link_libraries(${TESTNAME} PRIVATE gtest_main)
 jammernetz_copy_msvc_debug_runtime(${TESTNAME})
 gtest_add_tests(TARGET ${TESTNAME} SOURCES Source/ServerPortTests.cpp)
 set_target_properties(${TESTNAME} PROPERTIES FOLDER tests)
+target_link_libraries(JammerNetzServer PRIVATE ${JUCE_LIBRARIES} juce-utils JammerCommon TBB::tbb ${SENTRY_LIB})
 if (WIN32)
-	target_link_libraries(JammerNetzServer  ${JUCE_LIBRARIES} juce-utils JammerCommon pdcurses::pdcurses ${SENTRY_LIB})
+	target_link_libraries(JammerNetzServer PRIVATE pdcurses::pdcurses)
 
 	# Post build commands - copy the DLLs
 	add_custom_command(
@@ -61,10 +60,9 @@ if (WIN32)
 					$<TARGET_FILE_DIR:JammerNetzServer>)
 	jammernetz_copy_msvc_debug_runtime(JammerNetzServer)
 elseif(APPLE)
-	target_link_directories(JammerNetzServer PRIVATE "${INTEL_TBB_DIRECTORY}/lib/")
-	target_link_libraries(JammerNetzServer  ${JUCE_LIBRARIES} juce-utils JammerCommon tbb ncurses ${SENTRY_LIB})
+	target_link_libraries(JammerNetzServer PRIVATE ncurses)
 else()
-	target_link_libraries(JammerNetzServer  ${JUCE_LIBRARIES} juce-utils JammerCommon tbb ${CMAKE_DL_LIBS} pthread asound curl ncurses ${SENTRY_LIB})
+	target_link_libraries(JammerNetzServer PRIVATE ${CMAKE_DL_LIBS} pthread asound curl ncurses)
 endif()
 
 

@@ -9,7 +9,9 @@
 #include <gtest/gtest.h>
 
 #include <array>
+#include <memory>
 #include <string>
+#include <vector>
 
 TEST(JammerNetzPluginTest, ConstructionAndStateRestoreDoNotStartASession)
 {
@@ -97,6 +99,31 @@ TEST(JammerNetzPluginTest, RepeatedHostPreparationDoesNotStartASession)
 
 	EXPECT_FALSE(processor.isSessionActive());
 	EXPECT_EQ(processor.statusText(), "Disconnected");
+}
+
+TEST(JammerNetzPluginTest, SupportsRepeatedCreationAndDestruction)
+{
+	for (int iteration = 0; iteration < 50; ++iteration) {
+		JammerNetzPluginProcessor processor;
+		processor.prepareToPlay(48000.0, 512);
+		EXPECT_FALSE(processor.isSessionActive());
+		processor.releaseResources();
+	}
+}
+
+TEST(JammerNetzPluginTest, SupportsMultipleSimultaneousDisconnectedInstances)
+{
+	std::vector<std::unique_ptr<JammerNetzPluginProcessor>> processors;
+	for (int instance = 0; instance < 4; ++instance) {
+		auto processor = std::make_unique<JammerNetzPluginProcessor>();
+		processor->prepareToPlay(48000.0, 512);
+		processors.push_back(std::move(processor));
+	}
+
+	for (const auto &processor : processors) {
+		EXPECT_FALSE(processor->isSessionActive());
+		EXPECT_EQ(processor->statusText(), "Disconnected");
+	}
 }
 
 TEST(JammerNetzPluginTest, SameRateHostPreparationPreservesUnrelatedConnectionError)
