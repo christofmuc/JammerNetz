@@ -94,7 +94,7 @@ to your configure command.
 
 We use modern [CMake 3.14](https://cmake.org/) and Visual Studio 2022 Build Tools for C++. The default generator in this repository is Ninja, so make sure `ninja` is installed and you build from a Developer Command Prompt / Developer PowerShell so MSVC is available.
 
-Optionally, if you want to produce a Windows-style installer for your band members: We always recommend the [InnoSetup](http://www.jrsoftware.org/isinfo.php) tool, really one of these golden tools that despite its age shines on and on. Download it and install it, it will automatically be picked up and used by the build process.
+Optionally, if you want to produce a Windows-style installer for your band members: We always recommend the [InnoSetup](http://www.jrsoftware.org/isinfo.php) tool, really one of these golden tools that despite its age shines on and on. Download it and install it, it will automatically be picked up and used by the CMake build process. The legacy `Client/Client.jucer` project instead reads the compiler location from `JAMMERNETZ_ISCC_EXE`; set that local environment variable to the full path of `iscc.exe` before building its Release configuration.
 
 Using CMake and building JammerNetz client and server is a multi-step build:
 

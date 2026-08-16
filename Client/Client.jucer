@@ -119,7 +119,7 @@
                        prebuildCommand="SET PATH=%PATH%;$(ProjectDir)..\..\..\third_party\capnproto-tools-win32-0.7.0&#10;cd $(ProjectDir)..\..\..\common&#10;capnp.exe compile -oc++ JammerNetzPackages.capnp&#10;"/>
         <CONFIGURATION isDebug="0" name="Release" headerPath="../../../third_party/ASIOSDK/common&#10;../../../third_party/Q/q_lib/include&#10;../../../third_party/infra/include&#10;../../../third_party/capnproto-c++-0.7.0/src"
                        libraryPath="../../../third_party/capnproto-c++-0.7.0/build/src/capnp/Release&#10;../../../third_party/capnproto-c++-0.7.0/build/src/kj/Release&#10;"
-                       postbuildCommand="&quot;C:\Program Files (x86)\Inno Setup 6\iscc.exe&quot; &quot;$(ProjectDir)..\..\setup_client.iss&quot;&#10;"
+                       postbuildCommand="&quot;%JAMMERNETZ_ISCC_EXE%&quot; &quot;$(ProjectDir)..\..\setup_client.iss&quot;&#10;"
                        alwaysGenerateDebugSymbols="1" warningsAreErrors="1" defines="JAMMER_IS_CLIENT&#10;"
                        prebuildCommand="SET PATH=%PATH%;$(ProjectDir)..\..\..\third_party\capnproto-tools-win32-0.7.0&#10;cd $(ProjectDir)..\..\..\common&#10;capnp.exe compile -oc++ JammerNetzPackages.capnp&#10;"/>
       </CONFIGURATIONS>
