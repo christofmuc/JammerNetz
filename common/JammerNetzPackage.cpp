@@ -344,7 +344,9 @@ JammerNetzChannelSetup JammerNetzAudioData::readChannelSetup(flatbuffers::Vector
 		setup.mag = channel->mag();
 		setup.rms = channel->rms();
 		setup.pitch = channel->pitch();
-		setup.name = channel->name()->str();
+		if (const auto *name = channel->name()) {
+			setup.name = name->str();
+		}
 		result.channels.push_back(setup);
 	}
 	return result;
@@ -358,15 +360,7 @@ std::shared_ptr<AudioBlock> JammerNetzAudioData::readAudioHeaderAndBytes(JammerN
 	result->bpm = block->bpm();
 	result->midiSignal = block->midiSignal();
 	result->timestamp = block->timestamp();
-	for (auto channel = block->channelSetup()->cbegin(); channel != block->channelSetup()->cend(); channel++) {
-		JammerNetzSingleChannelSetup setup(channel->target());
-		setup.volume = channel->volume();
-		setup.mag = channel->mag();
-		setup.rms = channel->rms();
-		setup.pitch = channel->pitch();
-		setup.name = channel->name()->str();
-		result->channelSetup.channels.push_back(setup);
-	}
+	result->channelSetup = readChannelSetup(block->channelSetup());
 
 	result->sampleRate = 48000;
 	size_t upsampleRate = block->sampleRate() != 0 ? 48000 / block->sampleRate() : 48000;

@@ -29,7 +29,7 @@ JammerNetzChannelSetup makeChannelSetup(std::string const &name = {})
 	return setup;
 }
 
-std::vector<uint8> makeLegacyPacket(JammerNetzChannelSetup const &sessionSetup)
+std::vector<uint8> makeLegacyPacket(JammerNetzChannelSetup const &sessionSetup, bool includeFec = false, bool omitSessionName = false)
 {
 	flatbuffers::FlatBufferBuilder fbb;
 
@@ -40,7 +40,7 @@ std::vector<uint8> makeLegacyPacket(JammerNetzChannelSetup const &sessionSetup)
 
 	std::vector<flatbuffers::Offset<JammerNetzPNPChannelSetup>> sessionChannels;
 	for (const auto &channel : sessionSetup.channels) {
-		const auto name = fbb.CreateString(channel.name);
+		const auto name = omitSessionName ? flatbuffers::Offset<flatbuffers::String>() : fbb.CreateString(channel.name);
 		sessionChannels.push_back(CreateJammerNetzPNPChannelSetup(fbb, channel.target, channel.volume, channel.mag, channel.rms, channel.pitch, name));
 	}
 	const auto sessionChannelVector = fbb.CreateVector(sessionChannels);
@@ -63,6 +63,9 @@ std::vector<uint8> makeLegacyPacket(JammerNetzChannelSetup const &sessionSetup)
 	const auto finishedAudioBlock = audioBlock.Finish();
 
 	std::vector<flatbuffers::Offset<JammerNetzPNPAudioBlock>> audioBlocks { finishedAudioBlock };
+	if (includeFec) {
+		audioBlocks.push_back(finishedAudioBlock);
+	}
 	const auto audioBlockVector = fbb.CreateVector(audioBlocks);
 	JammerNetzPNPAudioDataBuilder audioData(fbb);
 	audioData.add_audioBlocks(audioBlockVector);
@@ -155,7 +158,7 @@ TEST(TestProtocolCompatibility, CurrentPacketsKeepRc4LegacyVectorPresent)
 TEST(TestProtocolCompatibility, LegacyPacketsDefaultToVersionZeroAndExposeSessionSetup)
 {
 	auto legacySession = makeChannelSetup("Remote legacy participant");
-	auto packet = makeLegacyPacket(legacySession);
+	auto packet = makeLegacyPacket(legacySession, true);
 	auto message = std::dynamic_pointer_cast<JammerNetzAudioData>(
 		JammerNetzMessage::deserialize(packet.data(), packet.size()));
 
@@ -169,6 +172,32 @@ TEST(TestProtocolCompatibility, LegacyPacketsDefaultToVersionZeroAndExposeSessio
 
 	const auto prePadding = message->createPrePaddingPackage();
 	EXPECT_EQ(prePadding->protocolVersion(), JammerNetzProtocol::Legacy);
+	const auto prePaddingSession = prePadding->legacySessionSetup();
+	ASSERT_TRUE(prePaddingSession.has_value());
+	ASSERT_EQ(prePaddingSession->channels.size(), 1u);
+	EXPECT_EQ(prePaddingSession->channels.front().name, "Remote legacy participant");
+
+	bool hadFec = false;
+	const auto fillIn = message->createFillInPackage(message->messageCounter() - 1, hadFec);
+	EXPECT_TRUE(hadFec);
+	EXPECT_EQ(fillIn->protocolVersion(), JammerNetzProtocol::Legacy);
+	const auto fillInSession = fillIn->legacySessionSetup();
+	ASSERT_TRUE(fillInSession.has_value());
+	ASSERT_EQ(fillInSession->channels.size(), 1u);
+	EXPECT_EQ(fillInSession->channels.front().name, "Remote legacy participant");
+}
+
+TEST(TestProtocolCompatibility, LegacyPacketsAllowMissingChannelNames)
+{
+	auto packet = makeLegacyPacket(makeChannelSetup("ignored"), false, true);
+	auto message = std::dynamic_pointer_cast<JammerNetzAudioData>(
+		JammerNetzMessage::deserialize(packet.data(), packet.size()));
+
+	ASSERT_NE(message, nullptr);
+	const auto decodedSession = message->legacySessionSetup();
+	ASSERT_TRUE(decodedSession.has_value());
+	ASSERT_EQ(decodedSession->channels.size(), 1u);
+	EXPECT_TRUE(decodedSession->channels.front().name.empty());
 }
 
 TEST(TestProtocolCompatibility, ServerCanPopulateLegacySessionForRc4Client)
