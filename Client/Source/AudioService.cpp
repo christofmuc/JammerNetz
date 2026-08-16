@@ -61,8 +61,9 @@ void AudioService::shutdown()
 	if (spectrumWorker_) {
 		spectrumWorker_->release();
 	}
-	engine_.shutdown();
+	// Quiesce the network receive producer before the engine resets its queues.
 	session_.shutdown();
+	engine_.shutdown();
 }
 
 bool AudioService::isConnected()

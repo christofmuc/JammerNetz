@@ -26,7 +26,7 @@ constexpr int kSplitterThickness = 6;
 constexpr int kMinimumPerformanceHeight = 240;
 constexpr int kMinimumSettingsHeight = 240;
 constexpr int kMinimumSpectrumWidth = 260;
-constexpr int kMaximumSpectrumWidth = 560;
+constexpr int kMinimumSessionWidth = 40;
 constexpr auto kSettingsHeightSetting = "MainLayoutSettingsHeight";
 constexpr auto kSpectrumWidthSetting = "MainLayoutSpectrumWidth";
 
@@ -219,7 +219,7 @@ MainComponent::MainComponent(std::shared_ptr<AudioService> audioService, std::sh
 	spectrumSplitter_ = std::make_unique<LayoutSplitter>(LayoutSplitter::Target::rightPanelWidth,
 		[this] { return spectrumWidth_; },
 		[this](int width) {
-			spectrumWidth_ = juce::jlimit(kMinimumSpectrumWidth, kMaximumSpectrumWidth, width);
+			spectrumWidth_ = juce::jmax(kMinimumSpectrumWidth, width);
 			Settings::instance().set(kSpectrumWidthSetting, juce::String(spectrumWidth_).toStdString());
 			resized();
 		});
@@ -391,14 +391,14 @@ void MainComponent::resized()
 
 	// Keep the spectrum useful on wide windows without making it a minimum-size
 	// requirement. Narrow windows devote the available space to the mixer.
-	const int mixerAndSessionMinimum = inputMixerWidth + 2 * deviceSelectorWidth + masterMixerWidth + 160;
+	const int mixerAndSessionMinimum = inputMixerWidth + 2 * deviceSelectorWidth
+		+ masterMixerWidth + kMinimumSessionWidth;
 	const int availableSpectrumWidth = area.getWidth() - mixerAndSessionMinimum;
 	const bool showSpectrum = availableSpectrumWidth >= kMinimumSpectrumWidth + kSplitterThickness;
 	spectrogramPanel_->setVisible(showSpectrum);
 	spectrumSplitter_->setVisible(showSpectrum);
 	if (showSpectrum) {
-		const auto maximumSpectrumWidth = juce::jmin(kMaximumSpectrumWidth,
-			availableSpectrumWidth - kSplitterThickness);
+		const auto maximumSpectrumWidth = availableSpectrumWidth - kSplitterThickness;
 		const auto actualSpectrumWidth = juce::jlimit(kMinimumSpectrumWidth,
 			maximumSpectrumWidth, spectrumWidth_);
 		auto spectrumArea = area.removeFromRight(actualSpectrumWidth);

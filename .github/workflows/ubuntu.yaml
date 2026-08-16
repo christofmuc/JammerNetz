@@ -80,3 +80,4 @@ jobs:
       run: |
         cmake -S . -B builds -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DJAMMERNETZ_ENABLE_LTO=ON -DCMAKE_POLICY_VERSION_MINIMUM=3.5
         cmake --build builds --parallel
+        ctest --test-dir builds -R JammerNetzPluginTest --no-tests=error --output-on-failure

@@ -45,22 +45,26 @@ JammerNetzAudioEngine::~JammerNetzAudioEngine()
 	shutdown();
 }
 
-void JammerNetzAudioEngine::start()
+void JammerNetzAudioEngine::start(bool enableRecording)
 {
-	if (uploadRecorder_ || masterRecorder_) {
+	if (started_) {
 		return;
 	}
-	uploadRecorder_ = std::make_shared<Recorder>(recordingDirectory_, "LocalRecording", RecordingType::WAV);
-	masterRecorder_ = std::make_shared<Recorder>(recordingDirectory_, "MasterRecording", RecordingType::FLAC);
-	masterRecorder_->setChannelInfo(SAMPLE_RATE, JammerNetzChannelSetup(false, { JammerNetzSingleChannelSetup(JammerNetzChannelTarget::Left), JammerNetzSingleChannelSetup(JammerNetzChannelTarget::Right) }));
-	recordingWorker_ = std::make_unique<AudioRecordingWorker>(uploadRecorder_, masterRecorder_);
-	recordingWorker_->start();
+	started_ = true;
+	if (enableRecording) {
+		uploadRecorder_ = std::make_shared<Recorder>(recordingDirectory_, "LocalRecording", RecordingType::WAV);
+		masterRecorder_ = std::make_shared<Recorder>(recordingDirectory_, "MasterRecording", RecordingType::FLAC);
+		masterRecorder_->setChannelInfo(SAMPLE_RATE, JammerNetzChannelSetup(false, { JammerNetzSingleChannelSetup(JammerNetzChannelTarget::Left), JammerNetzSingleChannelSetup(JammerNetzChannelTarget::Right) }));
+		recordingWorker_ = std::make_unique<AudioRecordingWorker>(uploadRecorder_, masterRecorder_);
+		recordingWorker_->start();
+	}
 	transmitWorker_->start();
 	receiveWorker_->start();
 }
 
 void JammerNetzAudioEngine::shutdown()
 {
+	started_ = false;
 	if (auto* tap = outputTap_.exchange(nullptr, std::memory_order_acq_rel)) {
 		tap->release();
 	}

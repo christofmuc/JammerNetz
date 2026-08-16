@@ -68,6 +68,11 @@ void AudioReceiveWorker::shutdown()
 {
 	signalThreadShouldExit();
 	stopThread(2000);
+	// The owner stops the audio callback and network receive callback before
+	// shutdown, so neither queue has a producer or consumer at this point.
+	inboundQueue_.reset();
+	outputQueue_.reset();
+	packetQueue_.reset();
 	midiSender_.store(nullptr, std::memory_order_release);
 }
 
@@ -131,21 +136,42 @@ void AudioReceiveWorker::run()
 		drainInbound();
 		if (rebufferRequested_.exchange(false, std::memory_order_acq_rel)) {
 			streamStarted_.store(false, std::memory_order_release);
+			recoveringFromOverrun_ = false;
 		}
 
 		const auto minimum = minimumFrames_.load(std::memory_order_relaxed);
+		const auto maximum = maximumFrames_.load(std::memory_order_relaxed);
+		const auto combinedReadyFrames = [this]() {
+			return static_cast<uint64_t>(outputQueue_.size()) + static_cast<uint64_t>(packetQueue_.size());
+		};
+
+		// The prepared queue is the queue the audio callback actually drains. If
+		// the callback stalls, stop feeding it and discard old ordered packets
+		// until the prepared queue has played back to the configured minimum.
+		// This restores the bounded-latency behaviour of the original single
+		// queue without doing queue maintenance on the real-time thread.
+		if (combinedReadyFrames() > maximum) {
+			recoveringFromOverrun_ = true;
+		}
+		if (recoveringFromOverrun_) {
+			std::shared_ptr<JammerNetzAudioData> discardedPacket;
+			bool fillIn = false;
+			while (combinedReadyFrames() > minimum && packetQueue_.try_pop(discardedPacket, fillIn)) {
+				discarded_.fetch_add(1, std::memory_order_relaxed);
+			}
+			if (combinedReadyFrames() <= minimum) {
+				recoveringFromOverrun_ = false;
+			}
+		}
+
 		if (!streamStarted_.load(std::memory_order_acquire) && packetQueue_.size() >= minimum) {
 			streamStarted_.store(true, std::memory_order_release);
 		}
 
-		const auto maximum = maximumFrames_.load(std::memory_order_relaxed);
-		std::shared_ptr<JammerNetzAudioData> discardedPacket;
-		bool fillIn = false;
-		while (packetQueue_.size() > maximum && packetQueue_.try_pop(discardedPacket, fillIn)) {
-			discarded_.fetch_add(1, std::memory_order_relaxed);
-		}
-
-		const bool prepared = streamStarted_.load(std::memory_order_acquire) && prepareOneFrame();
+		const bool prepared = streamStarted_.load(std::memory_order_acquire)
+			&& !recoveringFromOverrun_
+			&& static_cast<uint64_t>(outputQueue_.size()) < maximum
+			&& prepareOneFrame();
 		if (!prepared) {
 			juce::Thread::sleep(1);
 		}
@@ -162,6 +188,7 @@ void AudioReceiveWorker::applyResetIfRequested()
 	while (inboundQueue_.tryRead([&packet](std::shared_ptr<JammerNetzAudioData>& queued) { packet = std::move(queued); })) {}
 	packetQueue_.reset();
 	streamStarted_.store(false, std::memory_order_release);
+	recoveringFromOverrun_ = false;
 	activeGeneration_.store(requested, std::memory_order_release);
 }
 

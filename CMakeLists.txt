@@ -24,7 +24,13 @@ endif()
 
 OPTION(BUILD_JAMMERNETZ_CLIENT "Option to turn off the client build" ON)
 OPTION(BUILD_JAMMERNETZ_SERVER "Build the server and bundle it with the standalone client" ON)
+OPTION(BUILD_JAMMERNETZ_PLUGIN "Build the JammerNetz audio plug-in adapters" ${BUILD_JAMMERNETZ_CLIENT})
 OPTION(JAMMERNETZ_ENABLE_LTO "Enable JUCE LTO flags (better runtime performance, slower links)" OFF)
+set(JAMMERNETZ_CODESIGN_KEYCHAIN "" CACHE FILEPATH "Optional macOS keychain containing the distribution signing identity")
+
+if(BUILD_JAMMERNETZ_PLUGIN AND NOT BUILD_JAMMERNETZ_CLIENT)
+	message(FATAL_ERROR "BUILD_JAMMERNETZ_PLUGIN requires BUILD_JAMMERNETZ_CLIENT because both use JammerNetzCore")
+endif()
 
 # Since we also build MacOS, we need C++ 17. Which is not a bad thing.
 # JUCE 8 seems to force us to C++ 20 now!
@@ -272,6 +278,10 @@ endif()
 
 if(BUILD_JAMMERNETZ_CLIENT)
 add_subdirectory("Client")
+
+if(BUILD_JAMMERNETZ_PLUGIN)
+	add_subdirectory("Plugin")
+endif()
 
 # The standalone installer contains the server as well for local testing when both are enabled.
 if(BUILD_JAMMERNETZ_SERVER)

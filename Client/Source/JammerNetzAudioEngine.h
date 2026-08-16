@@ -95,7 +95,7 @@ class JammerNetzAudioEngine {
 public:
 	JammerNetzAudioEngine(JammerNetzSession& session, const juce::File& recordingDirectory);
 	~JammerNetzAudioEngine();
-	void start();
+	void start(bool enableRecording = true);
 	void shutdown();
 
 	void restartClock(std::vector<MidiDeviceInfo> outputs);
@@ -194,6 +194,7 @@ private:
 	std::unique_ptr<AudioTransmitWorker> transmitWorker_;
 	std::unique_ptr<AudioReceiveWorker> receiveWorker_;
 	std::unique_ptr<AudioRecordingWorker> recordingWorker_;
+	bool started_ { false };
 	CriticalSection retiredMidiSendThreadsLock_;
 	std::vector<std::shared_ptr<MidiSendThread>> retiredMidiSendThreads_;
 	std::atomic<bool> inputChannelMismatchReported_ { false };

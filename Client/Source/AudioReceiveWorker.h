@@ -66,5 +66,6 @@ private:
 	std::atomic<uint64_t> discarded_ { 0 };
 	std::atomic<uint64_t> inboundOverruns_ { 0 };
 	std::atomic<uint64_t> outputOverruns_ { 0 };
+	bool recoveringFromOverrun_ { false };
 	MidiSignal pendingMidiSignal_ { MidiSignal_None };
 };
