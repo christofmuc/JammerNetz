@@ -52,6 +52,8 @@ public:
 	JammerNetzClientInfoMessage();
 	JammerNetzClientInfoMessage(JammerNetzClientInfoMessage const &other) = default;
 	void addClientInfo(IPAddress ipAddress, int port, JammerNetzStreamQualityInfo infoData);
+	void addCapability(const std::string& capability);
+	[[nodiscard]] bool supportsCapability(const std::string& capability) const;
 
 	virtual MessageType getType() const override;
 
@@ -67,4 +69,5 @@ public:
 
 private:
 	std::vector<JammerNetzClientInfo> clientInfos_;
+	std::vector<std::string> capabilities_;
 };

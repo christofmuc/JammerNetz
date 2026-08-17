@@ -51,6 +51,8 @@ public:
 	double currentRTT();
 	std::string currentReceptionQuality() const;
 	int currentPacketSize();
+	int safeUdpPayloadSize() const;
+	PathMtuDiscoveryStatus mtuDiscoveryStatus() const;
 
 	float channelPitch(size_t channel) const;
 	float sessionPitch(size_t channel);

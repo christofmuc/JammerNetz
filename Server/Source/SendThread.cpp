@@ -10,11 +10,14 @@
 #include "XPlatformUtils.h"
 #include "ServerLogger.h"
 
-SendThread::SendThread(DatagramSocket& socket, TOutgoingQueue &sendQueue, TPacketStreamBundle &incomingData, void *keydata, int keysize, ValueTree serverConfiguration)
+SendThread::SendThread(DatagramSocket& socket, CriticalSection& socketWriteLock,
+	TOutgoingQueue &sendQueue, TPacketStreamBundle &incomingData,
+	void *keydata, int keysize, ValueTree serverConfiguration)
 	: Thread("SenderThread")
     , sendQueue_(sendQueue)
     , incomingData_(incomingData)
     , sendSocket_(socket)
+	, socketWriteLock_(socketWriteLock)
     , serverConfiguration_(serverConfiguration)
 {
 	if (keydata) {
@@ -65,6 +68,7 @@ void SendThread::sendClientInfoPackage(std::string const &targetAddress)
 {
 	// Loop over the incoming data streams and add them to our statistics package we are going to send to the client
 	JammerNetzClientInfoMessage clientInfoPackage;
+	clientInfoPackage.addCapability(JammerNetzCapability::MtuProbeV1);
 	for (auto &incoming : incomingData_) {
 		JammerNetzStreamQualityInfo qualityInfo;
 		if (incoming.second && incoming.second->snapshot().size > 0 && incoming.second->qualityInfo(qualityInfo)) {
@@ -92,6 +96,7 @@ void SendThread::sendSessionInfoPackage(std::string const &targetAddress, Jammer
     // Loop over the incoming data streams and add them to our statistics package we are going to send to the client
         JammerNetzSessionInfoMessage sessionInfoMessage;
     sessionInfoMessage.channels_.channels = sessionSetup.channels;
+	sessionInfoMessage.addCapability(JammerNetzCapability::MtuProbeV1);
 
     size_t bytesWritten = 0;
     sessionInfoMessage.serialize(writebuffer_, bytesWritten);
@@ -116,7 +121,10 @@ void SendThread::sendWriteBuffer(String ipAddress, int port, size_t size) {
 		}
 
 		// Now, back to the client! This will block when not ready to send yet, but that's ok.
-		sendSocket_.write(ipAddress, port, writebuffer_, cipherLength);
+		{
+			const ScopedLock socketLock(socketWriteLock_);
+			sendSocket_.write(ipAddress, port, writebuffer_, cipherLength);
+		}
 
 		ServerLogger::printServerStatistics(4, ("Packet length: " + String(cipherLength)).toStdString());
 	}

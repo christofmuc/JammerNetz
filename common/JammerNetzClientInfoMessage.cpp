@@ -9,6 +9,11 @@ JammerNetzClientInfoMessage::JammerNetzClientInfoMessage(uint8 *data, size_t byt
 	flatbuffers::Verifier verifier(data + sizeof(JammerNetzHeader), bytes);
 	if (VerifyJammerNetzPNPClientInfoPackageBuffer(verifier)) {
 		auto root = GetJammerNetzPNPClientInfoPackage(data + sizeof(JammerNetzHeader));
+		if (const auto capabilities = root->capabilities()) {
+			for (const auto capability : *capabilities) {
+				capabilities_.push_back(capability->str());
+			}
+		}
 		auto infos = root->clientInfos();
 		for (auto info = infos->cbegin(); info != infos->cend(); info++) {
 			auto ipData = info->ipAddress();
@@ -44,6 +49,16 @@ JammerNetzClientInfoMessage::JammerNetzClientInfoMessage()
 void JammerNetzClientInfoMessage::addClientInfo(IPAddress ipAddress, int port, JammerNetzStreamQualityInfo infoData)
 {
 	clientInfos_.emplace_back(ipAddress, port, infoData);
+}
+
+void JammerNetzClientInfoMessage::addCapability(const std::string& capability)
+{
+	capabilities_.push_back(capability);
+}
+
+bool JammerNetzClientInfoMessage::supportsCapability(const std::string& capability) const
+{
+	return std::find(capabilities_.cbegin(), capabilities_.cend(), capability) != capabilities_.cend();
 }
 
 JammerNetzMessage::MessageType JammerNetzClientInfoMessage::getType() const
@@ -86,8 +101,15 @@ void JammerNetzClientInfoMessage::serialize(uint8 *output, size_t &byteswritten)
 		infos.push_back(info.Finish());
 	}
 	auto infoVec = fbb.CreateVector(infos);
+	std::vector<flatbuffers::Offset<flatbuffers::String>> capabilities;
+	capabilities.reserve(capabilities_.size());
+	for (const auto& capability : capabilities_) {
+		capabilities.push_back(fbb.CreateString(capability));
+	}
+	auto capabilityVec = fbb.CreateVector(capabilities);
 	JammerNetzPNPClientInfoPackageBuilder infoPackage(fbb);
 	infoPackage.add_clientInfos(infoVec);
+	infoPackage.add_capabilities(capabilityVec);
 	fbb.Finish(infoPackage.Finish());
 	memcpy(output + byteswritten, fbb.GetBufferPointer(), fbb.GetSize());
 	byteswritten += fbb.GetSize();

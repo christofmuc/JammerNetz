@@ -13,6 +13,16 @@
 #include "BuffersConfig.h"
 #include "XPlatformUtils.h"
 
+#include <algorithm>
+
+#if JUCE_WINDOWS
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <winsock2.h>
+#include <ws2ipdef.h>
+#endif
+
 Client::Client(DatagramSocket& socket) : socket_(socket), messageCounter_(10) /* TODO - because of the pre-fill on server side, can't be 0 */
 	, currentBlockSize_(0), useFEC_(false), serverPort_(7777), useLocalhost_(false), fecBuffer_(16)
 {
@@ -90,7 +100,9 @@ bool Client::sendData(JammerNetzChannelSetup const& channelSetup, std::shared_pt
     redundencyData->audioBuffer = std::make_shared<AudioBuffer<float>>();
     *redundencyData->audioBuffer = *audioBuffer; // Deep copy
     fecBuffer_.push(redundencyData);
-    return sendBufferToServer(totalBytes);
+	const bool sent = sendBufferToServer(totalBytes);
+	maybeSendMtuProbe();
+	return sent;
 }
 
 bool Client::sendBufferToServer(size_t totalBytes)
@@ -118,10 +130,8 @@ bool Client::sendBufferToServer(size_t totalBytes)
 				std::cerr << "Fatal: Couldn't encrypt package, not sending to server!" << std::endl;
 				return false;
 			}
+			currentBlockSize_ = encryptedLength;
 			const bool sent = sendData(servername, serverPort, sendBuffer_, encryptedLength);
-			if (sent) {
-				currentBlockSize_ = encryptedLength;
-			}
 			return sent;
 		}
 	}
@@ -133,10 +143,8 @@ bool Client::sendBufferToServer(size_t totalBytes)
 	}
 
 	const int bytesToSend = static_cast<int>(totalBytes);
+	currentBlockSize_ = bytesToSend;
 	const bool sent = sendData(servername, serverPort, sendBuffer_, bytesToSend);
-	if (sent) {
-		currentBlockSize_ = bytesToSend;
-	}
 	return sent;
 }
 
@@ -159,4 +167,120 @@ bool Client::sendControl(nlohmann::json &json)
 int Client::getCurrentBlockSize() const
 {
 	return currentBlockSize_;
+}
+
+void Client::setMtuDiscoverySupported(bool supported)
+{
+	const ScopedLock lock(mtuDiscoveryLock_);
+	if (supported && mtuDiscovery_.status() == PathMtuDiscoveryStatus::Unavailable
+		&& !enableDoNotFragment()) {
+		mtuDiscovery_.markFailed();
+		return;
+	}
+	mtuDiscovery_.setSupported(supported);
+}
+
+void Client::acknowledgeMtuProbe(uint64 probeId, int payloadBytes)
+{
+	const ScopedLock lock(mtuDiscoveryLock_);
+	mtuDiscovery_.acknowledge(probeId, payloadBytes);
+}
+
+int Client::getSafeUdpPayloadSize() const
+{
+	const ScopedLock lock(mtuDiscoveryLock_);
+	return mtuDiscovery_.safePayloadBytes();
+}
+
+PathMtuDiscoveryStatus Client::getMtuDiscoveryStatus() const
+{
+	const ScopedLock lock(mtuDiscoveryLock_);
+	return mtuDiscovery_.status();
+}
+
+void Client::maybeSendMtuProbe()
+{
+	std::optional<PathMtuProbe> probe;
+	{
+		const ScopedLock lock(mtuDiscoveryLock_);
+		probe = mtuDiscovery_.poll();
+	}
+	if (probe.has_value()) {
+		sendMtuProbe(*probe);
+	}
+}
+
+bool Client::sendMtuProbe(const PathMtuProbe& probe)
+{
+	nlohmann::json json;
+	json["mtu_probe_v1"]["id"] = probe.id;
+	json["mtu_probe_v1"]["size"] = probe.payloadBytes;
+
+	const ScopedLock blowfishLock(blowFishLock_);
+	auto serializeWithPadding = [&](int paddingBytes, size_t& plaintextBytes) {
+		json["mtu_probe_v1"]["padding"] = std::string(static_cast<size_t>(paddingBytes), 'p');
+		JammerNetzControlMessage message(json);
+		message.serialize(sendBuffer_, plaintextBytes);
+	};
+	auto wireSizeFor = [&](size_t plaintextBytes) {
+		if (!blowFish_) {
+			return static_cast<int>(plaintextBytes);
+		}
+		return static_cast<int>(plaintextBytes + (8u - (plaintextBytes % 8u)));
+	};
+
+	size_t emptyPlaintextBytes = 0;
+	serializeWithPadding(0, emptyPlaintextBytes);
+	const int estimate = (std::max)(0, probe.payloadBytes - wireSizeFor(emptyPlaintextBytes));
+	const int firstPadding = (std::max)(0, estimate - 64);
+	const int lastPadding = (std::min)(probe.payloadBytes, estimate + 64);
+	for (int padding = firstPadding; padding <= lastPadding; ++padding) {
+		size_t plaintextBytes = 0;
+		serializeWithPadding(padding, plaintextBytes);
+		if (wireSizeFor(plaintextBytes) != probe.payloadBytes) {
+			continue;
+		}
+
+		int wireBytes = static_cast<int>(plaintextBytes);
+		if (blowFish_) {
+			wireBytes = blowFish_->encrypt(sendBuffer_, plaintextBytes, MAXFRAMESIZE);
+		}
+		if (wireBytes != probe.payloadBytes) {
+			return false;
+		}
+
+		String serverName;
+		int serverPort;
+		bool useLocalhost;
+		{
+			const ScopedLock serverLock(serverLock_);
+			serverName = serverName_;
+			serverPort = serverPort_.load(std::memory_order_relaxed);
+			useLocalhost = useLocalhost_.load(std::memory_order_relaxed);
+		}
+		if (useLocalhost) {
+			serverName = "127.0.0.1";
+		}
+		return sendData(serverName, serverPort, sendBuffer_, wireBytes);
+	}
+	return false;
+}
+
+bool Client::enableDoNotFragment()
+{
+#if JUCE_WINDOWS
+	const DWORD mode = IP_PMTUDISC_PROBE;
+	return setsockopt(static_cast<SOCKET>(socket_.getRawSocketHandle()), IPPROTO_IP,
+		IP_MTU_DISCOVER, reinterpret_cast<const char*>(&mode), sizeof(mode)) == 0;
+#elif JUCE_LINUX
+	const int mode = IP_PMTUDISC_PROBE;
+	return setsockopt(socket_.getRawSocketHandle(), IPPROTO_IP, IP_MTU_DISCOVER,
+		&mode, sizeof(mode)) == 0;
+#elif JUCE_MAC && defined(IP_DONTFRAG)
+	const int enabled = 1;
+	return setsockopt(socket_.getRawSocketHandle(), IPPROTO_IP, IP_DONTFRAG,
+		&enabled, sizeof(enabled)) == 0;
+#else
+	return false;
+#endif
 }

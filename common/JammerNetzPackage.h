@@ -23,6 +23,7 @@
 
 #include "nlohmann/json.hpp"
 
+#include <algorithm>
 #include <string>
 #include <vector>
 #include <memory>
@@ -39,6 +40,10 @@ constexpr uint16 Current = SplitSessionInfo;
 {
 	return protocolVersion >= SplitSessionInfo;
 }
+}
+
+namespace JammerNetzCapability {
+constexpr const char* MtuProbeV1 = "mtu-probe-v1";
 }
 
 /*
@@ -222,6 +227,11 @@ public:
         flatbuffers::Verifier verifier(dataStart, size - sizeof(JammerNetzHeader));
         if (VerifyJammerNetzSessionInfoBuffer(verifier)) {
             auto package = GetJammerNetzSessionInfo(dataStart);
+			if (const auto capabilities = package->capabilities()) {
+				for (const auto capability : *capabilities) {
+					capabilities_.push_back(capability->str());
+				}
+			}
             channels_.channels.clear();
             for (auto channel = package->allChannels()->cbegin(); channel != package->allChannels()->cend(); channel++) {
                 JammerNetzSingleChannelSetup setup(channel->target());
@@ -243,10 +253,25 @@ public:
             allChannels.push_back(CreateJammerNetzPNPChannelSetup(fbb, channel.target, channel.volume, channel.mag, channel.rms, channel.pitch, fb_name));
         }
         auto channelSetupVector = fbb.CreateVector(allChannels);
-        fbb.Finish(CreateJammerNetzSessionInfo(fbb, channelSetupVector));
+		std::vector<flatbuffers::Offset<flatbuffers::String>> capabilities;
+		for (const auto& capability : capabilities_) {
+			capabilities.push_back(fbb.CreateString(capability));
+		}
+		auto capabilityVector = fbb.CreateVector(capabilities);
+		JammerNetzSessionInfoBuilder sessionInfo(fbb);
+		sessionInfo.add_allChannels(channelSetupVector);
+		sessionInfo.add_capabilities(capabilityVector);
+		fbb.Finish(sessionInfo.Finish());
     }
 
+	void addCapability(const std::string& capability) { capabilities_.push_back(capability); }
+	[[nodiscard]] bool supportsCapability(const std::string& capability) const
+	{
+		return std::find(capabilities_.cbegin(), capabilities_.cend(), capability) != capabilities_.cend();
+	}
+
     JammerNetzChannelSetup channels_;
+	std::vector<std::string> capabilities_;
 };
 
 class JammerNetzAudioData : public JammerNetzMessage {

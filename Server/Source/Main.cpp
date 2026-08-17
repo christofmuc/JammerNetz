@@ -56,8 +56,8 @@ public:
 			cipherLength = static_cast<int>(cryptoKey->getSize());
 		}
 
-		acceptThread_ = std::make_unique<AcceptThread>(serverPort, socket_, incomingStreams_, wakeUpQueue_, bufferConfig, cryptoData, cipherLength, serverConfiguration_);
-		sendThread_ = std::make_unique <SendThread>(socket_, sendQueue_, incomingStreams_, cryptoData, cipherLength, serverConfiguration_);
+		acceptThread_ = std::make_unique<AcceptThread>(serverPort, socket_, socketWriteLock_, incomingStreams_, wakeUpQueue_, bufferConfig, cryptoData, cipherLength, serverConfiguration_);
+		sendThread_ = std::make_unique <SendThread>(socket_, socketWriteLock_, sendQueue_, incomingStreams_, cryptoData, cipherLength, serverConfiguration_);
 		mixerThread_ = std::make_unique<MixerThread>(incomingStreams_, mixdownSetup_, sendQueue_, wakeUpQueue_, bufferConfig);
 
 		sendQueue_.set_capacity(128); // This is an arbitrary number only to prevent memory overflow should the sender thread somehow die (i.e. no network or something)
@@ -93,6 +93,7 @@ public:
 
 private:
 	DatagramSocket socket_;
+	CriticalSection socketWriteLock_;
 	std::unique_ptr<AcceptThread> acceptThread_;
 	std::unique_ptr<SendThread> sendThread_;
 	std::unique_ptr<MixerThread> mixerThread_;

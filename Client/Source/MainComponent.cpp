@@ -314,11 +314,30 @@ void MainComponent::timerCallback()
 	downstreamInfo_.setText(audioService_->currentReceptionQuality(), dontSendNotification);
 	std::stringstream connectionInfo;
 	const auto packetSize = audioService_->currentPacketSize();
+	const auto safePayloadSize = audioService_->safeUdpPayloadSize();
+	const auto mtuStatus = audioService_->mtuDiscoveryStatus();
 	const auto packetsPerSecond = static_cast<double>(SAMPLE_RATE) / static_cast<double>(SAMPLE_BUFFER_SIZE);
 	const auto bandwidthMegabits = static_cast<double>(packetSize) * 8.0 * packetsPerSecond / (1024.0 * 1024.0);
 	connectionInfo << std::fixed << std::setprecision(2)
-		<< "Network MTU: " << packetSize << " bytes. Bandwidth: "
-		<< bandwidthMegabits << "MBit/s. ";
+		<< "UDP payload: " << packetSize << " / " << safePayloadSize << " bytes ";
+	switch (mtuStatus) {
+	case PathMtuDiscoveryStatus::Unavailable:
+		connectionInfo << "(1200-byte fallback; server does not advertise detection). ";
+		break;
+	case PathMtuDiscoveryStatus::Searching:
+		connectionInfo << "(probing). ";
+		break;
+	case PathMtuDiscoveryStatus::Complete:
+		connectionInfo << "(detected path limit). ";
+		break;
+	case PathMtuDiscoveryStatus::Failed:
+		connectionInfo << "(detection failed; using 1200-byte fallback). ";
+		break;
+	}
+	connectionInfo << "Bandwidth: " << bandwidthMegabits << "MBit/s. ";
+	if (packetSize > safePayloadSize) {
+		connectionInfo << "WARNING: reduce the number of input channels; the upstream packet exceeds the safe path payload.";
+	}
 	connectionInfo_.setText(connectionInfo.str(), dontSendNotification);
 
 	if (audioService_->getClientInfo() && audioService_->getClientInfo()->getNumClients() != clientInfo_.size()) {

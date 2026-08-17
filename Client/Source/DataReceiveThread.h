@@ -15,7 +15,10 @@
 
 class DataReceiveThread : public Thread {
 public:
-	DataReceiveThread(DatagramSocket & socket, std::function<void(std::shared_ptr<JammerNetzAudioData>)> newDataHandler);
+	DataReceiveThread(DatagramSocket & socket,
+		std::function<void(std::shared_ptr<JammerNetzAudioData>)> newDataHandler,
+		std::function<void(bool)> mtuCapabilityHandler,
+		std::function<void(uint64, int)> mtuAcknowledgementHandler);
 	virtual ~DataReceiveThread() override;
 
 	virtual void run() override;
@@ -33,6 +36,8 @@ private:
 	DatagramSocket &socket_;
 	uint8 readbuffer_[MAXFRAMESIZE];
 	std::function<void(std::shared_ptr<JammerNetzAudioData>)> newDataHandler_;
+	std::function<void(bool)> mtuCapabilityHandler_;
+	std::function<void(uint64, int)> mtuAcknowledgementHandler_;
 	std::unique_ptr<BlowFish> blowFish_;
 	juce::CriticalSection blowFishLock_;
 

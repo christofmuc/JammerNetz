@@ -728,6 +728,16 @@ int JammerNetzAudioEngine::currentPacketSize()
 	return sender ? sender->getCurrentBlockSize() : 0;
 }
 
+int JammerNetzAudioEngine::safeUdpPayloadSize() const
+{
+	return session_.safeUdpPayloadSize();
+}
+
+PathMtuDiscoveryStatus JammerNetzAudioEngine::mtuDiscoveryStatus() const
+{
+	return session_.mtuDiscoveryStatus();
+}
+
 std::string JammerNetzAudioEngine::currentReceptionQuality() const
 {
 	return receiveWorker_ ? receiveWorker_->qualityStatement() : std::string();

@@ -10,8 +10,16 @@
 
 #include "XPlatformUtils.h"
 
-DataReceiveThread::DataReceiveThread(DatagramSocket &socket, std::function<void(std::shared_ptr<JammerNetzAudioData>)> newDataHandler)
-	: Thread("ReceiveDataFromServer"), socket_(socket), newDataHandler_(newDataHandler), currentRTT_(0.0), isReceiving_(false), receiveErrorCount_(0), currentSession_(false)
+#include <limits>
+
+DataReceiveThread::DataReceiveThread(DatagramSocket &socket,
+	std::function<void(std::shared_ptr<JammerNetzAudioData>)> newDataHandler,
+	std::function<void(bool)> mtuCapabilityHandler,
+	std::function<void(uint64, int)> mtuAcknowledgementHandler)
+	: Thread("ReceiveDataFromServer"), socket_(socket), newDataHandler_(newDataHandler),
+	mtuCapabilityHandler_(std::move(mtuCapabilityHandler)),
+	mtuAcknowledgementHandler_(std::move(mtuAcknowledgementHandler)),
+	currentRTT_(0.0), isReceiving_(false), receiveErrorCount_(0), currentSession_(false)
 {
 }
 
@@ -83,6 +91,9 @@ void DataReceiveThread::run()
 					case JammerNetzMessage::CLIENTINFO: {
 						auto clientInfo = std::dynamic_pointer_cast<JammerNetzClientInfoMessage>(message);
 						if (clientInfo) {
+							if (mtuCapabilityHandler_) {
+								mtuCapabilityHandler_(clientInfo->supportsCapability(JammerNetzCapability::MtuProbeV1));
+							}
 							// Yes, got it. Copy it! This is thread safe if and only if the read function to the shared_ptr is atomic!
 							lastClientInfoMessage_.store(std::make_shared<JammerNetzClientInfoMessage>(*clientInfo), std::memory_order_release);
 						}
@@ -91,14 +102,31 @@ void DataReceiveThread::run()
                     case JammerNetzMessage::SESSIONSETUP: {
                         auto sessionInfo = std::dynamic_pointer_cast<JammerNetzSessionInfoMessage>(message);
                         if (sessionInfo) {
+							if (mtuCapabilityHandler_) {
+								mtuCapabilityHandler_(sessionInfo->supportsCapability(JammerNetzCapability::MtuProbeV1));
+							}
 							ScopedLock sessionLock(sessionDataLock_);
                             currentSession_ = sessionInfo->channels_;
                         }
                         break;
                     }
-                    case JammerNetzMessage::MessageType::GENERIC_JSON:
-                        // Ignore for now
-                        break;
+                    case JammerNetzMessage::MessageType::GENERIC_JSON: {
+						auto control = std::dynamic_pointer_cast<JammerNetzControlMessage>(message);
+						if (control && control->json_.contains("mtu_ack_v1")) {
+							const auto& acknowledgement = control->json_["mtu_ack_v1"];
+							if (acknowledgement.is_object() && acknowledgement.contains("id")
+								&& acknowledgement["id"].is_number_unsigned()
+								&& acknowledgement.contains("size") && acknowledgement["size"].is_number_integer()
+								&& mtuAcknowledgementHandler_) {
+								const auto payloadBytes = acknowledgement["size"].get<int64_t>();
+								if (payloadBytes > 0 && payloadBytes <= std::numeric_limits<int>::max()) {
+									mtuAcknowledgementHandler_(acknowledgement["id"].get<uint64>(),
+										static_cast<int>(payloadBytes));
+								}
+							}
+						}
+						break;
+					}
 					default:
 						recordReceiveError("Received packet with an unknown message type");
 					}

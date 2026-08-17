@@ -168,6 +168,16 @@ int AudioService::currentPacketSize()
 	return engine_.currentPacketSize();
 }
 
+int AudioService::safeUdpPayloadSize() const
+{
+	return engine_.safeUdpPayloadSize();
+}
+
+PathMtuDiscoveryStatus AudioService::mtuDiscoveryStatus() const
+{
+	return engine_.mtuDiscoveryStatus();
+}
+
 float AudioService::channelPitch(size_t channel) const
 {
 	return engine_.channelPitch(channel);
