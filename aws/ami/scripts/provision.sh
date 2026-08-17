@@ -19,10 +19,10 @@ sudo apt-get install --yes --no-install-recommends \
 # Ubuntu 24.04 does not provide the awscli APT package used by the first-boot
 # example. Install the AWS-supported Snap package while building the image so
 # runtime secret retrieval does not depend on package installation at boot.
-if ! command -v aws >/dev/null 2>&1; then
+if [[ ! -x /snap/bin/aws ]]; then
   sudo snap install aws-cli --classic
 fi
-aws --version
+/snap/bin/aws --version
 
 if ! getent group jammernetz >/dev/null; then
   sudo groupadd --system jammernetz

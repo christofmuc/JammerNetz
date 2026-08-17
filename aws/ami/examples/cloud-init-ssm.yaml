@@ -19,7 +19,7 @@ write_files:
       trap 'rm -f "${temporary_key}"' EXIT
       umask 0077
 
-      aws ssm get-parameter \
+      /snap/bin/aws ssm get-parameter \
         --region "${aws_region}" \
         --name "${parameter_name}" \
         --with-decryption \
