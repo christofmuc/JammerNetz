@@ -1,10 +1,8 @@
 #cloud-config
 #
 # Store the 72-byte JammerNetz key as base64 in an SSM SecureString parameter.
-# Attach an instance profile limited to that parameter and its KMS key.
-
-packages:
-  - awscli
+# Attach an instance profile limited to that parameter and its KMS key. The
+# published AMI already contains AWS CLI, so first boot needs no package install.
 
 write_files:
   - path: /usr/local/sbin/provision-jammernetz-secret
