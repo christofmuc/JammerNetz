@@ -21,6 +21,9 @@
 #endif
 #include <winsock2.h>
 #include <ws2ipdef.h>
+#elif JUCE_LINUX || JUCE_MAC
+#include <netinet/in.h>
+#include <sys/socket.h>
 #endif
 
 Client::Client(DatagramSocket& socket) : socket_(socket), messageCounter_(10) /* TODO - because of the pre-fill on server side, can't be 0 */
