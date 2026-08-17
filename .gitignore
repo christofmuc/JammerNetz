@@ -31,3 +31,6 @@ builds
 builds-relwithdebinfo/
 /builds-ninja
 /RandomNumbers.bin
+/aws/ami/staging/
+/aws/ami/packer-manifest.json
+/aws/ami/packer.log

@@ -1,0 +1,45 @@
+#cloud-config
+#
+# Store the 72-byte JammerNetz key as base64 in an SSM SecureString parameter.
+# Attach an instance profile limited to that parameter and its KMS key.
+
+packages:
+  - awscli
+
+write_files:
+  - path: /usr/local/sbin/provision-jammernetz-secret
+    owner: root:root
+    permissions: '0700'
+    content: |
+      #!/usr/bin/env bash
+      set -euo pipefail
+      set +x
+
+      parameter_name="${JAMMERNETZ_SECRET_PARAMETER:?JAMMERNETZ_SECRET_PARAMETER is required}"
+      aws_region="${AWS_REGION:?AWS_REGION is required}"
+      temporary_key="$(mktemp /run/jammernetz-secret.XXXXXX)"
+      trap 'rm -f "${temporary_key}"' EXIT
+      umask 0077
+
+      aws ssm get-parameter \
+        --region "${aws_region}" \
+        --name "${parameter_name}" \
+        --with-decryption \
+        --query Parameter.Value \
+        --output text \
+        | base64 --decode > "${temporary_key}"
+
+      if [[ "$(stat --format=%s "${temporary_key}")" -ne 72 ]]; then
+        echo "The decoded JammerNetz key must contain exactly 72 bytes." >&2
+        exit 1
+      fi
+
+      install -o root -g jammernetz -m 0640 \
+        "${temporary_key}" /etc/jammernetz/secret.key
+      systemctl restart jammernetz-server.service
+
+runcmd:
+  - - env
+    - JAMMERNETZ_SECRET_PARAMETER=/jammernetz/production/secret-key-base64
+    - AWS_REGION=eu-central-1
+    - /usr/local/sbin/provision-jammernetz-secret

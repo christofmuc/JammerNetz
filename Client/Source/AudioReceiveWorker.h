@@ -6,11 +6,9 @@
 
 #pragma once
 
-#include "AtomicSharedPtr.h"
 #include "BoundedSpscQueue.h"
 #include "IncludeFFMeters.h"
 #include "JammerNetzSession.h"
-#include "MidiSendThread.h"
 #include "PacketStreamQueue.h"
 #include "RealtimeAudioFrames.h"
 
@@ -29,7 +27,6 @@ public:
 	int readyFrames() const noexcept;
 
 	void setPlayoutRange(uint64_t minimumFrames, uint64_t maximumFrames) noexcept;
-	void setMidiSender(std::shared_ptr<MidiSendThread> sender);
 	void requestRebuffer() noexcept;
 	uint64_t requestReset() noexcept;
 	uint64_t currentGeneration() const noexcept;
@@ -46,7 +43,6 @@ private:
 	void applyResetIfRequested();
 	void drainInbound();
 	bool prepareOneFrame();
-	void scheduleMidi(const JammerNetzAudioData& packet);
 	void updateSessionMeter();
 
 	// Network bursts are dropped at 512 packets. Prepared PCM waits in a
@@ -57,7 +53,6 @@ private:
 	BoundedSpscQueue<std::shared_ptr<JammerNetzAudioData>> inboundQueue_ { inputCapacity };
 	PacketStreamQueue packetQueue_ { "server" };
 	BoundedSpscQueue<RemoteAudioFrame> outputQueue_ { outputCapacity };
-	AtomicSharedPtr<MidiSendThread> midiSender_;
 	FFAU::LevelMeterSource sessionMeterSource_;
 	std::atomic<uint64_t> minimumFrames_ { CLIENT_PLAYOUT_JITTER_BUFFER };
 	std::atomic<uint64_t> maximumFrames_ { CLIENT_PLAYOUT_MAX_BUFFER };
@@ -71,5 +66,4 @@ private:
 	std::atomic<uint64_t> inboundOverruns_ { 0 };
 	std::atomic<uint64_t> outputOverruns_ { 0 };
 	bool recoveringFromOverrun_ { false };
-	MidiSignal pendingMidiSignal_ { MidiSignal_None };
 };

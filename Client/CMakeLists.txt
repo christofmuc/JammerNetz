@@ -4,7 +4,7 @@
 #  Dual licensed: Distributed under Affero GPL license by default, an MIT license is available for purchase
 #
 
-project("JammerNetzClient" VERSION 2.3.0)
+project("JammerNetzClient" VERSION 2.4.0)
 
 configure_file("Source/version.cpp.in" "Source/version.cpp")
 
@@ -12,8 +12,7 @@ configure_file("Source/version.cpp.in" "Source/version.cpp")
 include(BinaryResources)
 
 # Setup some additional include directories for our header only libraries and those without CMake support
-include_directories("${INTEL_TBB_DIRECTORY}/include/"
-	"${asiosdk_SOURCE_DIR}/common"
+include_directories("${asiosdk_SOURCE_DIR}/common"
 	"${CMAKE_CURRENT_LIST_DIR}/../third_party/infra/include"
 	"${CMAKE_CURRENT_LIST_DIR}/../third_party/Q/q_lib/include"
 	"${CMAKE_CURRENT_LIST_DIR}/../third_party")
@@ -133,9 +132,6 @@ set(INSTALLER_BASE_NAME "JammerNetz")
 add_library(JammerNetzCore STATIC ${CORE_AUDIO_PROCESSING_FILES} ${NETWORK_FILES})
 target_include_directories(JammerNetzCore PUBLIC Source "${CMAKE_CURRENT_BINARY_DIR}/Source")
 target_link_libraries(JammerNetzCore PUBLIC ${JUCE_LIBRARIES} JammerCommon juce-utils midikraft-base ff_meters)
-if(APPLE OR UNIX)
-	target_link_libraries(JammerNetzCore PUBLIC tbb)
-endif()
 
 add_executable(JammerNetzClient MACOSX_BUNDLE WIN32 ${SOURCES} ${DS_SOURCES} ${UICOMPONENT_FILES} ${PLAYALONG_FILES} ${AUDIO_PROCESSING_FILES} ${MIDI_FILES} ${RESOURCE_FILES} ${INSTALLER_FILES})
 set(JammerNetz_VersionedName "JammerNetz 2")
@@ -163,7 +159,6 @@ set(CORE_TEST_NAME JammerNetzCoreTest)
 add_executable(${CORE_TEST_NAME} Source/JammerNetzAudioEngineTests.cpp)
 target_link_libraries(${CORE_TEST_NAME} PRIVATE JammerNetzCore JammerNetzTestSupport gtest gtest_main)
 jammernetz_copy_msvc_debug_runtime(${CORE_TEST_NAME})
-jammernetz_copy_tbb_runtime(${CORE_TEST_NAME})
 gtest_discover_tests(${CORE_TEST_NAME} PROPERTIES LABELS unit TIMEOUT 30)
 set_target_properties(${CORE_TEST_NAME} PROPERTIES FOLDER tests)
 
@@ -184,7 +179,6 @@ ELSE()
 		freetype
 		curl
 		asound
-		tbb
 		${SENTRY_LIB}
 		juce-widgets)
 ENDIF()
@@ -202,13 +196,14 @@ else()
 endif()
 
 IF(WIN32)
-	# Post build commands - copy the DLLs (Windows only I guess). Due to the directory format of the oneTBB output directory, we need to parse the MSVC compiler version and use it appropriately
-	add_custom_command(
-			TARGET JammerNetzClient POST_BUILD
-			COMMAND ${CMAKE_COMMAND} -E copy_if_different
-					${SENTRY_DISTRIBUTION_FILES}
-					${CMAKE_BINARY_DIR}/$<IF:$<CONFIG:Release>,${MY_TBB_BINARY_DIR_BASE}_release/tbb12.dll,$<IF:$<CONFIG:Debug>,${MY_TBB_BINARY_DIR_BASE}_debug/tbb12_debug.dll,${MY_TBB_BINARY_DIR_BASE}_relwithdebinfo/tbb12.dll>>
-					$<TARGET_FILE_DIR:JammerNetzClient>)
+	if(SENTRY_CRASH_REPORTING)
+		# Post build commands - copy the optional crash-reporting runtime.
+		add_custom_command(
+				TARGET JammerNetzClient POST_BUILD
+				COMMAND ${CMAKE_COMMAND} -E copy_if_different
+						${SENTRY_DISTRIBUTION_FILES}
+						$<TARGET_FILE_DIR:JammerNetzClient>)
+	endif()
 	jammernetz_copy_msvc_debug_runtime(JammerNetzClient)
 ENDIF()
 
@@ -223,6 +218,14 @@ ENDIF()
 
 IF(WIN32)
 	 # Parse Inno Setup config file
+	if(BUILD_JAMMERNETZ_PLUGIN)
+		set(JAMMERNETZ_INSTALL_VST3 1)
+		set(JAMMERNETZ_VST3_BUNDLE_DIR
+			"$<TARGET_GENEX_EVAL:JammerNetzPlugin_VST3,$<TARGET_PROPERTY:JammerNetzPlugin_VST3,JUCE_PLUGIN_ARTEFACT_FILE>>")
+	else()
+		set(JAMMERNETZ_INSTALL_VST3 0)
+		set(JAMMERNETZ_VST3_BUNDLE_DIR "")
+	endif()
 	if(CMAKE_CONFIGURATION_TYPES)
 		file(TO_NATIVE_PATH "${CMAKE_CURRENT_BINARY_DIR}/RelWithDebInfo" JAMMERNETZ_CLIENT_OUTPUT_DIR)
 		file(TO_NATIVE_PATH "${CMAKE_CURRENT_BINARY_DIR}/../Server/RelWithDebInfo" JAMMERNETZ_SERVER_OUTPUT_DIR)
@@ -233,13 +236,17 @@ IF(WIN32)
 		file(TO_NATIVE_PATH "${CMAKE_CURRENT_BINARY_DIR}/.." JAMMERNETZ_ROOT_OUTPUT_DIR)
 	endif()
 	configure_file("${CMAKE_CURRENT_LIST_DIR}/setup_client.iss.in"
-				   "${CMAKE_CURRENT_BINARY_DIR}/setup_client.iss")
+				   "${CMAKE_CURRENT_BINARY_DIR}/setup_client.iss.genex")
+	file(GENERATE
+		OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/setup_client-$<CONFIG>.iss"
+		INPUT "${CMAKE_CURRENT_BINARY_DIR}/setup_client.iss.genex")
 	set(no_copy $<NOT:$<CONFIG:RelWithDebInfo>>)
-	add_custom_command(
-		TARGET JammerNetzClient POST_BUILD
-		COMMAND  "${CMAKE_COMMAND}" -E $<${no_copy}:echo> $<${no_copy}:"Not building Installer with "> chdir . ${INNOSETUP} "${CMAKE_CURRENT_BINARY_DIR}/setup_client.iss"
-		DEPENDS setup_client.iss
-	)
+	if(INNOSETUP)
+		add_custom_command(
+			TARGET JammerNetzClient POST_BUILD
+			COMMAND "${CMAKE_COMMAND}" -E $<${no_copy}:echo> $<${no_copy}:"Not building Installer with "> chdir . ${INNOSETUP} "${CMAKE_CURRENT_BINARY_DIR}/setup_client-$<CONFIG>.iss"
+		)
+	endif()
 ENDIF()
 
 IF(APPLE)

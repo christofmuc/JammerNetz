@@ -68,6 +68,12 @@ void DataReceiveThread::run()
 					case JammerNetzMessage::AUDIODATA: {
 						auto audioData = std::dynamic_pointer_cast<JammerNetzAudioData>(message);
 						if (audioData) {
+							if (!JammerNetzProtocol::supportsSplitSessionInfo(audioData->protocolVersion())) {
+								if (const auto legacySession = audioData->legacySessionSetup()) {
+									ScopedLock sessionLock(sessionDataLock_);
+									currentSession_ = *legacySession;
+								}
+							}
 							// Hand off to player
 							currentRTT_ = Time::getMillisecondCounterHiRes() - audioData->timestamp();
 							newDataHandler_(audioData);

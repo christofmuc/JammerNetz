@@ -66,7 +66,8 @@ ServerMixStepResult ServerMixerCore::mix(const ServerInputPackets& incoming)
 			SAMPLE_RATE,
 			mixdownSetup_,
 			std::move(output)),
-			std::move(sessionSetup));
+			std::move(sessionSetup),
+			receiver.second->protocolVersion());
 	}
 
 	return result;

@@ -11,18 +11,12 @@
 #include "JammerNetzPackage.h"
 #include "JammerNetzClientInfoMessage.h"
 
-#ifdef __GNUC__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wsign-conversion"
-#pragma GCC diagnostic ignored "-Wzero-as-null-pointer-constant"
-#endif
-#include "tbb/concurrent_hash_map.h"
-#include "tbb/concurrent_priority_queue.h"
-#ifdef __GNUC__
-#pragma GCC diagnostic pop
-#endif
 #include "RunningStats.h"
 
+#include <cstdint>
+#include <queue>
+#include <unordered_set>
+#include <vector>
 
 struct StreamQualityData {
 	StreamQualityData();
@@ -68,7 +62,10 @@ public:
 private:
 	bool hasBeenPushedBefore(std::shared_ptr<JammerNetzAudioData> packet);
 
-	tbb::concurrent_priority_queue<std::shared_ptr<JammerNetzAudioData>, JammerNetzAudioOrder> packetQueue;
+	std::priority_queue<
+		std::shared_ptr<JammerNetzAudioData>,
+		std::vector<std::shared_ptr<JammerNetzAudioData>>,
+		JammerNetzAudioOrder> packetQueue_;
 	std::atomic_uint64_t lastPushedMessage_;
 	std::atomic_uint64_t lastPoppedMessage_;
 #ifdef FAKE_DROPS
@@ -79,5 +76,5 @@ private:
 	RunningStats runningMeanClockDelta_;
 	RunningStats runningMeanJitter_;
 	StreamQualityData qualityData_;
-	tbb::concurrent_hash_map<uint64, bool> currentlyInQueue_;
+	std::unordered_set<std::uint64_t> currentlyInQueue_;
 };

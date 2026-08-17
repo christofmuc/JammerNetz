@@ -38,7 +38,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 IF(APPLE)
-# -fno-aligned-allocation is required for macOS 10.13 and the newer Intel TBBs
+# Required for the oneTBB-backed server runtime and headless server-core tests.
 add_compile_options(-Wno-unused-command-line-argument -fno-aligned-allocation)
 ENDIF()
 
@@ -243,7 +243,7 @@ set_target_properties(juce-static PROPERTIES
 	CXX_VISIBILITY_PRESET hidden)
 
 
-# Configure TBB
+# Configure oneTBB for the server runtime and headless server-core tests.
 set(TBB_TEST OFF)
 if(WIN32)
 	string(REPLACE "." ";" VERSION_LIST ${CMAKE_CXX_COMPILER_VERSION})
@@ -298,6 +298,11 @@ endif()
 # The standalone installer contains the server as well for local testing when both are enabled.
 if(BUILD_JAMMERNETZ_SERVER)
 	add_dependencies(JammerNetzClient JammerNetzServer)
+endif()
+if(WIN32 AND BUILD_JAMMERNETZ_PLUGIN)
+	# The client post-build step creates the installer, so the complete VST3 bundle
+	# must be ready before that step can run in a parallel build.
+	add_dependencies(JammerNetzClient JammerNetzPlugin_VST3)
 endif()
 endif()
 

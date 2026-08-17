@@ -4,9 +4,7 @@
 #  Dual licensed: Distributed under Affero GPL license by default, an MIT license is available for purchase
 #
 
-project("JammerNetzServer" VERSION 2.3.0)
-
-include_directories("${INTEL_TBB_DIRECTORY}/include/")
+project("JammerNetzServer" VERSION 2.4.0)
 
 configure_file("Source/version.cpp.in" "Source/version.cpp")
 
@@ -37,7 +35,7 @@ add_library(JammerNetzServerCore STATIC
 	Source/SharedServerTypes.h
 )
 target_include_directories(JammerNetzServerCore PUBLIC "${CMAKE_CURRENT_LIST_DIR}/Source")
-target_link_libraries(JammerNetzServerCore PUBLIC juce-utils JammerCommon ${JUCE_LIBRARIES})
+target_link_libraries(JammerNetzServerCore PUBLIC juce-utils JammerCommon TBB::tbb ${JUCE_LIBRARIES})
 
 if(BUILD_JAMMERNETZ_SERVER)
 	add_executable(JammerNetzServer ${SOURCES})
@@ -76,22 +74,25 @@ jammernetz_copy_msvc_debug_runtime(${TESTNAME})
 gtest_add_tests(TARGET ${TESTNAME} SOURCES Source/ServerPortTests.cpp TEST_LIST SERVER_PORT_UNIT_TESTS)
 set_tests_properties(${SERVER_PORT_UNIT_TESTS} PROPERTIES LABELS unit TIMEOUT 30)
 set_target_properties(${TESTNAME} PROPERTIES FOLDER tests)
-if(BUILD_JAMMERNETZ_SERVER AND WIN32)
-	target_link_libraries(JammerNetzServer JammerNetzServerCore ${JUCE_LIBRARIES} juce-utils JammerCommon pdcurses::pdcurses ${SENTRY_LIB})
 
-	# Post build commands - copy the DLLs
-	add_custom_command(
+if(BUILD_JAMMERNETZ_SERVER)
+	target_link_libraries(JammerNetzServer PRIVATE JammerNetzServerCore ${SENTRY_LIB})
+	if(WIN32)
+		target_link_libraries(JammerNetzServer PRIVATE pdcurses::pdcurses)
+
+		# Post build commands - copy the DLLs
+		add_custom_command(
 			TARGET JammerNetzServer POST_BUILD
 			COMMAND ${CMAKE_COMMAND} -E copy_if_different
 					${SENTRY_DISTRIBUTION_FILES}
 					${CMAKE_BINARY_DIR}/$<IF:$<CONFIG:Release>,${MY_TBB_BINARY_DIR_BASE}_release/tbb12.dll,$<IF:$<CONFIG:Debug>,${MY_TBB_BINARY_DIR_BASE}_debug/tbb12_debug.dll,${MY_TBB_BINARY_DIR_BASE}_relwithdebinfo/tbb12.dll>>
 					$<TARGET_FILE_DIR:JammerNetzServer>)
-	jammernetz_copy_msvc_debug_runtime(JammerNetzServer)
-elseif(BUILD_JAMMERNETZ_SERVER AND APPLE)
-	target_link_directories(JammerNetzServer PRIVATE "${INTEL_TBB_DIRECTORY}/lib/")
-	target_link_libraries(JammerNetzServer JammerNetzServerCore ${JUCE_LIBRARIES} juce-utils JammerCommon tbb ncurses ${SENTRY_LIB})
-elseif(BUILD_JAMMERNETZ_SERVER)
-	target_link_libraries(JammerNetzServer JammerNetzServerCore ${JUCE_LIBRARIES} juce-utils JammerCommon tbb ${CMAKE_DL_LIBS} pthread asound curl ncurses ${SENTRY_LIB})
+		jammernetz_copy_msvc_debug_runtime(JammerNetzServer)
+	elseif(APPLE)
+		target_link_libraries(JammerNetzServer PRIVATE ncurses)
+	else()
+		target_link_libraries(JammerNetzServer PRIVATE ${CMAKE_DL_LIBS} pthread asound curl ncurses)
+	endif()
 endif()
 
 

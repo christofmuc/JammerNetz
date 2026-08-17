@@ -6,49 +6,7 @@
 
 #include "AudioReceiveWorker.h"
 
-#include <cmath>
 #include <utility>
-
-namespace {
-
-uint8 sysexMsb(uint16 value) { return static_cast<uint8>(value >> 7); }
-uint8 sysexLsb(uint16 value) { return static_cast<uint8>(value & 0x7f); }
-
-MidiMessage createBossClockMessage(double bpm, MidiSignal signal)
-{
-	uint16 length = 0;
-	if (signal == MidiSignal_Start) {
-		length = static_cast<uint16>(8 * 96);
-	} else if (signal != MidiSignal_Stop) {
-		return {};
-	}
-	const auto tempo = static_cast<uint16>(std::round(bpm * 10.0));
-	std::vector<uint8> data { 0x41, 0x10, 0x00, 0x00, 0x5C, 0x12, 0x00, 0x01, 0x00, 0x00,
-		sysexMsb(length), sysexLsb(length), sysexMsb(tempo), sysexLsb(tempo), 0x00, 0x00, 0x00, 0x00 };
-	uint16 checksum = 0;
-	for (size_t index = 6; index < data.size(); ++index) {
-		checksum = static_cast<uint16>(checksum + data[index]);
-	}
-	data.push_back(static_cast<uint8>((0x80 - checksum) & 0x7f));
-	return MidiMessage::createSysExMessage(data.data(), static_cast<int>(data.size()));
-}
-
-std::vector<MidiMessage> createBeatMessages(double bpm, MidiSignal signal)
-{
-	std::vector<MidiMessage> messages;
-	messages.reserve(3);
-	messages.push_back(MidiMessage::midiClock());
-	if (signal == MidiSignal_Start) {
-		messages.push_back(MidiMessage::midiStart());
-		messages.push_back(createBossClockMessage(bpm, signal));
-	} else if (signal == MidiSignal_Stop) {
-		messages.push_back(MidiMessage::midiStop());
-		messages.push_back(createBossClockMessage(bpm, signal));
-	}
-	return messages;
-}
-
-} // namespace
 
 AudioReceiveWorker::AudioReceiveWorker(JammerNetzSession& session)
 	: juce::Thread("JammerNetz receive preparation"), session_(session)
@@ -73,7 +31,6 @@ void AudioReceiveWorker::shutdown()
 	inboundQueue_.reset();
 	outputQueue_.reset();
 	packetQueue_.reset();
-	midiSender_.store(nullptr, std::memory_order_release);
 }
 
 void AudioReceiveWorker::enqueue(std::shared_ptr<JammerNetzAudioData> packet)
@@ -94,11 +51,6 @@ void AudioReceiveWorker::setPlayoutRange(uint64_t minimumFrames, uint64_t maximu
 {
 	minimumFrames_.store(minimumFrames, std::memory_order_relaxed);
 	maximumFrames_.store(std::max(minimumFrames, maximumFrames), std::memory_order_relaxed);
-}
-
-void AudioReceiveWorker::setMidiSender(std::shared_ptr<MidiSendThread> sender)
-{
-	midiSender_.store(std::move(sender), std::memory_order_release);
 }
 
 void AudioReceiveWorker::requestRebuffer() noexcept { rebufferRequested_.store(true, std::memory_order_release); }
@@ -226,6 +178,9 @@ bool AudioReceiveWorker::prepareOneFrame()
 	const bool written = outputQueue_.tryWrite([&](RemoteAudioFrame& frame) {
 		frame.generation = generation;
 		frame.sourceTimestamp = packet->timestamp();
+		frame.serverSampleEnd = packet->serverTime();
+		frame.bpm = packet->bpm();
+		frame.midiSignal = packet->midiSignal();
 		for (int channel = 0; channel < 2; ++channel) {
 			auto& destination = frame.samples[static_cast<size_t>(channel)];
 			if (channel < audio->getNumChannels()) {
@@ -244,35 +199,8 @@ bool AudioReceiveWorker::prepareOneFrame()
 
 	latestServerBpm_.store(packet->bpm(), std::memory_order_relaxed);
 	serverBpmPending_.store(true, std::memory_order_release);
-	if (packet->midiSignal() != MidiSignal_None) {
-		pendingMidiSignal_ = packet->midiSignal();
-	}
-	scheduleMidi(*packet);
 	updateSessionMeter();
 	return true;
-}
-
-void AudioReceiveWorker::scheduleMidi(const JammerNetzAudioData& packet)
-{
-	const auto sender = midiSender_.load(std::memory_order_acquire);
-	const double bpm = packet.bpm();
-	if (!sender || bpm <= 0.0) {
-		return;
-	}
-	constexpr double pulsesPerQuarterNote = 24.0;
-	const double samplesPerPulse = static_cast<double>(SAMPLE_RATE) / (bpm * pulsesPerQuarterNote / 60.0);
-	if (samplesPerPulse <= SAMPLE_BUFFER_SIZE) {
-		return;
-	}
-	const double serverSamples = static_cast<double>(packet.serverTime());
-	const double endPulse = std::floor((serverSamples + SAMPLE_BUFFER_SIZE) / samplesPerPulse);
-	const double startPulse = std::floor(serverSamples / samplesPerPulse);
-	if (endPulse - startPulse < 1.0e-6) {
-		return;
-	}
-	const double offsetSamples = endPulse * samplesPerPulse - serverSamples;
-	sender->enqueue(std::chrono::nanoseconds(static_cast<int64_t>(1.0e9 * offsetSamples / SAMPLE_RATE)),
-		createBeatMessages(bpm, std::exchange(pendingMidiSignal_, MidiSignal_None)));
 }
 
 void AudioReceiveWorker::updateSessionMeter()

@@ -1,0 +1,140 @@
+name: Publish ARM64 EC2 AMI
+
+on:
+  workflow_dispatch:
+    inputs:
+      aws_region:
+        description: AWS region in which to create the AMI
+        required: true
+        default: eu-central-1
+        type: string
+      builder_instance_type:
+        description: Temporary ARM64 EC2 instance used by Packer
+        required: true
+        default: t4g.small
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build_server_arm64:
+    uses: ./.github/workflows/arm64_server.yaml
+    permissions:
+      contents: read
+      pull-requests: read
+
+  publish_ami:
+    name: Publish private ARM64 AMI
+    needs: build_server_arm64
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    environment: ami-production
+    concurrency:
+      group: jammernetz-arm64-ami-publication
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v6
+
+    - name: Download ARM64 server artifact
+      uses: actions/download-artifact@v8
+      with:
+        name: JammerNetzServer-arm64
+        path: aws/ami/staging
+
+    - name: Verify downloaded artifact
+      run: |
+        chmod 0755 aws/ami/staging/JammerNetzServer
+        file aws/ami/staging/JammerNetzServer
+        grep -q "aarch64\|ARM aarch64" <(file aws/ami/staging/JammerNetzServer)
+
+    - name: Install Packer
+      env:
+        PACKER_VERSION: 1.16.0
+      run: bash aws/ami/scripts/install-packer.sh
+
+    - name: Validate publishing environment configuration
+      env:
+        AWS_ROLE_ARN: ${{ vars.AWS_ROLE_ARN }}
+        AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+      run: |
+        if [[ -z "${AWS_ROLE_ARN}" || -z "${AWS_ACCOUNT_ID}" ]]; then
+          echo "The ami-production environment must define AWS_ROLE_ARN and AWS_ACCOUNT_ID." >&2
+          exit 1
+        fi
+
+    - name: Configure short-lived AWS credentials
+      uses: aws-actions/configure-aws-credentials@v6.2.3
+      with:
+        role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+        aws-region: ${{ inputs.aws_region }}
+        allowed-account-ids: ${{ vars.AWS_ACCOUNT_ID }}
+        role-session-name: JammerNetzAmi-${{ github.run_id }}
+
+    - name: Validate Packer template
+      working-directory: aws/ami
+      run: |
+        packer init .
+        packer fmt -check -recursive .
+        packer validate \
+          -var "aws_region=${{ inputs.aws_region }}" \
+          -var "builder_instance_type=${{ inputs.builder_instance_type }}" \
+          .
+
+    - name: Build AMI
+      working-directory: aws/ami
+      env:
+        AWS_REGION: ${{ inputs.aws_region }}
+        BUILDER_INSTANCE_TYPE: ${{ inputs.builder_instance_type }}
+      run: |
+        set -o pipefail
+        created_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+        build_timestamp="$(date -u +%Y%m%d%H%M%S)"
+        source_commit_short="${GITHUB_SHA:0:12}"
+
+        packer build -color=false -on-error=cleanup \
+          -var "aws_region=${AWS_REGION}" \
+          -var "builder_instance_type=${BUILDER_INSTANCE_TYPE}" \
+          -var "source_commit=${GITHUB_SHA}" \
+          -var "source_commit_short=${source_commit_short}" \
+          -var "source_repository=${GITHUB_REPOSITORY}" \
+          -var "workflow_run_id=${GITHUB_RUN_ID}" \
+          -var "created_at=${created_at}" \
+          -var "build_timestamp=${build_timestamp}" \
+          . 2>&1 | tee packer.log
+
+    - name: Report AMI
+      id: ami
+      working-directory: aws/ami
+      env:
+        AWS_REGION: ${{ inputs.aws_region }}
+      run: |
+        ami_id="$(jq -er '.builds[-1].artifact_id | split(":") | last' packer-manifest.json)"
+        aws ec2 describe-images --region "${AWS_REGION}" --owners self --image-ids "${ami_id}" >/dev/null
+        echo "ami_id=${ami_id}" >> "${GITHUB_OUTPUT}"
+        {
+          echo "## JammerNetz ARM64 AMI"
+          echo
+          echo "- AMI ID: \`${ami_id}\`"
+          echo "- Region: \`${AWS_REGION}\`"
+          echo "- Source commit: \`${GITHUB_SHA}\`"
+          echo "- Architecture: \`arm64\`"
+          echo "- Base OS: \`Ubuntu 24.04 LTS\`"
+        } >> "${GITHUB_STEP_SUMMARY}"
+
+    - name: Upload Packer logs and manifest
+      if: always()
+      uses: actions/upload-artifact@v7
+      with:
+        name: JammerNetzServer-arm64-ami-${{ github.run_id }}
+        path: |
+          aws/ami/packer.log
+          aws/ami/packer-manifest.json
+        if-no-files-found: warn
+        retention-days: 30

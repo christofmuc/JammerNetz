@@ -60,11 +60,11 @@ target_sources(JammerCommon PRIVATE ${OPT})
 endforeach()
 
 target_include_directories(JammerCommon
-	PUBLIC "${INTEL_TBB_DIRECTORY}/include/" "${CMAKE_CURRENT_LIST_DIR}/../third_party/flatbuffers/include" "${CMAKE_CURRENT_BINARY_DIR}"
+	PUBLIC "${CMAKE_CURRENT_LIST_DIR}/../third_party/flatbuffers/include" "${CMAKE_CURRENT_BINARY_DIR}"
 	INTERFACE ${CMAKE_CURRENT_LIST_DIR}
 	PRIVATE ${JUCE_INCLUDES}
 )
-target_link_libraries(JammerCommon PUBLIC TBB::tbb PRIVATE juce-utils)
+target_link_libraries(JammerCommon PRIVATE juce-utils)
 
 # Pedantic about warnings
 if (MSVC)
@@ -73,10 +73,6 @@ if (MSVC)
 else()
     # lots of warnings and all warnings as errors
     target_compile_options(JammerCommon PRIVATE -Wall -Wextra -pedantic -Werror)
-    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64)$")
-        # oneTBB triggers redundant-decls on GCC ARM in system headers; keep warnings on, but do not fail the build on this one.
-        target_compile_options(JammerCommon PRIVATE -Wno-error=redundant-decls)
-    endif()
 endif()
 
 # Define tests
@@ -84,7 +80,6 @@ set(TESTNAME CommonTest)
 add_executable(${TESTNAME} JammerCommonTests.cpp)
 target_link_libraries(${TESTNAME} gtest gmock gtest_main juce-utils JammerCommon ${JUCE_LIBRARIES})
 jammernetz_copy_msvc_debug_runtime(${TESTNAME})
-jammernetz_copy_tbb_runtime(${TESTNAME})
 gtest_add_tests(TARGET ${TESTNAME}
 	SOURCES JammerCommonTests.cpp
 	TEST_LIST COMMON_UNIT_TESTS
