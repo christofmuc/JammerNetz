@@ -34,6 +34,7 @@ write_files:
 
       install -o root -g jammernetz -m 0640 \
         "${temporary_key}" /etc/jammernetz/secret.key
+      systemctl daemon-reload
       systemctl restart jammernetz-server.service
 
 runcmd:
