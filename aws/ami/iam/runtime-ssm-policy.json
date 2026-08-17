@@ -1,0 +1,22 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ReadJammerNetzSessionKey",
+      "Effect": "Allow",
+      "Action": "ssm:GetParameter",
+      "Resource": "arn:aws:ssm:<AWS_REGION>:<AWS_ACCOUNT_ID>:parameter/jammernetz/*"
+    },
+    {
+      "Sid": "DecryptJammerNetzSessionKey",
+      "Effect": "Allow",
+      "Action": "kms:Decrypt",
+      "Resource": "arn:aws:kms:<AWS_REGION>:<AWS_ACCOUNT_ID>:key/<KMS_KEY_ID>",
+      "Condition": {
+        "StringEquals": {
+          "kms:ViaService": "ssm.<AWS_REGION>.amazonaws.com"
+        }
+      }
+    }
+  ]
+}

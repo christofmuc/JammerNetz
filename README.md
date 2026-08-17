@@ -164,6 +164,8 @@ You will find the output of the Build machine in the directory &lt;JammerNetzDir
 
 The build above produced a Linux executable. If you have an Ubuntu server running you want to use, e.g. an Amazon EC2 instance, you can copy the executable to the server e.g. with scp, then dial into the machine with ssh and launch it. For example (from within the `<JammerNetz>` directory, use the IP of your server of course):
 
+For repeatable ARM64 EC2 deployments without compiling on the instance, the repository also contains a manually triggered Packer workflow that publishes a private Ubuntu 24.04 AMI with `JammerNetzServer` already installed. See [aws/ami/README.md](aws/ami/README.md) for the AWS OIDC setup, publication procedure, and deployment-time session-key provisioning.
+
     scp Builds\LinuxBuilds\Server\JammerNetzServer ubuntu@192.168.172.1:.
 
 Then dial into your server, using ssh or putty, and make sure to have all runtime prequisites installed. With that done, you can just launch the server:

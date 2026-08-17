@@ -1,0 +1,40 @@
+[Unit]
+Description=JammerNetz Server
+Documentation=https://github.com/christofmuc/JammerNetz
+Wants=network-online.target
+After=network-online.target
+ConditionPathExists=/etc/jammernetz/secret.key
+
+[Service]
+Type=simple
+User=jammernetz
+Group=jammernetz
+WorkingDirectory=/var/lib/jammernetz
+ExecStart=/usr/local/bin/JammerNetzServer -k /etc/jammernetz/secret.key
+Restart=on-failure
+RestartSec=2s
+UMask=0027
+
+NoNewPrivileges=true
+PrivateDevices=true
+PrivateTmp=true
+ProtectClock=true
+ProtectControlGroups=true
+ProtectHome=true
+ProtectHostname=true
+ProtectKernelLogs=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/jammernetz
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=true
+RestrictRealtime=true
+SystemCallArchitectures=native
+
+StandardInput=null
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

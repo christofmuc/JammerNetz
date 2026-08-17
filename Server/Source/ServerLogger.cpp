@@ -7,6 +7,14 @@
 #include "ServerLogger.h"
 
 #include <curses.h>
+#include <cstdio>
+#include <cstdlib>
+
+#if WIN32
+#include <io.h>
+#else
+#include <unistd.h>
+#endif
 
 static SCREEN *terminal;
 
@@ -17,20 +25,35 @@ static SCREEN *terminal;
 
 void ServerLogger::init()
 {
-	// We're good to good, init screen if possible
-	char *buffer;
+	// Services and redirected processes do not have an interactive terminal.
+	// In that case, leave terminal unset so the logger writes plain lines that
+	// systemd and other process supervisors can capture.
 #if WIN32
+	if (!_isatty(_fileno(stdin)) || !_isatty(_fileno(stdout))) {
+		terminal = nullptr;
+		return;
+	}
+
+	char *buffer = nullptr;
 	size_t len;
 	_dupenv_s(&buffer, &len, "TERM");
-#else
-	buffer = getenv("TERM");
-#endif
 	terminal = newterm(buffer, stdout, stdin);
+	free(buffer);
+#else
+	if (!isatty(fileno(stdin)) || !isatty(fileno(stdout))) {
+		terminal = nullptr;
+		return;
+	}
+
+	terminal = newterm(getenv("TERM"), stdout, stdin);
+#endif
 }
 
 void ServerLogger::deinit() {
 	if (terminal) {
 		endwin();
+		delscreen(terminal);
+		terminal = nullptr;
 	}
 }
 
