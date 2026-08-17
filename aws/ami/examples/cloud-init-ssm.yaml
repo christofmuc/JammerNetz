@@ -38,6 +38,7 @@ write_files:
       systemctl restart jammernetz-server.service
 
 runcmd:
+  - [snap, wait, system, seed.loaded]
   - - env
     - JAMMERNETZ_SECRET_PARAMETER=/jammernetz/production/secret-key-base64
     - AWS_REGION=eu-central-1
