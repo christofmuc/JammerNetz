@@ -290,6 +290,11 @@ endif()
 if(BUILD_JAMMERNETZ_SERVER)
 	add_dependencies(JammerNetzClient JammerNetzServer)
 endif()
+if(WIN32 AND BUILD_JAMMERNETZ_PLUGIN)
+	# The client post-build step creates the installer, so the complete VST3 bundle
+	# must be ready before that step can run in a parallel build.
+	add_dependencies(JammerNetzClient JammerNetzPlugin_VST3)
+endif()
 endif()
 
 # For Windows, we additionally build a little test program to check if ASIO initialization works.
