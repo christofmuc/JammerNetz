@@ -9,6 +9,7 @@ sudo apt-get install --yes --no-install-recommends \
   iproute2 \
   libasound2t64 \
   libcurl4t64 \
+  libfontconfig1 \
   libfreetype6 \
   libncurses6 \
   libtbb12 \
