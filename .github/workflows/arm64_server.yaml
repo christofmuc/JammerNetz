@@ -3,6 +3,7 @@ name: ARM64 Server Build
 on:
   pull_request:
   push:
+  workflow_call:
 permissions:
   contents: read
   pull-requests: read
@@ -53,7 +54,7 @@ jobs:
       run: git config --global core.autocrlf false
 
     - name: Checkout code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v6
       with:
         submodules: 'recursive'
 
@@ -75,8 +76,21 @@ jobs:
         cmake -S . -B builds-arm64-server -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DBUILD_JAMMERNETZ_CLIENT=OFF -DJAMMERNETZ_ENABLE_LTO=ON -DCMAKE_POLICY_VERSION_MINIMUM=3.5
         cmake --build builds-arm64-server --target JammerNetzServer --parallel
 
+    - name: Inspect ARM64 server artifact
+      run: |
+        file builds-arm64-server/Server/JammerNetzServer
+        ldd builds-arm64-server/Server/JammerNetzServer | tee builds-arm64-server/Server/runtime-dependencies.txt
+        if grep -q "not found" builds-arm64-server/Server/runtime-dependencies.txt; then
+          echo "The server artifact has unresolved runtime dependencies."
+          exit 1
+        fi
+
     - name: Upload ARM64 Server Artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: JammerNetzServer-arm64
-        path: builds-arm64-server/Server/JammerNetzServer
+        path: |
+          builds-arm64-server/Server/JammerNetzServer
+          builds-arm64-server/Server/runtime-dependencies.txt
+        if-no-files-found: error
+        retention-days: 7
