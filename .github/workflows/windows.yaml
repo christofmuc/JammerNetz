@@ -103,7 +103,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: WindowsInstaller
-        path: Builds/Windows/Client/jammernetz_setup_2.4.0.exe
+        path: Builds/Windows/Client/jammernetz_setup_2.4.1.exe
 
     - name: Upload Windows VST3
       uses: actions/upload-artifact@v4
