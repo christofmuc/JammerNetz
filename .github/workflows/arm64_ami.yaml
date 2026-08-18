@@ -3,6 +3,11 @@ name: Publish ARM64 EC2 AMI
 on:
   workflow_dispatch:
     inputs:
+      source_ref:
+        description: Release tag to publish, or master for an unreleased build
+        required: true
+        default: master
+        type: string
       aws_region:
         description: AWS region in which to create the AMI
         required: true
@@ -18,16 +23,43 @@ permissions:
   contents: read
 
 jobs:
+  validate_request:
+    name: Validate publication request
+    runs-on: ubuntu-24.04
+    outputs:
+      checkout_ref: ${{ steps.validate.outputs.checkout_ref }}
+    steps:
+    - name: Require the protected workflow and a release source
+      id: validate
+      env:
+        SOURCE_REF: ${{ inputs.source_ref }}
+      run: |
+        if [[ "${GITHUB_REF}" != "refs/heads/master" ]]; then
+          echo "::error::Run this workflow from master and select the release tag in the source_ref input." >&2
+          exit 1
+        fi
+        if [[ "${SOURCE_REF}" != "master" && ! "${SOURCE_REF}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          echo "::error::source_ref must be master or a numeric release tag such as 2.4.1." >&2
+          exit 1
+        fi
+        if [[ "${SOURCE_REF}" == "master" ]]; then
+          echo "checkout_ref=refs/heads/master" >> "${GITHUB_OUTPUT}"
+        else
+          echo "checkout_ref=refs/tags/${SOURCE_REF}" >> "${GITHUB_OUTPUT}"
+        fi
+
   build_server_arm64:
+    needs: validate_request
     uses: ./.github/workflows/arm64_server.yaml
+    with:
+      source_ref: ${{ needs.validate_request.outputs.checkout_ref }}
     permissions:
       contents: read
       pull-requests: read
 
   publish_ami:
     name: Publish private ARM64 AMI
-    needs: build_server_arm64
-    if: github.ref == 'refs/heads/master'
+    needs: [validate_request, build_server_arm64]
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     environment: ami-production
@@ -41,6 +73,15 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v6
+      with:
+        ref: ${{ needs.validate_request.outputs.checkout_ref }}
+
+    - name: Resolve source commit
+      id: source
+      run: |
+        source_commit="$(git rev-parse HEAD)"
+        echo "commit=${source_commit}" >> "${GITHUB_OUTPUT}"
+        echo "commit_short=${source_commit:0:12}" >> "${GITHUB_OUTPUT}"
 
     - name: Download ARM64 server artifact
       uses: actions/download-artifact@v8
@@ -92,17 +133,18 @@ jobs:
       env:
         AWS_REGION: ${{ inputs.aws_region }}
         BUILDER_INSTANCE_TYPE: ${{ inputs.builder_instance_type }}
+        SOURCE_COMMIT: ${{ steps.source.outputs.commit }}
+        SOURCE_COMMIT_SHORT: ${{ steps.source.outputs.commit_short }}
       run: |
         set -o pipefail
         created_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
         build_timestamp="$(date -u +%Y%m%d%H%M%S)"
-        source_commit_short="${GITHUB_SHA:0:12}"
 
         packer build -color=false -on-error=cleanup \
           -var "aws_region=${AWS_REGION}" \
           -var "builder_instance_type=${BUILDER_INSTANCE_TYPE}" \
-          -var "source_commit=${GITHUB_SHA}" \
-          -var "source_commit_short=${source_commit_short}" \
+          -var "source_commit=${SOURCE_COMMIT}" \
+          -var "source_commit_short=${SOURCE_COMMIT_SHORT}" \
           -var "source_repository=${GITHUB_REPOSITORY}" \
           -var "workflow_run_id=${GITHUB_RUN_ID}" \
           -var "created_at=${created_at}" \
@@ -114,6 +156,8 @@ jobs:
       working-directory: aws/ami
       env:
         AWS_REGION: ${{ inputs.aws_region }}
+        SOURCE_REF: ${{ inputs.source_ref }}
+        SOURCE_COMMIT: ${{ steps.source.outputs.commit }}
       run: |
         ami_id="$(jq -er '.builds[-1].artifact_id | split(":") | last' packer-manifest.json)"
         aws ec2 describe-images --region "${AWS_REGION}" --owners self --image-ids "${ami_id}" >/dev/null
@@ -123,7 +167,8 @@ jobs:
           echo
           echo "- AMI ID: \`${ami_id}\`"
           echo "- Region: \`${AWS_REGION}\`"
-          echo "- Source commit: \`${GITHUB_SHA}\`"
+          echo "- Source ref: \`${SOURCE_REF}\`"
+          echo "- Source commit: \`${SOURCE_COMMIT}\`"
           echo "- Architecture: \`arm64\`"
           echo "- Base OS: \`Ubuntu 24.04 LTS\`"
         } >> "${GITHUB_STEP_SUMMARY}"

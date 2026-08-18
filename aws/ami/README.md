@@ -23,8 +23,17 @@ The Packer builder uses the account's default VPC. If the target account has no 
 After this workflow is merged to `master`:
 
 1. Open **Actions > Publish ARM64 EC2 AMI > Run workflow**.
-2. Select `master`, the target AWS region, and an ARM64 builder instance type such as `t4g.small`.
-3. Approve the `ami-production` environment deployment when prompted.
+2. Select `master` in **Use workflow from**. The protected publishing workflow
+   must always run from this branch.
+3. Set **Source ref** to the numeric release tag to publish, such as `2.4.1`,
+   or leave it as `master` for an unreleased build. Select the target AWS region
+   and an ARM64 builder instance type such as `t4g.small`.
+4. Approve the `ami-production` environment deployment when prompted.
+
+The workflow definition and AWS permissions always come from protected
+`master`, while the server binary and AMI contents come from **Source ref**.
+Starting the workflow itself from a tag is rejected with an explicit error so
+the publication job cannot be silently skipped.
 
 The workflow summary reports the AMI ID, region, source commit, architecture, and base OS. The Packer manifest and normal (non-debug) Packer log are retained as a workflow artifact for 30 days. Ordinary pushes and pull requests validate the configuration but never authenticate to AWS or create resources.
 
