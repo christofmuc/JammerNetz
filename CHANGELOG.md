@@ -11,7 +11,8 @@
 - Made current-user Windows installation the non-elevated default while
   retaining an all-users option for installing the system-wide VST3 plug-in.
 - Updated the ARM64 AMI workflow to build and publish immutable release-tag
-  commits safely from the protected master workflow.
+  commits from protected master, with scoped permissions for finalization and
+  cleanup.
 
 ## 2.4.1 - 2026-08-18
 

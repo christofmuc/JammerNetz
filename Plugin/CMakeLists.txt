@@ -4,7 +4,7 @@
 #  Dual licensed: Distributed under Affero GPL license by default, an MIT license is available for purchase
 #
 
-project("JammerNetzPlugin" VERSION 2.4.1)
+project("JammerNetzPlugin" VERSION 2.4.2)
 
 set(JAMMERNETZ_PLUGIN_FORMATS VST3)
 if(APPLE)
