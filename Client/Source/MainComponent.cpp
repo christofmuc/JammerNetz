@@ -19,6 +19,170 @@
 #include "LayoutConstants.h"
 
 #include "BuffersConfig.h"
+#include "SpectrogramWidget.h"
+
+namespace {
+constexpr int kSplitterThickness = 6;
+constexpr int kMinimumPerformanceHeight = 240;
+constexpr int kMinimumSettingsHeight = 240;
+constexpr int kMinimumSpectrumWidth = 260;
+constexpr int kMinimumSessionWidth = 40;
+constexpr auto kSettingsHeightSetting = "MainLayoutSettingsHeight";
+constexpr auto kSpectrumWidthSetting = "MainLayoutSpectrumWidth";
+
+class LayoutSplitter final : public juce::Component {
+public:
+	enum class Target { rightPanelWidth, bottomPanelHeight };
+
+	LayoutSplitter(Target target, std::function<int()> getValue, std::function<void(int)> setValue)
+		: target_(target), getValue_(std::move(getValue)), setValue_(std::move(setValue))
+	{
+		setMouseCursor(target_ == Target::rightPanelWidth
+			? juce::MouseCursor::LeftRightResizeCursor
+			: juce::MouseCursor::UpDownResizeCursor);
+	}
+
+	void paint(juce::Graphics& graphics) override
+	{
+		graphics.setColour(findColour(juce::GroupComponent::outlineColourId).withMultipliedAlpha(0.75f));
+		const auto bounds = getLocalBounds().toFloat();
+		if (target_ == Target::rightPanelWidth) {
+			const auto height = juce::jmin(36.0f, bounds.getHeight() - 4.0f);
+			graphics.fillRoundedRectangle(bounds.getCentreX() - 1.0f, bounds.getCentreY() - height * 0.5f,
+				2.0f, height, 1.0f);
+		}
+		else {
+			const auto width = juce::jmin(48.0f, bounds.getWidth() - 4.0f);
+			graphics.fillRoundedRectangle(bounds.getCentreX() - width * 0.5f, bounds.getCentreY() - 1.0f,
+				width, 2.0f, 1.0f);
+		}
+	}
+
+	void mouseDown(const juce::MouseEvent&) override
+	{
+		dragStartValue_ = getValue_();
+	}
+
+	void mouseDrag(const juce::MouseEvent& event) override
+	{
+		const auto distance = target_ == Target::rightPanelWidth
+			? event.getDistanceFromDragStartX()
+			: event.getDistanceFromDragStartY();
+		setValue_(dragStartValue_ - distance);
+	}
+
+private:
+	Target target_;
+	std::function<int()> getValue_;
+	std::function<void(int)> setValue_;
+	int dragStartValue_ { 0 };
+};
+
+class SpectrumPanel final : public juce::Component {
+public:
+	explicit SpectrumPanel(std::weak_ptr<Spectrogram> analyzer)
+		: display_(std::move(analyzer))
+	{
+		group_.setText("Master Spectrum");
+		addAndMakeVisible(group_);
+		addAndMakeVisible(display_);
+		addAndMakeVisible(logarithmicButton_);
+		addAndMakeVisible(horizontalButton_);
+		addAndMakeVisible(pitchColourButton_);
+		addAndMakeVisible(trackedNotesButton_);
+		addAndMakeVisible(trackingPresetBox_);
+		addAndMakeVisible(concertALabel_);
+		addAndMakeVisible(concertASlider_);
+
+		logarithmicButton_.setToggleState(true, juce::dontSendNotification);
+		pitchColourButton_.setToggleState(true, juce::dontSendNotification);
+		trackedNotesButton_.setToggleState(true, juce::dontSendNotification);
+		trackingPresetBox_.addItem("Fast", 1);
+		trackingPresetBox_.addItem("Balanced", 2);
+		trackingPresetBox_.addItem("Stable", 3);
+		trackingPresetBox_.setSelectedId(2, juce::dontSendNotification);
+		trackingPresetBox_.setTooltip("Pitch response: Fast, Balanced, or Stable");
+		pitchColourButton_.setTooltip("Show detected pitches in colour over a greyscale spectrum");
+		trackedNotesButton_.setTooltip("Label detected notes");
+		concertALabel_.setText("A4", juce::dontSendNotification);
+		concertALabel_.setJustificationType(juce::Justification::centredRight);
+		concertASlider_.setRange(415.0, 466.0, 0.1);
+		concertASlider_.setValue(440.0, juce::dontSendNotification);
+		concertASlider_.setTextValueSuffix(" Hz");
+		concertASlider_.setSliderStyle(juce::Slider::LinearHorizontal);
+		concertASlider_.setTextBoxStyle(juce::Slider::TextBoxRight, false, 68, 22);
+
+		display_.setPitchColourMode(true);
+		display_.setTrackedNoteOverlayEnabled(true);
+		logarithmicButton_.onClick = [this] {
+			display_.setXAxis(logarithmicButton_.getToggleState());
+		};
+		horizontalButton_.onClick = [this] {
+			display_.setHorizontalMode(horizontalButton_.getToggleState());
+		};
+		pitchColourButton_.onClick = [this] {
+			display_.setPitchColourMode(pitchColourButton_.getToggleState());
+		};
+		trackedNotesButton_.onClick = [this] {
+			display_.setTrackedNoteOverlayEnabled(trackedNotesButton_.getToggleState());
+		};
+		trackingPresetBox_.onChange = [this] {
+			switch (trackingPresetBox_.getSelectedId()) {
+			case 1:
+				display_.setPitchTrackingPreset(PitchTracker::Preset::fast);
+				break;
+			case 3:
+				display_.setPitchTrackingPreset(PitchTracker::Preset::stable);
+				break;
+			case 2:
+			default:
+				display_.setPitchTrackingPreset(PitchTracker::Preset::balanced);
+				break;
+			}
+		};
+		concertASlider_.onValueChange = [this] {
+			display_.setConcertAHz(static_cast<float>(concertASlider_.getValue()));
+		};
+
+		// The waterfall and its GL note cards share the display's VSync-paced
+		// render pass. No message-thread repaint timer is needed here.
+		display_.setContinuousRedrawing(true);
+	}
+
+	void resized() override
+	{
+		group_.setBounds(getLocalBounds());
+		auto content = getLocalBounds().reduced(kNormalInset);
+		content.removeFromTop(kLineHeight);
+		auto controls = content.removeFromBottom(58);
+		content.removeFromBottom(kSmallInset);
+		display_.setBounds(content);
+
+		auto modeRow = controls.removeFromTop(28);
+		const auto modeWidth = modeRow.getWidth() / 4;
+		logarithmicButton_.setBounds(modeRow.removeFromLeft(modeWidth));
+		horizontalButton_.setBounds(modeRow.removeFromLeft(modeWidth));
+		pitchColourButton_.setBounds(modeRow.removeFromLeft(modeWidth));
+		trackedNotesButton_.setBounds(modeRow);
+
+		auto tuningRow = controls.removeFromBottom(28);
+		trackingPresetBox_.setBounds(tuningRow.removeFromLeft(96).reduced(2));
+		concertALabel_.setBounds(tuningRow.removeFromLeft(28));
+		concertASlider_.setBounds(tuningRow);
+	}
+
+private:
+	juce::GroupComponent group_;
+	SpectrogramWidget display_;
+	juce::ToggleButton logarithmicButton_ { "Log" };
+	juce::ToggleButton horizontalButton_ { "History" };
+	juce::ToggleButton pitchColourButton_ { "Pitches" };
+	juce::ToggleButton trackedNotesButton_ { "Notes" };
+	juce::ComboBox trackingPresetBox_;
+	juce::Label concertALabel_;
+	juce::Slider concertASlider_;
+};
+}
 
 MainComponent::MainComponent(std::shared_ptr<AudioService> audioService, std::shared_ptr<Recorder> masterRecorder, std::shared_ptr<Recorder> localRecorder) :
 	audioService_(audioService),
@@ -40,6 +204,25 @@ MainComponent::MainComponent(std::shared_ptr<AudioService> audioService, std::sh
 	recordingInfo_ = std::make_unique<RecordingInfo>(masterRecorder, "Press to record master mix");
 	//playalongDisplay_ = std::make_unique<PlayalongDisplay>(callback_.getPlayalong());
 	localRecordingInfo_ = std::make_unique<RecordingInfo>(localRecorder, "Press to record yourself only");
+	spectrogramPanel_ = std::make_unique<SpectrumPanel>(audioService_->getSpectrogram());
+	settingsHeight_ = Settings::instance().get(kSettingsHeightSetting, settingsHeight_);
+	spectrumWidth_ = Settings::instance().get(kSpectrumWidthSetting, spectrumWidth_);
+	settingsSplitter_ = std::make_unique<LayoutSplitter>(LayoutSplitter::Target::bottomPanelHeight,
+		[this] { return settingsHeight_; },
+		[this](int height) {
+			const auto maximum = juce::jmax(kMinimumSettingsHeight,
+				getHeight() - 2 * kSmallInset - kMinimumPerformanceHeight - kSplitterThickness);
+			settingsHeight_ = juce::jlimit(kMinimumSettingsHeight, maximum, height);
+			Settings::instance().set(kSettingsHeightSetting, juce::String(settingsHeight_).toStdString());
+			resized();
+		});
+	spectrumSplitter_ = std::make_unique<LayoutSplitter>(LayoutSplitter::Target::rightPanelWidth,
+		[this] { return spectrumWidth_; },
+		[this](int width) {
+			spectrumWidth_ = juce::jmax(kMinimumSpectrumWidth, width);
+			Settings::instance().set(kSpectrumWidthSetting, juce::String(spectrumWidth_).toStdString());
+			resized();
+		});
 
 	// MidiClock
 	addAndMakeVisible(bpmSlider_);
@@ -116,6 +299,9 @@ MainComponent::MainComponent(std::shared_ptr<AudioService> audioService, std::sh
 	addAndMakeVisible(*recordingInfo_);
 	//addAndMakeVisible(*playalongDisplay_);
 	addAndMakeVisible(*localRecordingInfo_);
+	addAndMakeVisible(*spectrogramPanel_);
+	addAndMakeVisible(*settingsSplitter_);
+	addAndMakeVisible(*spectrumSplitter_);
 	addAndMakeVisible(logGroup_);
 	addAndMakeVisible(logView_);
 	addAndMakeVisible(clockSelector_);
@@ -124,7 +310,7 @@ MainComponent::MainComponent(std::shared_ptr<AudioService> audioService, std::sh
 
 	// Make sure you set the size of the component after
 	// you add any child components.
-	setSize(1536, 800);
+	setSize(1680, 800);
 
 	clockSelector_.onSelectionChanged = [this](std::vector<juce::MidiDeviceInfo> activeOutputs) {
 		if (audioService_) {
@@ -147,7 +333,6 @@ void MainComponent::resized()
 	auto area = getLocalBounds();
 	area = area.reduced(kSmallInset);
 
-	int settingsHeight = 400;
 	int deviceSelectorWidth = std::min(area.getWidth() / 5, 250);
 	int masterMixerWidth = 180; // Stereo mixer
 	int singleMixerWidth = 100;
@@ -156,8 +341,14 @@ void MainComponent::resized()
 
 	int inputMixerWidth = singleMixerWidth * numInputMixers + deviceSelectorWidth + 2 * kNormalInset;
 
-	// To the bottom, the server info and status area
-	auto settingsArea = area.removeFromBottom(settingsHeight);
+	// The bottom status area stays visible while the splitter lets the user make
+	// a one-time trade-off between live performance and diagnostic information.
+	const auto maximumSettingsHeight = juce::jmax(1,
+		area.getHeight() - kMinimumPerformanceHeight - kSplitterThickness);
+	const auto minimumSettingsHeight = juce::jmin(kMinimumSettingsHeight, maximumSettingsHeight);
+	const auto actualSettingsHeight = juce::jlimit(minimumSettingsHeight, maximumSettingsHeight, settingsHeight_);
+	auto settingsArea = area.removeFromBottom(actualSettingsHeight);
+	settingsSplitter_->setBounds(area.removeFromBottom(juce::jmin(kSplitterThickness, area.getHeight())));
 	int settingsSectionWidth = settingsArea.getWidth() / 4;
 
 	// Setup lower left - the server and client config
@@ -197,6 +388,27 @@ void MainComponent::resized()
 	logGroup_.setBounds(logArea);
 	logArea.reduce(kNormalInset, kNormalInset);
 	logView_.setBounds(logArea.reduced(kNormalInset));
+
+	// Keep the spectrum useful on wide windows without making it a minimum-size
+	// requirement. Narrow windows devote the available space to the mixer.
+	const int mixerAndSessionMinimum = inputMixerWidth + 2 * deviceSelectorWidth
+		+ masterMixerWidth + kMinimumSessionWidth;
+	const int availableSpectrumWidth = area.getWidth() - mixerAndSessionMinimum;
+	const bool showSpectrum = availableSpectrumWidth >= kMinimumSpectrumWidth + kSplitterThickness;
+	spectrogramPanel_->setVisible(showSpectrum);
+	spectrumSplitter_->setVisible(showSpectrum);
+	if (showSpectrum) {
+		const auto maximumSpectrumWidth = availableSpectrumWidth - kSplitterThickness;
+		const auto actualSpectrumWidth = juce::jlimit(kMinimumSpectrumWidth,
+			maximumSpectrumWidth, spectrumWidth_);
+		auto spectrumArea = area.removeFromRight(actualSpectrumWidth);
+		spectrumSplitter_->setBounds(area.removeFromRight(kSplitterThickness));
+		spectrogramPanel_->setBounds(spectrumArea.withTrimmedLeft(kSmallInset));
+	}
+	else {
+		spectrogramPanel_->setBounds({});
+		spectrumSplitter_->setBounds({});
+	}
 
 	// To the left, the input selector
 	auto inputArea = area.removeFromLeft(inputMixerWidth);

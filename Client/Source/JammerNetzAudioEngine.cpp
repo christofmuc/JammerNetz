@@ -103,6 +103,9 @@ void JammerNetzAudioEngine::shutdown()
 		juce::Thread::sleep(1);
 	}
 	started_ = false;
+	if (auto* tap = outputTap_.exchange(nullptr, std::memory_order_acq_rel)) {
+		tap->release();
+	}
 	if (recordingWorker_) {
 		recordingWorker_->shutdown();
 		recordingWorker_.reset();
@@ -590,6 +593,10 @@ void JammerNetzAudioEngine::processChunk(const float* const* inputChannelData, i
 		engineOutputChannels > 0 ? outputChannelData[0] : silentMeterChannel_.data(),
 		engineOutputChannels > 1 ? outputChannelData[1] : silentMeterChannel_.data()
 	};
+	if (auto* tap = outputTap_.load(std::memory_order_acquire)) {
+		std::array<const float*, 2> tapPointers { meterPointers[0], meterPointers[1] };
+		tap->enqueue(tapPointers.data(), 2, numSamples);
+	}
 	AudioBuffer<float> meterBuffer(meterPointers.data(), 2, numSamples);
 	outMeterSource_.measureBlock(meterBuffer);
 	if (recordingWorker_) {
@@ -607,15 +614,25 @@ void JammerNetzAudioEngine::processChunk(const float* const* inputChannelData, i
 
 void JammerNetzAudioEngine::prepare(double sampleRate, int maximumBlockSize)
 {
-	ignoreUnused(maximumBlockSize);
 	preparedSampleRate_.store(sampleRate, std::memory_order_relaxed);
 	lastPlayoutQualityInfo_ = PlayoutQualityInfo();
 	resetPlayoutRequested_.store(true, std::memory_order_release);
+	if (auto* tap = outputTap_.load(std::memory_order_acquire)) {
+		tap->prepare(sampleRate, maximumBlockSize);
+	}
 }
 
 void JammerNetzAudioEngine::release()
 {
 	resetPlayoutRequested_.store(true, std::memory_order_release);
+	if (auto* tap = outputTap_.load(std::memory_order_acquire)) {
+		tap->release();
+	}
+}
+
+void JammerNetzAudioEngine::setOutputTap(AudioOutputTap* tap) noexcept
+{
+	outputTap_.store(tap, std::memory_order_release);
 }
 
 void JammerNetzAudioEngine::setChannelSetup(JammerNetzChannelSetup const &channelSetup)

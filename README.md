@@ -20,6 +20,7 @@ JammerNetz is quite feature rich, the following are the main items:
   * Does automatic hard-disk recording of your session to local disk on each client in a lossless compressed FLAC file. After the session, everybody has a record to revisit.
   * Does automatic MIDI recording in case it detects any incoming MIDI notes, thereby logging all keys played into a MIDI file for later revisit ("what did I play? Sounds great!")
   * Features a built-in instrument tuner display showing you the detected note and cents for each channel, so it is easy and quick to get everybody on the same A.
+  * Shows the final master mix as an FFT/waterfall with optional circle-of-fifths pitch colours and tracked-note annotations. Fast, Balanced, and Stable presets plus the concert-A reference can be changed directly in the spectrum panel.
   * BlowFish encryption based on a shared secret, so you are not sending data unsecured through the internet. We don't claim this is state of the art and probably not enough bits of encryption, but better than sending unencrypted audio data. This certainly is a point for improvement.
 
 ## Screenshot

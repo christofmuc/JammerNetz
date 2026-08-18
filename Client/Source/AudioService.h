@@ -10,6 +10,7 @@
 #include "JammerNetzSession.h"
 #include "ApplicationState.h"
 #include "DebounceTimer.h"
+#include "SpectrumAnalysisWorker.h"
 
 #include <atomic>
 #include <optional>
@@ -60,6 +61,7 @@ public:
 	FFAU::LevelMeterSource* getInputMeterSource();
 	FFAU::LevelMeterSource* getOutputMeterSource();
 	FFAU::LevelMeterSource* getSessionMeterSource();
+	std::weak_ptr<Spectrogram> getSpectrogram() const noexcept;
 
 private:
 	virtual void valueTreePropertyChanged(ValueTree& treeWhosePropertyHasChanged, const Identifier& property) override;
@@ -75,6 +77,8 @@ private:
 
 	std::shared_ptr<juce::AudioIODevice> audioDevice_;
 
+	std::shared_ptr<Spectrogram> spectrumAnalyzer_;
+	std::unique_ptr<SpectrumAnalysisWorker> spectrumWorker_;
 	JammerNetzSession session_;
 	JammerNetzAudioEngine engine_;
 	AudioCallback callback_;

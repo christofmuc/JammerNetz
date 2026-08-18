@@ -74,6 +74,9 @@ private:
 	std::unique_ptr<RecordingInfo> recordingInfo_; // For the master files
 	std::unique_ptr<RecordingInfo> localRecordingInfo_; // For the local data
 	std::unique_ptr<PlayalongDisplay> playalongDisplay_;
+	std::unique_ptr<Component> spectrogramPanel_;
+	std::unique_ptr<Component> settingsSplitter_;
+	std::unique_ptr<Component> spectrumSplitter_;
 	GroupComponent logGroup_;
 	LogView logView_;
 	// END OF WIDGET LIST
@@ -87,6 +90,8 @@ private:
 	// This is a cached variable, not state, used by the timer callback to display the quality statistics
 	// Probably should go away
 	std::shared_ptr<JammerNetzChannelSetup> currentSessionSetup_;
+	int settingsHeight_ { 400 };
+	int spectrumWidth_ { 340 };
 
 	juce::int64 stageLeftWhenInMillis_;
 

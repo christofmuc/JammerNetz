@@ -19,13 +19,17 @@
 #include <cmath>
 
 AudioService::AudioService()
-	: engine_(session_, Settings::instance().getSessionStorageDir())
+	: spectrumAnalyzer_(std::make_shared<Spectrogram>())
+	, spectrumWorker_(std::make_unique<SpectrumAnalysisWorker>(spectrumAnalyzer_))
+	, engine_(session_, Settings::instance().getSessionStorageDir())
 	, callback_(engine_, [](float bpm) {
 		juce::MessageManager::callAsync([bpm]() {
 			Data::getPropertyAsValue(VALUE_SERVER_BPM).setValue(bpm);
 		});
 	})
 {
+	engine_.setOutputTap(spectrumWorker_.get());
+
 	// Put the list into the ephemeral app data (not stored across runs of the software)
 	auto& data = Data::instance().getEphemeral();
 	data.setProperty(EPHEMERAL_VALUE_DEVICE_TYPES_AVAILABLE, AudioDeviceDiscovery::allDeviceTypeNames(), nullptr);
@@ -53,6 +57,10 @@ void AudioService::shutdown()
 		return;
 	}
 	stopAudioIfRunning();
+	engine_.setOutputTap(nullptr);
+	if (spectrumWorker_) {
+		spectrumWorker_->release();
+	}
 	// Quiesce the network receive producer before the engine resets its queues.
 	session_.shutdown();
 	engine_.shutdown();
@@ -201,6 +209,11 @@ FFAU::LevelMeterSource* AudioService::getOutputMeterSource()
 FFAU::LevelMeterSource* AudioService::getSessionMeterSource()
 {
 	return engine_.getSessionMeterSource();
+}
+
+std::weak_ptr<Spectrogram> AudioService::getSpectrogram() const noexcept
+{
+	return spectrumAnalyzer_;
 }
 
 void AudioService::refreshEngineConfiguration()

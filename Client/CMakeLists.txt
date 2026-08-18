@@ -64,6 +64,7 @@ set(CORE_AUDIO_PROCESSING_FILES
 	Source/AudioReceiveWorker.h
 	Source/AudioRecordingWorker.cpp
 	Source/AudioRecordingWorker.h
+	Source/AudioOutputTap.h
 	Source/JammerNetzAudioEngine.cpp
 	Source/JammerNetzAudioEngine.h
 	Source/MidiSendThread.cpp Source/MidiSendThread.h
@@ -77,6 +78,8 @@ set(AUDIO_PROCESSING_FILES
 	Source/AudioCallback.h
 	Source/AudioService.cpp
 	Source/AudioService.h
+	Source/SpectrumAnalysisWorker.cpp
+	Source/SpectrumAnalysisWorker.h
 )
 source_group(Source\\AudioProcessing FILES ${CORE_AUDIO_PROCESSING_FILES} ${AUDIO_PROCESSING_FILES})
 
@@ -168,9 +171,9 @@ set_target_properties(${CORE_TEST_NAME} PROPERTIES FOLDER tests)
 
 target_include_directories(JammerNetzClient PRIVATE "${SENTRY_INCLUDE_DIR}"  "${CMAKE_CURRENT_BINARY_DIR}/Source")
 IF(WIN32)
-	target_link_libraries(JammerNetzClient JammerNetzCore ${DS_LIBRARIES} juce-widgets ${SENTRY_LIB})
+	target_link_libraries(JammerNetzClient JammerNetzCore ${DS_LIBRARIES} juce-widgets juce-spectroscope19 ${SENTRY_LIB})
 elseif(APPLE)
-	target_link_libraries(JammerNetzClient JammerNetzCore ${DS_LIBRARIES} juce-widgets)
+	target_link_libraries(JammerNetzClient JammerNetzCore ${DS_LIBRARIES} juce-widgets juce-spectroscope19)
 	# ${SENTRY_LIB})
 ELSE()
 	target_link_libraries(JammerNetzClient
@@ -184,7 +187,8 @@ ELSE()
 		curl
 		asound
 		${SENTRY_LIB}
-		juce-widgets)
+		juce-widgets
+		juce-spectroscope19)
 ENDIF()
 
 # Pedantic about warnings
