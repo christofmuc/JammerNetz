@@ -1,4 +1,5 @@
 #include "JammerNetzPackage.h"
+#include "JammerNetzClientInfoMessage.h"
 #include "PacketStreamQueue.h"
 
 #include "BuffersConfig.h"
@@ -289,6 +290,23 @@ TEST(PacketStreamQueueTest, RejectsPacketsOlderThanTheLastPoppedPacket)
 	EXPECT_EQ(queue.qualityInfoPackage().tooLateOrDuplicate, 1u);
 }
 
+TEST(PacketStreamQueueTest, RejectsDuplicateOfMostRecentlyPoppedPacket)
+{
+	PacketStreamQueue queue("test");
+	ASSERT_TRUE(queue.push(makeQueuePacket(42)));
+
+	std::shared_ptr<JammerNetzAudioData> popped;
+	bool isFillIn = false;
+	ASSERT_TRUE(queue.try_pop(popped, isFillIn));
+	ASSERT_NE(popped, nullptr);
+	EXPECT_EQ(popped->messageCounter(), 42u);
+	EXPECT_FALSE(isFillIn);
+
+	EXPECT_FALSE(queue.push(makeQueuePacket(42)));
+	EXPECT_EQ(queue.size(), 0u);
+	EXPECT_EQ(queue.qualityInfoPackage().tooLateOrDuplicate, 1u);
+}
+
 TEST(PacketStreamQueueTest, FillsOnePacketGapWithoutConsumingTheLaterPacket)
 {
 	PacketStreamQueue queue("test");
@@ -335,4 +353,33 @@ TEST(PacketStreamQueueTest, ResetClearsPacketsStatisticsAndSequenceState)
 	ASSERT_TRUE(queue.try_pop(packet, isFillIn));
 	EXPECT_EQ(packet->messageCounter(), 1u);
 	EXPECT_FALSE(isFillIn);
+}
+
+TEST(ClientInfoTest, RoundTripsServerCapabilities)
+{
+	JammerNetzClientInfoMessage message;
+	message.addClientInfo(IPAddress("127.0.0.1"), 7777, {});
+	message.addCapability(JammerNetzCapability::MtuProbeV1);
+	std::array<uint8, 4096> bytes {};
+	size_t size = 0;
+	message.serialize(bytes.data(), size);
+
+	auto decoded = std::dynamic_pointer_cast<JammerNetzClientInfoMessage>(
+		JammerNetzMessage::deserialize(bytes.data(), size));
+	ASSERT_NE(decoded, nullptr);
+	EXPECT_TRUE(decoded->supportsCapability(JammerNetzCapability::MtuProbeV1));
+}
+
+TEST(SessionInfoTest, RoundTripsServerCapabilities)
+{
+	JammerNetzSessionInfoMessage message;
+	message.addCapability(JammerNetzCapability::MtuProbeV1);
+	std::array<uint8, 4096> bytes {};
+	size_t size = 0;
+	message.serialize(bytes.data(), size);
+
+	auto decoded = std::dynamic_pointer_cast<JammerNetzSessionInfoMessage>(
+		JammerNetzMessage::deserialize(bytes.data(), size));
+	ASSERT_NE(decoded, nullptr);
+	EXPECT_TRUE(decoded->supportsCapability(JammerNetzCapability::MtuProbeV1));
 }

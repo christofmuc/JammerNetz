@@ -35,6 +35,8 @@ public:
 
 	bool isReceivingData() const;
 	double currentRTT() const;
+	int safeUdpPayloadSize() const;
+	PathMtuDiscoveryStatus mtuDiscoveryStatus() const;
 	std::shared_ptr<JammerNetzClientInfoMessage> getClientInfo() const;
 	JammerNetzChannelSetup getCurrentSessionSetup() const;
 	uint64_t receiveErrorCount() const;

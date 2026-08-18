@@ -18,6 +18,7 @@ class PrintQualityTimer;
 class AcceptThread : public Thread {
 public:
 	AcceptThread(int serverPort, DatagramSocket &socket,
+                 CriticalSection& socketWriteLock,
                  TPacketStreamBundle &incomingData, TMessageQueue &wakeUpQueue,
                  ServerBufferConfig bufferConfig,
                  void *keydata,
@@ -28,10 +29,14 @@ public:
 	virtual void run() override;
 
 private:
-    void processControlMessage(std::shared_ptr<JammerNetzControlMessage> message);
+    void processControlMessage(std::shared_ptr<JammerNetzControlMessage> message,
+		const String& senderIPAddress, int senderPort, int receivedPayloadBytes);
+	void sendMtuAcknowledgement(const String& senderIPAddress, int senderPort,
+		uint64 probeId, int receivedPayloadBytes);
     void processAudioMessage(std::shared_ptr<JammerNetzAudioData> message, std::string const& clientName);
 
     DatagramSocket &receiveSocket_;
+	CriticalSection& socketWriteLock_;
 	TPacketStreamBundle &incomingData_;
 	TMessageQueue &wakeUpQueue_;
     ValueTree serverConfiguration_;

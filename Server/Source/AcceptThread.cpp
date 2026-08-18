@@ -30,9 +30,12 @@ private:
 	TPacketStreamBundle &data_;
 };
 
-AcceptThread::AcceptThread(int serverPort, DatagramSocket &socket, TPacketStreamBundle &incomingData, TMessageQueue &wakeUpQueue, ServerBufferConfig bufferConfig, void *keydata, int keysize, ValueTree serverConfiguration)
+AcceptThread::AcceptThread(int serverPort, DatagramSocket &socket, CriticalSection& socketWriteLock,
+	TPacketStreamBundle &incomingData, TMessageQueue &wakeUpQueue, ServerBufferConfig bufferConfig,
+	void *keydata, int keysize, ValueTree serverConfiguration)
 	: Thread("ReceiverThread")
     , receiveSocket_(socket)
+	, socketWriteLock_(socketWriteLock)
     , incomingData_(incomingData)
     , wakeUpQueue_(wakeUpQueue)
     , serverConfiguration_(serverConfiguration)
@@ -57,14 +60,44 @@ AcceptThread::~AcceptThread()
 	qualityTimer_->stopTimer();
 }
 
-void AcceptThread::processControlMessage(std::shared_ptr<JammerNetzControlMessage> message)
+void AcceptThread::processControlMessage(std::shared_ptr<JammerNetzControlMessage> message,
+	const String& senderIPAddress, int senderPort, int receivedPayloadBytes)
 {
     if (message)
     {
         if (message->json_.contains("FEC")) {
             serverConfiguration_.setProperty("FEC", message->json_["FEC"].operator bool(), nullptr);
         }
+		if (message->json_.contains("mtu_probe_v1")) {
+			const auto& probe = message->json_["mtu_probe_v1"];
+			if (probe.is_object() && probe.contains("id") && probe["id"].is_number_unsigned()
+				&& probe.contains("size") && probe["size"].is_number_integer()
+				&& probe["size"] == receivedPayloadBytes) {
+				sendMtuAcknowledgement(senderIPAddress, senderPort,
+					probe["id"].get<uint64>(), receivedPayloadBytes);
+			}
+		}
     }
+}
+
+void AcceptThread::sendMtuAcknowledgement(const String& senderIPAddress, int senderPort,
+	uint64 probeId, int receivedPayloadBytes)
+{
+	nlohmann::json acknowledgement;
+	acknowledgement["mtu_ack_v1"]["id"] = probeId;
+	acknowledgement["mtu_ack_v1"]["size"] = receivedPayloadBytes;
+	JammerNetzControlMessage response(acknowledgement);
+	size_t bytesWritten = 0;
+	response.serialize(readbuffer, bytesWritten);
+
+	int wireBytes = static_cast<int>(bytesWritten);
+	if (blowFish_) {
+		wireBytes = blowFish_->encrypt(readbuffer, bytesWritten, MAXFRAMESIZE);
+	}
+	if (wireBytes > 0) {
+		const ScopedLock socketLock(socketWriteLock_);
+		receiveSocket_.write(senderIPAddress, senderPort, readbuffer, wireBytes);
+	}
 }
 
 void AcceptThread::processAudioMessage(std::shared_ptr<JammerNetzAudioData> audioData, std::string const& clientName)
@@ -148,7 +181,8 @@ void AcceptThread::run()
                             processAudioMessage(std::dynamic_pointer_cast<JammerNetzAudioData>(message), clientName);
                             break;
                         case JammerNetzMessage::MessageType::GENERIC_JSON:
-                            processControlMessage(std::dynamic_pointer_cast<JammerNetzControlMessage>(message));
+                            processControlMessage(std::dynamic_pointer_cast<JammerNetzControlMessage>(message),
+								senderIPAdress, senderPortNumber, dataRead);
                             break;
                         case JammerNetzMessage::MessageType::CLIENTINFO:
                             // fall through

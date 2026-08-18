@@ -37,7 +37,17 @@ bool JammerNetzSession::start(std::function<void(std::shared_ptr<JammerNetzAudio
 	sender_ = std::make_unique<Client>(*socket_);
 
 	// Fire up the network listener thread which will receive the answers from the server
-	receiver_ = std::make_unique<DataReceiveThread>(*socket_, std::move(newDataHandler));
+	receiver_ = std::make_unique<DataReceiveThread>(*socket_, std::move(newDataHandler),
+		[this](bool supported) {
+			if (sender_) {
+				sender_->setMtuDiscoverySupported(supported);
+			}
+		},
+		[this](uint64 probeId, int payloadBytes) {
+			if (sender_) {
+				sender_->acknowledgeMtuProbe(probeId, payloadBytes);
+			}
+		});
 	updateConfiguration(configuration);
 	receiver_->startThread();
 	return true;
@@ -106,6 +116,16 @@ bool JammerNetzSession::isReceivingData() const
 double JammerNetzSession::currentRTT() const
 {
 	return receiver_ ? receiver_->currentRTT() : 0.0;
+}
+
+int JammerNetzSession::safeUdpPayloadSize() const
+{
+	return sender_ ? sender_->getSafeUdpPayloadSize() : PathMtuDiscovery::fallbackPayloadBytes;
+}
+
+PathMtuDiscoveryStatus JammerNetzSession::mtuDiscoveryStatus() const
+{
+	return sender_ ? sender_->getMtuDiscoveryStatus() : PathMtuDiscoveryStatus::Unavailable;
 }
 
 std::shared_ptr<JammerNetzClientInfoMessage> JammerNetzSession::getClientInfo() const

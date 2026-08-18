@@ -12,6 +12,7 @@
 #include "DataReceiveThread.h"
 
 #include "RingOfAudioBuffers.h"
+#include "PathMtuDiscovery.h"
 #include "nlohmann/json.hpp"
 
 class Client : public AudioPacketSink {
@@ -26,13 +27,20 @@ public:
 	void setServer(const juce::String& serverName, int serverPort, bool useLocalhost);
 	void setUseFEC(bool enabled);
 	void setCryptoKey(const void* keyData, int keyBytes);
+	void setMtuDiscoverySupported(bool supported);
+	void acknowledgeMtuProbe(uint64 probeId, int payloadBytes);
 
 	// Statistics info
 	int getCurrentBlockSize() const;
+	int getSafeUdpPayloadSize() const;
+	PathMtuDiscoveryStatus getMtuDiscoveryStatus() const;
 
 private:
 	bool sendData(String const &remoteHostname, int remotePort, void *data, int numbytes);
     bool sendBufferToServer(size_t totalBytes);
+	void maybeSendMtuProbe();
+	bool sendMtuProbe(const PathMtuProbe& probe);
+	bool enableDoNotFragment();
 
 	DatagramSocket &socket_;
 	uint64 messageCounter_;
@@ -48,4 +56,6 @@ private:
 	RingOfAudioBuffers<AudioBlock> fecBuffer_; // Forward error correction buffer, keep the last n sent packages
 	juce::CriticalSection blowFishLock_;
 	std::unique_ptr<BlowFish> blowFish_;
+	mutable juce::CriticalSection mtuDiscoveryLock_;
+	PathMtuDiscovery mtuDiscovery_;
 };

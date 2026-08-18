@@ -147,9 +147,10 @@ JammerNetzStreamQualityInfo PacketStreamQueue::qualityInfoPackage() const
 
 bool PacketStreamQueue::hasBeenPushedBefore(std::shared_ptr<JammerNetzAudioData> packet)
 {
-	// Easy case - if the message number of the packet is lower than the number of the last popped packet, it is too old
+	// A packet at or below the last popped counter has already been consumed. The
+	// in-queue map cannot catch equality because the entry is erased on pop.
 	// Either it came out of order too late, or it is a duplicate!
-	if (packet->messageCounter() < lastPoppedMessage_) {
+	if (packet->messageCounter() <= lastPoppedMessage_) {
 		qualityData_.tooLateOrDuplicate++;
 		return true;
 	}

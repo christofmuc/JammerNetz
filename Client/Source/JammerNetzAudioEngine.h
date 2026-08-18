@@ -135,6 +135,8 @@ public:
 
 	uint64 currentBufferSize() const;
 	int currentPacketSize();
+	int safeUdpPayloadSize() const;
+	PathMtuDiscoveryStatus mtuDiscoveryStatus() const;
 
 	std::string currentReceptionQuality() const;
 	bool isReceivingData();

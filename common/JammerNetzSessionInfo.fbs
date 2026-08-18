@@ -8,8 +8,8 @@ include "JammerNetzChannelSetup.fbs";
 
 table JammerNetzSessionInfo {
 	allChannels :[JammerNetzPNPChannelSetup];
+	// Added after 2.3.0. Older FlatBuffers readers ignore this field.
+	capabilities :[string];
 }
 
 root_type JammerNetzSessionInfo;
-
-

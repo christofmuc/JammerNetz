@@ -30,6 +30,8 @@ table JammerNetzPNPClientInfo {
 
 table JammerNetzPNPClientInfoPackage {
 	clientInfos : [JammerNetzPNPClientInfo];
+	// Added after 2.3.0. Older FlatBuffers readers ignore this field.
+	capabilities : [string];
 }
 
 root_type JammerNetzPNPClientInfoPackage;

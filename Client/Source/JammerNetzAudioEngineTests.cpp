@@ -339,6 +339,61 @@ TEST(JammerNetzAudioDataTest, FillInPreservesRecoveredTimingAndDoesNotDuplicateC
 	EXPECT_EQ(recovered->midiSignal(), MidiSignal_Start);
 }
 
+TEST(PathMtuProbeIntegrationTest, DoesNotProbeALegacyServerWithoutACapabilityAdvertisement)
+{
+	juce::DatagramSocket serverSocket;
+	ASSERT_TRUE(serverSocket.bindToPort(0, "127.0.0.1"));
+	juce::DatagramSocket clientSocket;
+	ASSERT_TRUE(clientSocket.bindToPort(0, "127.0.0.1"));
+	Client client(clientSocket);
+	client.setServer("127.0.0.1", serverSocket.getBoundPort(), false);
+
+	auto audio = std::make_shared<juce::AudioBuffer<float>>(1, SAMPLE_BUFFER_SIZE);
+	JammerNetzChannelSetup setup(false, {
+		JammerNetzSingleChannelSetup(JammerNetzChannelTarget::Mono)
+	});
+	ASSERT_TRUE(client.sendData(setup, audio, {}));
+	ASSERT_EQ(serverSocket.waitUntilReady(true, 1000), 1);
+	std::array<uint8, MAXFRAMESIZE> bytes {};
+	EXPECT_GT(serverSocket.read(bytes.data(), static_cast<int>(bytes.size()), false), 0);
+	EXPECT_EQ(serverSocket.waitUntilReady(true, 20), 0);
+}
+
+TEST(PathMtuProbeIntegrationTest, SendsAnExactSizeProbeAfterCapabilityAdvertisement)
+{
+	juce::DatagramSocket serverSocket;
+	ASSERT_TRUE(serverSocket.bindToPort(0, "127.0.0.1"));
+	juce::DatagramSocket clientSocket;
+	ASSERT_TRUE(clientSocket.bindToPort(0, "127.0.0.1"));
+	Client client(clientSocket);
+	client.setServer("127.0.0.1", serverSocket.getBoundPort(), false);
+	const std::array<uint8, 16> key { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
+	client.setCryptoKey(key.data(), static_cast<int>(key.size()));
+	client.setMtuDiscoverySupported(true);
+	ASSERT_EQ(client.getMtuDiscoveryStatus(), PathMtuDiscoveryStatus::Searching);
+
+	auto audio = std::make_shared<juce::AudioBuffer<float>>(1, SAMPLE_BUFFER_SIZE);
+	JammerNetzChannelSetup setup(false, {
+		JammerNetzSingleChannelSetup(JammerNetzChannelTarget::Mono)
+	});
+	ASSERT_TRUE(client.sendData(setup, audio, {}));
+	std::array<uint8, MAXFRAMESIZE> bytes {};
+	ASSERT_EQ(serverSocket.waitUntilReady(true, 1000), 1);
+	EXPECT_GT(serverSocket.read(bytes.data(), static_cast<int>(bytes.size()), false), 0);
+	ASSERT_EQ(serverSocket.waitUntilReady(true, 1000), 1);
+	const auto probeBytes = serverSocket.read(bytes.data(), static_cast<int>(bytes.size()), false);
+	ASSERT_EQ(probeBytes, PathMtuDiscovery::fallbackPayloadBytes);
+	BlowFish decryptor(key.data(), static_cast<int>(key.size()));
+	const auto plaintextBytes = decryptor.decrypt(bytes.data(), static_cast<size_t>(probeBytes));
+	ASSERT_GT(plaintextBytes, 0);
+
+	auto message = std::dynamic_pointer_cast<JammerNetzControlMessage>(
+		JammerNetzMessage::deserialize(bytes.data(), static_cast<size_t>(plaintextBytes)));
+	ASSERT_NE(message, nullptr);
+	ASSERT_TRUE(message->json_.contains("mtu_probe_v1"));
+	EXPECT_EQ(message->json_["mtu_probe_v1"]["size"].get<int>(), probeBytes);
+}
+
 TEST(JammerNetzAudioEngineTest, DropsFramesInsteadOfBlockingWhenTransmitWorkerIsStalled)
 {
 	JammerNetzSession session;

@@ -87,6 +87,8 @@ set(NETWORK_FILES
 	Source/Client.h
 	Source/DataReceiveThread.cpp
 	Source/DataReceiveThread.h
+	Source/PathMtuDiscovery.cpp
+	Source/PathMtuDiscovery.h
 )
 source_group(Source\\Networking FILES ${NETWORK_FILES})
 
@@ -147,7 +149,9 @@ if(SENTRY_CRASH_REPORTING)
 endif()
 
 set(TESTNAME ClientCorrectnessTest)
-add_executable(${TESTNAME} Source/AudioCorrectnessTests.cpp Source/AudioCorrectness.h)
+add_executable(${TESTNAME}
+	Source/AudioCorrectnessTests.cpp Source/AudioCorrectness.h
+	Source/PathMtuDiscovery.cpp Source/PathMtuDiscovery.h)
 target_include_directories(${TESTNAME} PRIVATE Source)
 target_link_libraries(${TESTNAME} PRIVATE gtest gtest_main)
 jammernetz_copy_msvc_debug_runtime(${TESTNAME})
