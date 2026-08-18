@@ -23,7 +23,8 @@ AppUpdatesURL={#MyAppURL}
 DefaultDirName={autopf}\{#MyAppName}
 DisableProgramGroupPage=yes
 LicenseFile=${CMAKE_CURRENT_SOURCE_DIR}/redist/agpl-3.0.txt
-PrivilegesRequired=admin
+PrivilegesRequired=lowest
+PrivilegesRequiredOverridesAllowed=dialog
 ArchitecturesAllowed=x64
 ArchitecturesInstallIn64BitMode=x64
 OutputDir=${CMAKE_CURRENT_BINARY_DIR}
@@ -35,15 +36,20 @@ WizardStyle=modern
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
+[Messages]
+PrivilegesRequiredOverrideText2=%1 can be installed for you only without administrator privileges. Choose all users to also install the VST3 plug-in in the system-wide Common Files folder.
+PrivilegesRequiredOverrideAllUsers=Install for &all users (includes VST3 plug-in)
+PrivilegesRequiredOverrideCurrentUserRecommended=Install client for &me only (no administrator privileges, recommended)
+
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 #if @JAMMERNETZ_INSTALL_VST3@
-Name: "vst3"; Description: "Install JammerNetz VST3 plug-in"; GroupDescription: "Plug-ins:"
+Name: "vst3"; Description: "Install JammerNetz VST3 plug-in for all users"; GroupDescription: "Plug-ins:"; Check: IsAdminInstallMode
 #endif
 
 [InstallDelete]
 #if @JAMMERNETZ_INSTALL_VST3@
-Type: filesandordirs; Name: "{commoncf64}\VST3\JammerNetz.vst3"
+Type: filesandordirs; Name: "{commoncf64}\VST3\JammerNetz.vst3"; Check: IsAdminInstallMode
 #endif
 
 [Files]
@@ -75,7 +81,7 @@ Filename: "{tmp}\{#VCRedistFileName}"; StatusMsg: "Installing required VS2017 C+
 
 [UninstallDelete]
 #if @JAMMERNETZ_INSTALL_VST3@
-Type: filesandordirs; Name: "{commoncf64}\VST3\JammerNetz.vst3"
+Type: filesandordirs; Name: "{commoncf64}\VST3\JammerNetz.vst3"; Check: IsAdminInstallMode
 #endif
 
 
