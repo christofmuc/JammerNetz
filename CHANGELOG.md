@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.4.2 - 2026-08-18
+
+- Added a real-time final-mix spectrogram with waterfall display, pitch
+  tracking, musical-note overlays, and persistent resizable layouts.
+- Added backward-compatible path MTU discovery, safe-payload reporting, and
+  duplicate-packet handling for more reliable network transport.
+- Established deterministic cross-platform audio, mixer, reconnect, and
+  network-impairment test coverage with CI reports and diagnostic artifacts.
+- Made current-user Windows installation the non-elevated default while
+  retaining an all-users option for installing the system-wide VST3 plug-in.
+- Updated the ARM64 AMI workflow to build and publish immutable release-tag
+  commits safely from the protected master workflow.
+
 ## 2.4.1 - 2026-08-18
 
 - Removed the oneTBB runtime dependency from the standalone client and audio
