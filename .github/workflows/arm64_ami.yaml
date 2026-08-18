@@ -27,7 +27,8 @@ jobs:
     name: Validate publication request
     runs-on: ubuntu-24.04
     outputs:
-      checkout_ref: ${{ steps.validate.outputs.checkout_ref }}
+      source_commit: ${{ steps.resolve.outputs.source_commit }}
+      source_commit_short: ${{ steps.resolve.outputs.source_commit_short }}
     steps:
     - name: Require the protected workflow and a release source
       id: validate
@@ -48,11 +49,27 @@ jobs:
           echo "checkout_ref=refs/tags/${SOURCE_REF}" >> "${GITHUB_OUTPUT}"
         fi
 
+    - name: Checkout selected source
+      uses: actions/checkout@v6
+      with:
+        ref: ${{ steps.validate.outputs.checkout_ref }}
+
+    - name: Resolve immutable source commit
+      id: resolve
+      run: |
+        source_commit="$(git rev-parse --verify 'HEAD^{commit}')"
+        if [[ ! "${source_commit}" =~ ^[0-9a-f]{40}$ ]]; then
+          echo "::error::Selected source did not resolve to a full commit SHA." >&2
+          exit 1
+        fi
+        echo "source_commit=${source_commit}" >> "${GITHUB_OUTPUT}"
+        echo "source_commit_short=${source_commit:0:12}" >> "${GITHUB_OUTPUT}"
+
   build_server_arm64:
     needs: validate_request
     uses: ./.github/workflows/arm64_server.yaml
     with:
-      source_ref: ${{ needs.validate_request.outputs.checkout_ref }}
+      source_ref: ${{ needs.validate_request.outputs.source_commit }}
     permissions:
       contents: read
       pull-requests: read
@@ -74,14 +91,7 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v6
       with:
-        ref: ${{ needs.validate_request.outputs.checkout_ref }}
-
-    - name: Resolve source commit
-      id: source
-      run: |
-        source_commit="$(git rev-parse HEAD)"
-        echo "commit=${source_commit}" >> "${GITHUB_OUTPUT}"
-        echo "commit_short=${source_commit:0:12}" >> "${GITHUB_OUTPUT}"
+        ref: ${{ needs.validate_request.outputs.source_commit }}
 
     - name: Download ARM64 server artifact
       uses: actions/download-artifact@v8
@@ -133,8 +143,8 @@ jobs:
       env:
         AWS_REGION: ${{ inputs.aws_region }}
         BUILDER_INSTANCE_TYPE: ${{ inputs.builder_instance_type }}
-        SOURCE_COMMIT: ${{ steps.source.outputs.commit }}
-        SOURCE_COMMIT_SHORT: ${{ steps.source.outputs.commit_short }}
+        SOURCE_COMMIT: ${{ needs.validate_request.outputs.source_commit }}
+        SOURCE_COMMIT_SHORT: ${{ needs.validate_request.outputs.source_commit_short }}
       run: |
         set -o pipefail
         created_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -157,7 +167,7 @@ jobs:
       env:
         AWS_REGION: ${{ inputs.aws_region }}
         SOURCE_REF: ${{ inputs.source_ref }}
-        SOURCE_COMMIT: ${{ steps.source.outputs.commit }}
+        SOURCE_COMMIT: ${{ needs.validate_request.outputs.source_commit }}
       run: |
         ami_id="$(jq -er '.builds[-1].artifact_id | split(":") | last' packer-manifest.json)"
         aws ec2 describe-images --region "${AWS_REGION}" --owners self --image-ids "${ami_id}" >/dev/null
