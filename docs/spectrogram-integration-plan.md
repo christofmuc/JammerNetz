@@ -2,7 +2,7 @@
 
 ## Status
 
-- Target JammerNetz branch: `codex/spectrogram-integration`
+- Target JammerNetz branch: `master`
 - JammerNetz base: `origin/master` at `e4973d0`
 - Spectroscope repository: `https://github.com/christofmuc/juce-spectroscope19`
 - Spectroscope development branch: `master`
