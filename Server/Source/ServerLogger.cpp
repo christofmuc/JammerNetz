@@ -10,7 +10,7 @@
 #include <cstdio>
 #include <cstdlib>
 
-#if WIN32
+#if defined(_WIN32)
 #include <io.h>
 #else
 #include <unistd.h>
@@ -28,7 +28,7 @@ void ServerLogger::init()
 	// Services and redirected processes do not have an interactive terminal.
 	// In that case, leave terminal unset so the logger writes plain lines that
 	// systemd and other process supervisors can capture.
-#if WIN32
+#if defined(_WIN32)
 	if (!_isatty(_fileno(stdin)) || !_isatty(_fileno(stdout))) {
 		terminal = nullptr;
 		return;

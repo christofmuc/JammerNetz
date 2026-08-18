@@ -64,12 +64,11 @@ locals {
 }
 
 source "amazon-ebs" "jammernetz_arm64" {
-  ami_name        = local.ami_name
-  ami_description = "JammerNetzServer ${var.source_commit_short} on Ubuntu 24.04 LTS ARM64"
-  instance_type   = var.builder_instance_type
-  region          = var.aws_region
-  ssh_username    = "ubuntu"
-  ssh_timeout     = "15m"
+  ami_name      = local.ami_name
+  instance_type = var.builder_instance_type
+  region        = var.aws_region
+  ssh_username  = "ubuntu"
+  ssh_timeout   = "15m"
 
   source_ami_filter {
     filters = {

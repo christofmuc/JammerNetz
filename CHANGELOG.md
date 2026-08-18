@@ -1,11 +1,14 @@
 # Changelog
 
-## Unreleased
+## 2.4.1 - 2026-08-18
 
 - Removed the oneTBB runtime dependency from the standalone client and audio
   plug-ins while retaining it privately for the server.
 - Added an optional, default-selected Windows installer task for the complete
   JammerNetz VST3 bundle.
+- Added a validated ARM64 EC2 AMI build and publication pipeline with
+  systemd-based server startup and AWS Systems Manager support.
+- Fixed the Windows server build after adding non-interactive process logging.
 
 ## 2.4.0 - 2026-08-16
 

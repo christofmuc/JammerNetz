@@ -1,10 +1,8 @@
 #cloud-config
 #
 # Store the 72-byte JammerNetz key as base64 in an SSM SecureString parameter.
-# Attach an instance profile limited to that parameter and its KMS key.
-
-packages:
-  - awscli
+# Attach an instance profile limited to that parameter and its KMS key. The
+# published AMI already contains AWS CLI, so first boot needs no package install.
 
 write_files:
   - path: /usr/local/sbin/provision-jammernetz-secret
@@ -21,7 +19,7 @@ write_files:
       trap 'rm -f "${temporary_key}"' EXIT
       umask 0077
 
-      aws ssm get-parameter \
+      /snap/bin/aws ssm get-parameter \
         --region "${aws_region}" \
         --name "${parameter_name}" \
         --with-decryption \
@@ -36,9 +34,11 @@ write_files:
 
       install -o root -g jammernetz -m 0640 \
         "${temporary_key}" /etc/jammernetz/secret.key
+      systemctl daemon-reload
       systemctl restart jammernetz-server.service
 
 runcmd:
+  - [snap, wait, system, seed.loaded]
   - - env
     - JAMMERNETZ_SECRET_PARAMETER=/jammernetz/production/secret-key-base64
     - AWS_REGION=eu-central-1

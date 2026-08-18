@@ -9,11 +9,20 @@ sudo apt-get install --yes --no-install-recommends \
   iproute2 \
   libasound2t64 \
   libcurl4t64 \
+  libfontconfig1 \
   libfreetype6 \
   libncurses6 \
   libtbb12 \
   libx11-6 \
   libxext6
+
+# Ubuntu 24.04 does not provide the awscli APT package used by the first-boot
+# example. Install the AWS-supported Snap package while building the image so
+# runtime secret retrieval does not depend on package installation at boot.
+if [[ ! -x /snap/bin/aws ]]; then
+  sudo snap install aws-cli --classic
+fi
+/snap/bin/aws --version
 
 if ! getent group jammernetz >/dev/null; then
   sudo groupadd --system jammernetz
