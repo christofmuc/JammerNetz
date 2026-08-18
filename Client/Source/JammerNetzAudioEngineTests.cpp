@@ -101,9 +101,12 @@ TEST(RingBufferTest, ReadsFromTheFifoStartAfterWrapping)
 	EXPECT_EQ(observed, (std::array<float, 6> { 5.0f, 6.0f, 7.0f, 8.0f, 9.0f, 10.0f }));
 }
 
-std::shared_ptr<JammerNetzAudioData> remotePacket(uint64 counter)
+std::shared_ptr<JammerNetzAudioData> remotePacket(uint64 counter, float sampleValue = 0.0f)
 {
 	auto audio = std::make_shared<juce::AudioBuffer<float>>(2, SAMPLE_BUFFER_SIZE);
+	for (int channel = 0; channel < audio->getNumChannels(); ++channel) {
+		juce::FloatVectorOperations::fill(audio->getWritePointer(channel), sampleValue, SAMPLE_BUFFER_SIZE);
+	}
 	JammerNetzChannelSetup setup(false, {
 		JammerNetzSingleChannelSetup(JammerNetzChannelTarget::Left),
 		JammerNetzSingleChannelSetup(JammerNetzChannelTarget::Right)
@@ -301,6 +304,80 @@ TEST(JammerNetzAudioEngineTest, MixesASimulatedRemoteFrame)
 	const auto serverBpm = engine.takeServerBpmUpdate();
 	ASSERT_TRUE(serverBpm.has_value());
 	EXPECT_FLOAT_EQ(*serverBpm, 120.0f);
+}
+
+TEST(JammerNetzAudioEngineTest, BypassTransitionsDiscardStaleRemoteAudioAndRebuffer)
+{
+	const std::array<uint64_t, 2> maximums {
+		CLIENT_PLAYOUT_MAX_BUFFER,
+		256
+	};
+	constexpr uint64_t minimum = CLIENT_PLAYOUT_JITTER_BUFFER;
+	constexpr float remoteGain = 0.70710678f;
+
+	for (const auto maximum : maximums) {
+		JammerNetzSession session;
+		JammerNetzAudioEngine engine(session, juce::File());
+		engine.setPlayoutBufferRange(minimum, maximum);
+		engine.setLocalMonitoring(false);
+		uint64 counter = 1;
+
+		const auto enqueue = [&](float value) {
+			engine.enqueueRemoteAudio(remotePacket(counter++, value));
+		};
+		const auto render = [&](int samples) {
+			juce::AudioBuffer<float> output(2, samples);
+			std::array<float*, 2> channels { output.getWritePointer(0), output.getWritePointer(1) };
+			engine.process(nullptr, 0, channels.data(), 2, samples);
+			return output;
+		};
+
+		float staleValue = 0.2f;
+		for (uint64_t frame = 0; frame < minimum; ++frame) {
+			enqueue(staleValue);
+		}
+		while (engine.processNextIncomingPacket()) {}
+
+		for (int cycle = 0; cycle < 2; ++cycle) {
+			// Leave half a stale frame in the engine's local playout ring so the
+			// bypass transition has to invalidate both receive queues and playout.
+			const auto beforeBypass = render(SAMPLE_BUFFER_SIZE / 2);
+			EXPECT_NEAR(beforeBypass.getSample(0, 0), staleValue * remoteGain, 1.0e-5f);
+
+			engine.setBypassed(true);
+			// Apply the entry reset, then simulate a receive stream continuing for
+			// longer than the configured maximum while normal processing is paused.
+			EXPECT_FALSE(engine.processNextIncomingPacket());
+			for (uint64_t frame = 0; frame < maximum + minimum; ++frame) {
+				enqueue(staleValue + 0.25f);
+				engine.processNextIncomingPacket();
+			}
+
+			engine.setBypassed(false);
+			const auto immediatelyAfterResume = render(SAMPLE_BUFFER_SIZE);
+			EXPECT_EQ(immediatelyAfterResume.findMinMax(0, 0, SAMPLE_BUFFER_SIZE), juce::Range<float>());
+			EXPECT_EQ(immediatelyAfterResume.findMinMax(1, 0, SAMPLE_BUFFER_SIZE), juce::Range<float>());
+
+			// The resume reset discards all during-bypass packets and requires the
+			// configured minimum number of new frames before remote audio restarts.
+			EXPECT_FALSE(engine.processNextIncomingPacket());
+			const float currentValue = 0.7f + static_cast<float>(cycle) * 0.1f;
+			for (uint64_t frame = 0; frame + 1 < minimum; ++frame) {
+				enqueue(currentValue);
+				EXPECT_FALSE(engine.processNextIncomingPacket());
+			}
+			const auto beforeMinimum = render(SAMPLE_BUFFER_SIZE);
+			EXPECT_EQ(beforeMinimum.findMinMax(0, 0, SAMPLE_BUFFER_SIZE), juce::Range<float>());
+
+			enqueue(currentValue);
+			ASSERT_TRUE(engine.processNextIncomingPacket());
+			const auto afterMinimum = render(SAMPLE_BUFFER_SIZE);
+			EXPECT_NEAR(afterMinimum.getSample(0, 0), currentValue * remoteGain, 1.0e-5f);
+			EXPECT_NEAR(afterMinimum.getSample(1, SAMPLE_BUFFER_SIZE - 1), currentValue * remoteGain, 1.0e-5f);
+			while (engine.processNextIncomingPacket()) {}
+			staleValue = currentValue;
+		}
+	}
 }
 
 TEST(BoundedSpscQueueTest, RejectsWritesWhenFullAndPreservesOrder)

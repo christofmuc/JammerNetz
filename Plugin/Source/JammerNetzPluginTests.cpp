@@ -147,9 +147,11 @@ TEST(JammerNetzPluginTest, BypassAndOfflineRenderingRemainTransparent)
 	buffer.getWritePointer(1)[0] = -0.5f;
 	juce::MidiBuffer midi;
 
-	processor.processBlockBypassed(buffer, midi);
-	EXPECT_FLOAT_EQ(buffer.getSample(0, 0), 0.25f);
-	EXPECT_FLOAT_EQ(buffer.getSample(1, 0), -0.5f);
+	for (int bypassBlock = 0; bypassBlock < 8; ++bypassBlock) {
+		processor.processBlockBypassed(buffer, midi);
+		EXPECT_FLOAT_EQ(buffer.getSample(0, 0), 0.25f);
+		EXPECT_FLOAT_EQ(buffer.getSample(1, 0), -0.5f);
+	}
 
 	processor.setNonRealtime(true);
 	processor.processBlock(buffer, midi);

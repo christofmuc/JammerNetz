@@ -250,6 +250,19 @@ std::optional<MidiSignal> JammerNetzAudioEngine::takeMidiSignalToSend() noexcept
 void JammerNetzAudioEngine::newServer()
 {
 	resetQualityInfo_.store(true, std::memory_order_release);
+	invalidateRemotePlayout();
+}
+
+void JammerNetzAudioEngine::setBypassed(bool bypassed) noexcept
+{
+	if (bypassed_.exchange(bypassed, std::memory_order_acq_rel) == bypassed) {
+		return;
+	}
+	invalidateRemotePlayout();
+}
+
+void JammerNetzAudioEngine::invalidateRemotePlayout() noexcept
+{
 	if (receiveWorker_) {
 		expectedRemoteGeneration_.store(receiveWorker_->requestReset(), std::memory_order_release);
 	}
