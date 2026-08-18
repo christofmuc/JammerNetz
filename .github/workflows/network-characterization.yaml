@@ -1,0 +1,58 @@
+name: Network Characterization
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 3 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  characterize:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Disable git automatic line ending conversion
+      run: git config --global core.autocrlf false
+
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+        persist-credentials: false
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y g++ cmake ninja-build pkg-config nlohmann-json3-dev
+        sudo apt-get install -y libasound2-dev libjack-jackd2-dev ladspa-sdk libcurl4-openssl-dev libfreetype-dev libfontconfig1-dev
+        sudo apt-get install -y libx11-dev libxcomposite-dev libxcursor-dev libxext-dev libxinerama-dev libxrandr-dev libxrender-dev
+        sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libglu1-mesa-dev mesa-common-dev
+
+    - name: Build FlatBuffers compiler
+      run: |
+        cmake -S third_party/flatbuffers -B third_party/flatbuffers/LinuxBuilds -G Ninja -DCMAKE_BUILD_TYPE=Release
+        cmake --build third_party/flatbuffers/LinuxBuilds --parallel --target flatc
+
+    - name: Configure characterization build
+      run: |
+        cmake -S . -B builds -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DBUILD_JAMMERNETZ_SERVER=OFF -DBUILD_JAMMERNETZ_PLUGIN=OFF -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+
+    - name: Build characterization targets
+      run: |
+        cmake --build builds --parallel --target NetworkImpairmentCharacterizationTest ReconnectStressTest
+
+    - name: Run characterization and stress tests
+      run: |
+        ctest --test-dir builds --output-on-failure --no-tests=error --output-junit builds/network-characterization-results.xml -L "characterization|stress"
+
+    - name: Upload characterization report
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: NetworkCharacterization
+        path: |
+          builds/network-characterization-results.xml
+          builds/test-artifacts
+        if-no-files-found: warn

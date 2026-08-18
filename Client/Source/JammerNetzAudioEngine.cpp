@@ -44,7 +44,9 @@ void clearOutputChannels(float* const* outputChannelData, int numOutputChannels,
 
 } // namespace
 
-JammerNetzAudioEngine::JammerNetzAudioEngine(JammerNetzSession& session, const juce::File& recordingDirectory)
+JammerNetzAudioEngine::JammerNetzAudioEngine(JammerNetzSession& session,
+	const juce::File& recordingDirectory,
+	std::shared_ptr<AudioPacketSink> packetSink)
 	: session_(session)
 	, recordingDirectory_(recordingDirectory)
 	, remoteScratch_(2, JAMMERNETZ_MAX_CALLBACK_SAMPLES)
@@ -60,7 +62,7 @@ JammerNetzAudioEngine::JammerNetzAudioEngine(JammerNetzSession& session, const j
 	minPlayoutBufferLength_ = CLIENT_PLAYOUT_JITTER_BUFFER;
 	maxPlayoutBufferLength_ = CLIENT_PLAYOUT_MAX_BUFFER;
 	playoutBuffer_ = std::make_unique<RingBuffer>(2, PLAYOUT_RINGBUFFER_SIZE);
-	transmitWorker_ = std::make_unique<AudioTransmitWorker>(session_);
+	transmitWorker_ = std::make_unique<AudioTransmitWorker>(session_, std::move(packetSink));
 	receiveWorker_ = std::make_unique<AudioReceiveWorker>(session_);
 	outMeterSource_.resize(2, 1);
 
@@ -124,6 +126,16 @@ void JammerNetzAudioEngine::enqueueRemoteAudio(std::shared_ptr<JammerNetzAudioDa
 	if (receiveWorker_) {
 		receiveWorker_->enqueue(std::move(buffer));
 	}
+}
+
+bool JammerNetzAudioEngine::processNextOutgoingPacket()
+{
+	return transmitWorker_ && transmitWorker_->processNextPendingFrame();
+}
+
+bool JammerNetzAudioEngine::processNextIncomingPacket()
+{
+	return receiveWorker_ && receiveWorker_->processNextPendingFrame();
 }
 
 void JammerNetzAudioEngine::setPlayoutBufferRange(uint64 minimumLength, uint64 maximumLength)

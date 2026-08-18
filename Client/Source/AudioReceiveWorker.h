@@ -20,6 +20,9 @@ public:
 	void start();
 	void shutdown();
 	void enqueue(std::shared_ptr<JammerNetzAudioData> packet);
+	// Process queued input synchronously when the background thread is stopped.
+	// Returns true when one output frame was prepared.
+	bool processNextPendingFrame();
 	bool tryPop(RemoteAudioFrame& frame);
 	int readyFrames() const noexcept;
 
@@ -36,6 +39,7 @@ public:
 
 private:
 	void run() override;
+	bool processNextFrame();
 	void applyResetIfRequested();
 	void drainInbound();
 	bool prepareOneFrame();

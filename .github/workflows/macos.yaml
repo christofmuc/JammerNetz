@@ -74,8 +74,31 @@ jobs:
     - name: Build with CMake
       run: |
         cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 -DCMAKE_INSTALL_RPATH_USE_LINK_PATH="ON" -DJAMMERNETZ_ENABLE_LTO=ON -DCMAKE_POLICY_VERSION_MINIMUM=3.5
-        cmake --build build --target JammerNetzPlugin_VST3 JammerNetzPlugin_AU JammerNetzPluginTest --parallel
+        cmake --build build --parallel
         ctest --test-dir build -R JammerNetzPluginTest --no-tests=error --output-on-failure
+
+    - name: Run unit and system tests
+      run: |
+        ctest --test-dir build --output-on-failure --no-tests=error --output-junit build/test-results.xml -L "unit|system"
+
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: MacOSTestResults
+        path: build/test-results.xml
+        if-no-files-found: warn
+
+    - name: Upload test failure artifacts
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: MacOSTestFailureArtifacts
+        path: build/test-artifacts
+        if-no-files-found: ignore
+
+    - name: Build macOS package
+      run: |
         cmake --build build --target package --parallel
 
     - name: Validate macOS plug-ins

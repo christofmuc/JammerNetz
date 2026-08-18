@@ -11,6 +11,7 @@
 #include "IncludeFFMeters.h"
 
 #include "RingBuffer.h"
+#include "AudioPacketSink.h"
 #include "JammerNetzSession.h"
 #include "BoundedSpscQueue.h"
 #include "BuffersConfig.h"
@@ -93,7 +94,9 @@ private:
 
 class JammerNetzAudioEngine {
 public:
-	JammerNetzAudioEngine(JammerNetzSession& session, const juce::File& recordingDirectory);
+	JammerNetzAudioEngine(JammerNetzSession& session,
+		const juce::File& recordingDirectory,
+		std::shared_ptr<AudioPacketSink> packetSink = {});
 	~JammerNetzAudioEngine();
 	void start(bool enableRecording = true);
 	void shutdown();
@@ -105,6 +108,10 @@ public:
 	void prepare(double sampleRate, int maximumBlockSize);
 	void release();
 	void enqueueRemoteAudio(std::shared_ptr<JammerNetzAudioData> buffer);
+	// Headless callers use this instead of starting the background transmit thread.
+	bool processNextOutgoingPacket();
+	// Headless callers use this instead of starting the background receive thread.
+	bool processNextIncomingPacket();
 
 	void setPlayoutBufferRange(uint64 minimumLength, uint64 maximumLength);
 	void setMasterVolume(double volume);
