@@ -16,6 +16,12 @@ The AMI is based on the most recent official Canonical Ubuntu 24.04 ARM64 server
 
 The publishing role can create only the temporary EC2 resources required by Packer and the resulting AMI. It deliberately has no access to SSM Parameter Store, Secrets Manager, or JammerNetz session keys. Some EC2 creation and cleanup APIs do not support useful resource-level restrictions, so the example policy uses `Resource: "*"` for that action-level permission set. Keep this role dedicated to the AMI workflow and review its CloudTrail activity after the first build.
 
+The policy allows Packer to set only the `ImdsSupport=v2.0` image attribute on
+AMIs tagged for JammerNetz. It also permits deregistering those tagged AMIs and
+deleting their tagged snapshots when `packer build -on-error=cleanup` needs to
+roll back a failed publication. If the policy is managed separately in AWS,
+update the attached role policy whenever this checked-in policy changes.
+
 The Packer builder uses the account's default VPC. If the target account has no default VPC, add explicit VPC and subnet variables before running the workflow rather than granting Packer permission to create permanent networking resources.
 
 ## Publish an AMI

@@ -35,6 +35,43 @@
         "ec2:TerminateInstances"
       ],
       "Resource": "*"
+    },
+    {
+      "Sid": "PackerSetImdsV2OnCreatedImage",
+      "Effect": "Allow",
+      "Action": "ec2:ModifyImageAttribute",
+      "Resource": "arn:aws:ec2:*::image/ami-*",
+      "Condition": {
+        "StringEquals": {
+          "ec2:Attribute/ImdsSupport": "v2.0",
+          "ec2:ResourceTag/Application": "JammerNetzServer",
+          "ec2:ResourceTag/ManagedBy": "Packer"
+        }
+      }
+    },
+    {
+      "Sid": "PackerCleanUpCreatedImages",
+      "Effect": "Allow",
+      "Action": "ec2:DeregisterImage",
+      "Resource": "arn:aws:ec2:*::image/ami-*",
+      "Condition": {
+        "StringEquals": {
+          "ec2:ResourceTag/Application": "JammerNetzServer",
+          "ec2:ResourceTag/ManagedBy": "Packer"
+        }
+      }
+    },
+    {
+      "Sid": "PackerCleanUpCreatedSnapshots",
+      "Effect": "Allow",
+      "Action": "ec2:DeleteSnapshot",
+      "Resource": "arn:aws:ec2:*:*:snapshot/snap-*",
+      "Condition": {
+        "StringEquals": {
+          "ec2:ResourceTag/Application": "JammerNetzServer",
+          "ec2:ResourceTag/ManagedBy": "Packer"
+        }
+      }
     }
   ]
 }
