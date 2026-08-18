@@ -1,416 +1,463 @@
-# JammerNetz Automated QA Plan
+# JammerNetz Automated Testing Strategy
 
-## Milestone 1: deterministic headless mixing harness
+Status: active, living strategy
 
-Status: proposed
+Last updated: 2026-08-18
 
-Foundation: PR #56, `Phase 2: extract reusable audio engine and session`
+Foundations: [PR #56](https://github.com/christofmuc/JammerNetz/pull/56) extracted the reusable audio engine; [PR #63](https://github.com/christofmuc/JammerNetz/pull/63) implemented the deterministic headless QA foundation.
 
-Scope of this document: Milestone 1 only
+This document is the overview, roadmap, and technical design reference for automated JammerNetz testing. It should evolve with the product and record both what is protected today and what still depends on characterization or manual validation.
 
-## 1. Purpose
+## 1. Overview
 
-JammerNetz has years of successful use in real music performances over real German Internet connections. The automated QA system is intended to preserve that proven behavior, make known edge cases reproducible, and give future network and buffering changes objective evidence. It is not a replacement for rehearsal, live performance experience, or occasional tests with operating-system network shapers.
+### 1.1 Purpose
 
-PR #56 supplies the first important test seam: `JammerNetzAudioEngine` can be driven without the UI or an audio device. Milestone 1 builds a deterministic headless system around that seam and the server mixer.
+JammerNetz has years of successful use in real music performances over real German Internet connections. Automated testing should preserve that proven behavior, make known edge cases reproducible, and give network, buffering, and mixer changes objective evidence.
 
-The first milestone answers four questions:
+Automation complements rather than replaces rehearsal, real audio-interface testing, geographically distributed sessions, and occasional validation with operating-system network shapers. The strategy deliberately adds realism in layers so that failures can first be reproduced quickly and deterministically, then confirmed through the real transport and operating system.
 
-1. Does every client's generated audio reach the server in the correct order?
-2. Does the server construct the correct receiver-specific mix for every client?
-3. Do all client engines render the expected mix with no missing, repeated, or misaligned samples on a clean network?
-4. Can the harness capture and replay the two most important known failure families: large hold-and-flush bursts and disconnect/reconnect races?
+The central acceptance question is not merely whether the server remains connected. It is:
 
-Milestone 1 characterizes the known failures. Fixing their production behavior is a later, separately reviewed change.
+> Did every receiver render the expected sources in the correct order and alignment, and if not, what glitched, why, and when did coherent output return?
 
-## 2. Milestone 1 definition of done
+### 1.2 Guiding principles
 
-Milestone 1 is complete when the repository contains:
+- Test receiver output, not only server state or packet counters.
+- Prefer deterministic virtual-time reproducers for mixer and buffering policy.
+- Keep known defects as characterization until a replacement invariant is agreed; then convert them into red tests before implementing the fix.
+- Separate lossless survival, audible damage, recovery, and persistent failure.
+- Keep the fast pull-request suite independent of UI, audio devices, wall-clock sleeps, and privileged network tools.
+- Add real UDP and operating-system shaping as independent validation layers rather than making deterministic tests less reproducible.
+- Preserve failure artifacts and seeds so every automated failure can be replayed locally.
 
-- A deterministic synthetic audio source and captured audio sink.
-- A headless client driver that calls `JammerNetzAudioEngine::process()` with no UI and no physical or virtual operating-system audio device.
-- A step-driven server mixer core extracted from `MixerThread` without changing mixing policy.
-- A deterministic scenario scheduler that controls client callbacks, packet delivery, server mixing, and client playout without wall-clock sleeps.
-- Exact clean-network tests with two and four clients.
-- A repeatable hold-and-flush characterization scenario.
-- Deterministic reconnect interleaving tests plus a bounded threaded stress test for the unresolved reconnect race.
-- Structured failure artifacts containing the scenario seed, event trace, queue history, connection-state history, and signal discrepancies.
-- CTest labels and CI execution for the existing unit tests and the new clean deterministic system tests.
+### 1.3 Current coverage
 
-The clean scenarios are merge gates. Known-problem characterization and stress scenarios are visible scheduled jobs until their expected behavior is fixed and promoted to regression gates.
+| Layer | Status | What it covers | Execution |
+| --- | --- | --- | --- |
+| Unit and component tests | Implemented | Audio engine, packet queues, mixer routing, scheduler decisions, connection state, deterministic test helpers | Every pull request on Windows, Ubuntu, and macOS |
+| Clean headless system tests | Implemented | Two- and four-client sample-exact mixing through real client engines and the production server mixer | Every pull request on Windows, Ubuntu, and macOS |
+| Object-level network impairment | Implemented | Lag, jitter, loss, bursts, duplication, reordering, hold/flush, combinations, and receiver quality surfaces | Weekly and manually triggered characterization workflow |
+| Reconnect characterization | Partially implemented | Five deterministic boundary orderings and a bounded 2,000-iteration stale-underrun concurrency test | Weekly and manually triggered characterization workflow |
+| Real UDP and serialized datagrams | Not implemented | Sockets, kernel queues, serialization, encryption, MTU, malformed datagrams, and real reconnect establishment | Planned |
+| Operating-system network shaping | Not implemented | Independent validation with Linux network emulation and Clumsy or equivalent on Windows | Planned |
+| Real audio-device and geographic validation | Manual | Driver behavior, physical clock drift, callback deadlines, hardware compatibility, and actual WAN behavior | Release/rehearsal validation |
 
-## 3. Non-goals
+The current harness is strong for deterministic mixer, queue, and client playout correctness. It is not yet a complete test of the network transport because impairment is injected at the `JammerNetzAudioData` object boundary.
 
-Milestone 1 does not include:
+### 1.4 Current clean-network guarantees
 
-- A fake ASIO, CoreAudio, WASAPI, or ALSA device.
-- Automated Clumsy or BeanNetworkTester installation.
-- A complete network survival envelope.
-- Long-duration soak testing or broad random fault fuzzing.
-- Real UDP sockets, encryption, kernel queues, or process-level server tests as merge-gating dependencies.
-- Real-time allocation and callback-deadline verification planned for the later real-time work.
-- Changes to the wire protocol, buffering policy, disconnect policy, FEC policy, or mixer output.
-- Fixes for hold-and-flush or reconnect failures discovered by the harness.
+The merge-gating suite currently proves:
 
-A later milestone will add real-UDP and operating-system impairment validation. Milestone 1 first establishes a fast and deterministic correctness oracle.
+- A two-client reference mix remains sample-exact for at least 1,000 network frames.
+- Four clients remain sample-exact with repeating callback sizes below, equal to, and above the 128-sample network frame, including 32, 64, 128, 256, 512, and 1,024 samples.
+- Receiver-specific self-echo, local monitoring, channel routing, per-channel volume, master volume, BPM/MIDI selection, addressing, and session metadata preserve the extracted production behavior.
+- Synthetic generation, scheduling, signal comparison, and traces replay deterministically.
+- Late audio callbacks are safe during engine shutdown.
 
-## 4. Test model
+### 1.5 Current network findings
 
-### 4.1 Virtual time
+The measured baseline uses 48 kHz audio, 128-sample network frames, three server jitter frames, and a five-frame maximum server queue. One network frame is approximately 2.667 ms; four frames are approximately 10.7 ms and eight frames are approximately 21.3 ms.
 
-The scenario scheduler owns a monotonic virtual clock measured in samples and convertible to milliseconds. At 48 kHz with 128-sample network frames, one frame represents 2.6667 ms.
+- Clean traffic is sample-exact at both receivers.
+- Fixed lag, bounded jitter, periodic reordering, and periodic hold/flush remain receiver-sample-exact through four frames in the tested profiles and first glitch at eight frames.
+- Immediate duplicates remain sample-exact at every tested rate, including every second packet.
+- Every tested non-zero unhealed packet-loss rate creates a receiver discrepancy. Without usable redundancy, later recovery cannot make the lost interval lossless.
+- One- and two-packet periodic loss bursts recover server coherence; the first three-packet burst leaves a persistent one-frame server-side source offset.
+- Four-frame jitter combined with two-frame periodic reordering fails server coherence even though both corresponding isolated profiles recover.
+- With no slotting or two-frame slotting, only zero-loss cells through four jitter frames are sample-exact. With four-frame slotting, only zero-loss/zero-jitter is sample-exact. Eight-frame slotting glitches even with no other jitter or loss.
+- All profiles in the current bounded receiver matrix eventually regain eight sequential coherent frames; that is recovery, not lossless operation or a long-duration stability guarantee.
 
-No correctness test waits for operating-system time. A scenario advances through explicit events:
+The hold/flush tests reproduce a real architectural weakness: queue pressure from one stream can grant global permission to mix and consume the jitter reserve of unrelated streams. The findings and test-first correction are tracked in [issue #76](https://github.com/christofmuc/JammerNetz/issues/76).
 
-1. Produce a client callback.
-2. Form zero or more 128-sample outgoing frames.
-3. Deliver selected frames to the server.
-4. Run one server mixing decision.
-5. Deliver receiver-specific frames to client engines.
-6. Run client playout callbacks and capture output.
+The reconnect characterization also records two unresolved outcomes:
 
-Events at the same virtual time have a recorded ordering. Replaying the same scenario and seed must produce the same trace and result on every supported platform.
+- A same-endpoint reset-counter packet that wins the exact grace-deadline ordering can leave the client connected with an empty queue.
+- A delayed packet from an old counter generation can be accepted after a completed same-endpoint reconnect.
 
-### 4.2 Synthetic audio source
+### 1.6 What the current results do not claim
 
-Every source tracks an absolute sequential sample number. Raw ever-growing integers should not be written directly as `float` audio because they eventually lose exact integer precision and do not behave like a bounded audio signal.
+The current quality surface is an empirical result for the tested frame size, sample rate, buffer constants, impairment cadence, deterministic pattern, and bounded observation window. It is not an Internet service-level guarantee.
 
-For multi-client tests, the source value is a bounded deterministic sequence derived from:
+In particular, it does not yet cover:
+
+- actual UDP sockets, kernel queues, serialization, encryption, or process boundaries;
+- MTU changes, fragmentation, malformed or byte-tampered datagrams;
+- real thread wake-up timing, CPU starvation, or callback deadlines;
+- independent physical sender clocks and long-term sample-rate drift;
+- real audio drivers, device restarts, or unsupported hardware;
+- long-duration soak behavior or a broad randomized fault search.
+
+## 2. Plan
+
+### 2.1 Completed: Milestone 1, deterministic headless foundation
+
+Milestone 1 is complete. PR #63 delivered:
+
+1. **CI baseline**
+   - CTest labels, timeouts, and JUnit results.
+   - Unit and clean system execution on Windows, Ubuntu, and macOS pull requests.
+   - A weekly/manual characterization workflow with uploaded artifacts.
+
+2. **Deterministic test support**
+   - Synthetic sequential-identity audio, captured output, a virtual-time scenario scheduler, a signal oracle, and JSONL trace writing.
+   - Unit tests for repeatability, same-time event ordering, discrepancy coalescing, non-finite sample detection, and artifact writing.
+
+3. **Audio packet injection seam**
+   - A narrow `AudioPacketSink` boundary below `JammerNetzAudioEngine`.
+   - Production continues to delegate to the existing client transport; tests capture equivalent audio packet objects.
+
+4. **Step-driven server mixer**
+   - Production scheduling and mixing decisions extracted from `MixerThread` into synchronous, testable components.
+   - Behavior-preservation tests for routing, self-echo, metadata, clock/control selection, addressing, and malformed channel metadata.
+
+5. **Clean end-to-end scenarios**
+   - Two-client reference and four-client variable-callback merge gates.
+   - Real headless client engines on both the transmit and receiver playout sides.
+
+6. **Known-problem characterization**
+   - One-shot and periodic hold/flush sweeps.
+   - Isolated Clumsy-style profiles, two- and three-impairment combinations, and a jitter/loss/slotting quality surface.
+   - Deterministic reconnect ordering results and bounded threaded stress.
+
+### 2.2 Next: convert findings into regression protection
+
+This is the highest-value next milestone.
+
+#### 2.2.1 Fix queue-pressure chronology test-first
+
+Use [issue #76](https://github.com/christofmuc/JammerNetz/issues/76) as the design and acceptance record.
+
+1. Add a focused red regression test for an eight-frame one-shot hold/flush.
+2. Require unaffected client queues to retain their jitter reserve when another stream exceeds its maximum depth.
+3. Remove global queue overrun as permission to drain all streams.
+4. Fast-forward only the oversized stream to the target depth, retaining its newest packets.
+5. Rebase that stream's gap/FEC state so intentional fast-forward does not create a run of synthetic fill-in packets.
+6. Add sustained simulated clock-skew coverage to verify that faster streams remain bounded without shifting unrelated streams.
+7. Promote the corrected hold/flush profiles from characterization to pull-request regression gates.
+
+The required contract is:
+
+- Lossless delay, jitter, reorder, duplication, and hold/flush remain sample-exact within the supported buffer boundary.
+- Unhealed loss may create a documented discontinuity or concealment, but must not create persistent inter-source skew.
+- Latency-budget overflow uses a deliberate and observable local fast-forward/rebase policy.
+
+#### 2.2.2 Define and fix reconnect generation semantics
+
+1. Decide whether a same-endpoint reconnect with a reset message counter is valid and how it establishes a new generation.
+2. Turn the exact-deadline empty-queue outcome into a focused failing regression test.
+3. Reject or explicitly classify delayed old-generation packets after reconnect.
+4. Extend the deterministic matrix across accept, mixer, receiver playout, grace expiry, endpoint replacement, and old/new packet delivery.
+5. Extend bounded stress to the complete generation transition rather than only packet arrival versus stale underrun.
+6. Require every active receiver to regain coherent playout within a documented bound after reconnect.
+
+### 2.3 Expand deterministic characterization
+
+After the two known defects have explicit contracts:
+
+- Run multiple deterministic seeds for jitter and combination families.
+- Add longer virtual-time campaigns and selected soak profiles.
+- Add independent sender clock-rate offsets and changing drift.
+- Add correlated and stateful loss models in addition to periodic loss and fixed bursts.
+- Sweep relevant buffer constants and later supported sample rates/frame sizes.
+- Record the historical Clumsy profiles used during original development as named presets.
+- Compare scheduled summaries against a versioned baseline and flag boundary regressions automatically.
+- Generate plots from the JSON quality surfaces for human review.
+- Decompose transport, server queue, mix barrier, and receiver playout latency as proposed in [issue #80](https://github.com/christofmuc/JammerNetz/issues/80).
+
+Characterization should remain deterministic and replayable. Random exploration is valuable only when the seed, schedule, and minimized failure trace are preserved.
+
+### 2.4 Add a real-UDP automated layer
+
+The next realism layer should retain synthetic audio and headless clients while replacing the object-level packet endpoint with the real transport.
+
+It should exercise:
+
+- production serialization and deserialization;
+- encryption/authentication and malformed-packet rejection;
+- UDP socket behavior and kernel queues;
+- actual process or endpoint reconnect establishment;
+- MTU discovery, datagram size boundaries, truncation, and fragmentation-sensitive behavior;
+- a controllable UDP impairment proxy for delay, jitter, loss, duplication, reordering, throttling, and hold/flush.
+
+The deterministic object-level profiles should be reusable as proxy schedules where possible. Running the same named profile through both layers will show whether the synthetic model accurately predicts real transport behavior.
+
+Real-UDP tests should initially run as scheduled jobs. A small stable subset can become pull-request gates once execution time and flakiness are understood.
+
+### 2.5 Add operating-system and hardware validation
+
+- Add scheduled Linux operating-system network shaping as an independent check of the UDP proxy.
+- Add a self-hosted Windows job using Clumsy or an equivalent tool for historical profile compatibility.
+- Keep a documented manual release matrix for real audio interfaces, driver/device restart, actual callback timing, and geographically distributed sessions.
+- Consider hardware-in-the-loop only for a small set of stable reference devices; do not require a fake ASIO/CoreAudio/WASAPI/ALSA device for core mixer testing.
+
+Direct calls to `JammerNetzAudioEngine::process()` are the preferred artificial audio device for algorithmic tests. An operating-system fake device is useful only when testing device discovery, buffer-size negotiation, sample-rate changes, driver callbacks, or restart behavior.
+
+### 2.6 CI policy
+
+| Cadence | Required suites | Purpose |
+| --- | --- | --- |
+| Every pull request | `unit`, `system`, and promoted network regression profiles | Fast deterministic correctness and preserved known-good boundaries |
+| Weekly/manual today | `characterization`, `stress` | Full impairment matrix, quality surfaces, reconnect exploration, and artifacts |
+| Future scheduled | Multi-seed/long-duration deterministic runs and real UDP | Boundary trends, broader search, and transport validation |
+| Release candidate | OS-shaped UDP, selected hardware, and geographic rehearsal | Environment and integration confidence that hosted CI cannot provide |
+
+Known bad outcomes may remain non-blocking characterization data, but these conditions must always fail automation:
+
+- crashes, deadlocks, sanitizer findings, or timeouts;
+- non-deterministic replay of a deterministic profile;
+- missing or internally inconsistent artifacts;
+- accounting errors between generated, delivered, delayed, duplicated, and dropped packets;
+- failure of the clean receiver control;
+- regression of a profile explicitly promoted as a supported boundary.
+
+## 3. Design
+
+### 3.1 Layered test architecture
+
+```mermaid
+flowchart LR
+    S["Synthetic audio sources"] --> E1["Headless JammerNetzAudioEngine senders"]
+    E1 --> I["Deterministic impairment scheduler"]
+    I --> M["Production server scheduler and mixer core"]
+    M --> E2["Headless JammerNetzAudioEngine receivers"]
+    E2 --> O["Captured output and signal oracle"]
+    I --> A["JSON/JSONL diagnostics"]
+    M --> A
+    E2 --> A
+```
+
+The current deterministic path substitutes only packet delivery, time, and audio-device callbacks. It deliberately exercises production audio framing, server queue/scheduler decisions, receiver-specific mixing, client playout buffering, and final rendering.
+
+The future real-UDP layer replaces the deterministic packet delivery edge with production serialization, sockets, and a controlled UDP proxy. The signal source, receiver oracle, and profile definitions should remain reusable.
+
+### 3.2 Virtual time and scenario scheduling
+
+The scenario scheduler owns a monotonic clock measured in samples. At 48 kHz with 128-sample frames, one frame is approximately 2.667 ms.
+
+A deterministic scenario explicitly orders:
+
+1. client callback production;
+2. formation of zero or more outgoing network frames;
+3. impairment and packet delivery to the server;
+4. one server scheduling/mixing decision;
+5. receiver-specific packet delivery;
+6. client playout callbacks and captured output.
+
+Events scheduled for the same virtual sample retain a recorded sequence number. Replaying a profile must produce the same trace and result on every supported platform.
+
+Correctness tests do not use wall-clock sleeps. The reconnect stress test uses explicit synchronization barriers so that concurrency boundaries are exercised without relying on accidental timing.
+
+### 3.3 Synthetic signal and provenance
+
+Every source tracks an absolute sequential sample number. Audio values use a bounded deterministic sequence derived from:
 
 ```text
 (source id, channel id, absolute sample number)
 ```
 
-A source-specific pseudo-random binary sequence is suitable because it:
+This avoids floating-point precision loss from ever-growing integer ramps while keeping every sample attributable to a source and position. The source remains repeatable across arbitrary callback boundaries.
 
-- remains safely inside the audio range;
-- is exactly repeatable;
-- makes every source distinguishable after mixing;
-- supports correlation when diagnosing an offset;
-- still gives every sample a known sequential identity in the oracle.
+The test harness keeps provenance alongside packet objects and correlates it through existing message counters and server time. No test-only fields are added to the production wire protocol.
 
-A simple normalized sequential ramp may also be used in single-source framing tests. The test support library keeps the absolute sample number as provenance even when the audio value is a bounded encoding of it.
+### 3.4 Headless client and packet seam
 
-### 4.3 Headless client
+A headless client owns:
 
-Each `HeadlessClient` owns:
+- a `JammerNetzSession` and real `JammerNetzAudioEngine`;
+- a synthetic input source and captured output;
+- channel setup, local monitoring, echo, and gain configuration;
+- a repeating callback-size schedule;
+- source and rendered sample counters;
+- a test `AudioPacketSink` connected to the scenario scheduler.
 
-- a stable client identifier;
-- a `JammerNetzSession` and `JammerNetzAudioEngine`;
-- the synthetic input source;
-- an output capture buffer;
-- channel setup, local-monitoring, and echo settings;
-- an input callback-size schedule;
-- source and rendered absolute-sample counters;
-- a test packet endpoint connected to the scenario scheduler.
+The engine's production `process()` entry point remains under test. The test does not duplicate production framing, local monitoring, gain, routing, transmit buffering, receive preparation, or playout behavior.
 
-The production engine entry point remains the one under test. The headless client must not duplicate the engine's framing, playout, gain, or routing logic.
+The packet seam carries production-equivalent `JammerNetzAudioData` semantics but currently excludes bytes, encryption, and sockets. Receiving uses the production `enqueueRemoteAudio()` and playout path.
 
-PR #56 still reaches the concrete `Client` sender through `JammerNetzSession`. The implementation should introduce the narrowest possible injection seam at the audio-packet boundary. The production implementation delegates to the existing `Client`; the test implementation hands the same `JammerNetzAudioData` semantics to the scheduler. Receiving already has the necessary `enqueueRemoteAudio()` seam.
+### 3.5 Server scheduling and mixer core
 
-This boundary deliberately excludes byte serialization, encryption, and sockets from the deterministic Milestone 1 suite. Those will be exercised by a later real-UDP layer.
+Production waiting remains in `MixerThread`; synchronous scheduling and mixing live in `ServerMixScheduler` and `ServerMixerCore`. Tests can therefore execute exactly one decision without sleeping or running a production thread loop.
 
-### 4.4 Step-driven server mixer
+The extracted core exposes:
 
-`MixerThread` currently combines waiting, queue inspection, disconnect-state decisions, mixing, and outgoing-queue handling in one thread loop. Milestone 1 extracts the decision and mixing work into a synchronous component, conceptually:
+- the reason a mix did or did not run;
+- queue snapshots before and after the decision;
+- selected source packet counters and fill-in classification;
+- connection transitions and activity generations;
+- receiver-specific output packets, addressing, metadata, clock, and control selection.
 
-```cpp
-MixStepResult ServerMixerCore::step(ServerInputSnapshot inputs,
-                                    VirtualTime now);
-```
+The extraction was intended to preserve production policy. Policy corrections discovered by the harness belong in separate test-first changes.
 
-The result contains receiver-specific output packets, connection transitions, and observable queue decisions. `MixerThread` remains responsible for blocking and waking in production and calls the same core operation.
+### 3.6 Signal oracle and synchronization definitions
 
-The extraction must be behavior-preserving. Any proposed policy change found while extracting it belongs in a follow-up change backed by the new tests.
+For every rendered sample, the oracle derives the expected result from source sequences, routing, volume, receiver-specific self-echo, local monitoring, server mix position, and client playout position. Adjacent differences are coalesced into discrepancy spans rather than emitted as thousands of assertions.
 
-### 4.5 Signal oracle
+Three properties remain distinct:
 
-For every rendered sample, the oracle derives the expected result from:
+1. **Source continuity:** each source position advances once. Missing positions are gaps, repeated positions are replays, and decreasing positions indicate reordering.
+2. **Mix coherence:** source contributions selected for a receiver mix represent the intended relative positions. No source should silently remain a frame ahead or behind another after recovery.
+3. **Receiver agreement:** content differs because self-echo may be excluded, but common remote contributions retain the same relative alignment at every receiver.
 
-- all source sequences;
-- server channel routing and volume;
-- receiver-specific self-echo behavior;
-- local monitoring and monitor balance;
-- the server mix epoch;
-- the client's playout position.
+Latency is a separate measurement. A connected server, coherent server counters, and sample-exact receiver output answer different questions and must not be collapsed into one status.
 
-The oracle reports contiguous discrepancy spans rather than thousands of individual sample assertions. A discrepancy records the first and last rendered sample, involved source ids, expected and observed values, and the nearest packet and mix epochs.
+### 3.7 Clean system scenarios
 
-## 5. Meaning of synchronization
+#### Two-client reference
 
-Milestone 1 distinguishes three properties that should not be collapsed into one latency number:
+- Two distinct mono sources, one routed left and one right.
+- Self-echo disabled and local monitoring enabled.
+- Identical 128-sample callbacks.
+- At least 1,000 mixed frames after startup.
+- Exact assertions for source continuity, mix time, receiver-specific exclusion, local monitoring, and absence of unexpected fill-in/discard/underrun/connection transitions.
 
-### 5.1 Source continuity
+#### Four-client variable callbacks
 
-For each source, absolute sample numbers advance exactly once. A missing range is a gap; a repeated range is a replay; decreasing provenance is reordering.
+- Four distinct sources with representative routing.
+- Callback schedules containing 32, 64, 128, 256, 512, and 1,024 samples.
+- Staggered activation and at least ten seconds of virtual audio after activation.
+- Sample-exact output, zero relative source skew, bounded queues, and identical replay results.
 
-### 5.2 Mix coherence
+Focused unit/component tests cover `Mute`, `Left`, `Right`, `Mono`, `SendLeft`, `SendRight`, `SendMono`, echo, monitoring, volume, missing channel metadata, clock/control selection, and output addressing.
 
-All source contributions in one server mix epoch represent the intended source frame positions. On a clean network, no source may be one or more 128-sample frames ahead of another.
+### 3.8 Impairment model
 
-### 5.3 Receiver agreement
+The progressive model mirrors the original manual Clumsy workflow: enable one impairment, increase severity, identify the last supported and first failing boundary, then repeat with selected combinations.
 
-Receiver-specific content differs because self-echo may be excluded, but common remote contributions must have the same relative alignment at every receiver. Absolute playout latency may differ in later real-network tests; relative source alignment must not.
+Each standard progressive profile uses:
 
-## 6. Clean-network merge gates
+- 16 clean warm-up frames;
+- 96 generated impairment frames;
+- at least 64 normal-delivery recovery frames;
+- eight consecutive coherent frames as the bounded recovery window.
 
-### 6.1 Two-client reference scenario
+The current isolated profile families are:
 
-- Two mono clients with distinct source sequences.
-- One source routed left and one routed right.
-- Self-echo disabled, local monitoring enabled.
-- Identical 128-sample callbacks for the shortest diagnostic trace.
-- At least 1,000 mixed frames after startup stabilization.
+- fixed lag: 1, 2, 4, 8, 16, and 32 frames;
+- bounded deterministic jitter: 0 through the same maximum delays;
+- periodic single-packet drops: one per 64 through one per two frames;
+- periodic loss bursts: 1, 2, 3, 4, and 8 frames every 32 frames;
+- immediate duplicates: one per 64 through one per two frames;
+- periodic reordering displacement: 1, 2, 4, 8, and 16 frames;
+- periodic hold/throttle: 1, 2, 4, 8, 16, and 32 held frames every 32 frames;
+- a separate one-shot hold/flush sweep with release-order variations.
 
-Assertions:
+Combination families currently cover low, medium, and high levels of:
 
-- Outgoing source provenance is continuous.
-- Server time advances by exactly 128 samples per mix epoch.
-- Each server output contains the correct remote source and excludes the correct local source.
-- Each client output contains the expected local monitor plus remote mix.
-- No unexpected fill-in, discard, underrun, duplicate, or connection-state transition occurs.
+- jitter plus loss;
+- jitter plus reordering;
+- hold plus duplication;
+- lag plus loss;
+- jitter plus loss plus duplication;
+- jitter plus loss plus reordering.
 
-### 6.2 Four-client callback-framing scenario
+Clumsy's byte-tampering function is intentionally absent from the object-level layer. It must operate on serialized datagrams or real UDP so malformed-packet rejection is tested meaningfully.
 
-- Four clients with distinct mono or stereo sequences and routing.
-- Different repeating callback schedules, using sizes below, equal to, and above 128 samples, including 32, 64, 128, 256, 512, and 1024.
-- Staggered client activation after the initial steady-state reference has been established.
-- At least 10 seconds of virtual audio after all clients are active.
+### 3.9 Receiver quality and statistics
 
-Assertions:
+Every receiver records:
 
-- Callback boundaries do not affect 128-sample network-frame continuity.
-- Every receiver-specific mix is sample-correct within an agreed floating-point epsilon.
-- All common remote sources have zero relative sample skew.
-- Queue occupancy stays within configured clean-network bounds.
-- Results and traces are identical across repeated runs with the same seed.
+- rendered and compared frames;
+- glitch frames, percentage, first/last glitch, and longest glitch run;
+- discrepancy spans, mismatched channel samples, and maximum absolute error;
+- unmatched output frames and output discontinuities;
+- silent frames/runs after startup;
+- maximum playout skew and recovery frames;
+- underruns, discarded frames, receive-queue overruns, and prepared-queue high-water mark.
 
-### 6.3 Routing cases
+Server-side results separately record connection state, coherent mix windows, source skew, mix triggers, queue sizes/high-water marks, fill-in and single-source mixes, and packet-stream quality counters.
 
-Focused table-driven scenarios cover:
-
-- `Mute`, `Left`, `Right`, `Mono`, `SendLeft`, `SendRight`, and `SendMono`;
-- sender echo enabled and disabled;
-- local monitoring enabled and disabled;
-- per-channel and master volume;
-- absent input and output channels where supported by the engine contract.
-
-## 7. Known-problem characterization
-
-### 7.1 Large hold and flush
-
-This is a named scenario, not an incidental combination of random jitter.
-
-After a clean warm-up:
-
-1. Client A continues delivering one frame every 2.6667 ms.
-2. Client B's frames are held for `N` frame periods.
-3. All held B frames are released at one virtual instant, preserving their original order.
-4. Normal paced delivery resumes.
-
-The first sweep uses `N = 1, 2, 4, 8, 16, 32`. Release ordering relative to the current A frame and mixer wake-up is varied explicitly.
-
-For every run, capture:
-
-- server input queue size per client before and after each mix decision;
-- which condition triggered mixing: all clients ready or maximum-buffer pressure;
-- source packet counters selected for the mix;
-- fill-in, discard, underrun, and connection transitions;
-- output source skew and all gap/repeat spans;
-- time and frame count until clean coherent output resumes.
-
-Milestone 1 does not declare an arbitrary acceptable burst size. It establishes the current boundary and produces a deterministic trace for the first bad outcome. Historical Clumsy settings used during original development should later be recorded as named profiles alongside the synthetic frame-count sweep.
-
-### 7.2 Disconnect/reconnect race
-
-The current `ClientState` tests cover basic grace recovery, grace expiry, stale activity generations, and concurrent access. They do not yet cover the complete accept/mix/playout interaction or systematically explore boundary interleavings.
-
-The deterministic scenario scheduler must explore at least these event orderings:
-
-- a packet arrives immediately before or after the mixer observes an empty queue;
-- a packet arrives immediately before or after `markUnderrun()`;
-- a packet arrives immediately before, at, or after grace-period expiry;
-- another client crosses the maximum-buffer threshold while the target client is paused;
-- reconnect uses the same endpoint or a new endpoint;
-- the message counter continues or restarts;
-- delayed packets from the old connection arrive before or after new-connection packets;
-- client playout is simultaneously underrunning and rebuffering.
-
-Working hypotheses to test, not assumed root causes:
-
-- A true reconnect during the grace period may be classified as grace recovery and retain an old packet queue while the sender's message counter has restarted.
-- An old delayed packet may cross a queue-generation or connection-state boundary.
-- Mixer observation, packet activity, and grace expiry may form an ordering not covered by the current activity-generation check.
-- The server may recover its connection state while one or more clients remain permanently rebuffering.
-
-Required invariants:
-
-- No use-after-free, invalid queue access, deadlock, or process termination.
-- A packet accepted after a stale mixer observation prevents that stale observation from disconnecting the client.
-- A completed reconnect has an unambiguous packet-generation policy.
-- Old-generation packets cannot contaminate a newly established stream.
-- Once paced traffic resumes, every active client returns to coherent output within a measured and reported number of frames.
-
-In addition to deterministic ordering tests, a bounded threaded stress test repeatedly coordinates accept, mixer, and inspection operations at the critical boundaries. It uses explicit synchronization hooks rather than sleeps, records its seed, has a hard timeout, and emits the last event trace on failure.
-
-The race investigation is successful when it yields either a deterministic failing ordering or a bounded explored matrix with no failure and enough trace detail to identify the next missing dimension. A flaky test with no replay artifact is not an acceptable reproducer.
-
-### 7.3 Initial deterministic baseline
-
-The first automated characterization uses the production defaults of three server jitter frames and five maximum server queue frames. It records, but does not treat as a merge-gating failure, the following current behavior:
-
-- Holds of one, two, and four frames return to coherent source counters.
-- At eight held frames, maximum-buffer-pressure mixing produces persistent source skew and does not achieve eight consecutive coherent frames during the following 64-frame observation window.
-- Sixteen- and 32-frame holds increase the maximum observed source skew and the number of single-source mixes.
-- If grace expiry is processed before a same-endpoint packet whose counter restarted, the packet establishes a fresh reconnection.
-- If that reset-counter packet wins the exact-deadline ordering, it is classified as grace recovery but rejected by the retained old queue, leaving the client connected with an empty queue.
-- A delayed packet from the old counter generation is currently accepted by a newly established same-endpoint queue.
-
-The scheduled characterization workflow publishes the complete JSON summary and per-scenario JSONL traces. These observations are baselines for later mitigation changes, not assertions that preserve the defects.
-
-### 7.4 Progressive Clumsy-style impairment matrix
-
-The deterministic transport also mirrors the original manual Clumsy workflow: enable one impairment, increase its severity until the mixer no longer recovers, and then repeat with selected combinations of two or three impairments. Clumsy's throttle operation maps to the existing hold-and-flush model because it blocks traffic for an interval and releases the accumulated packets as one batch.
-
-Each progressive profile impairs client B while client A remains a paced reference. After 16 clean warm-up frames, the impairment runs for 96 generated frames. Normal delivery then continues for at least 64 frames. The first implementation reports **server recovery** when both server-side client states finish connected and the server produces eight consecutive mixes with matching source counters after all delayed impaired packets could have arrived. This is a bounded server queue/mixer recovery measurement, not an end-to-end survival result or a claim of glitch-free audio during the impairment.
-
-The isolated sweeps cover:
-
-- fixed lag of one, two, four, eight, 16, and 32 frames;
-- deterministic variable lag from zero through the same maximum frame delays;
-- periodic single-packet drops from one per 64 frames through one per two frames;
-- consecutive drop bursts of one, two, three, four, and eight frames every 32 frames;
-- duplicates from one per 64 frames through one per two frames;
-- periodic out-of-order displacement of one, two, four, eight, and 16 frames;
-- periodic throttle windows holding one, two, four, eight, 16, and 32 frames before batch release;
-- the separate one-shot hold-and-flush sweep described in 7.1.
-
-The first measured progressive baseline is:
-
-- Fixed and variable lag recover through a four-frame maximum and fail to regain coherence at eight frames.
-- Periodic isolated losses recover even when every second packet is removed. One- and two-packet loss bursts recover, while the first three-packet burst leaves a persistent one-frame source offset.
-- Immediate duplicates recover at every tested rate, including every second packet.
-- Periodic reordering recovers through the tested 16-frame displacement. At displacements of eight frames and above, the delayed packets are classified as missing and later too old, but paced traffic still regains alignment.
-- Periodic throttle windows recover through four held frames and fail to regain coherence at eight held frames.
-- Four-frame jitter combined with two-frame periodic reordering fails even though each isolated profile recovers. This is the first demonstrated combination-only failure.
-
-Combination families use low, medium, and high profiles for jitter plus loss, jitter plus reordering, hold/throttle plus duplication, lag plus loss, jitter plus loss plus duplication, and jitter plus loss plus reordering. The reports identify the last server-recovered and first server-recovery-failure profile in each ordered family.
-
-The named profiles now also pass each receiver-specific server mix through a real headless `JammerNetzAudioEngine`. The receiver probe drives the production playout queue without an audio device, ignores only the defined startup prefill, and compares every subsequent rendered sample with the ideal receiver-specific signal. This receiver-aware result is the end-to-end survival measurement; server recovery remains a separate diagnostic.
-
-Each receiver records output and compared frames, glitch frames and spans, mismatched samples, maximum absolute error, discontinuities, silent runs after startup, playout skew, underruns, discarded frames, receive-queue overruns, and the prepared-queue high-water mark. A profile is classified as:
+Receiver outcome classes are:
 
 - `sample_exact` (score 2): both receivers render every observed post-start sample exactly and never underrun;
 - `glitched_but_recovered` (score 1): at least one receiver glitches, but both later render eight identifiable sequential frames;
-- `persistent_failure` (score 0): at least one receiver does not regain that eight-frame coherent window.
+- `persistent_failure` (score 0): at least one receiver does not regain that coherent window.
 
-The first receiver-aware baseline adds an important distinction to the server-only results:
+The quality surface crosses five jitter values and seven loss rates across four slotting facets, producing 140 plot-ready cells. Stable lossless audio means `sample_exact`, not merely server recovery.
 
-- Clean traffic is sample-exact at both receivers.
-- Fixed lag, jitter, periodic reordering, and periodic hold-and-flush remain sample-exact through four frames, but first produce receiver glitches at eight frames.
-- Every tested non-zero unhealed packet-loss rate produces a sample discrepancy at the receiver whose mix contains the impaired source. The other receiver remains exact because self-echo is excluded. Thus there is currently no non-zero lossless drop-rate boundary; server recovery after loss does not mean glitch-free audio.
-- Immediate duplicates remain sample-exact at every tested rate, including every second packet.
-- All existing progressive isolated and combination profiles regain at least eight sequential receiver frames after their glitches during the bounded observation window. That is recovery, not lossless operation.
+### 3.10 Reconnect characterization
 
-### 7.5 Receiver quality surface
+The current deterministic matrix records five orderings:
 
-A Cartesian characterization dataset describes the current lossless boundary over jitter, periodic packet loss, and slotting/hold-and-flush. It sweeps maximum jitter of zero, two, four, six, and eight frames against loss rates of 0%, 1.5625%, 3.125%, 6.25%, 12.5%, 25%, and 50%, with separate facets holding zero, two, four, or eight frames every 32 frames. Each cell contains the quality class and numeric score plus the full server and per-receiver metrics, so CI artifacts can be plotted without parsing textual test output.
+- packet arrival before a stale underrun decision;
+- packet arrival after underrun but before grace expiry;
+- grace expiry before a reset-counter packet;
+- reset-counter packet immediately before expiry at the deadline;
+- delayed old-counter packet after completed reconnect.
 
-The initial surface shows:
+The bounded threaded test repeats packet arrival against a stale underrun decision 2,000 times and requires the client to remain connected with the accepted packet queued.
 
-- without slotting, or with two-frame slotting, only zero-loss cells up to four jitter frames are sample-exact;
-- with four-frame slotting, only the zero-loss/zero-jitter cell is sample-exact;
-- eight-frame slotting produces receiver glitches even at zero jitter and zero loss;
-- every other tested cell glitches but regains an eight-frame coherent window; no persistent-failure cell occurs in this bounded matrix.
+This coverage proves the activity-generation guard for that narrow race. It does not yet prove the complete accept/mix/playout reconnect lifecycle or establish an unambiguous old/new packet-generation policy.
 
-These are empirical boundaries for the current frame size, sample rate, buffer constants, impairment cadence, seed, and observation window—not general Internet service-level guarantees. A stable-lossless claim means a `sample_exact` cell, not merely a connected server or later recovery.
+### 3.11 Artifacts and observability
 
-Clumsy's byte-tampering function is not represented by this object-level injection path. Meaningful tamper coverage must inject serialized datagrams before production deserialization, or use real UDP, so malformed-packet rejection is tested rather than merely changing an already-valid audio object.
-
-The JSON summaries and per-profile JSONL traces are written below `test-artifacts/network-impairments`. Plot-ready surface facets live below `quality-surface/hold-N/summary.json`. Current behavioral boundaries remain characterization data rather than merge-gating assertions; deterministic replay, artifact generation, harness accounting, and the clean receiver control are the gates.
-
-## 8. Observability and artifacts
-
-The harness records structured events such as:
+Structured traces may contain:
 
 ```text
-virtual sample/time
-event sequence number
-client and connection generation
-source packet counter
-server mix epoch and server time
+virtual sample and time
+event sequence number and seed
+client and activity generation
+source/message counter
+server mix epoch and trigger
 queue sizes and high-water marks
 connection state and transition
-delivery action: paced, held, flushed, dropped, duplicated
-client playout state
-first output discrepancy, gap, or repeat
+delivery action: paced, delayed, held, flushed, dropped, or duplicated
+receiver playout state
+first discrepancy, gap, repeat, or recovery window
 ```
 
-On success, merge-gating tests need only concise assertions. On failure, the test writes:
+Current artifacts are written below the build tree:
 
-- `scenario.json`: seed, configuration, and scheduled events;
-- `trace.jsonl`: ordered event and state history;
-- `summary.json`: counters, maxima, discrepancy spans, and recovery result;
-- optionally a short WAV excerpt around the first audible discrepancy.
+- CTest JUnit results;
+- hold/flush `summary.json` and per-case JSONL traces;
+- isolated and combined impairment summaries and per-profile JSONL traces;
+- quality-surface `quality-surface/hold-N/summary.json` facets;
+- disconnect/reconnect `summary.json`.
 
-Artifacts live under the build tree, not the source tree. CI publishes them only for failed or scheduled characterization runs.
+The weekly/manual workflow uploads `builds/test-artifacts` and the characterization JUnit file even when a test fails. Future additions should include a compact scenario manifest and, where useful, a short WAV excerpt around the first audible discrepancy.
 
-No test-only provenance is added to the production wire protocol. The harness maintains provenance beside packet objects and correlates it through existing message counters and server time.
+### 3.12 Test organization
 
-## 9. Test organization and CI
+CTest labels are:
 
-CTest labels:
-
-- `unit`: existing focused tests and new pure helper tests;
-- `system`: deterministic clean multi-client scenarios;
-- `characterization`: hold-and-flush and other known degraded conditions;
+- `unit`: focused production components and deterministic test helpers;
+- `system`: clean deterministic multi-client scenarios;
+- `characterization`: degraded conditions and observed boundaries;
 - `stress`: bounded concurrent reconnect exploration.
 
-Pull requests run `unit` and `system` on supported platforms. Scheduled jobs run all labels with multiple seeds where applicable. Characterization jobs may report known audio failures without blocking a merge, but crashes, deadlocks, timeouts, missing artifacts, and harness invariant violations always fail.
+Pull-request workflows execute `unit|system`. The `Network Characterization` workflow executes `characterization|stress` every Monday and on manual dispatch, then publishes its reports.
 
-The existing CI currently builds test targets but does not execute CTest. The first implementation change adds `ctest --output-on-failure` with the appropriate build directory and configuration on Windows, Linux, and macOS.
+The implementation lives primarily in:
 
-Target budgets:
+- [`test_support/DeterministicAudioTestSupport.*`](../test_support/DeterministicAudioTestSupport.h)
+- [`integration_tests/CleanNetworkSystemTests.cpp`](../integration_tests/CleanNetworkSystemTests.cpp)
+- [`integration_tests/NetworkImpairmentCharacterizationTests.cpp`](../integration_tests/NetworkImpairmentCharacterizationTests.cpp)
+- [`integration_tests/ReconnectCharacterizationTests.cpp`](../integration_tests/ReconnectCharacterizationTests.cpp)
+- [`integration_tests/ReconnectStressTests.cpp`](../integration_tests/ReconnectStressTests.cpp)
+- [`Server/Source/ServerMixScheduler.*`](../Server/Source/ServerMixScheduler.h)
+- [`Server/Source/ServerMixerCore.*`](../Server/Source/ServerMixerCore.h)
+- [`Client/Source/JammerNetzAudioEngineTests.cpp`](../Client/Source/JammerNetzAudioEngineTests.cpp)
+- [`.github/workflows/network-characterization.yaml`](../.github/workflows/network-characterization.yaml)
 
-- `unit`: under 10 seconds total;
-- deterministic `system`: under 30 seconds total despite simulating several seconds of audio;
-- each characterization scenario: under 30 seconds;
-- reconnect `stress`: bounded separately for scheduled CI and never part of an unbounded loop.
+### 3.13 Future real-UDP design
 
-## 10. Implementation sequence
+A real-UDP harness should use the same synthetic sources, named impairment profiles, and receiver oracle. A controllable proxy between actual endpoints should timestamp and schedule serialized datagrams without understanding already-decoded audio objects.
 
-1. **CI baseline**
-   - Execute existing CTest targets.
-   - Add labels, timeouts, and artifact directory conventions.
+The first version can run all endpoints on one host to test production sockets and bytes reproducibly. Later OS-shaped and multi-host jobs validate kernel/network behavior independently. Each layer should report the same core metrics so results can be compared:
 
-2. **Test support library**
-   - Add synthetic source, output capture, scenario scheduler, signal oracle, and trace writer.
-   - Add unit tests proving repeatability and discrepancy detection.
+```text
+deterministic object model -> controlled UDP proxy -> OS shaper -> real WAN
+```
 
-3. **Packet injection seam**
-   - Add the minimal production/test packet-sink boundary below the engine.
-   - Preserve the existing `Client` behavior in the production implementation.
+Differences between adjacent layers are evidence: they reveal transport, scheduling, or environment behavior missing from the simpler model.
 
-4. **Server mixer extraction**
-   - Move one mixer decision into a synchronous core operation.
-   - Add behavior-preservation tests for routing, self-echo, BPM/MIDI selection, and output addressing.
+### 3.14 Maintaining this strategy
 
-5. **Clean end-to-end scenarios**
-   - Implement the two-client reference and four-client variable-callback gates.
+Every network, buffering, scheduler, reconnect, FEC, or playout change should answer:
 
-6. **Known-problem scenarios**
-   - Add the hold-and-flush sweep and artifact report.
-   - Add reconnect event-order exploration and bounded threaded stress.
+1. Which layer demonstrates the problem before the change?
+2. What receiver-level invariant defines success?
+3. Is the case a merge gate, a known-failure characterization, or a scheduled experiment?
+4. Which metrics and artifacts make a failure diagnosable?
+5. Does a real-UDP or OS-shaped confirmation add material confidence?
 
-Each implementation step should be reviewable independently. Refactoring changes must be separated from any behavior changes suggested by the new evidence.
-
-## 11. Review questions before implementation
-
-The implementation review should confirm:
-
-- Whether the first clean four-client scenario should model each performer as mono, stereo, or a representative mixture.
-- Which historical Clumsy throttle/hold settings and observed symptoms should become named characterization profiles.
-- Whether a same-endpoint reconnect with a reset message counter is valid production behavior or should be rejected explicitly.
-- What recovery interval musicians consider acceptable after a transient outage, once the harness can measure it reliably.
-
-These choices refine characterization thresholds; they do not block construction of the deterministic harness and clean correctness gates.
+When a characterization defect is fixed, preserve its reproducer, change its expected invariant, and promote the narrowest stable case into the pull-request regression suite. Do not preserve historical bad output as the desired behavior.
