@@ -2,6 +2,7 @@
 
 #include "JuceHeader.h"
 
+#include "JammerNetzPackage.h"
 #include "MidiController.h"
 #include "BoundedSpscQueue.h"
 
@@ -13,19 +14,25 @@ public:
 	MidiSendThread(std::vector<juce::MidiDeviceInfo> const outputs);
 	virtual ~MidiSendThread() override;
 	void shutdown();
+	void disableOutput() noexcept;
 
-	bool enqueue(std::chrono::high_resolution_clock::duration fromNow, std::vector<MidiMessage> const &messages);
+	// The audio callback only publishes fixed-size event descriptions. JUCE MIDI
+	// messages (including the Boss SysEx payload) are constructed on this worker.
+	bool enqueueAt(std::chrono::steady_clock::time_point whenToSend, float bpm, MidiSignal signal, bool sendClock);
 	uint64_t droppedMessages() const noexcept;
 
 	void run() override;
 
 private:
 	struct MessageQueueItem {
-		std::chrono::high_resolution_clock::time_point whenToSend;
-		std::vector<MidiMessage> whatToSend;
+		std::chrono::steady_clock::time_point whenToSend;
+		float bpm { 0.0f };
+		MidiSignal signal { MidiSignal_None };
+		bool sendClock { false };
 	};
 	// MIDI clock remains timely by dropping new messages after 256 are pending.
 	BoundedSpscQueue<MessageQueueItem> midiMessages { 256 };
 	std::atomic<uint64_t> droppedMessages_ { 0 };
+	std::atomic<bool> outputEnabled_ { true };
 	std::vector<std::shared_ptr<midikraft::SafeMidiOutput>> f8_outputs;
 };

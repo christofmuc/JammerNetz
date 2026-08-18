@@ -20,7 +20,9 @@ table JammerNetzPNPAudioBlock {
 	sampleRate :uint16;
 	channelSetup :[JammerNetzPNPChannelSetup];
 	channels :[JammerNetzPNPAudioSamples];
-	allChannels :[JammerNetzPNPChannelSetup] (deprecated);  // This was deprecated to reduce the size of the return package
+	// Kept for compatibility with 2.3.0-rc4. Modern peers send an empty vector,
+	// while the server populates it only when replying to a legacy client.
+	allChannels :[JammerNetzPNPChannelSetup];
 	wantEcho: bool = true; // True is the old behavior where the client did not have any local monitoring!
 	serverTime :uint64 = 0;
 	bpm :float = 0.0;
@@ -29,6 +31,9 @@ table JammerNetzPNPAudioBlock {
 
 table JammerNetzPNPAudioData {
 	audioBlocks :[JammerNetzPNPAudioBlock];
+	// 0 is the implicit version of packets written by 2.3.0-rc4 and older.
+	// Version 1 introduced separate SESSIONSETUP messages.
+	protocolVersion :uint16 = 0;
 }
 
 root_type JammerNetzPNPAudioData;

@@ -17,9 +17,9 @@ PacketStreamQueue::PacketStreamQueue(std::string const &streamName) :
 bool PacketStreamQueue::push(std::shared_ptr<JammerNetzAudioData> packet)
 {
 	if (!hasBeenPushedBefore(packet)) {
-		currentlyInQueue_.insert(std::make_pair(packet->messageCounter(), true));
+		currentlyInQueue_.insert(packet->messageCounter());
 		qualityData_.packagesPushed++;
-		packetQueue.push(packet);
+		packetQueue_.push(packet);
 		if (packet->messageCounter() < lastPushedMessage_) {
 			// Ups, this came in out of order (but not too late, else we classify it as "tooLateOrDuplicate")
 			qualityData_.outOfOrderPacketCounter++;
@@ -53,9 +53,11 @@ bool PacketStreamQueue::push(std::shared_ptr<JammerNetzAudioData> packet)
 bool PacketStreamQueue::try_pop(std::shared_ptr<JammerNetzAudioData> &element, bool &outIsFillIn)
 {
 	std::shared_ptr<JammerNetzAudioData> packet;
-	if (!packetQueue.try_pop(packet)) {
+	if (packetQueue_.empty()) {
 		return false;
 	}
+	packet = packetQueue_.top();
+	packetQueue_.pop();
 
 	// Is this the correct package?
 	if ((lastPoppedMessage_ + 1 == packet->messageCounter()) || !lastPoppedMessageData_) {
@@ -79,7 +81,7 @@ bool PacketStreamQueue::try_pop(std::shared_ptr<JammerNetzAudioData> &element, b
 	else {
 		// Ok, as we are at the bottom of the buffer, we give up hope that the packet we were looking for still arrives
 		// Consider it MIA and use the one we popped to create a fill in package, maybe FEC can help. And it needs to go back into the priority queue
-		packetQueue.push(packet);
+		packetQueue_.push(packet);
 		if (currentGap_ < 1) {
 			bool hadFEC;
 			element = packet->createFillInPackage(lastPoppedMessage_ + 1, hadFEC);
@@ -107,8 +109,7 @@ bool PacketStreamQueue::try_pop(std::shared_ptr<JammerNetzAudioData> &element, b
 
 void PacketStreamQueue::reset()
 {
-	std::shared_ptr<JammerNetzAudioData> packet;
-	while (packetQueue.try_pop(packet)) {}
+	packetQueue_ = {};
 	currentlyInQueue_.clear();
 	lastPushedMessage_.store(0, std::memory_order_relaxed);
 	lastPoppedMessage_.store(0, std::memory_order_relaxed);
@@ -131,7 +132,7 @@ void PacketStreamQueue::reset()
 
 size_t PacketStreamQueue::size() const
 {
-	return packetQueue.size();
+	return packetQueue_.size();
 }
 
 std::string PacketStreamQueue::qualityStatement() const
@@ -153,8 +154,7 @@ bool PacketStreamQueue::hasBeenPushedBefore(std::shared_ptr<JammerNetzAudioData>
 		return true;
 	}
 	// Else we rely on the set<> that tracks the messages we have pushed into the queue but not popped
-	tbb::concurrent_hash_map<uint64, bool>::const_accessor found_accessor;
-	if (currentlyInQueue_.find(found_accessor, packet->messageCounter())) {
+	if (currentlyInQueue_.find(packet->messageCounter()) != currentlyInQueue_.end()) {
 		qualityData_.duplicatePacketCounter++;
 		return true;
 	}

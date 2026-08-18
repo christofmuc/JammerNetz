@@ -27,7 +27,8 @@ void SendThread::determineTargetIP(std::string const &targetAddress, String &ipA
 	portNumber = atoi(targetAddress.substr(targetAddress.find(':') + 1).c_str());
 }
 
-void SendThread::sendAudioBlock(std::string const &targetAddress, AudioBlock &audioBlock) {
+void SendThread::sendAudioBlock(OutgoingPackage const &package) {
+	const auto &targetAddress = package.targetAddress;
 	if (fecData_.find(targetAddress) == fecData_.end()) {
 		// First time we send a package to this address, create a ring buffer!
 		fecData_.emplace(targetAddress, FEC_RINGBUFFER_SIZE);
@@ -41,12 +42,15 @@ void SendThread::sendAudioBlock(std::string const &targetAddress, AudioBlock &au
 		//dataForClient.serialize(writebuffer_, bytesWritten, fecData_.find(targetAddress)->second.getLast(), SAMPLE_RATE, FEC_SAMPLERATE_REDUCTION);
 	}
 
-	JammerNetzAudioData dataForClient(audioBlock, fecBlock);
+	JammerNetzAudioData dataForClient(package.audioBlock, fecBlock);
+	if (!JammerNetzProtocol::supportsSplitSessionInfo(package.receiverProtocolVersion)) {
+		dataForClient.setLegacySessionSetup(package.sessionSetup);
+	}
 	size_t bytesWritten = 0;
 	dataForClient.serialize(writebuffer_, bytesWritten);
 
 	// Store the package sent in the FEC buffer for the next package to go out
-	auto redundancyData = std::make_shared<AudioBlock>(audioBlock);
+	auto redundancyData = std::make_shared<AudioBlock>(package.audioBlock);
 	fecData_.find(targetAddress)->second.push(redundancyData);
 
 	String ipAddress;
@@ -130,7 +134,7 @@ void SendThread::run()
 			return;
 
 		// Now serialize the buffer and create the datagram to send back to the client
-		sendAudioBlock(nextBlock.targetAddress, nextBlock.audioBlock);
+		sendAudioBlock(nextBlock);
 
 		// Check if we want to send a statistics package to that client (every nth data package)
 		if (packageCounters_.find(nextBlock.targetAddress) == packageCounters_.end()) {
@@ -139,7 +143,9 @@ void SendThread::run()
 		}
 		if (packageCounters_[nextBlock.targetAddress] % 100 == 0) {
 			sendClientInfoPackage(nextBlock.targetAddress);
-            sendSessionInfoPackage(nextBlock.targetAddress, nextBlock.sessionSetup);
+			if (JammerNetzProtocol::supportsSplitSessionInfo(nextBlock.receiverProtocolVersion)) {
+				sendSessionInfoPackage(nextBlock.targetAddress, nextBlock.sessionSetup);
+			}
 		}
 		packageCounters_[nextBlock.targetAddress]++;
 	}

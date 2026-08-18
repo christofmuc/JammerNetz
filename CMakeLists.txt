@@ -38,7 +38,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 IF(APPLE)
-# -fno-aligned-allocation is required for macOS 10.13 and the newer Intel TBBs
+# Required for the oneTBB-backed server runtime and headless server-core tests.
 add_compile_options(-Wno-unused-command-line-argument -fno-aligned-allocation)
 ENDIF()
 
@@ -243,7 +243,7 @@ set_target_properties(juce-static PROPERTIES
 	CXX_VISIBILITY_PRESET hidden)
 
 
-# Configure TBB
+# Configure oneTBB for the server runtime and headless server-core tests.
 set(TBB_TEST OFF)
 if(WIN32)
 	string(REPLACE "." ";" VERSION_LIST ${CMAKE_CXX_COMPILER_VERSION})
@@ -251,6 +251,19 @@ if(WIN32)
 	list(GET VERSION_LIST 1 MSVC_VERSION_MINOR)
 	SET(MY_TBB_BINARY_DIR_BASE msvc_${MSVC_VERSION_MAJOR}.${MSVC_VERSION_MINOR}_cxx20_64_md)
 	message("Determined TBB binary directory base as ${MY_TBB_BINARY_DIR_BASE}")
+
+	function(jammernetz_copy_tbb_runtime target)
+		add_custom_command(
+			TARGET ${target} POST_BUILD
+			COMMAND ${CMAKE_COMMAND} -E copy_if_different
+					${CMAKE_BINARY_DIR}/$<IF:$<CONFIG:Release>,${MY_TBB_BINARY_DIR_BASE}_release/tbb12.dll,$<IF:$<CONFIG:Debug>,${MY_TBB_BINARY_DIR_BASE}_debug/tbb12_debug.dll,${MY_TBB_BINARY_DIR_BASE}_relwithdebinfo/tbb12.dll>>
+					$<TARGET_FILE_DIR:${target}>
+			COMMENT "Deploying the oneTBB runtime for ${target}"
+		)
+	endfunction()
+else()
+	function(jammernetz_copy_tbb_runtime target)
+	endfunction()
 endif()
 
 # Add subdirectories
@@ -272,12 +285,12 @@ add_subdirectory("modules/MidiKraft")
 message(${CMAKE_MODULE_PATH})
 add_subdirectory("third_party/oneTBB" EXCLUDE_FROM_ALL)
 add_subdirectory("common")
-if(BUILD_JAMMERNETZ_SERVER)
-	add_subdirectory("Server")
-endif()
+add_subdirectory("test_support")
+add_subdirectory("Server")
 
 if(BUILD_JAMMERNETZ_CLIENT)
 add_subdirectory("Client")
+add_subdirectory("integration_tests")
 
 if(BUILD_JAMMERNETZ_PLUGIN)
 	add_subdirectory("Plugin")
@@ -286,6 +299,11 @@ endif()
 # The standalone installer contains the server as well for local testing when both are enabled.
 if(BUILD_JAMMERNETZ_SERVER)
 	add_dependencies(JammerNetzClient JammerNetzServer)
+endif()
+if(WIN32 AND BUILD_JAMMERNETZ_PLUGIN)
+	# The client post-build step creates the installer, so the complete VST3 bundle
+	# must be ready before that step can run in a parallel build.
+	add_dependencies(JammerNetzClient JammerNetzPlugin_VST3)
 endif()
 endif()
 

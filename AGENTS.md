@@ -35,11 +35,11 @@ Plugin\windows-debug.cmd ableton
 Plugin\windows-debug.cmd vs
 ```
 
-The helper locates Visual Studio through `vswhere`, adds the installed x64 MSVC
-Debug CRT and the build's `tbb12_debug.dll` directory to `PATH`, and builds
-Debug TBB if necessary. Launch hosts or Visual Studio through the helper when
-loading Debug plug-ins; Debug runtime DLLs are not globally installed on
-`PATH`.
+The helper locates Visual Studio through `vswhere` and adds the installed x64
+MSVC Debug CRT to `PATH`. The server keeps its private oneTBB dependency and
+stages the matching runtime beside its executable; the plug-in and standalone
+client do not load oneTBB. Launch hosts or Visual Studio through the helper when
+loading Debug plug-ins; Debug CRT DLLs are not globally installed on `PATH`.
 
 If Git reports dubious ownership in an agent or container environment, use a
 command-local `safe.directory` override for the current checkout. Do not change

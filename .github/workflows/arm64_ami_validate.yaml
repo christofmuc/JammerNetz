@@ -1,0 +1,40 @@
+name: Validate ARM64 AMI Configuration
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/arm64_ami.yaml
+      - .github/workflows/arm64_ami_validate.yaml
+      - .github/workflows/arm64_server.yaml
+      - aws/ami/**
+  push:
+    paths:
+      - .github/workflows/arm64_ami.yaml
+      - .github/workflows/arm64_ami_validate.yaml
+      - .github/workflows/arm64_server.yaml
+      - aws/ami/**
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v6
+
+    - name: Install Packer
+      env:
+        PACKER_VERSION: 1.16.0
+      run: bash aws/ami/scripts/install-packer.sh
+
+    - name: Validate shell scripts
+      run: shellcheck aws/ami/scripts/*.sh
+
+    - name: Validate Packer template without creating AWS resources
+      working-directory: aws/ami
+      run: |
+        packer init .
+        packer fmt -check -recursive .
+        packer validate -syntax-only .

@@ -11,25 +11,58 @@
 
 #include <cmath>
 
-JammerNetzAudioEngine::JammerNetzAudioEngine(JammerNetzSession& session, const juce::File& recordingDirectory)
+namespace {
+
+class ScopedAudioCallbackActivity {
+public:
+	explicit ScopedAudioCallbackActivity(std::atomic<uint32_t>& activeCallbacks) noexcept
+		: activeCallbacks_(activeCallbacks)
+	{
+		activeCallbacks_.fetch_add(1, std::memory_order_seq_cst);
+	}
+
+	~ScopedAudioCallbackActivity()
+	{
+		activeCallbacks_.fetch_sub(1, std::memory_order_seq_cst);
+	}
+
+private:
+	std::atomic<uint32_t>& activeCallbacks_;
+};
+
+void clearOutputChannels(float* const* outputChannelData, int numOutputChannels, int numSamples) noexcept
+{
+	if (!outputChannelData || numOutputChannels <= 0 || numSamples <= 0) {
+		return;
+	}
+	for (int channel = 0; channel < numOutputChannels; ++channel) {
+		if (outputChannelData[channel]) {
+			juce::FloatVectorOperations::clear(outputChannelData[channel], numSamples);
+		}
+	}
+}
+
+} // namespace
+
+JammerNetzAudioEngine::JammerNetzAudioEngine(JammerNetzSession& session,
+	const juce::File& recordingDirectory,
+	std::shared_ptr<AudioPacketSink> packetSink)
 	: session_(session)
 	, recordingDirectory_(recordingDirectory)
 	, remoteScratch_(2, JAMMERNETZ_MAX_CALLBACK_SAMPLES)
 	, masterVolume_(1.0)
 	, monitorBalance_(0.0)
-	, clientBpm_(0.0f)
 	, serverBpm_(0.0)
 	, ignoreNextServerBpmChange_(false)
 	, pendingServerBpm_(0.0f)
 	, bpmSliderLastMovedTicks_(0)
-	, midiSignalToSend_(MidiSignal_None)
 {
 	configuredInputState_ = std::make_shared<const InputState>(InputState { JammerNetzChannelSetup(false), nullptr });
 	inputState_.store(configuredInputState_.get(), std::memory_order_release);
 	minPlayoutBufferLength_ = CLIENT_PLAYOUT_JITTER_BUFFER;
 	maxPlayoutBufferLength_ = CLIENT_PLAYOUT_MAX_BUFFER;
 	playoutBuffer_ = std::make_unique<RingBuffer>(2, PLAYOUT_RINGBUFFER_SIZE);
-	transmitWorker_ = std::make_unique<AudioTransmitWorker>(session_);
+	transmitWorker_ = std::make_unique<AudioTransmitWorker>(session_, std::move(packetSink));
 	receiveWorker_ = std::make_unique<AudioReceiveWorker>(session_);
 	outMeterSource_.resize(2, 1);
 
@@ -50,6 +83,7 @@ void JammerNetzAudioEngine::start(bool enableRecording)
 	if (started_) {
 		return;
 	}
+	shutdownRequested_.store(false, std::memory_order_seq_cst);
 	started_ = true;
 	if (enableRecording) {
 		uploadRecorder_ = std::make_shared<Recorder>(recordingDirectory_, "LocalRecording", RecordingType::WAV);
@@ -64,6 +98,10 @@ void JammerNetzAudioEngine::start(bool enableRecording)
 
 void JammerNetzAudioEngine::shutdown()
 {
+	shutdownRequested_.store(true, std::memory_order_seq_cst);
+	while (activeAudioCallbacks_.load(std::memory_order_seq_cst) != 0) {
+		juce::Thread::sleep(1);
+	}
 	started_ = false;
 	if (auto* tap = outputTap_.exchange(nullptr, std::memory_order_acq_rel)) {
 		tap->release();
@@ -78,15 +116,10 @@ void JammerNetzAudioEngine::shutdown()
 	if (receiveWorker_) {
 		receiveWorker_->shutdown();
 	}
+	realtimeMidiSender_.store(nullptr, std::memory_order_seq_cst);
 	auto activeMidiSendThread = midiSendThread_.load(std::memory_order_acquire);
 	midiSendThread_.store(nullptr, std::memory_order_release);
-	{
-		const ScopedLock lock(retiredMidiSendThreadsLock_);
-		if (activeMidiSendThread) {
-			retiredMidiSendThreads_.push_back(std::move(activeMidiSendThread));
-		}
-		retiredMidiSendThreads_.clear();
-	}
+	retireMidiSender(std::move(activeMidiSendThread));
 	masterRecorder_.reset();
 	uploadRecorder_.reset();
 }
@@ -96,6 +129,16 @@ void JammerNetzAudioEngine::enqueueRemoteAudio(std::shared_ptr<JammerNetzAudioDa
 	if (receiveWorker_) {
 		receiveWorker_->enqueue(std::move(buffer));
 	}
+}
+
+bool JammerNetzAudioEngine::processNextOutgoingPacket()
+{
+	return transmitWorker_ && transmitWorker_->processNextPendingFrame();
+}
+
+bool JammerNetzAudioEngine::processNextIncomingPacket()
+{
+	return receiveWorker_ && receiveWorker_->processNextPendingFrame();
 }
 
 void JammerNetzAudioEngine::setPlayoutBufferRange(uint64 minimumLength, uint64 maximumLength)
@@ -161,24 +204,47 @@ void JammerNetzAudioEngine::restartClock(std::vector<MidiDeviceInfo> outputs)
 {
 	// Where to send the Midi Clock signals
 	auto retiredMidiSendThread = midiSendThread_.load(std::memory_order_acquire);
-	midiSendThread_.store(nullptr, std::memory_order_release);
-	if (retiredMidiSendThread) {
-		retiredMidiSendThread->shutdown();
-	}
 	auto sender = std::make_shared<MidiSendThread>(outputs);
 	midiSendThread_.store(sender, std::memory_order_release);
-	if (receiveWorker_) {
-		receiveWorker_->setMidiSender(sender);
+	// Publish the replacement before retiring the previous sender. Retirement
+	// waits for any audio chunk that observed the old raw pointer to finish.
+	realtimeMidiSender_.store(sender.get(), std::memory_order_seq_cst);
+	retireMidiSender(std::move(retiredMidiSendThread));
+}
+
+void JammerNetzAudioEngine::retireMidiSender(std::shared_ptr<MidiSendThread> sender)
+{
+	if (!sender) {
+		return;
 	}
-	if (retiredMidiSendThread) {
-		const ScopedLock lock(retiredMidiSendThreadsLock_);
-		retiredMidiSendThreads_.push_back(std::move(retiredMidiSendThread));
+	sender->disableOutput();
+	// realtimeMidiSender_ has already published its replacement. The audio
+	// callback validates its hazard pointer before dereferencing the sender, so
+	// a matching hazard identifies the only callback that can still use it.
+	while (realtimeMidiSenderHazard_.load(std::memory_order_seq_cst) == sender.get()) {
+		juce::Thread::sleep(1);
 	}
+	sender->shutdown();
+	retiredMidiOutputEventsDropped_.fetch_add(sender->droppedMessages(), std::memory_order_relaxed);
 }
 
 void JammerNetzAudioEngine::setMidiSignalToSend(MidiSignal signal)
 {
-	midiSignalToSend_.setValue(signal);
+	if (signal == MidiSignal_None) {
+		return;
+	}
+	if (!midiSignalsToSend_.tryWrite([signal](MidiSignal& queued) { queued = signal; })) {
+		midiTransportCommandsDropped_.fetch_add(1, std::memory_order_relaxed);
+	}
+}
+
+std::optional<MidiSignal> JammerNetzAudioEngine::takeMidiSignalToSend() noexcept
+{
+	MidiSignal result = MidiSignal_None;
+	if (midiSignalsToSend_.tryRead([&result](MidiSignal& queued) { result = queued; })) {
+		return result;
+	}
+	return {};
 }
 
 void JammerNetzAudioEngine::newServer()
@@ -259,9 +325,111 @@ void JammerNetzAudioEngine::calcLocalMonitoring(const float* const* inputChannel
 	}
 }
 
+void JammerNetzAudioEngine::resetPlayoutState() noexcept
+{
+	playoutBuffer_->clear();
+	playoutTimingRead_ = 0;
+	playoutTimingWrite_ = 0;
+	playoutTimingCount_ = 0;
+	playoutSamplesWritten_ = 0;
+	playoutSamplesRead_ = 0;
+}
+
+void JammerNetzAudioEngine::appendPlayoutTiming(const RemoteAudioFrame& frame) noexcept
+{
+	if (playoutTimingCount_ == playoutTimingMarkers_.size()) {
+		midiTimingMarkersDropped_.fetch_add(1, std::memory_order_relaxed);
+		playoutSamplesWritten_ += SAMPLE_BUFFER_SIZE;
+		return;
+	}
+	auto& marker = playoutTimingMarkers_[playoutTimingWrite_];
+	marker.playoutSample = playoutSamplesWritten_;
+	marker.serverSampleEnd = frame.serverSampleEnd;
+	marker.bpm = frame.bpm;
+	marker.midiSignal = frame.midiSignal;
+	playoutTimingWrite_ = (playoutTimingWrite_ + 1) % playoutTimingMarkers_.size();
+	++playoutTimingCount_;
+	playoutSamplesWritten_ += SAMPLE_BUFFER_SIZE;
+}
+
+void JammerNetzAudioEngine::scheduleMidiForPlayout(int numSamples) noexcept
+{
+	const auto readEnd = playoutSamplesRead_ + static_cast<uint64_t>(numSamples);
+	const auto playoutStart = std::chrono::steady_clock::now();
+	MidiSendThread* sender = nullptr;
+	do {
+		sender = realtimeMidiSender_.load(std::memory_order_seq_cst);
+		realtimeMidiSenderHazard_.store(sender, std::memory_order_seq_cst);
+	} while (sender != realtimeMidiSender_.load(std::memory_order_seq_cst));
+	while (playoutTimingCount_ > 0) {
+		const auto& marker = playoutTimingMarkers_[playoutTimingRead_];
+		if (marker.playoutSample >= readEnd) {
+			break;
+		}
+		if (sender) {
+			const auto frameOffset = marker.playoutSample > playoutSamplesRead_
+				? marker.playoutSample - playoutSamplesRead_
+				: 0;
+			scheduleMidiFrame(sender, marker.serverSampleEnd, marker.bpm, marker.midiSignal,
+				frameOffset, playoutStart);
+		}
+		playoutTimingRead_ = (playoutTimingRead_ + 1) % playoutTimingMarkers_.size();
+		--playoutTimingCount_;
+	}
+	realtimeMidiSenderHazard_.store(nullptr, std::memory_order_seq_cst);
+	playoutSamplesRead_ = readEnd;
+}
+
+void JammerNetzAudioEngine::scheduleMidiFrame(MidiSendThread* sender, uint64 serverSampleEnd, float bpm,
+	MidiSignal signal, uint64_t frameOffsetSamples, std::chrono::steady_clock::time_point playoutStart) noexcept
+{
+	const auto atSampleOffset = [playoutStart](double samples) {
+		return playoutStart + std::chrono::duration_cast<std::chrono::steady_clock::duration>(
+			std::chrono::duration<double>(samples / static_cast<double>(SAMPLE_RATE)));
+	};
+	if (signal != MidiSignal_None) {
+		sender->enqueueAt(atSampleOffset(static_cast<double>(frameOffsetSamples)), bpm, signal, false);
+	}
+
+	if (!std::isfinite(bpm) || bpm <= 0.0f || bpm > 1000.0f || serverSampleEnd < SAMPLE_BUFFER_SIZE) {
+		return;
+	}
+	constexpr double pulsesPerQuarterNote = 24.0;
+	const double samplesPerPulse = static_cast<double>(SAMPLE_RATE) * 60.0
+		/ (static_cast<double>(bpm) * pulsesPerQuarterNote);
+	if (!std::isfinite(samplesPerPulse) || samplesPerPulse <= 0.0) {
+		return;
+	}
+	const double frameStart = static_cast<double>(serverSampleEnd - SAMPLE_BUFFER_SIZE);
+	const double frameEnd = static_cast<double>(serverSampleEnd);
+	const auto firstPulse = static_cast<uint64_t>(std::ceil(frameStart / samplesPerPulse - 1.0e-12));
+	// The UI currently caps tempo at 250 BPM (one pulse per 480 samples). Keep
+	// this loop bounded even when receiving malformed or future protocol data.
+	constexpr uint64_t maximumPulsesPerFrame = 8;
+	for (uint64_t pulse = firstPulse; pulse < firstPulse + maximumPulsesPerFrame; ++pulse) {
+		const double pulseSample = static_cast<double>(pulse) * samplesPerPulse;
+		if (pulseSample >= frameEnd - 1.0e-9) {
+			break;
+		}
+		const double offset = static_cast<double>(frameOffsetSamples) + pulseSample - frameStart;
+		sender->enqueueAt(atSampleOffset(std::max(0.0, offset)), bpm, MidiSignal_None, true);
+	}
+}
+
 void JammerNetzAudioEngine::process(const float* const* inputChannelData, int numInputChannels, float* const* outputChannelData,
     int numOutputChannels, int numSamples)
 {
+	if (shutdownRequested_.load(std::memory_order_seq_cst)) {
+		clearOutputChannels(outputChannelData, numOutputChannels, numSamples);
+		return;
+	}
+	const ScopedAudioCallbackActivity callbackActivity(activeAudioCallbacks_);
+	// Close the race where shutdown starts after the first check but before this
+	// callback publishes that it may access the workers.
+	if (shutdownRequested_.load(std::memory_order_seq_cst)) {
+		clearOutputChannels(outputChannelData, numOutputChannels, numSamples);
+		return;
+	}
 	if (!outputChannelData || numOutputChannels <= 0 || numSamples <= 0) {
 		return;
 	}
@@ -310,7 +478,7 @@ void JammerNetzAudioEngine::processChunk(const float* const* inputChannelData, i
 		qualityInfo = PlayoutQualityInfo();
 	}
 	if (resetPlayoutRequested_.exchange(false, std::memory_order_acq_rel)) {
-		playoutBuffer_->clear();
+		resetPlayoutState();
 		isPlaying_.store(false, std::memory_order_release);
 	}
 	const auto* inputState = inputState_.load(std::memory_order_acquire);
@@ -348,7 +516,7 @@ void JammerNetzAudioEngine::processChunk(const float* const* inputChannelData, i
 		while (inputState->ingestBuffer->getNumReady() >= SAMPLE_BUFFER_SIZE) {
 			if (transmitWorker_ && transmitWorker_->hasCapacity()) {
 				if (!transmitWorker_->enqueueFrom(*inputState->ingestBuffer, numInputChannels,
-						clientBpm_.readOnce(), midiSignalToSend_.readOnce())) {
+						clientBpm_.takeLatest(), takeMidiSignalToSend())) {
 					inputState->ingestBuffer->discard(SAMPLE_BUFFER_SIZE);
 				}
 			} else {
@@ -390,6 +558,7 @@ void JammerNetzAudioEngine::processChunk(const float* const* inputChannelData, i
 		}
 		std::array<const float*, 2> pointers { frame.samples[0].data(), frame.samples[1].data() };
 		playoutBuffer_->write(pointers.data(), 2, SAMPLE_BUFFER_SIZE);
+		appendPlayoutTiming(frame);
 		qualityInfo.toPlayLatency_ = Time::getMillisecondCounterHiRes() - frame.sourceTimestamp;
 	}
 	qualityInfo.currentPlayQueueLength_ = receiveWorker_ ? static_cast<uint64>(receiveWorker_->readyFrames()) : 0;
@@ -402,12 +571,13 @@ void JammerNetzAudioEngine::processChunk(const float* const* inputChannelData, i
 		if (playoutBuffer_->getNumReady() < numSamples) {
 			qualityInfo.playUnderruns_++;
 			isPlaying_.store(false, std::memory_order_release);
-			playoutBuffer_->clear();
+			resetPlayoutState();
 			if (receiveWorker_) {
 				receiveWorker_->requestRebuffer();
 			}
 		}
 		else {
+			scheduleMidiForPlayout(numSamples);
 			std::array<float*, 2> scratchPointers { remoteScratch_.getWritePointer(0), remoteScratch_.getWritePointer(1) };
 			playoutBuffer_->read(scratchPointers.data(), 2, numSamples);
 
@@ -555,6 +725,12 @@ RealtimeWorkerStats JammerNetzAudioEngine::getRealtimeWorkerStats() const
 		stats.recordingFramesWritten = recordingWorker_->writtenFrames();
 		stats.recordingFramesDropped = recordingWorker_->droppedFrames();
 	}
+	stats.midiTransportCommandsDropped = midiTransportCommandsDropped_.load(std::memory_order_relaxed);
+	stats.midiTimingMarkersDropped = midiTimingMarkersDropped_.load(std::memory_order_relaxed);
+	if (const auto sender = midiSendThread_.load(std::memory_order_acquire)) {
+		stats.midiOutputEventsDropped = sender->droppedMessages();
+	}
+	stats.midiOutputEventsDropped += retiredMidiOutputEventsDropped_.load(std::memory_order_relaxed);
 	return stats;
 }
 

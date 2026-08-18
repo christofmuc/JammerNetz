@@ -6,8 +6,11 @@
 
 #include "AudioTransmitWorker.h"
 
-AudioTransmitWorker::AudioTransmitWorker(JammerNetzSession& session)
-	: juce::Thread("JammerNetz transmit"), session_(session)
+#include <utility>
+
+AudioTransmitWorker::AudioTransmitWorker(JammerNetzSession& session,
+	std::shared_ptr<AudioPacketSink> packetSink)
+	: juce::Thread("JammerNetz transmit"), session_(session), packetSink_(std::move(packetSink))
 {
 	channelSetup_.store(std::make_shared<const JammerNetzChannelSetup>(false), std::memory_order_release);
 }
@@ -82,11 +85,23 @@ FFAU::LevelMeterSource* AudioTransmitWorker::meterSource() noexcept { return &me
 void AudioTransmitWorker::run()
 {
 	while (!threadShouldExit()) {
-		const bool hadFrame = queue_.tryRead([this](TransmitAudioFrame& frame) { processFrame(frame); });
-		if (!hadFrame) {
+		if (!processNextFrame()) {
 			juce::Thread::sleep(1);
 		}
 	}
+}
+
+bool AudioTransmitWorker::processNextPendingFrame()
+{
+	if (isThreadRunning()) {
+		return false;
+	}
+	return processNextFrame();
+}
+
+bool AudioTransmitWorker::processNextFrame()
+{
+	return queue_.tryRead([this](TransmitAudioFrame& frame) { processFrame(frame); });
 }
 
 void AudioTransmitWorker::processFrame(TransmitAudioFrame& frame)
@@ -112,11 +127,12 @@ void AudioTransmitWorker::processFrame(TransmitAudioFrame& frame)
 		details.pitch = tuner_.getPitch(static_cast<size_t>(channel));
 	}
 
-	if (auto* sender = session_.sender()) {
+	auto* packetSink = packetSink_ ? packetSink_.get() : session_.sender();
+	if (packetSink) {
 		ControlData controls;
 		controls.bpm = frame.bpm;
 		controls.midiSignal = frame.midiSignal;
-		if (sender->sendData(outgoing, audio, controls)) {
+		if (packetSink->sendData(outgoing, audio, controls)) {
 			sent_.fetch_add(1, std::memory_order_relaxed);
 		}
 	}

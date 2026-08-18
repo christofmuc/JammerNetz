@@ -45,7 +45,7 @@ original `.p12` outside the repository.
 ## Running a distribution
 
 Open **Actions > macOS Signed Distribution > Run workflow** and select the
-branch or tag to build. A release tag such as `2.3.0` or `2.3.0-rc4` also
+branch or tag to build. A release tag such as `2.4.1` or `2.4.1-rc1` also
 starts the workflow automatically. Successful runs upload one `JammerNetz-macOS-notarized`
 artifact containing the DMG and the two plug-in ZIPs.
 

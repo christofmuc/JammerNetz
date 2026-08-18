@@ -39,7 +39,7 @@ It should be noted that due to the design of the system, we have a few limitatio
 
 ## Usage
 
-We provide installers for Windows and Mac client to download here in the release section. The server executable is also installed by the Windows installer for you to test it e.g. locally, but for real life application you'd need to run the server somewhere in the cloud.
+We provide installers for Windows and Mac client to download here in the release section. The Windows installer includes the server executable for local testing and offers the JammerNetz VST3 plug-in as a default-selected task. For real-life applications you'd need to run the server somewhere in the cloud.
 
 you will need some experience in compiling a C++ application and starting an AWS (or Azure or self-hosted or...) instance and deploying the Linux build of the server there to run it. Depending on the interest in this system, we might be able to provide more help.
 
@@ -95,7 +95,7 @@ to your configure command.
 
 We use modern [CMake 3.14](https://cmake.org/) and Visual Studio 2022 Build Tools for C++. The default generator in this repository is Ninja, so make sure `ninja` is installed and you build from a Developer Command Prompt / Developer PowerShell so MSVC is available.
 
-Optionally, if you want to produce a Windows-style installer for your band members: We always recommend the [InnoSetup](http://www.jrsoftware.org/isinfo.php) tool, really one of these golden tools that despite its age shines on and on. Download it and install it, it will automatically be picked up and used by the build process.
+Optionally, if you want to produce a Windows-style installer for your band members: We always recommend the [InnoSetup](http://www.jrsoftware.org/isinfo.php) tool, really one of these golden tools that despite its age shines on and on. Download it and install it, it will automatically be picked up and used by the CMake build process. The legacy `Client/Client.jucer` project instead reads the compiler location from `JAMMERNETZ_ISCC_EXE`; set that local environment variable to the full path of `iscc.exe` before building its Release configuration.
 
 Using CMake and building JammerNetz client and server is a multi-step build:
 
@@ -111,7 +111,7 @@ For CI/release builds with symbols, explicitly enable LTO:
     cmake -S . -B Builds\Windows -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DJAMMERNETZ_ENABLE_LTO=ON
     cmake --build Builds\Windows --parallel
 
-The build will take a few minutes, and produce optimized Client and Server binaries with debug symbols, as well as a client installer in case you have InnoSetup installed before kicking off. The installer executable is created as `<JammerNetzDir>\Builds\Client\jammernetz_setup_x.x.x.exe`
+The build will take a few minutes and produce optimized Client, Server, and VST3 binaries with debug symbols, as well as a client installer if Inno Setup was installed before configuring CMake. The installer offers the complete VST3 bundle as a default-selected task and is created as `<JammerNetzDir>\Builds\Windows\Client\jammernetz_setup_x.x.x.exe`.
 
 To test it, you can launch the server on your local machine with
 
@@ -164,6 +164,8 @@ You will find the output of the Build machine in the directory &lt;JammerNetzDir
 ### Deploying the Linux build to a real Ubuntu server
 
 The build above produced a Linux executable. If you have an Ubuntu server running you want to use, e.g. an Amazon EC2 instance, you can copy the executable to the server e.g. with scp, then dial into the machine with ssh and launch it. For example (from within the `<JammerNetz>` directory, use the IP of your server of course):
+
+For repeatable ARM64 EC2 deployments without compiling on the instance, the repository also contains a manually triggered Packer workflow that publishes a private Ubuntu 24.04 AMI with `JammerNetzServer` already installed. See [aws/ami/README.md](aws/ami/README.md) for the AWS OIDC setup, publication procedure, and deployment-time session-key provisioning.
 
     scp Builds\LinuxBuilds\Server\JammerNetzServer ubuntu@192.168.172.1:.
 

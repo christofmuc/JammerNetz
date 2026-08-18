@@ -81,3 +81,23 @@ jobs:
         cmake -S . -B builds -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DJAMMERNETZ_ENABLE_LTO=ON -DCMAKE_POLICY_VERSION_MINIMUM=3.5
         cmake --build builds --parallel
         ctest --test-dir builds -R JammerNetzPluginTest --no-tests=error --output-on-failure
+
+    - name: Run unit and system tests
+      run: |
+        ctest --test-dir builds --output-on-failure --no-tests=error --output-junit builds/test-results.xml -L "unit|system"
+
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: UbuntuTestResults
+        path: builds/test-results.xml
+        if-no-files-found: warn
+
+    - name: Upload test failure artifacts
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: UbuntuTestFailureArtifacts
+        path: builds/test-artifacts
+        if-no-files-found: ignore

@@ -7,13 +7,16 @@
 #include "JammerNetzAudioEngine.h"
 #include "AudioReceiveWorker.h"
 #include "BuffersConfig.h"
+#include "DeterministicAudioTestSupport.h"
 #include "BoundedSpscQueue.h"
-#include "PacketStreamQueue.h"
+#include "RingBuffer.h"
 
 #include <gtest/gtest.h>
 
 #include <array>
 #include <cmath>
+#include <memory>
+#include <type_traits>
 #include <vector>
 
 namespace {
@@ -51,6 +54,51 @@ JammerNetzChannelSetup monoLocalSetup()
 	JammerNetzChannelSetup setup(true);
 	setup.channels.emplace_back(JammerNetzChannelTarget::Mono);
 	return setup;
+}
+
+class CapturingAudioPacketSink final : public AudioPacketSink {
+public:
+	bool sendData(JammerNetzChannelSetup const& channelSetup,
+		std::shared_ptr<AudioBuffer<float>> audioBuffer,
+		ControlData controllers) override
+	{
+		const MidiSignal midiSignal = controllers.midiSignal.value_or(MidiSignal_None);
+		auto capturedAudio = std::make_shared<AudioBuffer<float>>();
+		*capturedAudio = *audioBuffer;
+		packets.push_back(std::make_shared<JammerNetzAudioData>(
+			nextMessageCounter++, nextTimestamp++, channelSetup, SAMPLE_RATE,
+			controllers.bpm, midiSignal, std::move(capturedAudio), nullptr));
+		return true;
+	}
+
+	std::vector<std::shared_ptr<JammerNetzAudioData>> packets;
+
+private:
+	uint64 nextMessageCounter { 10 };
+	double nextTimestamp { 0.0 };
+};
+
+static_assert(std::is_base_of_v<AudioPacketSink, Client>);
+
+TEST(RingBufferTest, ReadsFromTheFifoStartAfterWrapping)
+{
+	RingBuffer ringBuffer(1, 8);
+	const std::array<float, 6> firstWrite { 0.0f, 1.0f, 2.0f, 3.0f, 4.0f, 5.0f };
+	const float* firstWriteChannels[] { firstWrite.data() };
+	ringBuffer.write(firstWriteChannels, 1, static_cast<int>(firstWrite.size()));
+
+	std::array<float, 5> discarded {};
+	float* discardedChannels[] { discarded.data() };
+	ringBuffer.read(discardedChannels, 1, static_cast<int>(discarded.size()));
+
+	const std::array<float, 5> secondWrite { 6.0f, 7.0f, 8.0f, 9.0f, 10.0f };
+	const float* secondWriteChannels[] { secondWrite.data() };
+	ringBuffer.write(secondWriteChannels, 1, static_cast<int>(secondWrite.size()));
+
+	std::array<float, 6> observed {};
+	float* observedChannels[] { observed.data() };
+	ringBuffer.read(observedChannels, 1, static_cast<int>(observed.size()));
+	EXPECT_EQ(observed, (std::array<float, 6> { 5.0f, 6.0f, 7.0f, 8.0f, 9.0f, 10.0f }));
 }
 
 std::shared_ptr<JammerNetzAudioData> remotePacket(uint64 counter)
@@ -164,11 +212,65 @@ TEST(JammerNetzAudioEngineTest, OutputTapReceivesTheFinalStereoMix)
 	engine.setOutputTap(nullptr);
 }
 
+TEST(JammerNetzAudioEngineTest, SendsDeterministicPacketThroughInjectedSink)
+{
+	JammerNetzSession session;
+	auto sink = std::make_shared<CapturingAudioPacketSink>();
+	JammerNetzAudioEngine engine(session, juce::File(), sink);
+	engine.setChannelSetup(monoLocalSetup());
+	engine.setLocalMonitoring(false);
+	engine.setClientBpm(123.0f);
+	engine.setMidiSignalToSend(MidiSignal_Start);
+
+	jammernetz::test::SyntheticAudioSource source(7, 1);
+	for (const int blockSize : std::array<int, 2> { 32, SAMPLE_BUFFER_SIZE - 32 }) {
+		auto input = source.render(blockSize);
+		std::vector<float> left(static_cast<size_t>(blockSize));
+		std::vector<float> right(static_cast<size_t>(blockSize));
+		const float* inputs[] { input.getReadPointer(0) };
+		float* outputs[] { left.data(), right.data() };
+		engine.process(inputs, 1, outputs, 2, blockSize);
+	}
+	ASSERT_TRUE(engine.processNextOutgoingPacket());
+	EXPECT_FALSE(engine.processNextOutgoingPacket());
+
+	ASSERT_EQ(sink->packets.size(), 1U);
+	const auto& packet = *sink->packets.front();
+	EXPECT_EQ(packet.messageCounter(), 10U);
+	EXPECT_FLOAT_EQ(packet.bpm(), 123.0f);
+	EXPECT_EQ(packet.midiSignal(), MidiSignal_Start);
+	EXPECT_TRUE(packet.channelSetup().isLocalMonitoringDontSendEcho);
+	ASSERT_EQ(packet.audioBuffer()->getNumChannels(), 1);
+	ASSERT_EQ(packet.audioBuffer()->getNumSamples(), SAMPLE_BUFFER_SIZE);
+	for (int sample = 0; sample < SAMPLE_BUFFER_SIZE; ++sample) {
+		EXPECT_FLOAT_EQ(packet.audioBuffer()->getSample(0, sample),
+			jammernetz::test::SyntheticAudioSource::valueAt(7, 0, static_cast<jammernetz::test::SampleIndex>(sample)));
+	}
+}
+
+TEST(JammerNetzAudioEngineTest, ShutdownSilencesLateAudioCallbacks)
+{
+	JammerNetzSession session;
+	JammerNetzAudioEngine engine(session, juce::File());
+	engine.shutdown();
+
+	std::array<float, 32> left;
+	std::array<float, 32> right;
+	left.fill(1.0f);
+	right.fill(1.0f);
+	float* outputs[] { left.data(), right.data() };
+	engine.process(nullptr, 0, outputs, 2, static_cast<int>(left.size()));
+
+	EXPECT_FLOAT_EQ(left.front(), 0.0f);
+	EXPECT_FLOAT_EQ(left.back(), 0.0f);
+	EXPECT_FLOAT_EQ(right.front(), 0.0f);
+	EXPECT_FLOAT_EQ(right.back(), 0.0f);
+}
+
 TEST(JammerNetzAudioEngineTest, MixesASimulatedRemoteFrame)
 {
 	JammerNetzSession session;
 	JammerNetzAudioEngine engine(session, juce::File());
-	engine.start();
 	engine.setPlayoutBufferRange(1, 4);
 	engine.setLocalMonitoring(false);
 
@@ -184,16 +286,14 @@ TEST(JammerNetzAudioEngineTest, MixesASimulatedRemoteFrame)
 	});
 	engine.enqueueRemoteAudio(std::make_shared<JammerNetzAudioData>(
 		1, juce::Time::getMillisecondCounterHiRes(), remoteSetup, SAMPLE_RATE, 120.0f, MidiSignal_None, remoteAudio, nullptr));
+	ASSERT_TRUE(engine.processNextIncomingPacket());
 
 	std::array<float, SAMPLE_BUFFER_SIZE> left {};
 	std::array<float, SAMPLE_BUFFER_SIZE> right {};
 	float unusedInput = 0.0f;
 	const float* inputs[] { &unusedInput };
 	float* outputs[] { left.data(), right.data() };
-	for (int attempt = 0; attempt < 100 && left.front() == 0.0f; ++attempt) {
-		engine.process(inputs, 0, outputs, 2, SAMPLE_BUFFER_SIZE);
-		juce::Thread::sleep(2);
-	}
+	engine.process(inputs, 0, outputs, 2, SAMPLE_BUFFER_SIZE);
 
 	const float expectedGain = static_cast<float>(0.25 * std::sqrt(0.5));
 	EXPECT_NEAR(left.front(), expectedGain, 1.0e-5f);
@@ -201,7 +301,6 @@ TEST(JammerNetzAudioEngineTest, MixesASimulatedRemoteFrame)
 	const auto serverBpm = engine.takeServerBpmUpdate();
 	ASSERT_TRUE(serverBpm.has_value());
 	EXPECT_FLOAT_EQ(*serverBpm, 120.0f);
-	engine.shutdown();
 }
 
 TEST(BoundedSpscQueueTest, RejectsWritesWhenFullAndPreservesOrder)
@@ -237,29 +336,67 @@ TEST(BoundedSpscQueueTest, ResetReleasesRetainedItemsAndMakesQueueReusable)
 	EXPECT_EQ(value, 7);
 }
 
-TEST(PacketStreamQueueTest, ResetAcceptsANewPacketSequence)
+TEST(LatestBpmMailboxTest, CoalescesToLatestValueWithoutClearingANewerWrite)
 {
-	PacketStreamQueue queue("test");
+	LatestBpmMailbox mailbox;
+	mailbox.setValue(120.0f);
+	mailbox.setValue(127.5f);
+	const auto latest = mailbox.takeLatest();
+	ASSERT_TRUE(latest.has_value());
+	EXPECT_FLOAT_EQ(*latest, 127.5f);
+	EXPECT_FALSE(mailbox.takeLatest().has_value());
+
+	// A value published after the atomic take remains pending for the next take;
+	// there is no separate presence flag for the reader to clear.
+	mailbox.setValue(98.0f);
+	const auto next = mailbox.takeLatest();
+	ASSERT_TRUE(next.has_value());
+	EXPECT_FLOAT_EQ(*next, 98.0f);
+}
+
+TEST(JammerNetzAudioEngineTest, CountsOverflowOfOrderedMidiTransportCommands)
+{
+	JammerNetzSession session;
+	JammerNetzAudioEngine engine(session, juce::File());
+	for (int command = 0; command < 32; ++command) {
+		engine.setMidiSignalToSend(command % 2 == 0 ? MidiSignal_Start : MidiSignal_Stop);
+	}
+	EXPECT_EQ(engine.getRealtimeWorkerStats().midiTransportCommandsDropped, 0u);
+	engine.setMidiSignalToSend(MidiSignal_Start);
+	EXPECT_EQ(engine.getRealtimeWorkerStats().midiTransportCommandsDropped, 1u);
+}
+
+TEST(JammerNetzAudioDataTest, FillInPreservesRecoveredTimingAndDoesNotDuplicateCommands)
+{
 	auto audio = std::make_shared<juce::AudioBuffer<float>>(2, SAMPLE_BUFFER_SIZE);
 	JammerNetzChannelSetup setup(false, {
 		JammerNetzSingleChannelSetup(JammerNetzChannelTarget::Left),
 		JammerNetzSingleChannelSetup(JammerNetzChannelTarget::Right)
 	});
-	const auto makePacket = [&](uint64 counter) {
-		return std::make_shared<JammerNetzAudioData>(
-			counter, 0.0, setup, SAMPLE_RATE, 120.0f, MidiSignal_None, audio, nullptr);
-	};
-	std::shared_ptr<JammerNetzAudioData> popped;
-	bool fillIn = false;
+	AudioBlock current(0.0, 2, 256, 120.0f, MidiSignal_Start, SAMPLE_RATE, setup, audio);
+	JammerNetzAudioData withoutFec(current, nullptr);
+	bool hadFec = true;
+	const auto repeated = withoutFec.createFillInPackage(1, hadFec);
+	EXPECT_FALSE(hadFec);
+	EXPECT_EQ(repeated->serverTime(), 128u);
+	EXPECT_EQ(repeated->midiSignal(), MidiSignal_None);
 
-	ASSERT_TRUE(queue.push(makePacket(42)));
-	ASSERT_TRUE(queue.try_pop(popped, fillIn));
-	EXPECT_EQ(popped->messageCounter(), 42u);
-	queue.reset();
-	ASSERT_TRUE(queue.push(makePacket(1)));
-	ASSERT_TRUE(queue.try_pop(popped, fillIn));
-	EXPECT_EQ(popped->messageCounter(), 1u);
-	EXPECT_FALSE(fillIn);
+	AudioBlock afterLongGap(0.0, 5, 640, 120.0f, MidiSignal_Stop, SAMPLE_RATE, setup, audio);
+	auto unrelatedFec = std::make_shared<AudioBlock>(
+		0.0, 4, 512, 120.0f, MidiSignal_Stop, SAMPLE_RATE, setup, audio);
+	JammerNetzAudioData longGap(afterLongGap, unrelatedFec);
+	const auto inferred = longGap.createFillInPackage(2, hadFec);
+	EXPECT_FALSE(hadFec);
+	EXPECT_EQ(inferred->serverTime(), 256u);
+	EXPECT_EQ(inferred->midiSignal(), MidiSignal_None);
+
+	auto recoveredBlock = std::make_shared<AudioBlock>(
+		0.0, 1, 128, 120.0f, MidiSignal_Start, SAMPLE_RATE, setup, audio);
+	JammerNetzAudioData withFec(current, recoveredBlock);
+	const auto recovered = withFec.createFillInPackage(1, hadFec);
+	EXPECT_TRUE(hadFec);
+	EXPECT_EQ(recovered->serverTime(), 128u);
+	EXPECT_EQ(recovered->midiSignal(), MidiSignal_Start);
 }
 
 TEST(JammerNetzAudioEngineTest, DropsFramesInsteadOfBlockingWhenTransmitWorkerIsStalled)
@@ -334,11 +471,26 @@ TEST(AudioReceiveWorkerTest, CapsPreparedPlayoutAfterAConsumerHiccup)
 TEST(MidiSendThreadTest, ShutdownInterruptsAFutureScheduledMessage)
 {
 	MidiSendThread sender(std::vector<juce::MidiDeviceInfo> {});
-	ASSERT_TRUE(sender.enqueue(std::chrono::seconds(5), { juce::MidiMessage::midiClock() }));
+	ASSERT_TRUE(sender.enqueueAt(std::chrono::steady_clock::now() + std::chrono::seconds(5),
+		120.0f, MidiSignal_None, true));
 	juce::Thread::sleep(20);
 	const auto started = std::chrono::steady_clock::now();
 	sender.shutdown();
 	EXPECT_LT(std::chrono::steady_clock::now() - started, std::chrono::milliseconds(500));
+}
+
+TEST(MidiSendThreadTest, FutureMessageDoesNotReserveAQueueSlotWhileWaiting)
+{
+	MidiSendThread sender(std::vector<juce::MidiDeviceInfo> {});
+	const auto future = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+	ASSERT_TRUE(sender.enqueueAt(future, 120.0f, MidiSignal_None, true));
+	juce::Thread::sleep(20);
+
+	for (int message = 0; message < 256; ++message) {
+		ASSERT_TRUE(sender.enqueueAt(future, 120.0f, MidiSignal_None, true));
+	}
+	EXPECT_FALSE(sender.enqueueAt(future, 120.0f, MidiSignal_None, true));
+	sender.shutdown();
 }
 
 } // namespace
