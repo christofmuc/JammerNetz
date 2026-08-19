@@ -14,6 +14,7 @@
 #include "RunningStats.h"
 
 #include <cstdint>
+#include <optional>
 #include <queue>
 #include <unordered_set>
 #include <vector>
@@ -47,12 +48,18 @@ struct StreamQualityData {
 
 };
 
+struct PacketStreamQueueFastForwardResult {
+	std::size_t discardedPackets { 0 };
+	std::optional<std::uint64_t> oldestRetainedCounter;
+};
+
 class PacketStreamQueue {
 public:
 	PacketStreamQueue(std::string const &streamName);
 
 	bool push(std::shared_ptr<JammerNetzAudioData> packet);
 	bool try_pop(std::shared_ptr<JammerNetzAudioData> &element, bool &outIsFillIn);
+	PacketStreamQueueFastForwardResult fastForwardToSize(std::size_t retainedPacketCount);
 	void reset();
 	size_t size() const;
 

@@ -38,6 +38,12 @@ struct ClientQueueSnapshot {
 	std::uint64_t activityGeneration;
 };
 
+struct ClientQueuePressureResult {
+	ClientQueueSnapshot before;
+	ClientQueueSnapshot after;
+	PacketStreamQueueFastForwardResult fastForward;
+};
+
 // Owns one client's queue and connection state. Queue ownership never escapes this
 // class, so disconnect/reconnect cannot invalidate another thread's queue access.
 class ClientState {
@@ -52,6 +58,8 @@ public:
 		std::size_t initialPrefillCount, TimePoint now = Clock::now());
 	bool tryPop(std::shared_ptr<JammerNetzAudioData> &packet, bool &isFillIn,
 		std::uint64_t &observedActivityGeneration);
+	ClientQueuePressureResult applyQueuePressure(std::size_t maximumPacketCount,
+		std::size_t retainedPacketCount);
 	ClientQueueSnapshot snapshot() const;
 	bool qualityInfo(JammerNetzStreamQualityInfo &qualityInfo) const;
 

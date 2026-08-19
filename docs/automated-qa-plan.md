@@ -59,15 +59,15 @@ The merge-gating suite currently proves:
 The measured baseline uses 48 kHz audio, 128-sample network frames, three server jitter frames, and a five-frame maximum server queue. One network frame is approximately 2.667 ms; four frames are approximately 10.7 ms and eight frames are approximately 21.3 ms.
 
 - Clean traffic is sample-exact at both receivers.
-- Fixed lag, bounded jitter, periodic reordering, and periodic hold/flush remain receiver-sample-exact through four frames in the tested profiles and first glitch at eight frames.
+- Fixed lag, bounded jitter, and periodic hold/flush remain receiver-sample-exact through two frames with the corrected latency-overflow policy and first glitch at four frames. Periodic reordering remains sample-exact through four frames and first glitches at eight frames.
 - Immediate duplicates remain sample-exact at every tested rate, including every second packet.
 - Every tested non-zero unhealed packet-loss rate creates a receiver discrepancy. Without usable redundancy, later recovery cannot make the lost interval lossless.
-- One- and two-packet periodic loss bursts recover server coherence; the first three-packet burst leaves a persistent one-frame server-side source offset.
-- Four-frame jitter combined with two-frame periodic reordering fails server coherence even though both corresponding isolated profiles recover.
-- With no slotting or two-frame slotting, only zero-loss cells through four jitter frames are sample-exact. With four-frame slotting, only zero-loss/zero-jitter is sample-exact. Eight-frame slotting glitches even with no other jitter or loss.
+- Every tested periodic loss rate and loss burst now returns to eight coherent server mixes within the recovery window; the lost interval still produces a receiver discrepancy.
+- All tested combinations now recover server coherence. The isolated 32-frame bounded-jitter profile remains the first server recovery failure in the current matrix.
+- With no slotting, only the zero-loss cells through two jitter frames are sample-exact. With two-frame slotting, only zero-loss/zero-jitter is sample-exact. Four- and eight-frame slotting glitch even with no other jitter or loss.
 - All profiles in the current bounded receiver matrix eventually regain eight sequential coherent frames; that is recovery, not lossless operation or a long-duration stability guarantee.
 
-The hold/flush tests reproduce a real architectural weakness: queue pressure from one stream can grant global permission to mix and consume the jitter reserve of unrelated streams. The findings and test-first correction are tracked in [issue #76](https://github.com/christofmuc/JammerNetz/issues/76).
+The hold/flush tests originally reproduced a real architectural weakness: queue pressure from one stream granted global permission to mix and consumed the jitter reserve of unrelated streams. The issue #76 correction preserves the all-stream readiness barrier and locally fast-forwards only an oversized queue. One-shot and periodic eight-frame hold regressions now recover without partial mixes, underrun transitions, or persistent server/receiver skew. Traces record every rebase, discarded-packet count, retained counter, and packet-versus-concealment contribution.
 
 The reconnect characterization also records two unresolved outcomes:
 
@@ -119,21 +119,21 @@ Milestone 1 is complete. PR #63 delivered:
    - Isolated Clumsy-style profiles, two- and three-impairment combinations, and a jitter/loss/slotting quality surface.
    - Deterministic reconnect ordering results and bounded threaded stress.
 
-### 2.2 Next: convert findings into regression protection
+### 2.2 Convert findings into regression protection
 
 This is the highest-value next milestone.
 
-#### 2.2.1 Fix queue-pressure chronology test-first
+#### 2.2.1 Completed: fix queue-pressure chronology test-first
 
 Use [issue #76](https://github.com/christofmuc/JammerNetz/issues/76) as the design and acceptance record.
 
-1. Add a focused red regression test for an eight-frame one-shot hold/flush.
-2. Require unaffected client queues to retain their jitter reserve when another stream exceeds its maximum depth.
-3. Remove global queue overrun as permission to drain all streams.
+1. Added focused one-shot and receiver-level periodic eight-frame hold/flush regressions.
+2. Required unaffected client queues to retain their jitter reserve when another stream exceeds its maximum depth.
+3. Removed global queue overrun as permission to drain all streams.
 4. Fast-forward only the oversized stream to the target depth, retaining its newest packets.
-5. Rebase that stream's gap/FEC state so intentional fast-forward does not create a run of synthetic fill-in packets.
-6. Add sustained simulated clock-skew coverage to verify that faster streams remain bounded without shifting unrelated streams.
-7. Promote the corrected hold/flush profiles from characterization to pull-request regression gates.
+5. Rebase that stream's gap/FEC state so intentional fast-forward does not create synthetic fill-in packets for the discarded interval.
+6. Added sustained simulated clock-skew coverage to verify that faster streams remain bounded without shifting unrelated queue depth.
+7. Added runtime and JSONL observability for local rebases and per-source contribution classification.
 
 The required contract is:
 
@@ -283,6 +283,7 @@ The extracted core exposes:
 - the reason a mix did or did not run;
 - queue snapshots before and after the decision;
 - selected source packet counters and fill-in classification;
+- deliberate local fast-forward events, discarded counts, and the oldest retained counter;
 - connection transitions and activity generations;
 - receiver-specific output packets, addressing, metadata, clock, and control selection.
 
