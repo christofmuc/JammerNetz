@@ -19,19 +19,36 @@ ServerMixerCore::ServerMixerCore(JammerNetzChannelSetup mixdownSetup)
 
 ServerMixStepResult ServerMixerCore::mix(const ServerInputPackets& incoming)
 {
+	ServerMixRecipients recipients;
+	for (const auto& [name, packet] : incoming) {
+		recipients.emplace(name, ClientMixMetadata {
+			packet->timestamp(), packet->channelSetup(), packet->protocolVersion()
+		});
+	}
+	return mix(incoming, recipients, incoming.empty() ? std::string() : incoming.begin()->first);
+}
+
+ServerMixStepResult ServerMixerCore::mix(const ServerInputPackets& incoming,
+	const ServerMixRecipients& recipients,
+	const std::string& cadenceClient)
+{
 	ServerMixStepResult result;
 	result.serverTime = serverTime_;
-	if (incoming.empty()) {
+	result.mixSequence = mixSequence_;
+	if (incoming.empty() || recipients.empty()) {
 		return result;
 	}
 
 	const auto firstAudio = incoming.begin()->second->audioBuffer();
 	const int bufferLength = firstAudio->getNumSamples();
 	serverTime_ += static_cast<uint64>(bufferLength);
+	++mixSequence_;
 	result.serverTime = serverTime_;
-	result.outgoing.reserve(incoming.size());
+	result.mixSequence = mixSequence_;
+	result.outgoing.reserve(recipients.size());
+	(void) cadenceClient;
 
-	for (const auto& receiver : incoming) {
+	for (const auto& receiver : recipients) {
 		auto output = std::make_shared<AudioBuffer<float>>(2, bufferLength);
 		output->clear();
 		JammerNetzChannelSetup sessionSetup(false);
@@ -40,11 +57,6 @@ ServerMixStepResult ServerMixerCore::mix(const ServerInputPackets& incoming)
 
 		for (const auto& client : incoming) {
 			bufferMixdown(*output, *client.second, client.first == receiver.first, result.diagnostics);
-			if (client.first != receiver.first) {
-				const auto setup = client.second->channelSetup();
-				std::copy(setup.channels.cbegin(), setup.channels.cend(),
-					std::back_inserter(sessionSetup.channels));
-			}
 			maximumBpm = std::max(maximumBpm, client.second->bpm());
 			if (client.second->midiSignal() == MidiSignal_Start && midiSignal == MidiSignal_None) {
 				midiSignal = MidiSignal_Start;
@@ -53,13 +65,21 @@ ServerMixStepResult ServerMixerCore::mix(const ServerInputPackets& incoming)
 				midiSignal = MidiSignal_Stop;
 			}
 		}
+		for (const auto& participant : recipients) {
+			if (participant.first == receiver.first) {
+				continue;
+			}
+			std::copy(participant.second.channelSetup.channels.cbegin(),
+				participant.second.channelSetup.channels.cend(),
+				std::back_inserter(sessionSetup.channels));
+		}
 
 		if (maximumBpm > 0.0f) {
 			lastBpm_ = maximumBpm;
 		}
 		result.outgoing.emplace_back(receiver.first, AudioBlock(
-			receiver.second->timestamp(),
-			receiver.second->messageCounter(),
+			receiver.second.timestamp,
+			mixSequence_,
 			serverTime_,
 			lastBpm_,
 			midiSignal,
@@ -67,7 +87,7 @@ ServerMixStepResult ServerMixerCore::mix(const ServerInputPackets& incoming)
 			mixdownSetup_,
 			std::move(output)),
 			std::move(sessionSetup),
-			receiver.second->protocolVersion());
+			receiver.second.protocolVersion);
 	}
 
 	return result;

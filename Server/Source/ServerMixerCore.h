@@ -14,9 +14,11 @@
 #include <vector>
 
 using ServerInputPackets = std::map<std::string, std::shared_ptr<JammerNetzAudioData>>;
+using ServerMixRecipients = std::map<std::string, ClientMixMetadata>;
 
 struct ServerMixStepResult {
 	uint64 serverTime { 0 };
+	uint64 mixSequence { 0 };
 	std::vector<OutgoingPackage> outgoing;
 	std::vector<std::string> diagnostics;
 };
@@ -28,6 +30,9 @@ public:
 	explicit ServerMixerCore(JammerNetzChannelSetup mixdownSetup);
 
 	ServerMixStepResult mix(const ServerInputPackets& incoming);
+	ServerMixStepResult mix(const ServerInputPackets& incoming,
+		const ServerMixRecipients& recipients,
+		const std::string& cadenceClient);
 
 private:
 	static void bufferMixdown(AudioBuffer<float>& output,
@@ -36,6 +41,7 @@ private:
 		std::vector<std::string>& diagnostics);
 
 	uint64 serverTime_ { 0 };
+	uint64 mixSequence_ { 0 };
 	float lastBpm_ { 120.0f };
 	JammerNetzChannelSetup mixdownSetup_;
 };

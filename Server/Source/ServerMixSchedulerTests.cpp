@@ -8,8 +8,10 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace {
 
@@ -74,20 +76,28 @@ TEST(ServerMixSchedulerTest, MaximumBufferPressureFastForwardsOnlyTheOverfullCli
 		clientA->push(makeSchedulerPacket(counter), 0);
 	}
 	auto pressured = scheduler.process(clients);
-	EXPECT_EQ(pressured.trigger, ServerMixTrigger::None);
+	EXPECT_EQ(pressured.trigger, ServerMixTrigger::MaximumBufferPressure);
 	EXPECT_FALSE(pressured.shouldWakeAgain);
-	EXPECT_TRUE(pressured.incoming.empty());
+	EXPECT_EQ(pressured.incoming.size(), 2U);
+	EXPECT_EQ(pressured.mix.outgoing.size(), 2U);
 	EXPECT_TRUE(pressured.underrunClients.empty());
 	ASSERT_EQ(pressured.fastForwardedClients.size(), 1U);
 	EXPECT_EQ(pressured.fastForwardedClients.at("a").discardedPackets, 4U);
 	ASSERT_TRUE(pressured.fastForwardedClients.at("a").oldestRetainedCounter.has_value());
 	EXPECT_EQ(*pressured.fastForwardedClients.at("a").oldestRetainedCounter, 15U);
-	EXPECT_EQ(pressured.queuesAfter.at("a").size, 1U);
-	EXPECT_EQ(pressured.queuesAfter.at("b").size, 1U);
+	EXPECT_EQ(pressured.queuesAfter.at("a").size, 0U);
+	EXPECT_EQ(pressured.queuesAfter.at("b").size, 0U);
 	EXPECT_EQ(pressured.queuesAfter.at("b").state, ClientConnectionState::Connected);
 }
 
-TEST(ServerMixSchedulerTest, SustainedFasterStreamStaysBoundedWithoutDrainingTheSlowerStream)
+const OutgoingPackage* findOutput(const ServerScheduledMixResult& result, const std::string& target)
+{
+	const auto found = std::find_if(result.mix.outgoing.begin(), result.mix.outgoing.end(),
+		[&target](const OutgoingPackage& outgoing) { return outgoing.targetAddress == target; });
+	return found == result.mix.outgoing.end() ? nullptr : &*found;
+}
+
+TEST(ServerMixSchedulerTest, SustainedFasterStreamKeepsRoomCadenceWithoutGrowingLatency)
 {
 	TPacketStreamBundle clients;
 	auto faster = std::make_shared<ClientState>("faster");
@@ -104,31 +114,194 @@ TEST(ServerMixSchedulerTest, SustainedFasterStreamStaysBoundedWithoutDrainingThe
 
 	std::uint64_t fasterCounter = 103;
 	std::uint64_t slowerCounter = 103;
-	std::size_t fastForwardEvents = 0;
+	std::size_t mixes = 0;
+	std::size_t slowerSilenceTicks = 0;
 	for (int cycle = 0; cycle < 40; ++cycle) {
 		for (int packet = 0; packet < 2; ++packet) {
 			faster->push(makeSchedulerPacket(fasterCounter++), 0);
 			const auto step = scheduler.process(clients);
-			fastForwardEvents += step.fastForwardedClients.size();
-			EXPECT_TRUE(step.underrunClients.empty());
 			EXPECT_TRUE(step.fillInClients.empty());
-			EXPECT_TRUE(step.incoming.empty() || step.incoming.size() == 2U);
+			ASSERT_EQ(step.mix.outgoing.size(), 2U);
+			EXPECT_EQ(step.contributions.at("faster"), ServerSourceContribution::Packet);
+			if (step.contributions.at("slower") == ServerSourceContribution::Silence) {
+				++slowerSilenceTicks;
+			}
 			EXPECT_LE(step.queuesAfter.at("faster").size, 4U);
-			EXPECT_GE(step.queuesAfter.at("slower").size, 2U);
+			EXPECT_LE(step.queuesAfter.at("slower").size, 2U);
+			++mixes;
 		}
 
 		slower->push(makeSchedulerPacket(slowerCounter++), 0);
 		const auto step = scheduler.process(clients);
-		fastForwardEvents += step.fastForwardedClients.size();
-		EXPECT_TRUE(step.underrunClients.empty());
-		EXPECT_TRUE(step.fillInClients.empty());
-		EXPECT_TRUE(step.incoming.empty() || step.incoming.size() == 2U);
+		EXPECT_TRUE(step.mix.outgoing.empty());
 		EXPECT_LE(step.queuesAfter.at("faster").size, 4U);
-		EXPECT_GE(step.queuesAfter.at("slower").size, 2U);
+		EXPECT_LE(step.queuesAfter.at("slower").size, 2U);
 	}
 
-	EXPECT_GT(fastForwardEvents, 0U);
+	EXPECT_EQ(mixes, 80U);
+	EXPECT_GT(slowerSilenceTicks, 0U);
 	EXPECT_EQ(slower->snapshot().state, ClientConnectionState::Connected);
+}
+
+TEST(ServerMixSchedulerTest, MissingUploadStillReceivesTheUnaffectedRoomMix)
+{
+	TPacketStreamBundle clients;
+	auto clientA = std::make_shared<ClientState>("client-a");
+	auto clientB = std::make_shared<ClientState>("client-b");
+	auto clientC = std::make_shared<ClientState>("client-c");
+	clients.emplace("client-a", clientA);
+	clients.emplace("client-b", clientB);
+	clients.emplace("client-c", clientC);
+	ServerMixScheduler scheduler(stereoMixdown(), { 1, 3, 0 });
+
+	for (std::uint64_t counter = 10; counter <= 11; ++counter) {
+		clientA->push(makeSchedulerPacket(counter), 0);
+		clientB->push(makeSchedulerPacket(counter), 0);
+		clientC->push(makeSchedulerPacket(counter), 0);
+	}
+	const auto clean = scheduler.process(clients);
+	ASSERT_EQ(clean.mix.outgoing.size(), 3U);
+
+	std::shared_ptr<JammerNetzAudioData> discarded;
+	bool isFillIn = false;
+	std::uint64_t generation = 0;
+	ASSERT_TRUE(clientB->tryPop(discarded, isFillIn, generation));
+	ASSERT_EQ(clientB->snapshot().size, 0U);
+
+	clientA->push(makeSchedulerPacket(12), 0);
+	clientC->push(makeSchedulerPacket(12), 0);
+	const auto impaired = scheduler.process(clients);
+
+	EXPECT_EQ(impaired.cadenceClient, "client-a");
+	EXPECT_EQ(impaired.incoming.size(), 2U);
+	EXPECT_EQ(impaired.incoming.count("client-b"), 0U);
+	EXPECT_EQ(impaired.contributions.at("client-b"), ServerSourceContribution::Silence);
+	ASSERT_EQ(impaired.mix.outgoing.size(), 3U);
+	EXPECT_NE(findOutput(impaired, "client-a"), nullptr);
+	EXPECT_NE(findOutput(impaired, "client-b"), nullptr);
+	EXPECT_NE(findOutput(impaired, "client-c"), nullptr);
+}
+
+TEST(ServerMixSchedulerTest, MissingCadenceClientFailsOverWithoutStoppingItsDownload)
+{
+	TPacketStreamBundle clients;
+	auto clientA = std::make_shared<ClientState>("client-a");
+	auto clientB = std::make_shared<ClientState>("client-b");
+	auto clientC = std::make_shared<ClientState>("client-c");
+	clients.emplace("client-a", clientA);
+	clients.emplace("client-b", clientB);
+	clients.emplace("client-c", clientC);
+	ServerMixScheduler scheduler(stereoMixdown(), { 1, 3, 0 });
+
+	for (std::uint64_t counter = 10; counter <= 11; ++counter) {
+		clientA->push(makeSchedulerPacket(counter), 0);
+		clientB->push(makeSchedulerPacket(counter), 0);
+		clientC->push(makeSchedulerPacket(counter), 0);
+	}
+	const auto clean = scheduler.process(clients);
+	ASSERT_EQ(clean.cadenceClient, "client-a");
+
+	std::shared_ptr<JammerNetzAudioData> discarded;
+	bool isFillIn = false;
+	std::uint64_t generation = 0;
+	ASSERT_TRUE(clientA->tryPop(discarded, isFillIn, generation));
+	clientB->push(makeSchedulerPacket(12), 0);
+	clientC->push(makeSchedulerPacket(12), 0);
+
+	const auto failedOver = scheduler.process(clients);
+
+	EXPECT_EQ(failedOver.trigger, ServerMixTrigger::CadenceClientFailover);
+	EXPECT_TRUE(failedOver.cadenceClientChanged);
+	EXPECT_EQ(failedOver.cadenceClient, "client-b");
+	EXPECT_EQ(failedOver.contributions.at("client-a"), ServerSourceContribution::Silence);
+	ASSERT_EQ(failedOver.mix.outgoing.size(), 3U);
+	EXPECT_NE(findOutput(failedOver, "client-a"), nullptr);
+}
+
+TEST(ServerMixSchedulerTest, HealthyCadenceIsNotStolenByANewSlottedClient)
+{
+	TPacketStreamBundle clients;
+	auto clientA = std::make_shared<ClientState>("client-a");
+	auto clientB = std::make_shared<ClientState>("client-b");
+	auto wifiClient = std::make_shared<ClientState>("client-wifi");
+	clients.emplace("client-a", clientA);
+	clients.emplace("client-b", clientB);
+	clients.emplace("client-wifi", wifiClient);
+	ServerMixScheduler scheduler(stereoMixdown(), { 1, 3, 0 });
+
+	for (std::uint64_t counter = 10; counter <= 16; ++counter) {
+		clientA->push(makeSchedulerPacket(counter), 0);
+		clientB->push(makeSchedulerPacket(counter), 0);
+		const auto step = scheduler.process(clients);
+		if (counter > 10) {
+			ASSERT_EQ(step.mix.outgoing.size(), 2U);
+		}
+	}
+
+	for (std::uint64_t counter = 10; counter <= 17; ++counter) {
+		wifiClient->push(makeSchedulerPacket(counter), counter == 10 ? 1 : 0);
+	}
+	const auto burst = scheduler.process(clients);
+	EXPECT_TRUE(burst.mix.outgoing.empty());
+	EXPECT_EQ(burst.cadenceClient, "client-a");
+	EXPECT_FALSE(burst.cadenceClientChanged);
+	EXPECT_EQ(burst.fastForwardedClients.count("client-wifi"), 1U);
+
+	clientA->push(makeSchedulerPacket(17), 0);
+	clientB->push(makeSchedulerPacket(17), 0);
+	const auto nextStableTick = scheduler.process(clients);
+	EXPECT_EQ(nextStableTick.cadenceClient, "client-a");
+	EXPECT_EQ(nextStableTick.mix.outgoing.size(), 3U);
+}
+
+TEST(ServerMixSchedulerTest, SlottedOutlierDoesNotControlStableRoomCadence)
+{
+	TPacketStreamBundle clients;
+	std::vector<std::shared_ptr<ClientState>> stableClients;
+	for (const auto* name : { "client-a", "client-b", "client-c", "client-d" }) {
+		auto client = std::make_shared<ClientState>(name);
+		clients.emplace(name, client);
+		stableClients.push_back(std::move(client));
+	}
+	auto wifiClient = std::make_shared<ClientState>("client-wifi");
+	clients.emplace("client-wifi", wifiClient);
+	ServerMixScheduler scheduler(stereoMixdown(), { 1, 3, 0 });
+
+	for (std::uint64_t counter = 100; counter <= 101; ++counter) {
+		for (auto& client : stableClients) {
+			client->push(makeSchedulerPacket(counter), 0);
+		}
+		wifiClient->push(makeSchedulerPacket(counter), 0);
+	}
+	ASSERT_EQ(scheduler.process(clients).mix.outgoing.size(), 5U);
+
+	std::size_t mixes = 0;
+	std::size_t wifiSilenceTicks = 0;
+	for (std::uint64_t counter = 102; counter < 118; ++counter) {
+		for (auto& client : stableClients) {
+			client->push(makeSchedulerPacket(counter), 0);
+		}
+		if ((counter - 102) % 8 == 7) {
+			for (std::uint64_t released = counter - 7; released <= counter; ++released) {
+				wifiClient->push(makeSchedulerPacket(released), 0);
+			}
+		}
+
+		const auto step = scheduler.process(clients);
+		ASSERT_EQ(step.mix.outgoing.size(), 5U) << "counter=" << counter;
+		EXPECT_EQ(step.cadenceClient, "client-a");
+		EXPECT_NE(findOutput(step, "client-wifi"), nullptr);
+		for (const auto* stable : { "client-a", "client-b", "client-c", "client-d" }) {
+			ASSERT_EQ(step.incoming.count(stable), 1U) << "counter=" << counter;
+			EXPECT_EQ(step.incoming.at(stable)->messageCounter(), counter - 1U);
+		}
+		if (step.contributions.at("client-wifi") == ServerSourceContribution::Silence) {
+			++wifiSilenceTicks;
+		}
+		++mixes;
+	}
+	EXPECT_EQ(mixes, 16U);
+	EXPECT_GT(wifiSilenceTicks, 0U);
 }
 
 } // namespace

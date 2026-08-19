@@ -45,9 +45,21 @@ const char* triggerName(const ServerMixTrigger trigger)
 	case ServerMixTrigger::None: return "none";
 	case ServerMixTrigger::SingleClient: return "single_client";
 	case ServerMixTrigger::AllClientsReady: return "all_clients_ready";
+	case ServerMixTrigger::CadenceClient: return "cadence_client";
+	case ServerMixTrigger::CadenceClientFailover: return "cadence_client_failover";
 	case ServerMixTrigger::MaximumBufferPressure: return "maximum_buffer_pressure";
 	case ServerMixTrigger::AllClientsReadyAndMaximumBufferPressure:
 		return "all_clients_ready_and_maximum_buffer_pressure";
+	}
+	return "unknown";
+}
+
+const char* contributionName(const ServerSourceContribution contribution)
+{
+	switch (contribution) {
+	case ServerSourceContribution::Packet: return "packet";
+	case ServerSourceContribution::Concealment: return "concealment";
+	case ServerSourceContribution::Silence: return "silence";
 	}
 	return "unknown";
 }
@@ -215,10 +227,14 @@ public:
 		engine_.prepare(SAMPLE_RATE, SAMPLE_BUFFER_SIZE);
 	}
 
-	void deliver(const OutgoingPackage& package)
+	void deliver(const OutgoingPackage& package, AudioBuffer<float> expected,
+		const std::optional<std::uint64_t> expectedSourceFrame)
 	{
+		expectedFrames_.emplace(package.audioBlock.messageCounter, std::move(expected));
+		expectedSourceFrames_.emplace(package.audioBlock.messageCounter, expectedSourceFrame);
 		if (!firstSignalMessageCounter_
-			&& package.audioBlock.audioBuffer->getMagnitude(0, SAMPLE_BUFFER_SIZE) > comparisonEpsilon) {
+			&& expectedFrames_.at(package.audioBlock.messageCounter)
+				.getMagnitude(0, SAMPLE_BUFFER_SIZE) > comparisonEpsilon) {
 			firstSignalMessageCounter_ = package.audioBlock.messageCounter;
 		}
 		engine_.enqueueRemoteAudio(std::make_shared<JammerNetzAudioData>(package.audioBlock, nullptr));
@@ -240,14 +256,18 @@ public:
 		const bool silent = observed.getMagnitude(0, SAMPLE_BUFFER_SIZE) <= comparisonEpsilon;
 		if (!result_.playbackStarted && !silent && firstSignalMessageCounter_) {
 			result_.playbackStarted = true;
-			continuousFrame_ = *firstSignalMessageCounter_ - 100U;
+			continuousMessageCounter_ = *firstSignalMessageCounter_;
 		}
 
 		AudioBuffer<float> expected(2, SAMPLE_BUFFER_SIZE);
 		expected.clear();
 		bool exact = true;
 		if (result_.playbackStarted) {
-			expected = idealReceiverFrame(receiver_, continuousFrame_++);
+			const auto expectedMessageCounter = continuousMessageCounter_++;
+			const auto expectedFrame = expectedFrames_.find(expectedMessageCounter);
+			if (expectedFrame != expectedFrames_.end()) {
+				expected = expectedFrame->second;
+			}
 			++result_.comparedFrames;
 			const auto frameDifferences = compare(expected, observed);
 			exact = frameDifferences.empty();
@@ -281,9 +301,11 @@ public:
 				lastMatchedFrame_.reset();
 			}
 			else {
-				const auto expectedFrame = continuousFrame_ - 1U;
-				const auto skew = *matchedFrame > expectedFrame
-					? *matchedFrame - expectedFrame : expectedFrame - *matchedFrame;
+				const auto sourceFrame = expectedSourceFrames_.find(expectedMessageCounter);
+				const auto expectedSourceFrame = sourceFrame != expectedSourceFrames_.end()
+					&& sourceFrame->second ? *sourceFrame->second : *matchedFrame;
+				const auto skew = *matchedFrame > expectedSourceFrame
+					? *matchedFrame - expectedSourceFrame : expectedSourceFrame - *matchedFrame;
 				result_.maximumPlayoutSkewFrames = std::max(result_.maximumPlayoutSkewFrames, skew);
 				const bool continuous = !lastMatchedFrame_ || *matchedFrame == *lastMatchedFrame_ + 1U;
 				if (lastMatchedFrame_ && !continuous) {
@@ -358,7 +380,9 @@ private:
 	SampleIndex recoveryEligibleSample_ { 0 };
 	std::uint64_t maximumSearchFrame_ { 0 };
 	std::optional<std::uint64_t> firstSignalMessageCounter_;
-	std::uint64_t continuousFrame_ { 0 };
+	std::uint64_t continuousMessageCounter_ { 0 };
+	std::map<std::uint64_t, AudioBuffer<float>> expectedFrames_;
+	std::map<std::uint64_t, std::optional<std::uint64_t>> expectedSourceFrames_;
 	std::optional<std::uint64_t> lastMatchedFrame_;
 	std::optional<std::size_t> recoveryObservationFrame_;
 	std::size_t matchedRecoveryRun_ { 0 };
@@ -380,6 +404,23 @@ nlohmann::json queueJson(const std::map<std::string, ServerQueueObservation>& qu
 		};
 	}
 	return result;
+}
+
+std::pair<AudioBuffer<float>, std::optional<std::uint64_t>> expectedReceiverFrame(
+	const std::string& receiver,
+	const ServerInputPackets& incoming)
+{
+	AudioBuffer<float> expected(2, SAMPLE_BUFFER_SIZE);
+	expected.clear();
+	const auto remote = incoming.find(receiver == "client-a" ? "client-b" : "client-a");
+	if (remote == incoming.end()) {
+		return { std::move(expected), std::nullopt };
+	}
+	const int outputChannel = receiver == "client-a" ? 1 : 0;
+	expected.copyFrom(outputChannel, 0, *remote->second->audioBuffer(), 0, 0, SAMPLE_BUFFER_SIZE);
+	const auto counter = static_cast<std::uint64_t>(remote->second->messageCounter());
+	return { std::move(expected), counter >= 100U
+		? std::optional<std::uint64_t>(counter - 100U) : std::nullopt };
 }
 
 nlohmann::json fastForwardJson(
@@ -555,8 +596,8 @@ private:
 
 	void recordStep(const ServerScheduledMixResult& step)
 	{
-		if (step.mix.outgoing.size() != step.incoming.size()) {
-			throw std::runtime_error("The server mixer did not produce one routed packet per input");
+		if (!step.mix.outgoing.empty() && step.mix.outgoing.size() != step.contributions.size()) {
+			throw std::runtime_error("The server mixer did not produce one routed packet per recipient");
 		}
 		if (!step.mix.diagnostics.empty()) {
 			throw std::runtime_error("The characterization input produced an invalid mixer diagnostic");
@@ -591,8 +632,15 @@ private:
 					!= step.fillInClients.end() ? "concealment" : "packet" }
 			};
 		}
+		for (const auto& [name, contribution] : step.contributions) {
+			if (contribution == ServerSourceContribution::Silence) {
+				selectedSources[name] = { { "contribution", contributionName(contribution) } };
+			}
+		}
 		trace_.record({ virtualSample_, traceSequence_++, "server_mix_decision", {
 			{ "trigger", triggerName(step.trigger) },
+			{ "cadence_client", step.cadenceClient },
+			{ "cadence_client_changed", step.cadenceClientChanged },
 			{ "queues_before", queueJson(step.queuesBefore) },
 			{ "queues_after", queueJson(step.queuesAfter) },
 			{ "selected_counters", selectedCounters },
@@ -684,17 +732,15 @@ TEST(NetworkImpairmentCharacterizationTest, HoldAndFlushSweepProducesDeterminist
 	RecordProperty("characterization_summary", summary.dump());
 }
 
-TEST(NetworkImpairmentRegressionTest, EightFrameHoldAndFlushRecoversWithoutPersistentSkew)
+TEST(NetworkImpairmentRegressionTest, EightFrameHoldAndFlushKeepsRoomCadenceBounded)
 {
 	for (const bool heldBeforeCurrent : { false, true }) {
 		HoldFlushScenario scenario(8, heldBeforeCurrent);
 		const auto result = scenario.run();
-		EXPECT_EQ(result.singleSourceMixes, 0U);
-		EXPECT_EQ(result.underrunTransitions, 0U);
-		ASSERT_TRUE(result.recoveryMixesAfterFlush.has_value());
-		EXPECT_LE(*result.recoveryMixesAfterFlush, coherentRecoveryWindow);
-		EXPECT_GT(result.fastForwardEvents, 0U);
-		EXPECT_GT(result.fastForwardedPackets, 0U);
+		EXPECT_GT(result.mixCount, warmupFrames);
+		EXPECT_GT(result.singleSourceMixes, 0U);
+		EXPECT_LE(result.maximumQueueA, 8U + BUFFER_PREFILL_ON_CONNECT + 2U);
+		EXPECT_LE(result.maximumQueueB, 8U + BUFFER_PREFILL_ON_CONNECT + 2U);
 	}
 }
 
@@ -1056,8 +1102,8 @@ private:
 
 	void recordStep(const ServerScheduledMixResult& step)
 	{
-		if (step.mix.outgoing.size() != step.incoming.size()) {
-			throw std::runtime_error("The server mixer did not produce one routed packet per impairment input");
+		if (!step.mix.outgoing.empty() && step.mix.outgoing.size() != step.contributions.size()) {
+			throw std::runtime_error("The server mixer did not produce one routed packet per impairment recipient");
 		}
 		if (!step.mix.diagnostics.empty()) {
 			throw std::runtime_error("The impairment input produced an invalid mixer diagnostic");
@@ -1091,8 +1137,15 @@ private:
 					!= step.fillInClients.end() ? "concealment" : "packet" }
 			};
 		}
+		for (const auto& [name, contribution] : step.contributions) {
+			if (contribution == ServerSourceContribution::Silence) {
+				selectedSources[name] = { { "contribution", contributionName(contribution) } };
+			}
+		}
 		record("server_mix_decision", {
 			{ "trigger", triggerName(step.trigger) },
+			{ "cadence_client", step.cadenceClient },
+			{ "cadence_client_changed", step.cadenceClientChanged },
 			{ "queues_before", queueJson(step.queuesBefore) },
 			{ "queues_after", queueJson(step.queuesAfter) },
 			{ "selected_counters", selectedCounters },
@@ -1104,12 +1157,14 @@ private:
 		if (step.incoming.empty()) {
 			return;
 		}
+		auto expectedA = expectedReceiverFrame("client-a", step.incoming);
+		auto expectedB = expectedReceiverFrame("client-b", step.incoming);
 		for (const auto& outgoing : step.mix.outgoing) {
 			if (outgoing.targetAddress == "client-a") {
-				receiverA_->deliver(outgoing);
+				receiverA_->deliver(outgoing, std::move(expectedA.first), expectedA.second);
 			}
 			else if (outgoing.targetAddress == "client-b") {
-				receiverB_->deliver(outgoing);
+				receiverB_->deliver(outgoing, std::move(expectedB.first), expectedB.second);
 			}
 		}
 		++result_.mixCount;
@@ -1234,7 +1289,25 @@ ImpairmentRunResult runAndRecord(const ImpairmentProfile& profile,
 	return first;
 }
 
-TEST(NetworkImpairmentRegressionTest, EightFramePeriodicHoldRecoversAtBothReceivers)
+TEST(NetworkImpairmentRegressionTest, PeriodicUploadDropsChopOnlyThatSourceAtHeadlessReceivers)
+{
+	ImpairmentProfile profile { "drop-burst", "upload-isolation-regression" };
+	profile.dropEveryFrames = 8;
+	profile.dropBurstFrames = 2;
+	ProgressiveImpairmentScenario scenario(profile);
+	const auto result = scenario.run();
+
+	EXPECT_GT(result.injectedDrops, 0U);
+	EXPECT_GT(result.queueDrops, 0U);
+	EXPECT_GT(result.receiverA.silentOutputFramesAfterStart, 0U);
+	EXPECT_TRUE(result.receiverB.sampleExact());
+	EXPECT_EQ(result.receiverB.outputDiscontinuities, 0U);
+	EXPECT_EQ(result.receiverA.outputFrames, result.receiverB.outputFrames);
+	EXPECT_TRUE(result.receiverA.recovered());
+	EXPECT_TRUE(result.receiverB.recovered());
+}
+
+TEST(NetworkImpairmentRegressionTest, EightFramePeriodicHoldKeepsStableAudioFlowingToBothReceivers)
 {
 	ImpairmentProfile profile { "throttle", "eight-frame-periodic-hold-regression" };
 	profile.holdEveryFrames = 32;
@@ -1242,14 +1315,15 @@ TEST(NetworkImpairmentRegressionTest, EightFramePeriodicHoldRecoversAtBothReceiv
 	ProgressiveImpairmentScenario scenario(profile);
 	const auto result = scenario.run();
 
-	EXPECT_TRUE(result.serverRecovered());
-	EXPECT_TRUE(result.receiversRecovered());
-	EXPECT_EQ(result.singleSourceMixes, 0U);
-	EXPECT_EQ(result.underrunTransitions, 0U);
-	ASSERT_TRUE(result.recoveryMixes.has_value());
-	EXPECT_LE(*result.recoveryMixes, coherentRecoveryWindow);
-	EXPECT_GT(result.fastForwardEvents, 0U);
-	EXPECT_GT(result.fastForwardedPackets, 0U);
+	EXPECT_GT(result.singleSourceMixes, 0U);
+	EXPECT_GT(result.receiverA.silentOutputFramesAfterStart, 0U);
+	EXPECT_TRUE(result.receiverB.sampleExact());
+	EXPECT_EQ(result.receiverB.outputDiscontinuities, 0U);
+	EXPECT_EQ(result.receiverA.outputFrames, result.receiverB.outputFrames);
+	EXPECT_EQ(result.finalStateA, ClientConnectionState::Connected);
+	EXPECT_EQ(result.finalStateB, ClientConnectionState::Connected);
+	EXPECT_TRUE(result.receiverA.recovered());
+	EXPECT_TRUE(result.receiverB.recovered());
 }
 
 std::vector<ImpairmentProfile> isolatedProfiles()

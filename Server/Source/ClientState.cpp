@@ -30,6 +30,9 @@ ClientPushResult ClientState::push(std::shared_ptr<JammerNetzAudioData> packet,
 	state_ = ClientConnectionState::Connected;
 	hasConnected_ = true;
 	++activityGeneration_;
+	mixMetadata_ = ClientMixMetadata {
+		packet->timestamp(), packet->channelSetup(), packet->protocolVersion()
+	};
 
 	// Preserve the existing behavior: only the first connection is prefixed with
 	// padding. A reconnect starts with the first real packet and a fresh queue.
@@ -82,6 +85,14 @@ ClientQueueSnapshot ClientState::snapshot() const {
 		activityGeneration_};
 }
 
+std::optional<ClientMixMetadata> ClientState::mixMetadata() const {
+	std::lock_guard<std::mutex> lock(mutex_);
+	if (state_ == ClientConnectionState::Disconnected) {
+		return std::nullopt;
+	}
+	return mixMetadata_;
+}
+
 bool ClientState::qualityInfo(JammerNetzStreamQualityInfo &qualityInfo) const {
 	std::lock_guard<std::mutex> lock(mutex_);
 	if (state_ == ClientConnectionState::Disconnected || !queue_) {
@@ -108,5 +119,6 @@ bool ClientState::disconnectIfGraceExpired(TimePoint now) {
 	}
 	state_ = ClientConnectionState::Disconnected;
 	queue_.reset();
+	mixMetadata_.reset();
 	return true;
 }

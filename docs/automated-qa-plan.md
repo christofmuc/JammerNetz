@@ -2,7 +2,7 @@
 
 Status: active, living strategy
 
-Last updated: 2026-08-18
+Last updated: 2026-08-19
 
 Foundations: [PR #56](https://github.com/christofmuc/JammerNetz/pull/56) extracted the reusable audio engine; [PR #63](https://github.com/christofmuc/JammerNetz/pull/63) implemented the deterministic headless QA foundation.
 
@@ -67,7 +67,7 @@ The measured baseline uses 48 kHz audio, 128-sample network frames, three server
 - With no slotting, only the zero-loss cells through two jitter frames are sample-exact. With two-frame slotting, only zero-loss/zero-jitter is sample-exact. Four- and eight-frame slotting glitch even with no other jitter or loss.
 - All profiles in the current bounded receiver matrix eventually regain eight sequential coherent frames; that is recovery, not lossless operation or a long-duration stability guarantee.
 
-The hold/flush tests originally reproduced a real architectural weakness: queue pressure from one stream granted global permission to mix and consumed the jitter reserve of unrelated streams. The issue #76 correction preserves the all-stream readiness barrier and locally fast-forwards only an oversized queue. One-shot and periodic eight-frame hold regressions now recover without partial mixes, underrun transitions, or persistent server/receiver skew. Traces record every rebase, discarded-packet count, retained counter, and packet-versus-concealment contribution.
+The hold/flush tests originally reproduced two related architectural weaknesses. First, queue pressure from one stream granted global permission to drain unrelated streams; issue #76 corrected this with local fast-forward/rebase. Second, the all-stream readiness barrier made every participant's download depend on every participant's upload. Issue #96 replaces that barrier with a stable, observable cadence donor, keeps all connected participants in the recipient roster, and classifies each source independently as packet, concealment, or silence. The room timeline and output sequence continue when one upload chops, including for the affected uploader, without growing the jitter buffer.
 
 The reconnect characterization also records two unresolved outcomes:
 
@@ -141,7 +141,26 @@ The required contract is:
 - Unhealed loss may create a documented discontinuity or concealment, but must not create persistent inter-source skew.
 - Latency-budget overflow uses a deliberate and observable local fast-forward/rebase policy.
 
-#### 2.2.2 Define and fix reconnect generation semantics
+#### 2.2.2 Completed: isolate upload faults from room output cadence test-first
+
+Use [issue #96](https://github.com/christofmuc/JammerNetz/issues/96) as the design and acceptance record.
+
+1. Added focused red regressions proving that a missing upload stopped its own download and that one slotted participant stopped four stable participants.
+2. Made the active recipient roster independent from the sources contributing to the current mix.
+3. Added a server-owned, monotonic output sequence shared by every receiver for each room tick.
+4. Selected a deterministic healthy cadence donor and added health-based failover hysteresis so a new bursty client cannot steal cadence from an established stable source.
+5. Kept the latency budget fixed: a missing source contributes bounded concealment or silence for that tick; no adaptive jitter growth is introduced.
+6. Extended deterministic traces with cadence changes and packet/concealment/silence attribution.
+7. Verified through real headless receive engines that stable audio remains exact at both the stable participant and the impaired uploader while only the impaired source chops.
+
+The required contract is:
+
+- Upload errors may chop that participant's contribution, but not the entire room mix.
+- Every connected participant remains a download recipient even when its current upload is absent.
+- One high-jitter or slotted participant cannot control stable-room cadence or expand the room latency budget.
+- Cadence selection, failover, source degradation, queue rebase, and server output sequence are deterministic and observable.
+
+#### 2.2.3 Define and fix reconnect generation semantics
 
 1. Decide whether a same-endpoint reconnect with a reset message counter is valid and how it establishes a new generation.
 2. Turn the exact-deadline empty-queue outcome into a focused failing regression test.
@@ -282,9 +301,11 @@ The extracted core exposes:
 
 - the reason a mix did or did not run;
 - queue snapshots before and after the decision;
-- selected source packet counters and fill-in classification;
+- the cadence donor, donor changes, and server-owned output sequence;
+- selected source packet counters and packet/concealment/silence classification;
 - deliberate local fast-forward events, discarded counts, and the oldest retained counter;
 - connection transitions and activity generations;
+- an active recipient roster independent of current contributors;
 - receiver-specific output packets, addressing, metadata, clock, and control selection.
 
 The extraction was intended to preserve production policy. Policy corrections discovered by the harness belong in separate test-first changes.
