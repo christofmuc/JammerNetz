@@ -44,7 +44,7 @@ void requestAudioInputPermission(AudioInputPermissionCallback callback)
 					granted ? AudioInputPermissionStatus::granted : AudioInputPermissionStatus::denied);
 			}];
 		break;
-	@unknown default:
+	default:
 		deliverPermissionResult(sharedCallback, AudioInputPermissionStatus::restricted);
 		break;
 	}
