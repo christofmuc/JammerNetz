@@ -4,7 +4,11 @@
 <plist version="1.0">
   <dict>
     <key>NSMicrophoneUsageDescription</key>
-    <string>This app requires audio input. If you do not have an audio interface connected it will use the built-in microphone.</string>
+    <string>JammerNetz uses audio input to transmit and record your performance.</string>
+    <key>NSDocumentsFolderUsageDescription</key>
+    <string>JammerNetz saves session recordings in your Documents folder.</string>
+    <key>NSLocalNetworkUsageDescription</key>
+    <string>JammerNetz connects to audio-session servers on your local network.</string>
     <key>CFBundleExecutable</key>
     <string>${MACOSX_BUNDLE_EXECUTABLE_NAME}</string>
     <key>CFBundleIconFile</key>

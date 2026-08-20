@@ -2,17 +2,23 @@
 
 set -euo pipefail
 
-if [[ $# -lt 2 || $# -gt 3 ]]; then
-    echo "Usage: $0 BUNDLE DEVELOPER_ID_APPLICATION [KEYCHAIN]" >&2
+if [[ $# -lt 2 || $# -gt 4 ]]; then
+    echo "Usage: $0 BUNDLE DEVELOPER_ID_APPLICATION [KEYCHAIN] [ENTITLEMENTS]" >&2
     exit 2
 fi
 
 bundle=$1
 identity=$2
 keychain=${3:-}
+entitlements=${4:-}
 
 if [[ ! -d "$bundle" ]]; then
     echo "Bundle does not exist: $bundle" >&2
+    exit 1
+fi
+
+if [[ -n "$entitlements" && ! -f "$entitlements" ]]; then
+    echo "Entitlements file does not exist: $entitlements" >&2
     exit 1
 fi
 
@@ -24,6 +30,15 @@ fi
 sign_item() {
     echo "Signing $1"
     /usr/bin/codesign "${codesign_args[@]}" "$1"
+}
+
+sign_top_level_bundle() {
+    local args=("${codesign_args[@]}")
+    if [[ -n "$entitlements" ]]; then
+        args+=(--entitlements "$entitlements")
+    fi
+    echo "Signing $1"
+    /usr/bin/codesign "${args[@]}" "$1"
 }
 
 # Sign copied dynamic code before its containing bundle. AU/VST3 fix-up puts
@@ -51,5 +66,5 @@ if [[ -d "$contents" ]]; then
     done < <(/usr/bin/find "$contents" -depth -type d \( -name '*.framework' -o -name '*.app' -o -name '*.appex' -o -name '*.xpc' -o -name '*.bundle' \) -print0)
 fi
 
-sign_item "$bundle"
+sign_top_level_bundle "$bundle"
 /usr/bin/codesign --verify --deep --strict --verbose=2 "$bundle"
