@@ -17,6 +17,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstdint>
+#include <functional>
 #include <map>
 #include <memory>
 #include <optional>
@@ -33,6 +34,7 @@ constexpr std::size_t boundaryWarmupFrames = 32;
 constexpr std::size_t boundaryImpairmentFrames = 640;
 constexpr std::size_t boundaryRecoveryFrames = 96;
 constexpr float boundaryAudioEpsilon = 1.0e-5f;
+constexpr std::uint64_t nominalSampleRateMilliHz = SAMPLE_RATE * 1000ULL;
 
 using jammernetz::test::SyntheticAudioSource;
 
@@ -210,6 +212,7 @@ struct BoundaryScenario {
 	BoundaryTopology topology { BoundaryTopology::OneOutlier };
 	BoundarySeverity severity;
 	std::uint64_t seed { 0x4a616d6d65724e65ULL };
+	std::vector<std::uint64_t> participantSampleRatesMilliHz;
 };
 
 struct PacketArrival {
@@ -286,6 +289,74 @@ std::vector<PacketArrival> buildArrivals(const BoundaryScenario& scenario)
 			for (std::size_t copy = 0; duplicateBurst && copy < scenario.severity.duplicateCopies;
 				++copy) {
 				arrivals.push_back({ frame + delay, participant, frame, true });
+			}
+		}
+	}
+	std::stable_sort(arrivals.begin(), arrivals.end(), [](const auto& left, const auto& right) {
+		return std::tie(left.tick, left.participant, left.frame, left.duplicate)
+			< std::tie(right.tick, right.participant, right.frame, right.duplicate);
+	});
+	return arrivals;
+}
+
+std::uint64_t sampleRateFor(const BoundaryScenario& scenario, const std::size_t participant)
+{
+	return scenario.participantSampleRatesMilliHz.empty()
+		? nominalSampleRateMilliHz : scenario.participantSampleRatesMilliHz.at(participant);
+}
+
+std::uint64_t clockEventTick(const std::uint64_t event,
+	const std::uint64_t sampleRateMilliHz)
+{
+	return event * nominalSampleRateMilliHz / sampleRateMilliHz;
+}
+
+std::size_t clockEventsAtTick(const std::uint64_t tick,
+	const std::uint64_t sampleRateMilliHz)
+{
+	const auto first = (tick * sampleRateMilliHz + nominalSampleRateMilliHz - 1U)
+		/ nominalSampleRateMilliHz;
+	const auto after = ((tick + 1U) * sampleRateMilliHz + nominalSampleRateMilliHz - 1U)
+		/ nominalSampleRateMilliHz;
+	return static_cast<std::size_t>(after - first);
+}
+
+struct ClockDriftCase {
+	std::string name;
+	std::vector<std::uint64_t> participantSampleRatesMilliHz;
+	std::uint64_t observationFrames { 0 };
+	BoundarySeverity network;
+	std::optional<std::size_t> departingParticipant;
+	std::uint64_t departureTick { 0 };
+};
+
+std::vector<PacketArrival> buildClockDriftArrivals(const BoundaryScenario& scenario,
+	const ClockDriftCase& testCase)
+{
+	std::vector<PacketArrival> arrivals;
+	for (std::size_t participant = 0; participant < scenario.participantCount; ++participant) {
+		const auto rate = sampleRateFor(scenario, participant);
+		for (std::uint64_t frame = 0;; ++frame) {
+			const auto producedAt = clockEventTick(frame, rate);
+			if (producedAt >= testCase.observationFrames) {
+				break;
+			}
+			if (testCase.departingParticipant == participant
+				&& producedAt >= testCase.departureTick) {
+				break;
+			}
+			const bool impaired = producedAt >= boundaryWarmupFrames;
+			const auto delay = impaired ? arrivalDelay(scenario, participant, frame) : 0U;
+			const auto arrivalTick = producedAt + delay;
+			if (arrivalTick >= testCase.observationFrames) {
+				continue;
+			}
+			arrivals.push_back({ arrivalTick, participant, frame, false });
+			const bool duplicateBurst = impaired && scenario.severity.duplicateCopies > 0U
+				&& frame % 37U == 0U;
+			for (std::size_t copy = 0; duplicateBurst
+				&& copy < scenario.severity.duplicateCopies; ++copy) {
+				arrivals.push_back({ arrivalTick, participant, frame, true });
 			}
 		}
 	}
@@ -923,8 +994,10 @@ nlohmann::json frontierJson(const std::size_t participantCount,
 
 class BoundaryModelRunner {
 public:
-	BoundaryModelRunner(BoundaryScenario scenario, const bool legacy)
+	BoundaryModelRunner(BoundaryScenario scenario, const bool legacy,
+		const std::uint64_t maximumIdealFrame)
 		: scenario_(std::move(scenario)), participantCount_(scenario_.participantCount), legacy_(legacy)
+		, receiverCallbackFrames_(participantCount_, 0U)
 	{
 		const ServerBufferConfig config {
 			SERVER_INCOMING_JITTER_BUFFER,
@@ -945,14 +1018,15 @@ public:
 				&& (participant + 1U == participantCount_ || participantCount_ > 2U);
 			receiverProbes_.push_back(std::make_unique<BoundaryReceiverProbe>(participant,
 				participantCount_, hasRemoteHealthySources,
-				boundaryWarmupFrames + boundaryImpairmentFrames + boundaryRecoveryFrames - 1U));
+				maximumIdealFrame));
 		}
 	}
 
-	BoundaryModelResult run(const std::vector<PacketArrival>& arrivals)
+	BoundaryModelResult run(const std::vector<PacketArrival>& arrivals,
+		const std::optional<std::uint64_t> observationLastTick)
 	{
 		std::size_t cursor = 0;
-		const auto lastTick = arrivals.empty() ? 0U : arrivals.back().tick;
+		const auto lastTick = observationLastTick.value_or(arrivals.empty() ? 0U : arrivals.back().tick);
 		for (std::uint64_t tick = 0; tick <= lastTick; ++tick) {
 			std::size_t acceptedAtTick = 0;
 			while (cursor < arrivals.size() && arrivals[cursor].tick == tick) {
@@ -973,8 +1047,11 @@ public:
 				}
 			}
 			processWakeups(tick, acceptedAtTick);
-			for (auto& receiver : receiverProbes_) {
-				receiver->processCallback(tick);
+			for (std::size_t participant = 0; participant < receiverProbes_.size(); ++participant) {
+				const auto callbacks = clockEventsAtTick(tick, sampleRateFor(scenario_, participant));
+				for (std::size_t callback = 0; callback < callbacks; ++callback) {
+					receiverProbes_[participant]->processCallback(receiverCallbackFrames_[participant]++);
+				}
 			}
 		}
 		finishCadenceResidency();
@@ -1149,6 +1226,7 @@ private:
 	std::unique_ptr<LegacyAllReadyScheduler> legacyScheduler_;
 	std::unique_ptr<ServerMixScheduler> cadenceScheduler_;
 	std::vector<std::unique_ptr<BoundaryReceiverProbe>> receiverProbes_;
+	std::vector<std::uint64_t> receiverCallbackFrames_;
 	BoundaryModelResult result_;
 	std::string lastCadenceClient_;
 	std::size_t currentCadenceResidencyMixes_ { 0 };
@@ -1170,10 +1248,15 @@ nlohmann::json scenarioJson(const BoundaryScenario& scenario)
 }
 
 BoundaryModelResult runModel(const BoundaryScenario& scenario,
-	const std::vector<PacketArrival>& arrivals, const bool legacy)
+	const std::vector<PacketArrival>& arrivals, const bool legacy,
+	const std::optional<std::uint64_t> observationLastTick = std::nullopt)
 {
-	BoundaryModelRunner runner(scenario, legacy);
-	return runner.run(arrivals);
+	std::uint64_t maximumIdealFrame = 0;
+	for (const auto& arrival : arrivals) {
+		maximumIdealFrame = std::max(maximumIdealFrame, arrival.frame);
+	}
+	BoundaryModelRunner runner(scenario, legacy, maximumIdealFrame);
+	return runner.run(arrivals, observationLastTick);
 }
 
 TEST(MixerCadenceBoundaryRegressionTest, NoHealthyDonorSweepIsDeterministicAndBounded)
@@ -1192,6 +1275,166 @@ TEST(MixerCadenceBoundaryRegressionTest, NoHealthyDonorSweepIsDeterministicAndBo
 	EXPECT_LE(first.maximumQueueDepth,
 		static_cast<std::size_t>(SERVER_INCOMING_MAXIMUM_BUFFER)
 			+ BUFFER_PREFILL_ON_CONNECT + 1U);
+}
+
+TEST(MixerCadenceClockDriftCharacterizationTest,
+	HardwareClockSweepMeasuresRenderedAudio)
+{
+	const BoundarySeverity clean { "clean", 0, 0, 0 };
+	const BoundarySeverity heldBursts { "jitter-4_hold-8_duplicate-1", 4, 8, 1 };
+	const std::vector<ClockDriftCase> cases {
+		{ "both_minus_50ppm", { 47997600ULL, 47997600ULL }, 24000, clean },
+		{ "both_minus_100ppm", { 47995200ULL, 47995200ULL }, 12000, clean },
+		{ "both_minus_500ppm", { 47976000ULL, 47976000ULL }, 4096, clean },
+		{ "both_47850hz", { 47850000ULL, 47850000ULL }, 4096, clean },
+		{ "unequal_slow_47850_47950hz", { 47850000ULL, 47950000ULL }, 4096, clean },
+		{ "opposing_47850_48150hz", { 47850000ULL, 48150000ULL }, 4096, clean },
+		{ "both_47850hz_with_held_bursts", { 47850000ULL, 47850000ULL }, 4096,
+			heldBursts },
+		{ "47850hz_reference_departs", { 47850000ULL, 47850000ULL, 47850000ULL },
+			4096, clean, 0U, 2048U }
+	};
+	nlohmann::json summary {
+		{ "scenario", "hardware_clock_drift" },
+		{ "description", "Upload production and download callbacks follow each participant's physical audio clock" },
+		{ "nominal_sample_rate_hz", SAMPLE_RATE },
+		{ "frame_samples", SAMPLE_BUFFER_SIZE },
+		{ "target", {
+			{ "matched_clock_behavior", "A shared slow clock changes room cadence without causing playout starvation or overflow" },
+			{ "mismatched_clock_behavior", "Keep queues and latency bounded; isolate unavoidable correction to the affected source" },
+			{ "burst_behavior", "Never catch up with multiple room mixes in one nominal frame" },
+			{ "holdover_behavior", "A departed reference must not stop or permanently overspeed the room" }
+		} },
+		{ "results", nlohmann::json::array() }
+	};
+
+	for (const auto& testCase : cases) {
+		const auto participantCount = testCase.participantSampleRatesMilliHz.size();
+		const BoundaryScenario scenario {
+			participantCount, BoundaryTopology::AllUnhealthy, testCase.network,
+			0x4a616d6d65724e65ULL, testCase.participantSampleRatesMilliHz
+		};
+		const auto arrivals = buildClockDriftArrivals(scenario, testCase);
+		const auto observationLastTick = testCase.observationFrames - 1U;
+		const auto legacy = runModel(scenario, arrivals, true, observationLastTick);
+		const auto cadence = runModel(scenario, arrivals, false, observationLastTick);
+		const auto replay = runModel(scenario, arrivals, false, observationLastTick);
+
+		EXPECT_EQ(cadence, replay) << testCase.name;
+		EXPECT_EQ(legacy.sequenceErrors, 0U) << testCase.name;
+		EXPECT_EQ(cadence.sequenceErrors, 0U) << testCase.name;
+		ASSERT_EQ(legacy.receiverAudio.size(), participantCount);
+		ASSERT_EQ(cadence.receiverAudio.size(), participantCount);
+		for (std::size_t participant = 0; participant < participantCount; ++participant) {
+			const auto expectedCallbacks = static_cast<std::size_t>((testCase.observationFrames
+				* testCase.participantSampleRatesMilliHz[participant]
+				+ nominalSampleRateMilliHz - 1U) / nominalSampleRateMilliHz);
+			const auto scheduledCallbacks = [&testCase, participant] {
+				std::size_t count = 0;
+				for (std::uint64_t tick = 0; tick < testCase.observationFrames; ++tick) {
+					count += clockEventsAtTick(tick,
+						testCase.participantSampleRatesMilliHz[participant]);
+				}
+				return count;
+			}();
+			EXPECT_EQ(scheduledCallbacks, expectedCallbacks) << testCase.name;
+			if (testCase.name == "both_47850hz") {
+				EXPECT_EQ(scheduledCallbacks, 4084U);
+			}
+			EXPECT_EQ(legacy.receiverAudio[participant].callbackFrames, scheduledCallbacks)
+				<< testCase.name;
+			EXPECT_EQ(cadence.receiverAudio[participant].callbackFrames, scheduledCallbacks)
+				<< testCase.name;
+			EXPECT_EQ(legacy.receiverAudio[participant].serverSignalMismatches, 0U)
+				<< testCase.name;
+			EXPECT_EQ(cadence.receiverAudio[participant].serverSignalMismatches, 0U)
+				<< testCase.name;
+		}
+
+		const bool matchedCleanClocks = testCase.network.name == "clean"
+			&& !testCase.departingParticipant
+			&& std::adjacent_find(testCase.participantSampleRatesMilliHz.begin(),
+				testCase.participantSampleRatesMilliHz.end(), std::not_equal_to<>())
+				== testCase.participantSampleRatesMilliHz.end();
+		if (matchedCleanClocks) {
+			EXPECT_EQ(legacy.audioVerdict, "sample_coherent") << testCase.name;
+			EXPECT_EQ(cadence.audioVerdict, "sample_coherent") << testCase.name;
+			for (const auto& receiver : cadence.receiverAudio) {
+				EXPECT_EQ(receiver.playoutUnderruns, 0U) << testCase.name;
+				EXPECT_EQ(receiver.discardedFrames, 0U) << testCase.name;
+			}
+			EXPECT_LE(cadence.maximumMixBurst, 1U) << testCase.name;
+		}
+		if (testCase.departingParticipant) {
+			EXPECT_GT(cadence.disconnects, 0U) << testCase.name;
+			for (std::size_t participant = 0; participant < participantCount; ++participant) {
+				if (participant == *testCase.departingParticipant) {
+					continue;
+				}
+				EXPECT_EQ(cadence.receiverAudio[participant].playoutUnderruns, 0U)
+					<< testCase.name;
+				EXPECT_EQ(cadence.receiverAudio[participant].discardedFrames, 0U)
+					<< testCase.name;
+				EXPECT_EQ(cadence.receiverAudio[participant].receiveQueueOverruns, 0U)
+					<< testCase.name;
+			}
+		}
+
+		nlohmann::json rates = nlohmann::json::array();
+		for (const auto rate : testCase.participantSampleRatesMilliHz) {
+			rates.push_back({
+				{ "sample_rate_hz", static_cast<double>(rate) / 1000.0 },
+				{ "offset_ppm", 1000000.0
+					* (static_cast<double>(rate) - static_cast<double>(nominalSampleRateMilliHz))
+					/ static_cast<double>(nominalSampleRateMilliHz) },
+				{ "scheduled_callback_frames", (testCase.observationFrames * rate
+					+ nominalSampleRateMilliHz - 1U) / nominalSampleRateMilliHz }
+			});
+		}
+		const auto continuingReceiversStable = [&cadence, &testCase, participantCount] {
+			for (std::size_t participant = 0; participant < participantCount; ++participant) {
+				if (testCase.departingParticipant == participant) {
+					continue;
+				}
+				const auto& receiver = cadence.receiverAudio[participant];
+				if (receiver.playoutUnderruns > 0U || receiver.discardedFrames > 0U
+					|| receiver.receiveQueueOverruns > 0U) {
+					return false;
+				}
+			}
+			return true;
+		}();
+		auto row = nlohmann::json {
+			{ "name", testCase.name },
+			{ "participant_clocks", std::move(rates) },
+			{ "observation_frames", testCase.observationFrames },
+			{ "duration_seconds", static_cast<double>(testCase.observationFrames
+				* SAMPLE_BUFFER_SIZE) / static_cast<double>(SAMPLE_RATE) },
+			{ "network", {
+				{ "jitter_frames", testCase.network.jitterFrames },
+				{ "slot_hold_frames", testCase.network.slotHoldFrames },
+				{ "duplicate_copies", testCase.network.duplicateCopies }
+			} },
+			{ "departing_participant", testCase.departingParticipant
+				? nlohmann::json(*testCase.departingParticipant + 1U) : nlohmann::json(nullptr) },
+			{ "departure_tick", testCase.departingParticipant
+				? nlohmann::json(testCase.departureTick) : nlohmann::json(nullptr) },
+			{ "legacy_all_ready", modelJson(legacy, testCase.observationFrames) },
+			{ "cadence_donor", modelJson(cadence, testCase.observationFrames) },
+			{ "matched_clean_clock_target_met", matchedCleanClocks
+				? nlohmann::json(cadence.audioVerdict == "sample_coherent"
+					&& cadence.maximumMixBurst <= 1U) : nlohmann::json(nullptr) },
+			{ "continuing_receivers_stable_after_departure", testCase.departingParticipant
+				? nlohmann::json(continuingReceiversStable) : nlohmann::json(nullptr) }
+		};
+		summary["results"].push_back(std::move(row));
+	}
+
+	const juce::File artifactDirectory(JAMMERNETZ_TEST_ARTIFACT_DIR);
+	const auto scenarioDirectory = artifactDirectory.getChildFile("mixer-cadence-boundary");
+	jammernetz::test::writeJsonArtifact(scenarioDirectory.getChildFile("clock-drift-summary.json"),
+		summary, "mixer clock drift");
+	RecordProperty("clock_drift_summary", summary.dump());
 }
 
 TEST(MixerCadenceBoundaryCharacterizationTest, TwoToSixParticipantSweepComparesLegacyAndCadenceModels)

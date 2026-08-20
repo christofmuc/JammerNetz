@@ -442,6 +442,7 @@ Current artifacts are written below the build tree:
 - CTest JUnit results;
 - hold/flush `summary.json` and per-case JSONL traces;
 - mixer-cadence boundary `summary.json`, comparing the legacy all-ready scheduler with cadence-donor scheduling across deterministic 2–6 participant sessions, including per-recipient rendered-signal verification, real client playout, healthy-source preservation, and one-outlier/all-unhealthy jitter/slot-hold/duplicate-burst frontiers;
+- mixer clock-drift `clock-drift-summary.json`, driving both upload production and download callbacks from each participant's simulated hardware clock. It covers matched -50/-100/-500 ppm clocks, measured 47,850 Hz hardware, unequal and opposing clocks, held duplicate bursts, and cadence-reference departure while retaining sample-level receiver verdicts;
 - isolated and combined impairment summaries and per-profile JSONL traces;
 - quality-surface `quality-surface/hold-N/summary.json` facets;
 - disconnect/reconnect `summary.json`.
