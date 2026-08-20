@@ -59,6 +59,23 @@ bool ClientState::tryPop(std::shared_ptr<JammerNetzAudioData> &packet, bool &isF
 	return queue_->try_pop(packet, isFillIn);
 }
 
+ClientQueuePressureResult ClientState::applyQueuePressure(
+	const std::size_t maximumPacketCount, const std::size_t retainedPacketCount) {
+	std::lock_guard<std::mutex> lock(mutex_);
+	const ClientQueueSnapshot before { state_,
+		state_ == ClientConnectionState::Disconnected || !queue_ ? 0 : queue_->size(),
+		activityGeneration_ };
+	if (state_ == ClientConnectionState::Disconnected || !queue_) {
+		return { before, before, {} };
+	}
+	PacketStreamQueueFastForwardResult fastForward;
+	if (queue_->size() > maximumPacketCount) {
+		fastForward = queue_->fastForwardToSize(retainedPacketCount);
+	}
+	const ClientQueueSnapshot after { state_, queue_->size(), activityGeneration_ };
+	return { before, after, std::move(fastForward) };
+}
+
 ClientQueueSnapshot ClientState::snapshot() const {
 	std::lock_guard<std::mutex> lock(mutex_);
 	return {state_, state_ == ClientConnectionState::Disconnected || !queue_ ? 0 : queue_->size(),

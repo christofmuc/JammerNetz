@@ -19,7 +19,8 @@ const int SAMPLES_PER_MILLISECOND = 48000 / 1000;
 // 20 ms sever jitter buffer
 const int SERVER_INCOMING_JITTER_BUFFER = 10 * SAMPLES_PER_MILLISECOND / SAMPLE_BUFFER_SIZE;
 
-// We cannot wait forever with mixing - if this number is reached for one client, we will send out anyway, even if one of clients hasn't delivered INCOMING_JITTER_BUFFER packages
+// Bound per-client latency without draining unrelated streams. When one queue grows beyond this depth,
+// the server fast-forwards only that queue back to SERVER_INCOMING_JITTER_BUFFER and retains its newest packets.
 const int SERVER_INCOMING_MAXIMUM_BUFFER = 15 * SAMPLES_PER_MILLISECOND / SAMPLE_BUFFER_SIZE;
 
 // When a client connects anew and sends a first package, fill this number of fake packages into his queue so he has a chance to not get kicked out of the mixer again

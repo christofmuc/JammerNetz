@@ -382,11 +382,27 @@ nlohmann::json queueJson(const std::map<std::string, ServerQueueObservation>& qu
 	return result;
 }
 
+nlohmann::json fastForwardJson(
+	const std::map<std::string, PacketStreamQueueFastForwardResult>& fastForwards)
+{
+	nlohmann::json result = nlohmann::json::object();
+	for (const auto& [name, fastForward] : fastForwards) {
+		result[name] = {
+			{ "discarded_packets", fastForward.discardedPackets },
+			{ "oldest_retained_counter", fastForward.oldestRetainedCounter
+				? nlohmann::json(*fastForward.oldestRetainedCounter) : nlohmann::json(nullptr) }
+		};
+	}
+	return result;
+}
+
 struct HoldFlushResult {
 	std::size_t holdFrames { 0 };
 	bool flushHeldBeforeCurrent { false };
 	std::size_t mixCount { 0 };
 	std::size_t maximumPressureMixes { 0 };
+	std::size_t fastForwardEvents { 0 };
+	std::size_t fastForwardedPackets { 0 };
 	std::size_t singleSourceMixes { 0 };
 	std::size_t skewedMixes { 0 };
 	std::uint64_t maximumSourceSkew { 0 };
@@ -405,6 +421,8 @@ nlohmann::json toJson(const HoldFlushResult& result)
 		{ "flush_order", result.flushHeldBeforeCurrent ? "held_before_current" : "current_before_held" },
 		{ "mix_count", result.mixCount },
 		{ "maximum_pressure_mixes", result.maximumPressureMixes },
+		{ "fast_forward_events", result.fastForwardEvents },
+		{ "fast_forwarded_packets", result.fastForwardedPackets },
 		{ "single_source_mixes", result.singleSourceMixes },
 		{ "skewed_mixes", result.skewedMixes },
 		{ "maximum_source_skew_frames", result.maximumSourceSkew },
@@ -553,20 +571,33 @@ private:
 			}
 		}
 		result_.underrunTransitions += step.underrunClients.size();
+		result_.fastForwardEvents += step.fastForwardedClients.size();
+		for (const auto& [name, fastForward] : step.fastForwardedClients) {
+			static_cast<void>(name);
+			result_.fastForwardedPackets += fastForward.discardedPackets;
+		}
 		if (step.trigger == ServerMixTrigger::MaximumBufferPressure
 			|| step.trigger == ServerMixTrigger::AllClientsReadyAndMaximumBufferPressure) {
 			++result_.maximumPressureMixes;
 		}
 
-		nlohmann::json selected = nlohmann::json::object();
+		nlohmann::json selectedCounters = nlohmann::json::object();
+		nlohmann::json selectedSources = nlohmann::json::object();
 		for (const auto& [name, packet] : step.incoming) {
-			selected[name] = packet->messageCounter();
+			selectedCounters[name] = packet->messageCounter();
+			selectedSources[name] = {
+				{ "counter", packet->messageCounter() },
+				{ "contribution", std::find(step.fillInClients.begin(), step.fillInClients.end(), name)
+					!= step.fillInClients.end() ? "concealment" : "packet" }
+			};
 		}
 		trace_.record({ virtualSample_, traceSequence_++, "server_mix_decision", {
 			{ "trigger", triggerName(step.trigger) },
 			{ "queues_before", queueJson(step.queuesBefore) },
 			{ "queues_after", queueJson(step.queuesAfter) },
-			{ "selected_counters", selected },
+			{ "selected_counters", selectedCounters },
+			{ "selected_sources", selectedSources },
+			{ "fast_forwards", fastForwardJson(step.fastForwardedClients) },
 			{ "underrun_clients", step.underrunClients }
 		} });
 
@@ -653,6 +684,20 @@ TEST(NetworkImpairmentCharacterizationTest, HoldAndFlushSweepProducesDeterminist
 	RecordProperty("characterization_summary", summary.dump());
 }
 
+TEST(NetworkImpairmentRegressionTest, EightFrameHoldAndFlushRecoversWithoutPersistentSkew)
+{
+	for (const bool heldBeforeCurrent : { false, true }) {
+		HoldFlushScenario scenario(8, heldBeforeCurrent);
+		const auto result = scenario.run();
+		EXPECT_EQ(result.singleSourceMixes, 0U);
+		EXPECT_EQ(result.underrunTransitions, 0U);
+		ASSERT_TRUE(result.recoveryMixesAfterFlush.has_value());
+		EXPECT_LE(*result.recoveryMixesAfterFlush, coherentRecoveryWindow);
+		EXPECT_GT(result.fastForwardEvents, 0U);
+		EXPECT_GT(result.fastForwardedPackets, 0U);
+	}
+}
+
 struct ImpairmentProfile {
 	ImpairmentProfile(std::string profileFamily, std::string profileName)
 		: family(std::move(profileFamily)), name(std::move(profileName))
@@ -684,6 +729,8 @@ struct ImpairmentRunResult {
 	std::size_t rejectedPackets { 0 };
 	std::size_t mixCount { 0 };
 	std::size_t maximumPressureMixes { 0 };
+	std::size_t fastForwardEvents { 0 };
+	std::size_t fastForwardedPackets { 0 };
 	std::size_t singleSourceMixes { 0 };
 	std::size_t skewedMixes { 0 };
 	std::uint64_t maximumSourceSkew { 0 };
@@ -772,6 +819,8 @@ nlohmann::json resultJson(const ImpairmentRunResult& result)
 		{ "rejected_packets", result.rejectedPackets },
 		{ "mix_count", result.mixCount },
 		{ "maximum_pressure_mixes", result.maximumPressureMixes },
+		{ "fast_forward_events", result.fastForwardEvents },
+		{ "fast_forwarded_packets", result.fastForwardedPackets },
 		{ "single_source_mixes", result.singleSourceMixes },
 		{ "skewed_mixes", result.skewedMixes },
 		{ "maximum_source_skew_frames", result.maximumSourceSkew },
@@ -1022,20 +1071,33 @@ private:
 			}
 		}
 		result_.underrunTransitions += step.underrunClients.size();
+		result_.fastForwardEvents += step.fastForwardedClients.size();
+		for (const auto& [name, fastForward] : step.fastForwardedClients) {
+			static_cast<void>(name);
+			result_.fastForwardedPackets += fastForward.discardedPackets;
+		}
 		if (step.trigger == ServerMixTrigger::MaximumBufferPressure
 			|| step.trigger == ServerMixTrigger::AllClientsReadyAndMaximumBufferPressure) {
 			++result_.maximumPressureMixes;
 		}
 
-		nlohmann::json selected = nlohmann::json::object();
+		nlohmann::json selectedCounters = nlohmann::json::object();
+		nlohmann::json selectedSources = nlohmann::json::object();
 		for (const auto& [name, packet] : step.incoming) {
-			selected[name] = packet->messageCounter();
+			selectedCounters[name] = packet->messageCounter();
+			selectedSources[name] = {
+				{ "counter", packet->messageCounter() },
+				{ "contribution", std::find(step.fillInClients.begin(), step.fillInClients.end(), name)
+					!= step.fillInClients.end() ? "concealment" : "packet" }
+			};
 		}
 		record("server_mix_decision", {
 			{ "trigger", triggerName(step.trigger) },
 			{ "queues_before", queueJson(step.queuesBefore) },
 			{ "queues_after", queueJson(step.queuesAfter) },
-			{ "selected_counters", selected },
+			{ "selected_counters", selectedCounters },
+			{ "selected_sources", selectedSources },
+			{ "fast_forwards", fastForwardJson(step.fastForwardedClients) },
 			{ "underrun_clients", step.underrunClients }
 		});
 
@@ -1170,6 +1232,24 @@ ImpairmentRunResult runAndRecord(const ImpairmentProfile& profile,
 	firstScenario.trace().writeJsonLines(traceDirectory.getChildFile(profile.name + ".jsonl"));
 	rows.push_back({ { "profile", profileJson(profile) }, { "result", resultJson(first) } });
 	return first;
+}
+
+TEST(NetworkImpairmentRegressionTest, EightFramePeriodicHoldRecoversAtBothReceivers)
+{
+	ImpairmentProfile profile { "throttle", "eight-frame-periodic-hold-regression" };
+	profile.holdEveryFrames = 32;
+	profile.holdFrames = 8;
+	ProgressiveImpairmentScenario scenario(profile);
+	const auto result = scenario.run();
+
+	EXPECT_TRUE(result.serverRecovered());
+	EXPECT_TRUE(result.receiversRecovered());
+	EXPECT_EQ(result.singleSourceMixes, 0U);
+	EXPECT_EQ(result.underrunTransitions, 0U);
+	ASSERT_TRUE(result.recoveryMixes.has_value());
+	EXPECT_LE(*result.recoveryMixes, coherentRecoveryWindow);
+	EXPECT_GT(result.fastForwardEvents, 0U);
+	EXPECT_GT(result.fastForwardedPackets, 0U);
 }
 
 std::vector<ImpairmentProfile> isolatedProfiles()

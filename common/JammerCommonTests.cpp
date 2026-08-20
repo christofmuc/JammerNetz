@@ -333,6 +333,35 @@ TEST(PacketStreamQueueTest, FillsOnePacketGapWithoutConsumingTheLaterPacket)
 	EXPECT_EQ(quality.packagesPopped, 2u);
 }
 
+TEST(PacketStreamQueueTest, FastForwardRetainsNewestPacketsAndRebasesSequenceState)
+{
+	PacketStreamQueue queue("test");
+	for (std::uint64_t counter = 100; counter <= 106; ++counter) {
+		ASSERT_TRUE(queue.push(makeQueuePacket(counter)));
+	}
+
+	std::shared_ptr<JammerNetzAudioData> packet;
+	bool isFillIn = false;
+	ASSERT_TRUE(queue.try_pop(packet, isFillIn));
+	ASSERT_EQ(packet->messageCounter(), 100u);
+
+	const auto fastForward = queue.fastForwardToSize(3);
+	EXPECT_EQ(fastForward.discardedPackets, 3u);
+	ASSERT_TRUE(fastForward.oldestRetainedCounter.has_value());
+	EXPECT_EQ(*fastForward.oldestRetainedCounter, 104u);
+	EXPECT_EQ(queue.size(), 3u);
+
+	ASSERT_TRUE(queue.try_pop(packet, isFillIn));
+	EXPECT_EQ(packet->messageCounter(), 104u);
+	EXPECT_FALSE(isFillIn);
+	EXPECT_FALSE(queue.push(makeQueuePacket(103)));
+
+	const auto quality = queue.qualityInfoPackage();
+	EXPECT_EQ(quality.droppedPacketCounter, 3);
+	EXPECT_EQ(quality.packagesPopped, 5u);
+	EXPECT_EQ(quality.tooLateOrDuplicate, 1u);
+}
+
 TEST(PacketStreamQueueTest, ResetClearsPacketsStatisticsAndSequenceState)
 {
 	PacketStreamQueue queue("test");

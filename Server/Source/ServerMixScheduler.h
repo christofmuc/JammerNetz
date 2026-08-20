@@ -36,6 +36,8 @@ struct ServerScheduledMixResult {
 	std::map<std::string, ServerQueueObservation> queuesAfter;
 	std::vector<std::string> disconnectedClients;
 	std::vector<std::string> underrunClients;
+	std::vector<std::string> fillInClients;
+	std::map<std::string, PacketStreamQueueFastForwardResult> fastForwardedClients;
 	ServerInputPackets incoming;
 	ServerMixStepResult mix;
 };

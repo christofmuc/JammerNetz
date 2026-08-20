@@ -39,6 +39,15 @@ void MixerThread::run() {
 			ServerLogger::printClientStatus(4, client,
 				"Jitter queue underrun, starting disconnect grace period");
 		}
+		for (const auto& [client, fastForward] : result.fastForwardedClients) {
+			std::string statusMessage = "Queue pressure: discarded "
+				+ std::to_string(fastForward.discardedPackets) + " stale packets";
+			if (fastForward.oldestRetainedCounter) {
+				statusMessage += ", retained counter "
+					+ std::to_string(*fastForward.oldestRetainedCounter) + " onward";
+			}
+			ServerLogger::printClientStatus(4, client, statusMessage);
+		}
 		if (!result.incoming.empty()) {
 			for (const auto& diagnostic : result.mix.diagnostics) {
 				ServerLogger::errorln(diagnostic);

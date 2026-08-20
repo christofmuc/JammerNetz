@@ -107,6 +107,45 @@ bool PacketStreamQueue::try_pop(std::shared_ptr<JammerNetzAudioData> &element, b
 	}
 }
 
+PacketStreamQueueFastForwardResult PacketStreamQueue::fastForwardToSize(
+	const std::size_t retainedPacketCount)
+{
+	PacketStreamQueueFastForwardResult result;
+	std::optional<std::uint64_t> newestDiscardedCounter;
+	while (packetQueue_.size() > retainedPacketCount) {
+		const auto discarded = packetQueue_.top();
+		packetQueue_.pop();
+		currentlyInQueue_.erase(discarded->messageCounter());
+		newestDiscardedCounter = discarded->messageCounter();
+		++result.discardedPackets;
+	}
+
+	if (result.discardedPackets == 0) {
+		return result;
+	}
+
+	// This is an intentional latency rebase, not ordinary gap concealment. Make
+	// the oldest retained packet the next real packet and discard the previous
+	// packet/FEC context so try_pop() cannot recreate the skipped interval.
+	lastPoppedMessageData_.reset();
+	currentGap_.store(0, std::memory_order_relaxed);
+	if (!packetQueue_.empty()) {
+		result.oldestRetainedCounter = packetQueue_.top()->messageCounter();
+		lastPoppedMessage_.store(*result.oldestRetainedCounter == 0
+			? 0
+			: *result.oldestRetainedCounter - 1, std::memory_order_relaxed);
+	}
+	else if (newestDiscardedCounter) {
+		lastPoppedMessage_.store(*newestDiscardedCounter, std::memory_order_relaxed);
+	}
+
+	qualityData_.droppedPacketCounter.fetch_add(
+		static_cast<std::int64_t>(result.discardedPackets), std::memory_order_relaxed);
+	qualityData_.packagesPopped.fetch_add(
+		static_cast<std::uint64_t>(result.discardedPackets), std::memory_order_relaxed);
+	return result;
+}
+
 void PacketStreamQueue::reset()
 {
 	packetQueue_ = {};
