@@ -10,8 +10,10 @@
 #include "ServerMixerCore.h"
 #include "SharedServerTypes.h"
 
+#include <chrono>
 #include <cstdint>
 #include <map>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -60,6 +62,9 @@ struct ServerScheduledMixResult {
 // forwards the result; deterministic tests can drive this class directly.
 class ServerMixScheduler {
 public:
+	static constexpr auto CadenceFailoverGracePeriod = std::chrono::microseconds(
+		(SAMPLE_BUFFER_SIZE * 1000000LL + SAMPLE_RATE - 1) / SAMPLE_RATE);
+
 	ServerMixScheduler(JammerNetzChannelSetup mixdownSetup, ServerBufferConfig bufferConfig);
 
 	ServerScheduledMixResult process(TPacketStreamBundle& clients,
@@ -70,4 +75,5 @@ private:
 	ServerBufferConfig bufferConfig_;
 	std::string cadenceClient_;
 	std::map<std::string, std::size_t> sourceHealth_;
+	std::optional<ClientState::TimePoint> cadenceUnreadySince_;
 };

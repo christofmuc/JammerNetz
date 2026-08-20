@@ -31,8 +31,7 @@ public:
 
 	ServerMixStepResult mix(const ServerInputPackets& incoming);
 	ServerMixStepResult mix(const ServerInputPackets& incoming,
-		const ServerMixRecipients& recipients,
-		const std::string& cadenceClient);
+		const ServerMixRecipients& recipients);
 
 private:
 	static void bufferMixdown(AudioBuffer<float>& output,

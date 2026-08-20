@@ -25,12 +25,11 @@ ServerMixStepResult ServerMixerCore::mix(const ServerInputPackets& incoming)
 			packet->timestamp(), packet->channelSetup(), packet->protocolVersion()
 		});
 	}
-	return mix(incoming, recipients, incoming.empty() ? std::string() : incoming.begin()->first);
+	return mix(incoming, recipients);
 }
 
 ServerMixStepResult ServerMixerCore::mix(const ServerInputPackets& incoming,
-	const ServerMixRecipients& recipients,
-	const std::string& cadenceClient)
+	const ServerMixRecipients& recipients)
 {
 	ServerMixStepResult result;
 	result.serverTime = serverTime_;
@@ -46,7 +45,6 @@ ServerMixStepResult ServerMixerCore::mix(const ServerInputPackets& incoming,
 	result.serverTime = serverTime_;
 	result.mixSequence = mixSequence_;
 	result.outgoing.reserve(recipients.size());
-	(void) cadenceClient;
 
 	for (const auto& receiver : recipients) {
 		auto output = std::make_shared<AudioBuffer<float>>(2, bufferLength);

@@ -11,6 +11,9 @@
 
 namespace {
 
+constexpr std::size_t maximumSourceHealth = 8;
+constexpr std::size_t trustedCadenceHealth = 1;
+
 ServerQueueObservation observe(const ClientQueueSnapshot& snapshot)
 {
 	return { snapshot.state, snapshot.size, snapshot.activityGeneration };
@@ -72,12 +75,15 @@ ServerScheduledMixResult ServerMixScheduler::process(TPacketStreamBundle& client
 	}
 
 	const bool singleClient = recipients.size() == 1;
+	const auto readyFor = [&](const auto entry) {
+		return entry != queuesAfterFastForward.end()
+			&& (isReady(entry->second, bufferConfig_.serverIncomingJitterBuffer, singleClient)
+				|| (result.fastForwardedClients.count(entry->first) != 0
+					&& entry->second.size > 0));
+	};
 	auto candidate = queuesAfterFastForward.end();
 	for (auto current = queuesAfterFastForward.begin(); current != queuesAfterFastForward.end(); ++current) {
-		const bool rebasedByPressure = result.fastForwardedClients.count(current->first) != 0
-			&& current->second.size > 0;
-		if (!isReady(current->second, bufferConfig_.serverIncomingJitterBuffer, singleClient)
-			&& !rebasedByPressure) {
+		if (!readyFor(current)) {
 			continue;
 		}
 		if (candidate == queuesAfterFastForward.end()
@@ -92,26 +98,29 @@ ServerScheduledMixResult ServerMixScheduler::process(TPacketStreamBundle& client
 	const auto currentCadence = queuesAfterFastForward.find(cadenceClient_);
 	const bool currentCadenceActive = currentCadence != queuesAfterFastForward.end()
 		&& currentCadence->second.state != ClientConnectionState::Disconnected;
-	const bool currentCadenceReady = currentCadence != queuesAfterFastForward.end()
-		&& (isReady(currentCadence->second, bufferConfig_.serverIncomingJitterBuffer, singleClient)
-			|| (result.fastForwardedClients.count(cadenceClient_) != 0
-				&& currentCadence->second.size > 0));
+	const bool currentCadenceReady = readyFor(currentCadence);
+	if (currentCadenceReady) {
+		cadenceUnreadySince_.reset();
+	}
+	else if (currentCadenceActive && !cadenceUnreadySince_) {
+		cadenceUnreadySince_ = now;
+	}
 	if (!currentCadenceReady) {
-		const bool candidateIsAtLeastAsHealthy = candidate != queuesAfterFastForward.end()
-			&& (!currentCadenceActive
-				|| sourceHealth_[candidate->first] >= sourceHealth_[cadenceClient_]);
-		if (candidateIsAtLeastAsHealthy) {
+		const bool candidateIsTrusted = candidate != queuesAfterFastForward.end()
+			&& sourceHealth_[candidate->first] >= trustedCadenceHealth;
+		const bool graceExpired = cadenceUnreadySince_
+			&& now - *cadenceUnreadySince_ >= CadenceFailoverGracePeriod;
+		if (candidate != queuesAfterFastForward.end()
+			&& (!currentCadenceActive || candidateIsTrusted || graceExpired)) {
 			cadenceClient_ = candidate->first;
+			cadenceUnreadySince_.reset();
 		}
 	}
 	result.cadenceClient = cadenceClient_;
 	result.cadenceClientChanged = cadenceClient_ != previousCadenceClient;
 
 	const auto selectedCadence = queuesAfterFastForward.find(cadenceClient_);
-	const bool selectedCadenceReady = selectedCadence != queuesAfterFastForward.end()
-		&& (isReady(selectedCadence->second, bufferConfig_.serverIncomingJitterBuffer, singleClient)
-			|| (result.fastForwardedClients.count(cadenceClient_) != 0
-				&& selectedCadence->second.size > 0));
+	const bool selectedCadenceReady = readyFor(selectedCadence);
 	if (!selectedCadenceReady) {
 		result.trigger = ServerMixTrigger::None;
 		result.queuesAfter = std::move(queuesAfterFastForward);
@@ -166,7 +175,8 @@ ServerScheduledMixResult ServerMixScheduler::process(TPacketStreamBundle& client
 			}
 			else {
 				result.contributions.emplace(client->first, ServerSourceContribution::Packet);
-				++sourceHealth_[client->first];
+				auto& health = sourceHealth_[client->first];
+				health = std::min(health + 1, maximumSourceHealth);
 			}
 		}
 		else if (client->second->snapshot().state != ClientConnectionState::Disconnected) {
@@ -189,6 +199,6 @@ ServerScheduledMixResult ServerMixScheduler::process(TPacketStreamBundle& client
 		result.queuesAfter.emplace(client.first, observe(client.second->snapshot()));
 	}
 
-	result.mix = mixerCore_.mix(result.incoming, recipients, cadenceClient_);
+	result.mix = mixerCore_.mix(result.incoming, recipients);
 	return result;
 }

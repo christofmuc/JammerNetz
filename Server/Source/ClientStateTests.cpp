@@ -64,6 +64,27 @@ TEST(ClientStateTest, RejectsAnUnderrunDecisionMadeBeforeConcurrentPacketActivit
 	EXPECT_EQ(client.snapshot().state, ClientConnectionState::Connected);
 }
 
+TEST(ClientStateTest, SupportsDropReconnectAndDropAgain) {
+	ClientState client("127.0.0.1:1234");
+	const auto start = ClientState::TimePoint {};
+	client.push(makePacket(100), 0, start);
+
+	auto snapshot = client.snapshot();
+	ASSERT_TRUE(client.markUnderrun(snapshot.activityGeneration, start));
+	ASSERT_TRUE(client.disconnectIfGraceExpired(start + ClientState::DisconnectGracePeriod));
+	ASSERT_EQ(client.snapshot().state, ClientConnectionState::Disconnected);
+
+	const auto reconnect = client.push(makePacket(1), 0, start + std::chrono::seconds(3));
+	ASSERT_EQ(reconnect.transition, ClientConnectionTransition::Reconnection);
+	ASSERT_EQ(client.snapshot().state, ClientConnectionState::Connected);
+
+	snapshot = client.snapshot();
+	ASSERT_TRUE(client.markUnderrun(snapshot.activityGeneration, start + std::chrono::seconds(4)));
+	ASSERT_EQ(client.snapshot().state, ClientConnectionState::Disconnecting);
+	EXPECT_TRUE(client.disconnectIfGraceExpired(start + std::chrono::seconds(6)));
+	EXPECT_EQ(client.snapshot().state, ClientConnectionState::Disconnected);
+}
+
 TEST(ClientStateTest, SupportsConcurrentPublicationMixSendAndStatisticsAccess) {
 	TPacketStreamBundle clients;
 	std::atomic<bool> accepting{true};

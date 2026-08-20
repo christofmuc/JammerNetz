@@ -38,6 +38,7 @@ constexpr std::size_t warmupFrames = 16;
 constexpr std::size_t recoveryFrames = 64;
 constexpr std::size_t coherentRecoveryWindow = 8;
 constexpr float comparisonEpsilon = 1.0e-5f;
+constexpr std::uint64_t firstImpairmentMessageCounter = 100;
 
 const char* triggerName(const ServerMixTrigger trigger)
 {
@@ -90,7 +91,8 @@ std::shared_ptr<JammerNetzAudioData> makePacket(const std::uint32_t sourceId,
 	}
 	const auto timestamp = 1000.0 * static_cast<double>(frameIndex * SAMPLE_BUFFER_SIZE)
 		/ static_cast<double>(SAMPLE_RATE);
-	return std::make_shared<JammerNetzAudioData>(100 + frameIndex, timestamp, setup,
+	return std::make_shared<JammerNetzAudioData>(firstImpairmentMessageCounter + frameIndex,
+		timestamp, setup,
 		SAMPLE_RATE, 0.0f, MidiSignal_None, std::move(audio), nullptr);
 }
 
@@ -419,8 +421,8 @@ std::pair<AudioBuffer<float>, std::optional<std::uint64_t>> expectedReceiverFram
 	const int outputChannel = receiver == "client-a" ? 1 : 0;
 	expected.copyFrom(outputChannel, 0, *remote->second->audioBuffer(), 0, 0, SAMPLE_BUFFER_SIZE);
 	const auto counter = static_cast<std::uint64_t>(remote->second->messageCounter());
-	return { std::move(expected), counter >= 100U
-		? std::optional<std::uint64_t>(counter - 100U) : std::nullopt };
+	return { std::move(expected), counter >= firstImpairmentMessageCounter
+		? std::optional<std::uint64_t>(counter - firstImpairmentMessageCounter) : std::nullopt };
 }
 
 nlohmann::json fastForwardJson(
@@ -568,7 +570,7 @@ private:
 		auto& client = clientIndex == 0 ? clientA_ : clientB_;
 		const auto push = client->push(packet, BUFFER_PREFILL_ON_CONNECT, now());
 		recordDelivery(clientIndex == 0 ? "client-a" : "client-b",
-			packet->messageCounter() - 100U, action);
+			packet->messageCounter() - firstImpairmentMessageCounter, action);
 		if (!push.queued) {
 			throw std::runtime_error("The hold-and-flush transport rejected a generated packet");
 		}
@@ -1326,6 +1328,49 @@ TEST(NetworkImpairmentRegressionTest, EightFramePeriodicHoldKeepsStableAudioFlow
 	EXPECT_TRUE(result.receiverB.recovered());
 }
 
+TEST(NetworkImpairmentRegressionTest, RepeatedUploadOutagesRecoverThenDropAgainWithoutStoppingDownloads)
+{
+	ImpairmentProfile profile { "repeated-outage", "drop-16-recover-16-repeat" };
+	profile.dropEveryFrames = 32;
+	profile.dropBurstFrames = 16;
+	ProgressiveImpairmentScenario scenario(profile);
+	const auto result = scenario.run();
+
+	EXPECT_GE(result.underrunTransitions, 2U);
+	EXPECT_GT(result.receiverA.silentOutputFramesAfterStart, 0U);
+	EXPECT_TRUE(result.receiverB.sampleExact());
+	EXPECT_EQ(result.receiverB.outputDiscontinuities, 0U);
+	EXPECT_EQ(result.receiverA.outputFrames, result.receiverB.outputFrames);
+	EXPECT_EQ(result.finalStateA, ClientConnectionState::Connected);
+	EXPECT_EQ(result.finalStateB, ClientConnectionState::Connected);
+	EXPECT_TRUE(result.receiverA.recovered());
+	EXPECT_TRUE(result.receiverB.recovered());
+}
+
+TEST(NetworkImpairmentRegressionTest, HighJitterLongHoldAndDuplicateBurstsRemainIsolated)
+{
+	ImpairmentProfile profile { "combined-severe", "jitter-16_hold-16_duplicate-burst-3_drop-2" };
+	profile.jitterFrames = 16;
+	profile.holdEveryFrames = 32;
+	profile.holdFrames = 16;
+	profile.duplicateEveryFrames = 4;
+	profile.duplicateCopies = 3;
+	profile.dropEveryFrames = 16;
+	profile.dropBurstFrames = 2;
+	ProgressiveImpairmentScenario scenario(profile);
+	const auto result = scenario.run();
+
+	EXPECT_GT(result.delayedPackets, 0U);
+	EXPECT_GT(result.injectedDuplicates, 0U);
+	EXPECT_GT(result.rejectedPackets, 0U);
+	EXPECT_GT(result.injectedDrops, 0U);
+	EXPECT_TRUE(result.receiverB.sampleExact());
+	EXPECT_EQ(result.receiverB.outputDiscontinuities, 0U);
+	EXPECT_EQ(result.receiverA.outputFrames, result.receiverB.outputFrames);
+	EXPECT_TRUE(result.receiverA.recovered());
+	EXPECT_TRUE(result.receiverB.recovered());
+}
+
 std::vector<ImpairmentProfile> isolatedProfiles()
 {
 	std::vector<ImpairmentProfile> profiles;
@@ -1436,6 +1481,31 @@ std::vector<ImpairmentProfile> combinedProfiles()
 		profile.dropEveryFrames = dropEvery;
 		profile.reorderEveryFrames = 8;
 		profile.reorderDelayFrames = displacement;
+		profiles.push_back(profile);
+	}
+	for (const auto& [jitter, hold, duplicateCopies] :
+		std::array<std::tuple<std::size_t, std::size_t, std::size_t>, 3> {
+			std::tuple { 8U, 16U, 2U }, std::tuple { 16U, 16U, 3U },
+			std::tuple { 32U, 32U, 4U }
+		}) {
+		ImpairmentProfile profile { "jitter+hold+duplicate-burst",
+			"jitter-" + std::to_string(jitter) + "_hold-" + std::to_string(hold)
+				+ "_duplicate-burst-" + std::to_string(duplicateCopies) };
+		profile.jitterFrames = jitter;
+		profile.holdEveryFrames = 32;
+		profile.holdFrames = hold;
+		profile.duplicateEveryFrames = 4;
+		profile.duplicateCopies = duplicateCopies;
+		profiles.push_back(profile);
+	}
+	for (const auto& [dropBurst, recovery] :
+		std::array<std::pair<std::size_t, std::size_t>, 3> {
+			std::pair { 8U, 24U }, std::pair { 16U, 16U }, std::pair { 24U, 8U }
+		}) {
+		ImpairmentProfile profile { "repeated-outage", "drop-" + std::to_string(dropBurst)
+			+ "_recover-" + std::to_string(recovery) + "_repeat" };
+		profile.dropEveryFrames = dropBurst + recovery;
+		profile.dropBurstFrames = dropBurst;
 		profiles.push_back(profile);
 	}
 	return profiles;

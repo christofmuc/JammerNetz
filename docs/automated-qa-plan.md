@@ -148,10 +148,12 @@ Use [issue #96](https://github.com/christofmuc/JammerNetz/issues/96) as the desi
 1. Added focused red regressions proving that a missing upload stopped its own download and that one slotted participant stopped four stable participants.
 2. Made the active recipient roster independent from the sources contributing to the current mix.
 3. Added a server-owned, monotonic output sequence shared by every receiver for each room tick.
-4. Selected a deterministic healthy cadence donor and added health-based failover hysteresis so a new bursty client cannot steal cadence from an established stable source.
+4. Selected a deterministic healthy cadence donor and bounded its recent-health score. A previously contributing ready source takes over immediately when the donor stalls; even a new source takes over after one network-frame grace, so historical health can never deadlock the room while a new bursty client still cannot steal healthy cadence.
 5. Kept the latency budget fixed: a missing source contributes bounded concealment or silence for that tick; no adaptive jitter growth is introduced.
 6. Extended deterministic traces with cadence changes and packet/concealment/silence attribution.
 7. Verified through real headless receive engines that stable audio remains exact at both the stable participant and the impaired uploader while only the impaired source chops.
+8. Added repeated drop/recovery/drop lifecycle and audio-outage regressions, plus severe jitter, long hold, duplicate-burst, and loss combinations.
+9. Kept RTT stable during an upload outage by accepting only newer echoed upload timestamps; repeated cached recipient metadata no longer turns one upload fault into an ever-growing latency reading.
 
 The required contract is:
 
@@ -159,6 +161,7 @@ The required contract is:
 - Every connected participant remains a download recipient even when its current upload is absent.
 - One high-jitter or slotted participant cannot control stable-room cadence or expand the room latency budget.
 - Cadence selection, failover, source degradation, queue rebase, and server output sequence are deterministic and observable.
+- A ready cadence candidate cannot be rejected forever because its historical health score is lower than the missing donor's score.
 
 #### 2.2.3 Define and fix reconnect generation semantics
 
@@ -370,7 +373,14 @@ Combination families currently cover low, medium, and high levels of:
 - hold plus duplication;
 - lag plus loss;
 - jitter plus loss plus duplication;
-- jitter plus loss plus reordering.
+- jitter plus loss plus reordering;
+- jitter plus long periodic hold plus duplicate bursts;
+- repeated loss windows with 8/24, 16/16, and 24/8-frame drop/recovery duty cycles.
+
+Focused robustness regressions additionally exercise a participant dropping, reconnecting,
+and dropping again, repeated upload outages without download interruption, and a severe
+jitter/hold/duplicate/loss profile. These cases assert isolation at unaffected receivers,
+equal room-output cadence for the impaired uploader, and bounded recovery after each outage.
 
 Clumsy's byte-tampering function is intentionally absent from the object-level layer. It must operate on serialized datagrams or real UDP so malformed-packet rejection is tested meaningfully.
 

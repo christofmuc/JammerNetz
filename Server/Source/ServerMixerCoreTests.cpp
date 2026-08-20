@@ -165,7 +165,7 @@ TEST(ServerMixerCoreTest, SendsEveryRecipientAMixWhenOneSourceIsMissing)
 	recipients.emplace("client-c", ClientMixMetadata {
 		packetC->timestamp(), packetC->channelSetup(), packetC->protocolVersion() });
 
-	const auto result = mixer.mix(inputs, recipients, "client-a");
+	const auto result = mixer.mix(inputs, recipients);
 
 	ASSERT_EQ(result.outgoing.size(), 3U);
 	const auto& missingUploader = outputFor(result, "client-b").audioBlock;

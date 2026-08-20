@@ -218,6 +218,78 @@ TEST(ServerMixSchedulerTest, MissingCadenceClientFailsOverWithoutStoppingItsDown
 	EXPECT_NE(findOutput(failedOver, "client-a"), nullptr);
 }
 
+TEST(ServerMixSchedulerTest, LowerHealthCandidateStillTakesOverAStalledCadence)
+{
+	TPacketStreamBundle clients;
+	auto clientA = std::make_shared<ClientState>("client-a");
+	auto clientB = std::make_shared<ClientState>("client-b");
+	clients.emplace("client-a", clientA);
+	clients.emplace("client-b", clientB);
+	ServerMixScheduler scheduler(stereoMixdown(), { 1, 3, 0 });
+
+	for (std::uint64_t counter = 10; counter <= 15; ++counter) {
+		clientA->push(makeSchedulerPacket(counter), 0);
+		clientB->push(makeSchedulerPacket(counter), 0);
+		scheduler.process(clients);
+	}
+
+	std::shared_ptr<JammerNetzAudioData> discarded;
+	bool isFillIn = false;
+	std::uint64_t generation = 0;
+	ASSERT_TRUE(clientB->tryPop(discarded, isFillIn, generation));
+	clientA->push(makeSchedulerPacket(16), 0);
+	const auto degradedB = scheduler.process(clients);
+	ASSERT_EQ(degradedB.contributions.at("client-b"), ServerSourceContribution::Silence);
+
+	clientB->push(makeSchedulerPacket(16), 0);
+	clientA->push(makeSchedulerPacket(17), 0);
+	clientB->push(makeSchedulerPacket(17), 0);
+	ASSERT_EQ(scheduler.process(clients).contributions.at("client-b"),
+		ServerSourceContribution::Packet);
+
+	clientA->push(makeSchedulerPacket(18), 0);
+	clientB->push(makeSchedulerPacket(18), 0);
+	ASSERT_EQ(scheduler.process(clients).contributions.at("client-b"),
+		ServerSourceContribution::Packet);
+
+	ASSERT_TRUE(clientA->tryPop(discarded, isFillIn, generation));
+	clientB->push(makeSchedulerPacket(19), 0);
+	const auto failedOver = scheduler.process(clients);
+
+	EXPECT_EQ(failedOver.trigger, ServerMixTrigger::CadenceClientFailover);
+	EXPECT_EQ(failedOver.cadenceClient, "client-b");
+	EXPECT_EQ(failedOver.mix.outgoing.size(), 2U);
+	EXPECT_NE(findOutput(failedOver, "client-a"), nullptr);
+}
+
+TEST(ServerMixSchedulerTest, NewCadenceCandidateTakesOverAfterOneFrameGrace)
+{
+	TPacketStreamBundle clients;
+	auto clientA = std::make_shared<ClientState>("client-a");
+	clients.emplace("client-a", clientA);
+	ServerMixScheduler scheduler(stereoMixdown(), { 1, 3, 0 });
+	const auto start = ClientState::TimePoint {};
+
+	clientA->push(makeSchedulerPacket(10), 0);
+	ASSERT_EQ(scheduler.process(clients, start).cadenceClient, "client-a");
+
+	auto clientB = std::make_shared<ClientState>("client-b");
+	clients.emplace("client-b", clientB);
+	clientB->push(makeSchedulerPacket(10), 0);
+	clientB->push(makeSchedulerPacket(11), 0);
+
+	const auto waiting = scheduler.process(clients, start);
+	EXPECT_EQ(waiting.trigger, ServerMixTrigger::None);
+	EXPECT_TRUE(waiting.mix.outgoing.empty());
+
+	const auto failedOver = scheduler.process(clients,
+		start + ServerMixScheduler::CadenceFailoverGracePeriod);
+	EXPECT_EQ(failedOver.trigger, ServerMixTrigger::CadenceClientFailover);
+	EXPECT_EQ(failedOver.cadenceClient, "client-b");
+	EXPECT_EQ(failedOver.contributions.at("client-a"), ServerSourceContribution::Silence);
+	EXPECT_EQ(failedOver.mix.outgoing.size(), 2U);
+}
+
 TEST(ServerMixSchedulerTest, HealthyCadenceIsNotStolenByANewSlottedClient)
 {
 	TPacketStreamBundle clients;
