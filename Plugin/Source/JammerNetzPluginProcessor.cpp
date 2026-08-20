@@ -124,6 +124,9 @@ void JammerNetzPluginProcessor::processBlock(juce::AudioBuffer<float>& buffer, j
 		JammerNetzPluginProcessor& processor;
 		~ProcessExit() { processor.leaveProcess(); }
 	} processExit { *this };
+	// A resume edge invalidates everything received while the host bypassed us.
+	// Normal processing below then waits for a fresh minimum jitter buffer.
+	engine_.setBypassed(false);
 
 	if (auto* hostPlayHead = getPlayHead()) {
 		if (const auto position = hostPlayHead->getPosition()) {
@@ -165,6 +168,10 @@ void JammerNetzPluginProcessor::processBlockBypassed(juce::AudioBuffer<float>& b
 {
 	juce::ignoreUnused(buffer);
 	midiMessages.clear();
+	// Do not run the normal engine path here: bypass must not transmit, record,
+	// schedule MIDI clock, meter, or alter the host's dry buffer. Invalidating on
+	// entry and again on resume keeps the connected receive stream current.
+	engine_.setBypassed(true);
 }
 
 void JammerNetzPluginProcessor::setNonRealtime(bool shouldUseNonRealtimeMode) noexcept
