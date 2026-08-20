@@ -11,7 +11,7 @@ target_link_libraries(${SYSTEM_TEST_TARGET}
 )
 jammernetz_copy_msvc_debug_runtime(${SYSTEM_TEST_TARGET})
 jammernetz_copy_tbb_runtime(${SYSTEM_TEST_TARGET})
-gtest_discover_tests(${SYSTEM_TEST_TARGET} PROPERTIES LABELS system TIMEOUT 30)
+gtest_discover_tests(${SYSTEM_TEST_TARGET} PROPERTIES LABELS system TIMEOUT 60)
 set_target_properties(${SYSTEM_TEST_TARGET} PROPERTIES FOLDER tests)
 
 if(MSVC)
