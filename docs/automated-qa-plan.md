@@ -441,7 +441,7 @@ Current artifacts are written below the build tree:
 
 - CTest JUnit results;
 - hold/flush `summary.json` and per-case JSONL traces;
-- mixer-cadence boundary `summary.json`, comparing the legacy all-ready scheduler with cadence-donor scheduling across deterministic 2–6 participant sessions, including one-outlier and all-unhealthy jitter/slot-hold/duplicate-burst frontiers;
+- mixer-cadence boundary `summary.json`, comparing the legacy all-ready scheduler with cadence-donor scheduling across deterministic 2–6 participant sessions, including per-recipient rendered-signal verification, real client playout, healthy-source preservation, and one-outlier/all-unhealthy jitter/slot-hold/duplicate-burst frontiers;
 - isolated and combined impairment summaries and per-profile JSONL traces;
 - quality-surface `quality-surface/hold-N/summary.json` facets;
 - disconnect/reconnect `summary.json`.

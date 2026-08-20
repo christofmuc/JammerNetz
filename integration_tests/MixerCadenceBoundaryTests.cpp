@@ -6,12 +6,15 @@
 
 #include "BuffersConfig.h"
 #include "CharacterizationTestSupport.h"
+#include "DeterministicAudioTestSupport.h"
+#include "JammerNetzAudioEngine.h"
 #include "ServerMixScheduler.h"
 
 #include <gtest/gtest.h>
 
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <cstdint>
 #include <map>
 #include <memory>
@@ -28,6 +31,9 @@ constexpr std::uint64_t boundaryFirstCounter = 1000;
 constexpr std::size_t boundaryWarmupFrames = 32;
 constexpr std::size_t boundaryImpairmentFrames = 640;
 constexpr std::size_t boundaryRecoveryFrames = 96;
+constexpr float boundaryAudioEpsilon = 1.0e-5f;
+
+using jammernetz::test::SyntheticAudioSource;
 
 JammerNetzChannelSetup boundaryMonoSetup(const std::size_t participant)
 {
@@ -50,9 +56,10 @@ std::shared_ptr<JammerNetzAudioData> makeBoundaryPacket(const std::size_t partic
 	const std::uint64_t frame, const JammerNetzChannelSetup& setup)
 {
 	auto audio = std::make_shared<AudioBuffer<float>>(1, SAMPLE_BUFFER_SIZE);
-	const auto amplitude = 0.01f * static_cast<float>(participant + 1U);
 	for (int sample = 0; sample < SAMPLE_BUFFER_SIZE; ++sample) {
-		audio->setSample(0, sample, amplitude);
+		audio->setSample(0, sample, SyntheticAudioSource::valueAt(
+			static_cast<std::uint32_t>(participant + 1U), 0,
+			frame * SAMPLE_BUFFER_SIZE + static_cast<std::uint64_t>(sample)));
 	}
 	const auto timestamp = 1000.0 * static_cast<double>(frame * SAMPLE_BUFFER_SIZE)
 		/ static_cast<double>(SAMPLE_RATE);
@@ -288,6 +295,327 @@ std::vector<PacketArrival> buildArrivals(const BoundaryScenario& scenario)
 	return arrivals;
 }
 
+std::string boundaryClientName(const std::size_t participant)
+{
+	return "client-" + std::to_string(participant + 1U);
+}
+
+bool audioBuffersMatch(const AudioBuffer<float>& expected, const AudioBuffer<float>& observed)
+{
+	if (expected.getNumChannels() != observed.getNumChannels()
+		|| expected.getNumSamples() != observed.getNumSamples()) {
+		return false;
+	}
+	for (int channel = 0; channel < expected.getNumChannels(); ++channel) {
+		for (int sample = 0; sample < expected.getNumSamples(); ++sample) {
+			if (std::abs(expected.getSample(channel, sample) - observed.getSample(channel, sample))
+				> boundaryAudioEpsilon) {
+				return false;
+			}
+		}
+	}
+	return true;
+}
+
+bool audioIsSilent(const AudioBuffer<float>& audio)
+{
+	float magnitude = 0.0f;
+	for (int channel = 0; channel < audio.getNumChannels(); ++channel) {
+		magnitude = std::max(magnitude, audio.getMagnitude(channel, 0, audio.getNumSamples()));
+	}
+	return magnitude <= boundaryAudioEpsilon;
+}
+
+using AudioSignature = std::pair<std::int32_t, std::int32_t>;
+
+std::int32_t quantizedSample(const float sample)
+{
+	return static_cast<std::int32_t>(std::lround(sample / boundaryAudioEpsilon));
+}
+
+AudioSignature audioSignature(const AudioBuffer<float>& audio)
+{
+	if (audio.getNumChannels() < 2 || audio.getNumSamples() == 0) {
+		return {};
+	}
+	return { quantizedSample(audio.getSample(0, 0)), quantizedSample(audio.getSample(1, 0)) };
+}
+
+AudioBuffer<float> idealBoundaryReceiverFrame(const std::size_t receiver,
+	const std::size_t participantCount, const std::uint64_t frame)
+{
+	AudioBuffer<float> result(2, SAMPLE_BUFFER_SIZE);
+	result.clear();
+	for (std::size_t participant = 0; participant < participantCount; ++participant) {
+		if (participant == receiver) {
+			continue;
+		}
+		const int outputChannel = participant % 2U == 0U ? 0 : 1;
+		for (int sample = 0; sample < SAMPLE_BUFFER_SIZE; ++sample) {
+			result.addSample(outputChannel, sample, SyntheticAudioSource::valueAt(
+				static_cast<std::uint32_t>(participant + 1U), 0,
+				frame * SAMPLE_BUFFER_SIZE + static_cast<std::uint64_t>(sample)));
+		}
+	}
+	return result;
+}
+
+AudioBuffer<float> expectedBoundaryMixerFrame(const std::string& receiver,
+	const ServerInputPackets& incoming)
+{
+	AudioBuffer<float> result(2, SAMPLE_BUFFER_SIZE);
+	result.clear();
+	for (const auto& [name, packet] : incoming) {
+		if (name == receiver || !packet || !packet->audioBuffer()) {
+			continue;
+		}
+		const auto setup = packet->channelSetup();
+		if (setup.channels.empty()) {
+			continue;
+		}
+		const auto channel = setup.channels.front();
+		if (channel.target == JammerNetzChannelTarget::Left) {
+			result.addFrom(0, 0, *packet->audioBuffer(), 0, 0, SAMPLE_BUFFER_SIZE, channel.volume);
+		}
+		else if (channel.target == JammerNetzChannelTarget::Right) {
+			result.addFrom(1, 0, *packet->audioBuffer(), 0, 0, SAMPLE_BUFFER_SIZE, channel.volume);
+		}
+	}
+	return result;
+}
+
+struct BoundaryServerFrameMetadata {
+	bool healthyRemoteSourcesCoherent { false };
+};
+
+struct BoundaryReceiverAudioResult {
+	std::string receiver;
+	std::size_t serverFrames { 0 };
+	std::size_t serverSignalMismatches { 0 };
+	std::size_t serverIdealFrames { 0 };
+	std::size_t callbackFrames { 0 };
+	bool playbackStarted { false };
+	std::size_t audibleCallbackFrames { 0 };
+	std::size_t transportMatchedFrames { 0 };
+	std::size_t transportUnmatchedFrames { 0 };
+	std::size_t serverSequenceDiscontinuities { 0 };
+	std::size_t skippedServerFrames { 0 };
+	std::size_t repeatedServerFrames { 0 };
+	std::size_t musicallyCoherentFrames { 0 };
+	std::size_t musicallyIncoherentFrames { 0 };
+	std::size_t longestIncoherentRunFrames { 0 };
+	std::size_t musicalDiscontinuities { 0 };
+	std::uint64_t maximumMusicalFrameLag { 0 };
+	std::uint64_t maximumMusicalFrameLead { 0 };
+	std::size_t silentFramesAfterStart { 0 };
+	std::size_t longestSilentRunFrames { 0 };
+	std::size_t healthyAudioEligibleFrames { 0 };
+	std::size_t healthyAudioPreservedFrames { 0 };
+	std::uint64_t playoutUnderruns { 0 };
+	std::uint64_t discardedFrames { 0 };
+	std::uint64_t receiveQueueOverruns { 0 };
+	std::uint64_t maximumPreparedQueueFrames { 0 };
+
+	bool operator==(const BoundaryReceiverAudioResult&) const = default;
+};
+
+class BoundaryReceiverProbe {
+public:
+	BoundaryReceiverProbe(const std::size_t receiver, const std::size_t participantCount,
+		const bool hasRemoteHealthySources, const std::uint64_t maximumIdealFrame)
+		: receiver_(receiver)
+		, participantCount_(participantCount)
+		, hasRemoteHealthySources_(hasRemoteHealthySources)
+		, engine_(session_, juce::File())
+	{
+		result_.receiver = boundaryClientName(receiver_);
+		engine_.setLocalMonitoring(false);
+		engine_.setMasterVolume(1.0);
+		engine_.setMonitorBalance(1.0);
+		engine_.setPlayoutBufferRange(CLIENT_PLAYOUT_JITTER_BUFFER, CLIENT_PLAYOUT_MAX_BUFFER);
+		engine_.prepare(SAMPLE_RATE, SAMPLE_BUFFER_SIZE);
+		for (std::uint64_t frame = 0; frame <= maximumIdealFrame; ++frame) {
+			const auto ideal = idealBoundaryReceiverFrame(receiver_, participantCount_, frame);
+			idealFramesBySignature_[audioSignature(ideal)].push_back(frame);
+		}
+	}
+
+	void deliver(const OutgoingPackage& package, const ServerInputPackets& incoming,
+		const BoundaryServerFrameMetadata metadata)
+	{
+		++result_.serverFrames;
+		const auto expected = expectedBoundaryMixerFrame(result_.receiver, incoming);
+		if (!audioBuffersMatch(expected, *package.audioBlock.audioBuffer)) {
+			++result_.serverSignalMismatches;
+		}
+		if (findIdealFrame(*package.audioBlock.audioBuffer)) {
+			++result_.serverIdealFrames;
+		}
+		const auto sequence = static_cast<std::uint64_t>(package.audioBlock.messageCounter);
+		serverFrames_.emplace(sequence, package.audioBlock.audioBuffer);
+		serverMetadata_.emplace(sequence, metadata);
+		serverFramesBySignature_[audioSignature(*package.audioBlock.audioBuffer)].push_back(sequence);
+		engine_.enqueueRemoteAudio(std::make_shared<JammerNetzAudioData>(package.audioBlock, nullptr));
+		while (engine_.processNextIncomingPacket()) {}
+	}
+
+	void processCallback(const std::uint64_t tick)
+	{
+		AudioBuffer<float> observed(2, SAMPLE_BUFFER_SIZE);
+		observed.clear();
+		float* outputs[] { observed.getWritePointer(0), observed.getWritePointer(1) };
+		engine_.process(nullptr, 0, outputs, 2, SAMPLE_BUFFER_SIZE);
+		++result_.callbackFrames;
+		const auto playout = engine_.getPlayoutQualityInfo();
+		result_.maximumPreparedQueueFrames = std::max(result_.maximumPreparedQueueFrames,
+			static_cast<std::uint64_t>(playout.currentPlayQueueLength_));
+
+		const bool silent = audioIsSilent(observed);
+		if (!result_.playbackStarted && !silent) {
+			result_.playbackStarted = true;
+		}
+		if (!result_.playbackStarted) {
+			return;
+		}
+		++result_.audibleCallbackFrames;
+		if (silent) {
+			++result_.silentFramesAfterStart;
+			++currentSilentRunFrames_;
+			result_.longestSilentRunFrames = std::max(result_.longestSilentRunFrames,
+				currentSilentRunFrames_);
+		}
+		else {
+			currentSilentRunFrames_ = 0;
+		}
+
+		const auto serverSequence = findServerSequence(observed);
+		if (serverSequence) {
+			++result_.transportMatchedFrames;
+			if (lastServerSequence_) {
+				if (*serverSequence == *lastServerSequence_) {
+					++result_.repeatedServerFrames;
+				}
+				else if (*serverSequence != *lastServerSequence_ + 1U) {
+					++result_.serverSequenceDiscontinuities;
+					if (*serverSequence > *lastServerSequence_ + 1U) {
+						result_.skippedServerFrames += static_cast<std::size_t>(
+							*serverSequence - *lastServerSequence_ - 1U);
+					}
+				}
+			}
+			lastServerSequence_ = serverSequence;
+		}
+		else {
+			++result_.transportUnmatchedFrames;
+		}
+
+		if (hasRemoteHealthySources_) {
+			++result_.healthyAudioEligibleFrames;
+			if (serverSequence) {
+				const auto metadata = serverMetadata_.find(*serverSequence);
+				if (metadata != serverMetadata_.end()
+					&& metadata->second.healthyRemoteSourcesCoherent) {
+					++result_.healthyAudioPreservedFrames;
+				}
+			}
+		}
+
+		const auto idealFrame = findIdealFrame(observed);
+		if (idealFrame) {
+			++result_.musicallyCoherentFrames;
+			currentIncoherentRunFrames_ = 0;
+			if (lastIdealFrame_ && *idealFrame != *lastIdealFrame_ + 1U) {
+				++result_.musicalDiscontinuities;
+			}
+			lastIdealFrame_ = idealFrame;
+			if (tick >= *idealFrame) {
+				result_.maximumMusicalFrameLag = std::max(result_.maximumMusicalFrameLag,
+					tick - *idealFrame);
+			}
+			else {
+				result_.maximumMusicalFrameLead = std::max(result_.maximumMusicalFrameLead,
+					*idealFrame - tick);
+			}
+		}
+		else {
+			++result_.musicallyIncoherentFrames;
+			++currentIncoherentRunFrames_;
+			result_.longestIncoherentRunFrames = std::max(result_.longestIncoherentRunFrames,
+				currentIncoherentRunFrames_);
+			lastIdealFrame_.reset();
+		}
+	}
+
+	BoundaryReceiverAudioResult finish()
+	{
+		const auto playout = engine_.getPlayoutQualityInfo();
+		const auto workers = engine_.getRealtimeWorkerStats();
+		result_.playoutUnderruns = playout.playUnderruns_;
+		result_.discardedFrames = playout.discardedPackageCounter_;
+		result_.receiveQueueOverruns = workers.receiveQueueOverruns;
+		return result_;
+	}
+
+private:
+	std::optional<std::uint64_t> findServerSequence(const AudioBuffer<float>& observed) const
+	{
+		const auto candidates = serverFramesBySignature_.find(audioSignature(observed));
+		if (candidates == serverFramesBySignature_.end()) {
+			return std::nullopt;
+		}
+		std::vector<std::uint64_t> matches;
+		for (const auto sequence : candidates->second) {
+			const auto frame = serverFrames_.find(sequence);
+			if (frame != serverFrames_.end() && audioBuffersMatch(*frame->second, observed)) {
+				matches.push_back(sequence);
+			}
+		}
+		if (matches.empty()) {
+			return std::nullopt;
+		}
+		if (!lastServerSequence_) {
+			return matches.front();
+		}
+		const auto consecutive = std::find(matches.begin(), matches.end(), *lastServerSequence_ + 1U);
+		if (consecutive != matches.end()) {
+			return *consecutive;
+		}
+		const auto later = std::upper_bound(matches.begin(), matches.end(), *lastServerSequence_);
+		return later != matches.end() ? std::optional<std::uint64_t>(*later)
+			: std::optional<std::uint64_t>(matches.back());
+	}
+
+	std::optional<std::uint64_t> findIdealFrame(const AudioBuffer<float>& observed) const
+	{
+		const auto candidates = idealFramesBySignature_.find(audioSignature(observed));
+		if (candidates == idealFramesBySignature_.end()) {
+			return std::nullopt;
+		}
+		for (const auto frame : candidates->second) {
+			const auto ideal = idealBoundaryReceiverFrame(receiver_, participantCount_, frame);
+			if (audioBuffersMatch(ideal, observed)) {
+				return frame;
+			}
+		}
+		return std::nullopt;
+	}
+
+	std::size_t receiver_ { 0 };
+	std::size_t participantCount_ { 0 };
+	bool hasRemoteHealthySources_ { false };
+	JammerNetzSession session_;
+	JammerNetzAudioEngine engine_;
+	BoundaryReceiverAudioResult result_;
+	std::map<std::uint64_t, std::shared_ptr<AudioBuffer<float>>> serverFrames_;
+	std::map<std::uint64_t, BoundaryServerFrameMetadata> serverMetadata_;
+	std::map<AudioSignature, std::vector<std::uint64_t>> serverFramesBySignature_;
+	std::map<AudioSignature, std::vector<std::uint64_t>> idealFramesBySignature_;
+	std::optional<std::uint64_t> lastServerSequence_;
+	std::optional<std::uint64_t> lastIdealFrame_;
+	std::size_t currentIncoherentRunFrames_ { 0 };
+	std::size_t currentSilentRunFrames_ { 0 };
+};
+
 struct BoundaryModelResult {
 	std::size_t acceptedPackets { 0 };
 	std::size_t rejectedPackets { 0 };
@@ -313,15 +641,159 @@ struct BoundaryModelResult {
 	std::uint64_t longestMixGapFrames { 0 };
 	std::uint64_t stalledFramesAfterStart { 0 };
 	std::size_t sequenceErrors { 0 };
+	std::vector<BoundaryReceiverAudioResult> receiverAudio;
+	std::string audioVerdict;
 
 	bool operator==(const BoundaryModelResult&) const = default;
 };
+
+double boundaryPercentage(const std::uint64_t numerator, const std::uint64_t denominator)
+{
+	return denominator == 0U ? 0.0
+		: 100.0 * static_cast<double>(numerator) / static_cast<double>(denominator);
+}
+
+nlohmann::json receiverAudioJson(const BoundaryReceiverAudioResult& result)
+{
+	return {
+		{ "receiver", result.receiver },
+		{ "server_frames", result.serverFrames },
+		{ "server_signal_mismatches", result.serverSignalMismatches },
+		{ "server_ideal_frames", result.serverIdealFrames },
+		{ "server_ideal_frame_percent", boundaryPercentage(result.serverIdealFrames,
+			result.serverFrames) },
+		{ "callback_frames", result.callbackFrames },
+		{ "playback_started", result.playbackStarted },
+		{ "audible_callback_frames", result.audibleCallbackFrames },
+		{ "transport_matched_frames", result.transportMatchedFrames },
+		{ "transport_unmatched_frames", result.transportUnmatchedFrames },
+		{ "server_sequence_discontinuities", result.serverSequenceDiscontinuities },
+		{ "skipped_server_frames", result.skippedServerFrames },
+		{ "repeated_server_frames", result.repeatedServerFrames },
+		{ "musically_coherent_frames", result.musicallyCoherentFrames },
+		{ "musically_incoherent_frames", result.musicallyIncoherentFrames },
+		{ "musically_coherent_percent", boundaryPercentage(result.musicallyCoherentFrames,
+			result.audibleCallbackFrames) },
+		{ "longest_incoherent_run_frames", result.longestIncoherentRunFrames },
+		{ "musical_discontinuities", result.musicalDiscontinuities },
+		{ "maximum_musical_frame_lag", result.maximumMusicalFrameLag },
+		{ "maximum_musical_frame_lead", result.maximumMusicalFrameLead },
+		{ "silent_frames_after_start", result.silentFramesAfterStart },
+		{ "longest_silent_run_frames", result.longestSilentRunFrames },
+		{ "healthy_audio_eligible_frames", result.healthyAudioEligibleFrames },
+		{ "healthy_audio_preserved_frames", result.healthyAudioPreservedFrames },
+		{ "healthy_audio_preserved_percent", boundaryPercentage(
+			result.healthyAudioPreservedFrames, result.healthyAudioEligibleFrames) },
+		{ "playout_underruns", result.playoutUnderruns },
+		{ "discarded_frames", result.discardedFrames },
+		{ "receive_queue_overruns", result.receiveQueueOverruns },
+		{ "maximum_prepared_queue_frames", result.maximumPreparedQueueFrames }
+	};
+}
+
+std::string qualifyAudio(const std::vector<BoundaryReceiverAudioResult>& receivers,
+	const BoundaryTopology topology)
+{
+	bool allPlaybackStarted = true;
+	std::uint64_t renderMismatches = 0;
+	std::uint64_t transportFailures = 0;
+	std::uint64_t playoutUnderruns = 0;
+	std::uint64_t discardedFrames = 0;
+	std::uint64_t receiveQueueOverruns = 0;
+	std::uint64_t incoherentFrames = 0;
+	std::uint64_t healthyEligibleFrames = 0;
+	std::uint64_t healthyPreservedFrames = 0;
+	for (const auto& receiver : receivers) {
+		allPlaybackStarted = allPlaybackStarted && receiver.playbackStarted;
+		renderMismatches += receiver.serverSignalMismatches;
+		transportFailures += receiver.transportUnmatchedFrames;
+		playoutUnderruns += receiver.playoutUnderruns;
+		discardedFrames += receiver.discardedFrames;
+		receiveQueueOverruns += receiver.receiveQueueOverruns;
+		incoherentFrames += receiver.musicallyIncoherentFrames;
+		healthyEligibleFrames += receiver.healthyAudioEligibleFrames;
+		healthyPreservedFrames += receiver.healthyAudioPreservedFrames;
+	}
+	if (renderMismatches > 0U) {
+		return "mixer_render_error";
+	}
+	if (!allPlaybackStarted) {
+		return "no_playback";
+	}
+	if (playoutUnderruns > 0U && (discardedFrames > 0U || receiveQueueOverruns > 0U)) {
+		return "playout_rate_instability";
+	}
+	if (playoutUnderruns > 0U) {
+		return "playout_starvation";
+	}
+	if (discardedFrames > 0U || receiveQueueOverruns > 0U) {
+		return "playout_overflow";
+	}
+	if (transportFailures > 0U) {
+		return "transport_corruption";
+	}
+	if (incoherentFrames == 0U) {
+		return "sample_coherent";
+	}
+	if (topology == BoundaryTopology::OneOutlier && healthyEligibleFrames > 0U
+		&& healthyEligibleFrames == healthyPreservedFrames) {
+		return "isolated_source_damage";
+	}
+	return "mixed_audio_degradation";
+}
+
+int audioVerdictScore(const std::string& verdict)
+{
+	if (verdict == "sample_coherent") {
+		return 4;
+	}
+	if (verdict == "isolated_source_damage") {
+		return 3;
+	}
+	if (verdict == "mixed_audio_degradation") {
+		return 2;
+	}
+	if (verdict == "playout_starvation" || verdict == "playout_overflow"
+		|| verdict == "playout_rate_instability"
+		|| verdict == "transport_corruption") {
+		return 1;
+	}
+	return 0;
+}
 
 nlohmann::json modelJson(const BoundaryModelResult& result, const std::size_t generatedFrames)
 {
 	const auto mixDelta = static_cast<std::int64_t>(result.mixes)
 		- static_cast<std::int64_t>(generatedFrames);
+	std::uint64_t audibleFrames = 0;
+	std::uint64_t coherentFrames = 0;
+	std::uint64_t healthyEligibleFrames = 0;
+	std::uint64_t healthyPreservedFrames = 0;
+	std::uint64_t silentFrames = 0;
+	std::uint64_t playoutUnderruns = 0;
+	std::uint64_t discardedFrames = 0;
+	std::uint64_t renderMismatches = 0;
+	for (const auto& receiver : result.receiverAudio) {
+		audibleFrames += receiver.audibleCallbackFrames;
+		coherentFrames += receiver.musicallyCoherentFrames;
+		healthyEligibleFrames += receiver.healthyAudioEligibleFrames;
+		healthyPreservedFrames += receiver.healthyAudioPreservedFrames;
+		silentFrames += receiver.silentFramesAfterStart;
+		playoutUnderruns += receiver.playoutUnderruns;
+		discardedFrames += receiver.discardedFrames;
+		renderMismatches += receiver.serverSignalMismatches;
+	}
 	return {
+		{ "audio_verdict", result.audioVerdict },
+		{ "audio_summary", {
+			{ "musically_coherent_percent", boundaryPercentage(coherentFrames, audibleFrames) },
+			{ "healthy_audio_preserved_percent", boundaryPercentage(healthyPreservedFrames,
+				healthyEligibleFrames) },
+			{ "silent_frames_after_start", silentFrames },
+			{ "playout_underruns", playoutUnderruns },
+			{ "discarded_frames", discardedFrames },
+			{ "server_signal_mismatches", renderMismatches }
+		} },
 		{ "mixes", result.mixes },
 		{ "nominal_mix_delta", mixDelta },
 		{ "output_rate_percent_of_nominal", generatedFrames == 0U ? 0.0
@@ -351,7 +823,14 @@ nlohmann::json modelJson(const BoundaryModelResult& result, const std::size_t ge
 		{ "maximum_mix_burst", result.maximumMixBurst },
 		{ "longest_mix_gap_frames", result.longestMixGapFrames },
 		{ "stalled_frames_after_start", result.stalledFramesAfterStart },
-		{ "sequence_errors", result.sequenceErrors }
+		{ "sequence_errors", result.sequenceErrors },
+		{ "receiver_audio", [&result] {
+			nlohmann::json receivers = nlohmann::json::array();
+			for (const auto& receiver : result.receiverAudio) {
+				receivers.push_back(receiverAudioJson(receiver));
+			}
+			return receivers;
+		}() }
 	};
 }
 
@@ -363,6 +842,10 @@ struct BoundaryFrontier {
 	std::optional<std::string> cadenceLongGap;
 	std::optional<std::string> cadenceChurn;
 	std::optional<std::string> cadenceEpochSkew;
+	std::optional<std::string> legacyAudioDegradation;
+	std::optional<std::string> cadenceAudioDegradation;
+	std::optional<std::string> cadencePlayoutInstability;
+	std::optional<std::string> cadenceHealthyAudioDamage;
 };
 
 void setFirst(std::optional<std::string>& frontier, const std::string& severity)
@@ -388,14 +871,20 @@ nlohmann::json frontierJson(const BoundaryScenario& scenario, const BoundaryFron
 		{ "legacy_first_gap_above_server_jitter", optionalStringJson(frontier.legacyLongGap) },
 		{ "cadence_first_gap_above_server_jitter", optionalStringJson(frontier.cadenceLongGap) },
 		{ "cadence_first_donor_switch", optionalStringJson(frontier.cadenceChurn) },
-		{ "cadence_first_epoch_skew", optionalStringJson(frontier.cadenceEpochSkew) }
+		{ "cadence_first_epoch_skew", optionalStringJson(frontier.cadenceEpochSkew) },
+		{ "legacy_first_audio_degradation", optionalStringJson(frontier.legacyAudioDegradation) },
+		{ "cadence_first_audio_degradation", optionalStringJson(frontier.cadenceAudioDegradation) },
+		{ "cadence_first_playout_instability", optionalStringJson(
+			frontier.cadencePlayoutInstability) },
+		{ "cadence_first_healthy_audio_damage", optionalStringJson(
+			frontier.cadenceHealthyAudioDamage) }
 	};
 }
 
 class BoundaryModelRunner {
 public:
-	BoundaryModelRunner(const std::size_t participantCount, const bool legacy)
-		: participantCount_(participantCount), legacy_(legacy)
+	BoundaryModelRunner(BoundaryScenario scenario, const bool legacy)
+		: scenario_(std::move(scenario)), participantCount_(scenario_.participantCount), legacy_(legacy)
 	{
 		const ServerBufferConfig config {
 			SERVER_INCOMING_JITTER_BUFFER,
@@ -409,21 +898,26 @@ public:
 			cadenceScheduler_ = std::make_unique<ServerMixScheduler>(boundaryStereoMixdown(), config);
 		}
 		for (std::size_t participant = 0; participant < participantCount_; ++participant) {
-			const auto name = clientName(participant);
+			const auto name = boundaryClientName(participant);
 			clients_.insert(std::make_pair(name, std::make_shared<ClientState>(name)));
 			setups_.push_back(boundaryMonoSetup(participant));
+			const bool hasRemoteHealthySources = scenario_.topology == BoundaryTopology::OneOutlier
+				&& (participant + 1U == participantCount_ || participantCount_ > 2U);
+			receiverProbes_.push_back(std::make_unique<BoundaryReceiverProbe>(participant,
+				participantCount_, hasRemoteHealthySources,
+				boundaryWarmupFrames + boundaryImpairmentFrames + boundaryRecoveryFrames - 1U));
 		}
 	}
 
 	BoundaryModelResult run(const std::vector<PacketArrival>& arrivals)
 	{
 		std::size_t cursor = 0;
-		while (cursor < arrivals.size()) {
-			const auto tick = arrivals[cursor].tick;
+		const auto lastTick = arrivals.empty() ? 0U : arrivals.back().tick;
+		for (std::uint64_t tick = 0; tick <= lastTick; ++tick) {
 			std::size_t acceptedAtTick = 0;
 			while (cursor < arrivals.size() && arrivals[cursor].tick == tick) {
 				const auto& arrival = arrivals[cursor++];
-				auto client = clients_.find(clientName(arrival.participant));
+				auto client = clients_.find(boundaryClientName(arrival.participant));
 				if (client == clients_.end()) {
 					throw std::runtime_error("Synthetic session referenced an unknown participant");
 				}
@@ -439,17 +933,19 @@ public:
 				}
 			}
 			processWakeups(tick, acceptedAtTick);
+			for (auto& receiver : receiverProbes_) {
+				receiver->processCallback(tick);
+			}
 		}
 		finishCadenceResidency();
+		for (auto& receiver : receiverProbes_) {
+			result_.receiverAudio.push_back(receiver->finish());
+		}
+		result_.audioVerdict = qualifyAudio(result_.receiverAudio, scenario_.topology);
 		return result_;
 	}
 
 private:
-	static std::string clientName(const std::size_t participant)
-	{
-		return "client-" + std::to_string(participant + 1U);
-	}
-
 	static ClientState::TimePoint timeAt(const std::uint64_t tick)
 	{
 		const auto micros = static_cast<std::int64_t>(tick * SAMPLE_BUFFER_SIZE * 1000000ULL
@@ -509,6 +1005,15 @@ private:
 		if (!step.mix.diagnostics.empty()) {
 			throw std::runtime_error("Synthetic session produced invalid mixer diagnostics");
 		}
+		for (const auto& outgoing : step.mix.outgoing) {
+			for (std::size_t receiver = 0; receiver < participantCount_; ++receiver) {
+				if (outgoing.targetAddress == boundaryClientName(receiver)) {
+					receiverProbes_.at(receiver)->deliver(outgoing, step.incoming,
+						serverFrameMetadata(receiver, step));
+					break;
+				}
+			}
+		}
 		++result_.mixes;
 		result_.outgoingPackets += step.mix.outgoing.size();
 		if (step.mix.mixSequence != result_.mixes) {
@@ -557,6 +1062,38 @@ private:
 		lastMixTick_ = tick;
 	}
 
+	BoundaryServerFrameMetadata serverFrameMetadata(const std::size_t receiver,
+		const ServerScheduledMixResult& step) const
+	{
+		BoundaryServerFrameMetadata metadata;
+		std::optional<std::uint64_t> commonCounter;
+		metadata.healthyRemoteSourcesCoherent = true;
+		for (std::size_t source = 0; source < participantCount_; ++source) {
+			const bool healthySource = scenario_.topology == BoundaryTopology::OneOutlier
+				&& source + 1U != participantCount_;
+			if (!healthySource || source == receiver) {
+				continue;
+			}
+			const auto name = boundaryClientName(source);
+			const auto contribution = step.contributions.find(name);
+			const auto incoming = step.incoming.find(name);
+			if (contribution == step.contributions.end()
+				|| contribution->second != ServerSourceContribution::Packet
+				|| incoming == step.incoming.end()) {
+				metadata.healthyRemoteSourcesCoherent = false;
+				continue;
+			}
+			const auto counter = static_cast<std::uint64_t>(incoming->second->messageCounter());
+			if (commonCounter && counter != *commonCounter) {
+				metadata.healthyRemoteSourcesCoherent = false;
+			}
+			else if (!commonCounter) {
+				commonCounter = counter;
+			}
+		}
+		return metadata;
+	}
+
 	void finishCadenceResidency()
 	{
 		result_.longestCadenceResidencyMixes = std::max(result_.longestCadenceResidencyMixes,
@@ -564,12 +1101,14 @@ private:
 		currentCadenceResidencyMixes_ = 0;
 	}
 
+	BoundaryScenario scenario_;
 	std::size_t participantCount_ { 0 };
 	bool legacy_ { false };
 	TPacketStreamBundle clients_;
 	std::vector<JammerNetzChannelSetup> setups_;
 	std::unique_ptr<LegacyAllReadyScheduler> legacyScheduler_;
 	std::unique_ptr<ServerMixScheduler> cadenceScheduler_;
+	std::vector<std::unique_ptr<BoundaryReceiverProbe>> receiverProbes_;
 	BoundaryModelResult result_;
 	std::string lastCadenceClient_;
 	std::size_t currentCadenceResidencyMixes_ { 0 };
@@ -593,7 +1132,7 @@ nlohmann::json scenarioJson(const BoundaryScenario& scenario)
 BoundaryModelResult runModel(const BoundaryScenario& scenario,
 	const std::vector<PacketArrival>& arrivals, const bool legacy)
 {
-	BoundaryModelRunner runner(scenario.participantCount, legacy);
+	BoundaryModelRunner runner(scenario, legacy);
 	return runner.run(arrivals);
 }
 
@@ -629,6 +1168,9 @@ TEST(MixerCadenceBoundaryCharacterizationTest, TwoToSixParticipantSweepComparesL
 		{ "recovery_frames", boundaryRecoveryFrames },
 		{ "server_jitter_frames", SERVER_INCOMING_JITTER_BUFFER },
 		{ "server_maximum_frames", SERVER_INCOMING_MAXIMUM_BUFFER },
+		{ "audio_verdict_order", { "mixer_render_error", "no_playback", "transport_corruption",
+			"playout_starvation", "playout_overflow", "playout_rate_instability", "mixed_audio_degradation",
+			"isolated_source_damage", "sample_coherent" } },
 		{ "rate_deviation_threshold_percent", 1.0 },
 		{ "long_gap_threshold_frames", SERVER_INCOMING_JITTER_BUFFER },
 		{ "results", nlohmann::json::array() },
@@ -653,11 +1195,19 @@ TEST(MixerCadenceBoundaryCharacterizationTest, TwoToSixParticipantSweepComparesL
 				EXPECT_EQ(cadence.sequenceErrors, 0U);
 				EXPECT_EQ(legacy.disconnects, 0U);
 				EXPECT_EQ(cadence.disconnects, 0U);
+				for (const auto& receiver : legacy.receiverAudio) {
+					EXPECT_EQ(receiver.serverSignalMismatches, 0U);
+				}
+				for (const auto& receiver : cadence.receiverAudio) {
+					EXPECT_EQ(receiver.serverSignalMismatches, 0U);
+				}
 				if (severity.name == "clean") {
 					EXPECT_EQ(cadence.mixes, legacy.mixes);
 					EXPECT_EQ(cadence.longestMixGapFrames, legacy.longestMixGapFrames);
 					EXPECT_EQ(cadence.skewedMixes, legacy.skewedMixes);
 					EXPECT_EQ(cadence.fastForwardedPackets, legacy.fastForwardedPackets);
+					EXPECT_EQ(legacy.audioVerdict, "sample_coherent");
+					EXPECT_EQ(cadence.audioVerdict, "sample_coherent");
 				}
 				if (topology == BoundaryTopology::OneOutlier) {
 					EXPECT_GE(cadence.mixes, legacy.mixes);
@@ -690,6 +1240,24 @@ TEST(MixerCadenceBoundaryCharacterizationTest, TwoToSixParticipantSweepComparesL
 				if (cadence.skewedMixes > 0U) {
 					setFirst(frontier.cadenceEpochSkew, severity.name);
 				}
+				if (legacy.audioVerdict != "sample_coherent") {
+					setFirst(frontier.legacyAudioDegradation, severity.name);
+				}
+				if (cadence.audioVerdict != "sample_coherent") {
+					setFirst(frontier.cadenceAudioDegradation, severity.name);
+				}
+				if (audioVerdictScore(cadence.audioVerdict) <= 1) {
+					setFirst(frontier.cadencePlayoutInstability, severity.name);
+				}
+				bool healthyAudioDamaged = false;
+				for (const auto& receiver : cadence.receiverAudio) {
+					healthyAudioDamaged = healthyAudioDamaged
+						|| receiver.healthyAudioPreservedFrames
+							< receiver.healthyAudioEligibleFrames;
+				}
+				if (healthyAudioDamaged) {
+					setFirst(frontier.cadenceHealthyAudioDamage, severity.name);
+				}
 
 				auto row = scenarioJson(scenario);
 				row["legacy_all_ready"] = modelJson(legacy, generatedFrames);
@@ -704,7 +1272,11 @@ TEST(MixerCadenceBoundaryCharacterizationTest, TwoToSixParticipantSweepComparesL
 					{ "cadence_has_better_continuity", cadence.longestMixGapFrames < legacy.longestMixGapFrames
 						|| cadence.mixes > legacy.mixes },
 					{ "legacy_has_more_coherent_epochs", legacy.skewedMixes < cadence.skewedMixes },
-					{ "legacy_has_lower_burst_peak", legacy.maximumMixBurst < cadence.maximumMixBurst }
+					{ "legacy_has_lower_burst_peak", legacy.maximumMixBurst < cadence.maximumMixBurst },
+					{ "legacy_audio_verdict", legacy.audioVerdict },
+					{ "cadence_audio_verdict", cadence.audioVerdict },
+					{ "audio_verdict_score_delta", audioVerdictScore(cadence.audioVerdict)
+						- audioVerdictScore(legacy.audioVerdict) }
 				};
 				summary["results"].push_back(std::move(row));
 			}

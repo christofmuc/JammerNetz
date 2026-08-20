@@ -39,7 +39,7 @@ target_compile_definitions(${CHARACTERIZATION_TEST_TARGET}
 	PRIVATE JAMMERNETZ_TEST_ARTIFACT_DIR="${CMAKE_BINARY_DIR}/test-artifacts")
 jammernetz_copy_msvc_debug_runtime(${CHARACTERIZATION_TEST_TARGET})
 jammernetz_copy_tbb_runtime(${CHARACTERIZATION_TEST_TARGET})
-gtest_discover_tests(${CHARACTERIZATION_TEST_TARGET} PROPERTIES LABELS characterization TIMEOUT 60)
+gtest_discover_tests(${CHARACTERIZATION_TEST_TARGET} PROPERTIES LABELS characterization TIMEOUT 120)
 set_target_properties(${CHARACTERIZATION_TEST_TARGET} PROPERTIES FOLDER tests)
 
 set(STRESS_TEST_TARGET ReconnectStressTest)
