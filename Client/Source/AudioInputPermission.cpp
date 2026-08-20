@@ -6,7 +6,13 @@
 
 #include "AudioInputPermission.h"
 
+#include <juce_events/juce_events.h>
+
+#include <utility>
+
 void requestAudioInputPermission(AudioInputPermissionCallback callback)
 {
-	callback(AudioInputPermissionStatus::granted);
+	juce::MessageManager::callAsync([callback = std::move(callback)]() {
+		callback(AudioInputPermissionStatus::granted);
+	});
 }

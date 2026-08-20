@@ -13,6 +13,7 @@
 #include "SpectrumAnalysisWorker.h"
 
 #include <atomic>
+#include <cstdint>
 #include <memory>
 #include <optional>
 
@@ -85,5 +86,6 @@ private:
 	JammerNetzAudioEngine engine_;
 	AudioCallback callback_;
 	DebounceTimer debouncer_;
+	std::uint64_t audioRestartGeneration_ = 0;
 	std::atomic<bool> shutdown_ { false };
 };

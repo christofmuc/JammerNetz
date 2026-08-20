@@ -101,6 +101,7 @@ void AudioService::refreshChannelSetup(std::shared_ptr<ChannelSetup> setup)
 void AudioService::stopAudioIfRunning()
 {
 	jassert(juce::MessageManager::getInstance()->isThisTheMessageThread());
+	++audioRestartGeneration_;
 
 	Data::instance().getEphemeral().setProperty(EPHEMERAL_VALUE_AUDIO_RUNNING, false, nullptr);
 	if (audioDevice_) {
@@ -453,6 +454,7 @@ void AudioService::restartAudio()
 	}
 
 	stopAudioIfRunning();
+	const auto restartGeneration = audioRestartGeneration_;
 
 	auto& data = Data::instance().get();
 	auto inputSetup = getSetup(data.getChildWithName(VALUE_INPUT_SETUP));
@@ -463,9 +465,10 @@ void AudioService::restartAudio()
 	}
 
 	auto weakSelf = weak_from_this();
-	requestAudioInputPermission([weakSelf, inputSetup = std::move(inputSetup), outputSetup = std::move(outputSetup)](AudioInputPermissionStatus status) {
+	requestAudioInputPermission([weakSelf, restartGeneration, inputSetup = std::move(inputSetup), outputSetup = std::move(outputSetup)](AudioInputPermissionStatus status) {
 		auto self = weakSelf.lock();
 		if (!self || self->shutdown_.load(std::memory_order_acquire)
+			|| self->audioRestartGeneration_ != restartGeneration
 			|| !Data::getEphemeralProperty(EPHEMERAL_VALUE_AUDIO_SHOULD_RUN)) {
 			return;
 		}
