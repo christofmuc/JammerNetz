@@ -37,13 +37,14 @@ void requestAudioInputPermission(AudioInputPermissionCallback callback)
 	case AVAuthorizationStatusDenied:
 		deliverPermissionResult(sharedCallback, AudioInputPermissionStatus::denied);
 		break;
-	case AVAuthorizationStatusNotDetermined:
+	case AVAuthorizationStatusNotDetermined: {
 		[AVCaptureDevice requestAccessForMediaType:AVMediaTypeAudio
 			completionHandler:^(BOOL granted) {
 				deliverPermissionResult(sharedCallback,
 					granted ? AudioInputPermissionStatus::granted : AudioInputPermissionStatus::denied);
 			}];
 		break;
+	}
 	default:
 		deliverPermissionResult(sharedCallback, AudioInputPermissionStatus::restricted);
 		break;
