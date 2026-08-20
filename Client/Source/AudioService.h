@@ -13,6 +13,7 @@
 #include "SpectrumAnalysisWorker.h"
 
 #include <atomic>
+#include <memory>
 #include <optional>
 
 
@@ -25,7 +26,7 @@ struct ChannelSetup {
 };
 
 
-class AudioService : private ValueTree::Listener {
+class AudioService : public std::enable_shared_from_this<AudioService>, private ValueTree::Listener {
 public:
 	AudioService();
 	virtual ~AudioService() override;
@@ -74,6 +75,7 @@ private:
 	std::optional<JammerNetzSessionConfiguration> getSessionConfiguration() const;
 	void restartAudio();
 	void restartAudio(std::shared_ptr<ChannelSetup> inputSetup, std::shared_ptr<ChannelSetup> outputSetup);
+	void reportAudioStartupFailure(const String& technicalMessage, const String& userMessage = {});
 
 	std::shared_ptr<juce::AudioIODevice> audioDevice_;
 

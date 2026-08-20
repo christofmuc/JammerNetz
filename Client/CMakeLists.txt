@@ -27,6 +27,7 @@ endif()
 
 set(SOURCES
 	Source/ApplicationState.cpp Source/ApplicationState.h
+	Source/AudioInputPermission.h
 	Source/AudioDeviceDiscovery.cpp
 	Source/AudioDeviceDiscovery.h
 	Source/LayoutConstants.h
@@ -36,11 +37,17 @@ set(SOURCES
 	Source/Resources.h
 	Source/version.cpp.in
 )
+if(APPLE)
+	list(APPEND SOURCES Source/AudioInputPermission_mac.mm)
+else()
+	list(APPEND SOURCES Source/AudioInputPermission.cpp)
+endif()
 source_group(Source FILES ${SOURCES})
 
 set(INSTALLER_FILES
 	setup_client.iss.in
 	info.plist
+	JammerNetzClient.entitlements
 	Redist/agpl-3.0.txt
 )
 source_group(Source\\Installer FILES ${INSTALLER_FILES})
@@ -174,6 +181,7 @@ IF(WIN32)
 	target_link_libraries(JammerNetzClient JammerNetzCore ${DS_LIBRARIES} juce-widgets juce-spectroscope19 ${SENTRY_LIB})
 elseif(APPLE)
 	target_link_libraries(JammerNetzClient JammerNetzCore ${DS_LIBRARIES} juce-widgets juce-spectroscope19)
+	target_link_libraries(JammerNetzClient "-framework AVFoundation")
 	# ${SENTRY_LIB})
 ELSE()
 	target_link_libraries(JammerNetzClient
@@ -293,6 +301,7 @@ IF(APPLE)
 					\"\$<TARGET_BUNDLE_DIR:JammerNetzClient>\"
 					\"${CPACK_BUNDLE_APPLE_CERT_APP}\"
 					\"${JAMMERNETZ_CODESIGN_KEYCHAIN}\"
+					\"${CMAKE_CURRENT_SOURCE_DIR}/JammerNetzClient.entitlements\"
 				RESULT_VARIABLE JAMMERNETZ_CODESIGN_RESULT)
 			if(NOT JAMMERNETZ_CODESIGN_RESULT EQUAL 0)
 				message(FATAL_ERROR \"Failed to sign JammerNetzClient.app\")
