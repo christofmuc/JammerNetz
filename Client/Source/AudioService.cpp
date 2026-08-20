@@ -465,7 +465,7 @@ void AudioService::restartAudio()
 	}
 
 	auto weakSelf = weak_from_this();
-	requestAudioInputPermission([weakSelf, restartGeneration, inputSetup = std::move(inputSetup), outputSetup = std::move(outputSetup)](AudioInputPermissionStatus status) {
+	requestAudioInputPermission([weakSelf, restartGeneration, requestedInputSetup = std::move(inputSetup), requestedOutputSetup = std::move(outputSetup)](AudioInputPermissionStatus status) {
 		auto self = weakSelf.lock();
 		if (!self || self->shutdown_.load(std::memory_order_acquire)
 			|| self->audioRestartGeneration_ != restartGeneration
@@ -475,7 +475,7 @@ void AudioService::restartAudio()
 
 		switch (status) {
 		case AudioInputPermissionStatus::granted:
-			self->restartAudio(inputSetup, outputSetup);
+			self->restartAudio(requestedInputSetup, requestedOutputSetup);
 			break;
 		case AudioInputPermissionStatus::denied:
 			self->reportAudioStartupFailure("macOS denied microphone access",
