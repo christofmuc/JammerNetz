@@ -275,6 +275,28 @@ set(SPDLOG_FMT_EXTERNAL ON CACHE BOOL "Use the external fmt dependency" FORCE)
 add_subdirectory("third_party/spdlog")
 set_property(TARGET spdlog APPEND PROPERTY INTERFACE_SYSTEM_INCLUDE_DIRECTORIES
 	"${CMAKE_CURRENT_SOURCE_DIR}/third_party/spdlog/include")
+
+# libresample 0.1.5 is dual-licensed. JammerNetz uses the BSD option and ships
+# its notice with binary distributions.
+set(HAVE_INTTYPES_H 1)
+configure_file(
+	"${CMAKE_CURRENT_SOURCE_DIR}/third_party/libresample/src/configtemplate.h"
+	"${CMAKE_CURRENT_BINARY_DIR}/third_party/libresample/config.h")
+add_library(libresample STATIC
+	third_party/libresample/src/filterkit.c
+	third_party/libresample/src/resample.c
+	third_party/libresample/src/resamplesubs.c)
+target_include_directories(libresample
+	PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/third_party/libresample/include"
+	PRIVATE
+		"${CMAKE_CURRENT_SOURCE_DIR}/third_party/libresample/src"
+		"${CMAKE_CURRENT_BINARY_DIR}/third_party/libresample")
+set_target_properties(libresample PROPERTIES
+	C_STANDARD 99
+	C_STANDARD_REQUIRED ON
+	POSITION_INDEPENDENT_CODE ON
+	FOLDER third_party)
+
 add_subdirectory("modules/juce-utils")
 if(BUILD_JAMMERNETZ_CLIENT)
 	add_subdirectory("third_party/JUCE-user-modules")

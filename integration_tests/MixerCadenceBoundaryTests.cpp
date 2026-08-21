@@ -321,6 +321,13 @@ std::size_t clockEventsAtTick(const std::uint64_t tick,
 	return static_cast<std::size_t>(after - first);
 }
 
+std::size_t scheduledClockEvents(const std::uint64_t frames,
+	const std::uint64_t sampleRateMilliHz)
+{
+	return static_cast<std::size_t>((frames * sampleRateMilliHz
+		+ nominalSampleRateMilliHz - 1U) / nominalSampleRateMilliHz);
+}
+
 struct ClockDriftCase {
 	std::string name;
 	std::vector<std::uint64_t> participantSampleRatesMilliHz;
@@ -1303,7 +1310,8 @@ TEST(MixerCadenceClockDriftCharacterizationTest,
 			{ "matched_clock_behavior", "A shared slow clock changes room cadence without causing playout starvation or overflow" },
 			{ "mismatched_clock_behavior", "Keep queues and latency bounded; isolate unavoidable correction to the affected source" },
 			{ "burst_behavior", "Never catch up with multiple room mixes in one nominal frame" },
-			{ "holdover_behavior", "A departed reference must not stop or permanently overspeed the room" }
+			{ "holdover_behavior", "A departed reference must not stop or permanently overspeed the room" },
+			{ "musical_lag_reference", "Lag and lead are expressed in receiver callback frames, not nominal source-production frames" }
 		} },
 		{ "results", nlohmann::json::array() }
 	};
@@ -1325,22 +1333,12 @@ TEST(MixerCadenceClockDriftCharacterizationTest,
 		EXPECT_EQ(cadence.sequenceErrors, 0U) << testCase.name;
 		ASSERT_EQ(legacy.receiverAudio.size(), participantCount);
 		ASSERT_EQ(cadence.receiverAudio.size(), participantCount);
+		if (testCase.name == "both_47850hz") {
+			EXPECT_EQ(scheduledClockEvents(testCase.observationFrames, 47850000ULL), 4084U);
+		}
 		for (std::size_t participant = 0; participant < participantCount; ++participant) {
-			const auto expectedCallbacks = static_cast<std::size_t>((testCase.observationFrames
-				* testCase.participantSampleRatesMilliHz[participant]
-				+ nominalSampleRateMilliHz - 1U) / nominalSampleRateMilliHz);
-			const auto scheduledCallbacks = [&testCase, participant] {
-				std::size_t count = 0;
-				for (std::uint64_t tick = 0; tick < testCase.observationFrames; ++tick) {
-					count += clockEventsAtTick(tick,
-						testCase.participantSampleRatesMilliHz[participant]);
-				}
-				return count;
-			}();
-			EXPECT_EQ(scheduledCallbacks, expectedCallbacks) << testCase.name;
-			if (testCase.name == "both_47850hz") {
-				EXPECT_EQ(scheduledCallbacks, 4084U);
-			}
+			const auto scheduledCallbacks = scheduledClockEvents(testCase.observationFrames,
+				testCase.participantSampleRatesMilliHz[participant]);
 			EXPECT_EQ(legacy.receiverAudio[participant].callbackFrames, scheduledCallbacks)
 				<< testCase.name;
 			EXPECT_EQ(cadence.receiverAudio[participant].callbackFrames, scheduledCallbacks)
@@ -1365,32 +1363,6 @@ TEST(MixerCadenceClockDriftCharacterizationTest,
 			}
 			EXPECT_LE(cadence.maximumMixBurst, 1U) << testCase.name;
 		}
-		if (testCase.departingParticipant) {
-			EXPECT_GT(cadence.disconnects, 0U) << testCase.name;
-			for (std::size_t participant = 0; participant < participantCount; ++participant) {
-				if (participant == *testCase.departingParticipant) {
-					continue;
-				}
-				EXPECT_EQ(cadence.receiverAudio[participant].playoutUnderruns, 0U)
-					<< testCase.name;
-				EXPECT_EQ(cadence.receiverAudio[participant].discardedFrames, 0U)
-					<< testCase.name;
-				EXPECT_EQ(cadence.receiverAudio[participant].receiveQueueOverruns, 0U)
-					<< testCase.name;
-			}
-		}
-
-		nlohmann::json rates = nlohmann::json::array();
-		for (const auto rate : testCase.participantSampleRatesMilliHz) {
-			rates.push_back({
-				{ "sample_rate_hz", static_cast<double>(rate) / 1000.0 },
-				{ "offset_ppm", 1000000.0
-					* (static_cast<double>(rate) - static_cast<double>(nominalSampleRateMilliHz))
-					/ static_cast<double>(nominalSampleRateMilliHz) },
-				{ "scheduled_callback_frames", (testCase.observationFrames * rate
-					+ nominalSampleRateMilliHz - 1U) / nominalSampleRateMilliHz }
-			});
-		}
 		const auto continuingReceiversStable = [&cadence, &testCase, participantCount] {
 			for (std::size_t participant = 0; participant < participantCount; ++participant) {
 				if (testCase.departingParticipant == participant) {
@@ -1404,6 +1376,22 @@ TEST(MixerCadenceClockDriftCharacterizationTest,
 			}
 			return true;
 		}();
+		if (testCase.departingParticipant) {
+			EXPECT_GT(cadence.disconnects, 0U) << testCase.name;
+			EXPECT_TRUE(continuingReceiversStable) << testCase.name;
+		}
+
+		nlohmann::json rates = nlohmann::json::array();
+		for (const auto rate : testCase.participantSampleRatesMilliHz) {
+			rates.push_back({
+				{ "sample_rate_hz", static_cast<double>(rate) / 1000.0 },
+				{ "offset_ppm", 1000000.0
+					* (static_cast<double>(rate) - static_cast<double>(nominalSampleRateMilliHz))
+					/ static_cast<double>(nominalSampleRateMilliHz) },
+				{ "scheduled_callback_frames", scheduledClockEvents(
+					testCase.observationFrames, rate) }
+			});
+		}
 		auto row = nlohmann::json {
 			{ "name", testCase.name },
 			{ "participant_clocks", std::move(rates) },

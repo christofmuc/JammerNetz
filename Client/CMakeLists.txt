@@ -138,7 +138,7 @@ set(INSTALLER_BASE_NAME "JammerNetz")
 
 add_library(JammerNetzCore STATIC ${CORE_AUDIO_PROCESSING_FILES} ${NETWORK_FILES})
 target_include_directories(JammerNetzCore PUBLIC Source "${CMAKE_CURRENT_BINARY_DIR}/Source")
-target_link_libraries(JammerNetzCore PUBLIC ${JUCE_LIBRARIES} JammerCommon juce-utils midikraft-base ff_meters)
+target_link_libraries(JammerNetzCore PUBLIC ${JUCE_LIBRARIES} JammerCommon juce-utils midikraft-base ff_meters PRIVATE libresample)
 
 add_executable(JammerNetzClient MACOSX_BUNDLE WIN32 ${SOURCES} ${DS_SOURCES} ${UICOMPONENT_FILES} ${PLAYALONG_FILES} ${AUDIO_PROCESSING_FILES} ${MIDI_FILES} ${RESOURCE_FILES} ${INSTALLER_FILES})
 set(JammerNetz_VersionedName "JammerNetz 2")

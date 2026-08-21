@@ -442,10 +442,16 @@ Current artifacts are written below the build tree:
 - CTest JUnit results;
 - hold/flush `summary.json` and per-case JSONL traces;
 - mixer-cadence boundary `summary.json`, comparing the legacy all-ready scheduler with cadence-donor scheduling across deterministic 2–6 participant sessions, including per-recipient rendered-signal verification, real client playout, healthy-source preservation, and one-outlier/all-unhealthy jitter/slot-hold/duplicate-burst frontiers;
-- mixer clock-drift `clock-drift-summary.json`, driving both upload production and download callbacks from each participant's simulated hardware clock. It covers matched -50/-100/-500 ppm clocks, measured 47,850 Hz hardware, unequal and opposing clocks, held duplicate bursts, and cadence-reference departure while retaining sample-level receiver verdicts;
+- mixer clock-drift `clock-drift-summary.json`, driving both upload production and download callbacks from each participant's simulated hardware clock. It covers matched -50/-100/-500 ppm clocks, a simulated 47,850 Hz hardware case, unequal and opposing clocks, held duplicate bursts, and cadence-reference departure while retaining sample-level receiver verdicts;
 - isolated and combined impairment summaries and per-profile JSONL traces;
 - quality-surface `quality-surface/hold-N/summary.json` facets;
 - disconnect/reconnect `summary.json`.
+
+Client clock-normalization unit tests additionally verify a bit-exact 48 kHz
+bypass, 44.1-to-48 kHz capture with signal-level pitch/error checks, 48-to-44.1
+kHz playout, explicit 47,850-to-48 kHz conversion, and a ten-second unreported
+47,850 Hz playout clock with bounded queues, no discard/underrun, and measured
+received-signal frequency.
 
 The weekly/manual workflow uploads `builds/test-artifacts` and the characterization JUnit file even when a test fails. Future additions should include a compact scenario manifest and, where useful, a short WAV excerpt around the first audible discrepancy.
 
