@@ -13,6 +13,7 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
@@ -341,6 +342,39 @@ AudioSignature audioSignature(const AudioBuffer<float>& audio)
 	return { quantizedSample(audio.getSample(0, 0)), quantizedSample(audio.getSample(1, 0)) };
 }
 
+std::array<AudioSignature, 25> candidateAudioSignatures(const AudioSignature signature)
+{
+	constexpr std::array<std::int32_t, 5> offsets { 0, -1, 1, -2, 2 };
+	std::array<AudioSignature, 25> result {};
+	std::size_t index = 0;
+	for (const auto left : offsets) {
+		for (const auto right : offsets) {
+			result[index++] = {
+				static_cast<std::int32_t>(signature.first + left),
+				static_cast<std::int32_t>(signature.second + right)
+			};
+		}
+	}
+	return result;
+}
+
+TEST(MixerCadenceBoundaryAudioOracleTest, SignaturePrefilterCoversEveryFullComparisonMatch)
+{
+	AudioBuffer<float> expected(2, 1);
+	AudioBuffer<float> observed(2, 1);
+	expected.clear();
+	observed.clear();
+	expected.setSample(0, 0, -0.5f * boundaryAudioEpsilon);
+	observed.setSample(0, 0, 0.5f * boundaryAudioEpsilon);
+
+	ASSERT_TRUE(audioBuffersMatch(expected, observed));
+	const auto expectedSignature = audioSignature(expected);
+	const auto observedSignature = audioSignature(observed);
+	ASSERT_EQ(expectedSignature.first, observedSignature.first - 2);
+	const auto candidates = candidateAudioSignatures(observedSignature);
+	EXPECT_NE(std::find(candidates.begin(), candidates.end(), expectedSignature), candidates.end());
+}
+
 AudioBuffer<float> idealBoundaryReceiverFrame(const std::size_t receiver,
 	const std::size_t participantCount, const std::uint64_t frame)
 {
@@ -559,20 +593,23 @@ public:
 private:
 	std::optional<std::uint64_t> findServerSequence(const AudioBuffer<float>& observed) const
 	{
-		const auto candidates = serverFramesBySignature_.find(audioSignature(observed));
-		if (candidates == serverFramesBySignature_.end()) {
-			return std::nullopt;
-		}
 		std::vector<std::uint64_t> matches;
-		for (const auto sequence : candidates->second) {
-			const auto frame = serverFrames_.find(sequence);
-			if (frame != serverFrames_.end() && audioBuffersMatch(*frame->second, observed)) {
-				matches.push_back(sequence);
+		for (const auto& signature : candidateAudioSignatures(audioSignature(observed))) {
+			const auto candidates = serverFramesBySignature_.find(signature);
+			if (candidates == serverFramesBySignature_.end()) {
+				continue;
+			}
+			for (const auto sequence : candidates->second) {
+				const auto frame = serverFrames_.find(sequence);
+				if (frame != serverFrames_.end() && audioBuffersMatch(*frame->second, observed)) {
+					matches.push_back(sequence);
+				}
 			}
 		}
 		if (matches.empty()) {
 			return std::nullopt;
 		}
+		std::sort(matches.begin(), matches.end());
 		if (!lastServerSequence_) {
 			return matches.front();
 		}
@@ -587,14 +624,16 @@ private:
 
 	std::optional<std::uint64_t> findIdealFrame(const AudioBuffer<float>& observed) const
 	{
-		const auto candidates = idealFramesBySignature_.find(audioSignature(observed));
-		if (candidates == idealFramesBySignature_.end()) {
-			return std::nullopt;
-		}
-		for (const auto frame : candidates->second) {
-			const auto ideal = idealBoundaryReceiverFrame(receiver_, participantCount_, frame);
-			if (audioBuffersMatch(ideal, observed)) {
-				return frame;
+		for (const auto& signature : candidateAudioSignatures(audioSignature(observed))) {
+			const auto candidates = idealFramesBySignature_.find(signature);
+			if (candidates == idealFramesBySignature_.end()) {
+				continue;
+			}
+			for (const auto frame : candidates->second) {
+				const auto ideal = idealBoundaryReceiverFrame(receiver_, participantCount_, frame);
+				if (audioBuffersMatch(ideal, observed)) {
+					return frame;
+				}
 			}
 		}
 		return std::nullopt;
@@ -860,11 +899,12 @@ nlohmann::json optionalStringJson(const std::optional<std::string>& value)
 	return value ? nlohmann::json(*value) : nlohmann::json(nullptr);
 }
 
-nlohmann::json frontierJson(const BoundaryScenario& scenario, const BoundaryFrontier& frontier)
+nlohmann::json frontierJson(const std::size_t participantCount,
+	const BoundaryTopology topology, const BoundaryFrontier& frontier)
 {
 	return {
-		{ "participants", scenario.participantCount },
-		{ "topology", topologyName(scenario.topology) },
+		{ "participants", participantCount },
+		{ "topology", topologyName(topology) },
 		{ "legacy_first_rate_deviation", optionalStringJson(frontier.legacyRateDeviation) },
 		{ "cadence_first_rate_deviation", optionalStringJson(frontier.cadenceRateDeviation) },
 		{ "cadence_first_overspeed", optionalStringJson(frontier.cadenceOverspeed) },
@@ -1150,7 +1190,8 @@ TEST(MixerCadenceBoundaryRegressionTest, NoHealthyDonorSweepIsDeterministicAndBo
 	EXPECT_EQ(first.disconnects, 0U);
 	EXPECT_GT(first.cadenceSwitches, 0U);
 	EXPECT_LE(first.maximumQueueDepth,
-		scenario.participantCount * (scenario.severity.slotHoldFrames + 1U));
+		static_cast<std::size_t>(SERVER_INCOMING_MAXIMUM_BUFFER)
+			+ BUFFER_PREFILL_ON_CONNECT + 1U);
 }
 
 TEST(MixerCadenceBoundaryCharacterizationTest, TwoToSixParticipantSweepComparesLegacyAndCadenceModels)
@@ -1280,10 +1321,7 @@ TEST(MixerCadenceBoundaryCharacterizationTest, TwoToSixParticipantSweepComparesL
 				};
 				summary["results"].push_back(std::move(row));
 			}
-			const BoundaryScenario frontierScenario {
-				participants, topology, boundarySeverities().front()
-			};
-			summary["frontiers"].push_back(frontierJson(frontierScenario, frontier));
+			summary["frontiers"].push_back(frontierJson(participants, topology, frontier));
 		}
 	}
 

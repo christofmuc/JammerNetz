@@ -629,15 +629,11 @@ private:
 		for (const auto& [name, packet] : step.incoming) {
 			selectedCounters[name] = packet->messageCounter();
 			selectedSources[name] = {
-				{ "counter", packet->messageCounter() },
-				{ "contribution", std::find(step.fillInClients.begin(), step.fillInClients.end(), name)
-					!= step.fillInClients.end() ? "concealment" : "packet" }
+				{ "counter", packet->messageCounter() }
 			};
 		}
 		for (const auto& [name, contribution] : step.contributions) {
-			if (contribution == ServerSourceContribution::Silence) {
-				selectedSources[name] = { { "contribution", contributionName(contribution) } };
-			}
+			selectedSources[name]["contribution"] = contributionName(contribution);
 		}
 		trace_.record({ virtualSample_, traceSequence_++, "server_mix_decision", {
 			{ "trigger", triggerName(step.trigger) },
@@ -1134,15 +1130,11 @@ private:
 		for (const auto& [name, packet] : step.incoming) {
 			selectedCounters[name] = packet->messageCounter();
 			selectedSources[name] = {
-				{ "counter", packet->messageCounter() },
-				{ "contribution", std::find(step.fillInClients.begin(), step.fillInClients.end(), name)
-					!= step.fillInClients.end() ? "concealment" : "packet" }
+				{ "counter", packet->messageCounter() }
 			};
 		}
 		for (const auto& [name, contribution] : step.contributions) {
-			if (contribution == ServerSourceContribution::Silence) {
-				selectedSources[name] = { { "contribution", contributionName(contribution) } };
-			}
+			selectedSources[name]["contribution"] = contributionName(contribution);
 		}
 		record("server_mix_decision", {
 			{ "trigger", triggerName(step.trigger) },
