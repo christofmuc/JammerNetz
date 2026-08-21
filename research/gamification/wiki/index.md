@@ -2,7 +2,7 @@
 title: Gamification wiki index
 type: overview
 status: seed
-updated: 2026-08-20
+updated: 2026-08-21
 tags: [index]
 ---
 
@@ -22,6 +22,8 @@ tags: [index]
 - [Architecture](architecture/overview.md) - research and product boundaries.
 - [Prior art](prior-art/overview.md) - literature strategy.
 - [SMC proceedings coverage](prior-art/smc.md) - explicit conference audit.
+- [NIME proceedings discovery source](prior-art/nime.md) - expected interaction,
+  feedback, learning, and evaluation value; no papers ingested yet.
 - [SMC 2023 screening](prior-art/smc-2023-screening.md) - complete-year routes,
   shortlist, and audit.
 - [SMC 2024 screening](prior-art/smc-2024-screening.md) - complete-year routes,
@@ -32,6 +34,12 @@ tags: [index]
 - [Decisions](decisions/overview.md) - human-reviewed conclusions.
 
 ## Ingested sources
+
+Venue-level discovery sources:
+
+- [NIME proceedings and bibliography](../raw/sources/nime-proceedings.md)
+
+Fully reviewed papers:
 
 - [Grollmisch and Cano 2019](sources/smc2019-grollmisch-cano-acr-education.md)
 - [Nadar, Abesser, and Grollmisch 2019](sources/smc2019-nadar-abesser-grollmisch-seventh-chords.md)

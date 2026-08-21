@@ -1,5 +1,15 @@
 # Gamification wiki log
 
+## [2026-08-21] ingest | NIME proceedings discovery source
+
+- Registered the official NIME paper index and public bibliography repository
+  as venue-level discovery sources without ingesting individual papers.
+- Documented expected value in collaborative interaction, feedback design,
+  pedagogy, accessibility, real-time sensing, networked performance, and human
+  evaluation.
+- Recorded likely low-yield areas, keyword ambiguities, six screening cards,
+  and a bounded recent-year metadata pilot before any historical expansion.
+
 ## [2026-08-20] ingest | Initial conversation synthesis
 
 - Established the research boundary and seven domain sections.

@@ -2,7 +2,7 @@
 title: Prior-art strategy
 type: overview
 status: seed
-updated: 2026-08-20
+updated: 2026-08-21
 tags: [prior-art, literature]
 ---
 
@@ -22,9 +22,11 @@ experiment, not to turn JammerNetz into an unconstrained MIR research program.
 
 ## Venue order
 
-1. Sound and Music Computing (SMC) as the initial bounded corpus.
-2. Citation expansion into ISMIR, NIME, ICMC, DAFx, AES, and ICASSP.
-3. Only then broaden to generic machine-learning search where music-specific
+1. Sound and Music Computing (SMC) as the initial bounded MIR corpus.
+2. NIME as a complementary source for collaborative interaction, feedback,
+   learning, accessibility, and evaluation design.
+3. Citation expansion into ISMIR, ICMC, DAFx, AES, and ICASSP.
+4. Only then broaden to generic machine-learning search where music-specific
    evidence is absent.
 
 ## Disposition
@@ -39,4 +41,5 @@ Every relevant work receives one disposition:
 
 See [SMC proceedings coverage](smc.md) for aggregate counters and the
 [SMC 2025 screening report](smc-2025-screening.md) for the first complete-year
-pilot.
+pilot. See [NIME proceedings discovery source](nime.md) for the expected value,
+scope limits, and proposed metadata pilot for that venue.

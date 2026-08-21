@@ -2,7 +2,7 @@
 title: Gamification research queue
 type: overview
 status: seed
-updated: 2026-08-20
+updated: 2026-08-21
 tags: [research-queue]
 ---
 
@@ -37,9 +37,12 @@ experiment, architecture, or product decision.
 1. Complete a metadata-level SMC proceedings inventory.
 2. Screen it for onset, beat, harmony, score following, networked performance,
    co-creativity, education, and musical HCI.
-3. Follow the strongest citations into ISMIR, NIME, ICMC, DAFx, AES, and
-   ICASSP.
-4. Audit implementation, model, dataset, and license availability separately
+3. Pilot one complete recent NIME paper year for collaborative interaction,
+   musician-facing feedback, learning, accessibility, real-time sensing,
+   networked performance, and evaluation methods.
+4. Expand the NIME screen historically only if the pilot has useful precision.
+5. Follow the strongest citations into ISMIR, ICMC, DAFx, AES, and ICASSP.
+6. Audit implementation, model, dataset, and license availability separately
    from paper relevance.
 
 ## Later: autoresearch candidates
