@@ -212,7 +212,7 @@ struct BoundaryScenario {
 	BoundaryTopology topology { BoundaryTopology::OneOutlier };
 	BoundarySeverity severity;
 	std::uint64_t seed { 0x4a616d6d65724e65ULL };
-	std::vector<std::uint64_t> participantSampleRatesMilliHz;
+	std::vector<std::uint64_t> participantSampleRatesMilliHz {};
 };
 
 struct PacketArrival {
@@ -333,7 +333,7 @@ struct ClockDriftCase {
 	std::vector<std::uint64_t> participantSampleRatesMilliHz;
 	std::uint64_t observationFrames { 0 };
 	BoundarySeverity network;
-	std::optional<std::size_t> departingParticipant;
+	std::optional<std::size_t> departingParticipant {};
 	std::uint64_t departureTick { 0 };
 };
 
