@@ -12,6 +12,12 @@
 
 #include <limits>
 
+bool shouldUpdateRoundTripTime(const double echoedTimestamp,
+	const double lastEchoedTimestamp) noexcept
+{
+	return echoedTimestamp > lastEchoedTimestamp;
+}
+
 DataReceiveThread::DataReceiveThread(DatagramSocket &socket,
 	std::function<void(std::shared_ptr<JammerNetzAudioData>)> newDataHandler,
 	std::function<void(bool)> mtuCapabilityHandler,
@@ -83,7 +89,10 @@ void DataReceiveThread::run()
 								}
 							}
 							// Hand off to player
-							currentRTT_ = Time::getMillisecondCounterHiRes() - audioData->timestamp();
+							if (shouldUpdateRoundTripTime(audioData->timestamp(), lastRttTimestamp_)) {
+								currentRTT_ = Time::getMillisecondCounterHiRes() - audioData->timestamp();
+								lastRttTimestamp_ = audioData->timestamp();
+							}
 							newDataHandler_(audioData);
 						}
 						break;

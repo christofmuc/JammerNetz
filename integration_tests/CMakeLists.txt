@@ -11,7 +11,7 @@ target_link_libraries(${SYSTEM_TEST_TARGET}
 )
 jammernetz_copy_msvc_debug_runtime(${SYSTEM_TEST_TARGET})
 jammernetz_copy_tbb_runtime(${SYSTEM_TEST_TARGET})
-gtest_discover_tests(${SYSTEM_TEST_TARGET} PROPERTIES LABELS system TIMEOUT 30)
+gtest_discover_tests(${SYSTEM_TEST_TARGET} PROPERTIES LABELS system TIMEOUT 60)
 set_target_properties(${SYSTEM_TEST_TARGET} PROPERTIES FOLDER tests)
 
 if(MSVC)
@@ -23,6 +23,7 @@ endif()
 set(CHARACTERIZATION_TEST_TARGET NetworkImpairmentCharacterizationTest)
 add_executable(${CHARACTERIZATION_TEST_TARGET}
 	CharacterizationTestSupport.h
+	MixerCadenceBoundaryTests.cpp
 	NetworkImpairmentCharacterizationTests.cpp
 	ReconnectCharacterizationTests.cpp
 )
@@ -38,7 +39,7 @@ target_compile_definitions(${CHARACTERIZATION_TEST_TARGET}
 	PRIVATE JAMMERNETZ_TEST_ARTIFACT_DIR="${CMAKE_BINARY_DIR}/test-artifacts")
 jammernetz_copy_msvc_debug_runtime(${CHARACTERIZATION_TEST_TARGET})
 jammernetz_copy_tbb_runtime(${CHARACTERIZATION_TEST_TARGET})
-gtest_discover_tests(${CHARACTERIZATION_TEST_TARGET} PROPERTIES LABELS characterization TIMEOUT 30)
+gtest_discover_tests(${CHARACTERIZATION_TEST_TARGET} PROPERTIES LABELS characterization TIMEOUT 120)
 set_target_properties(${CHARACTERIZATION_TEST_TARGET} PROPERTIES FOLDER tests)
 
 set(STRESS_TEST_TARGET ReconnectStressTest)

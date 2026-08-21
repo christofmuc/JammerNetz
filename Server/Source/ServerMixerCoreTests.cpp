@@ -128,8 +128,11 @@ TEST(ServerMixerCoreTest, PreservesAddressingSessionMetadataClockAndControlSelec
 		EXPECT_EQ(output.audioBlock.midiSignal, MidiSignal_Stop);
 		ASSERT_EQ(output.sessionSetup.channels.size(), 1U);
 	}
-	EXPECT_EQ(first.outgoing[0].audioBlock.messageCounter, 31U);
-	EXPECT_EQ(first.outgoing[1].audioBlock.messageCounter, 47U);
+	EXPECT_EQ(first.mixSequence, 1U);
+	EXPECT_EQ(first.outgoing[0].audioBlock.messageCounter, 1U);
+	EXPECT_EQ(first.outgoing[1].audioBlock.messageCounter, 1U);
+	EXPECT_DOUBLE_EQ(first.outgoing[0].audioBlock.timestamp, 31.0);
+	EXPECT_DOUBLE_EQ(first.outgoing[1].audioBlock.timestamp, 47.0);
 	EXPECT_EQ(first.outgoing[0].sessionSetup.channels.front().name, "drums");
 	EXPECT_EQ(first.outgoing[1].sessionSetup.channels.front().name, "guitar");
 
@@ -138,10 +141,38 @@ TEST(ServerMixerCoreTest, PreservesAddressingSessionMetadataClockAndControlSelec
 	secondInputs.emplace("10.0.0.2:1002", packet("drums", Right, true, 0.2f, 1.0f, 48));
 	const auto second = mixer.mix(secondInputs);
 	EXPECT_EQ(second.serverTime, 2 * SAMPLE_BUFFER_SIZE);
+	EXPECT_EQ(second.mixSequence, 2U);
 	for (const auto& output : second.outgoing) {
+		EXPECT_EQ(output.audioBlock.messageCounter, 2U);
 		EXPECT_FLOAT_EQ(output.audioBlock.bpm, 140.0f);
 		EXPECT_EQ(output.audioBlock.midiSignal, MidiSignal_None);
 	}
+}
+
+TEST(ServerMixerCoreTest, SendsEveryRecipientAMixWhenOneSourceIsMissing)
+{
+	ServerMixerCore mixer(stereoOutputSetup());
+	const auto packetA = packet("guitar", Left, true, 0.1f, 1.0f, 31);
+	const auto packetC = packet("drums", Right, true, 0.2f, 1.0f, 47);
+	ServerInputPackets inputs;
+	inputs.emplace("client-a", packetA);
+	inputs.emplace("client-c", packetC);
+	ServerMixRecipients recipients;
+	recipients.emplace("client-a", ClientMixMetadata {
+		packetA->timestamp(), packetA->channelSetup(), packetA->protocolVersion() });
+	recipients.emplace("client-b", ClientMixMetadata {
+		99.0, JammerNetzChannelSetup(true), JammerNetzProtocol::Current });
+	recipients.emplace("client-c", ClientMixMetadata {
+		packetC->timestamp(), packetC->channelSetup(), packetC->protocolVersion() });
+
+	const auto result = mixer.mix(inputs, recipients);
+
+	ASSERT_EQ(result.outgoing.size(), 3U);
+	const auto& missingUploader = outputFor(result, "client-b").audioBlock;
+	EXPECT_EQ(missingUploader.messageCounter, 1U);
+	EXPECT_DOUBLE_EQ(missingUploader.timestamp, 99.0);
+	EXPECT_FLOAT_EQ(missingUploader.audioBuffer->getSample(0, 0), 0.1f);
+	EXPECT_FLOAT_EQ(missingUploader.audioBuffer->getSample(1, 0), 0.2f);
 }
 
 TEST(ServerMixerCoreTest, IgnoresAudioChannelsWithoutMatchingChannelSetup)

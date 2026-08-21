@@ -12,6 +12,7 @@
 #include <cstdint>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 
 enum class ClientConnectionState {
@@ -44,6 +45,12 @@ struct ClientQueuePressureResult {
 	PacketStreamQueueFastForwardResult fastForward;
 };
 
+struct ClientMixMetadata {
+	double timestamp { 0.0 };
+	JammerNetzChannelSetup channelSetup { false };
+	uint16 protocolVersion { JammerNetzProtocol::Current };
+};
+
 // Owns one client's queue and connection state. Queue ownership never escapes this
 // class, so disconnect/reconnect cannot invalidate another thread's queue access.
 class ClientState {
@@ -61,6 +68,7 @@ public:
 	ClientQueuePressureResult applyQueuePressure(std::size_t maximumPacketCount,
 		std::size_t retainedPacketCount);
 	ClientQueueSnapshot snapshot() const;
+	std::optional<ClientMixMetadata> mixMetadata() const;
 	bool qualityInfo(JammerNetzStreamQualityInfo &qualityInfo) const;
 
 	bool markUnderrun(std::uint64_t observedActivityGeneration, TimePoint now = Clock::now());
@@ -71,6 +79,7 @@ private:
 	std::string clientName_;
 	ClientConnectionState state_{ClientConnectionState::Disconnected};
 	std::shared_ptr<PacketStreamQueue> queue_;
+	std::optional<ClientMixMetadata> mixMetadata_;
 	TimePoint disconnectDeadline_{};
 	std::uint64_t activityGeneration_{0};
 	bool hasConnected_{false};

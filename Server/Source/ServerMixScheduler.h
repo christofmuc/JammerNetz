@@ -10,8 +10,10 @@
 #include "ServerMixerCore.h"
 #include "SharedServerTypes.h"
 
+#include <chrono>
 #include <cstdint>
 #include <map>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -19,8 +21,16 @@ enum class ServerMixTrigger {
 	None,
 	SingleClient,
 	AllClientsReady,
+	CadenceClient,
+	CadenceClientFailover,
 	MaximumBufferPressure,
 	AllClientsReadyAndMaximumBufferPressure
+};
+
+enum class ServerSourceContribution {
+	Packet,
+	Concealment,
+	Silence
 };
 
 struct ServerQueueObservation {
@@ -31,13 +41,19 @@ struct ServerQueueObservation {
 
 struct ServerScheduledMixResult {
 	ServerMixTrigger trigger { ServerMixTrigger::None };
+	// Retained for the mixer-thread contract. A source concealment no longer
+	// advances room cadence, so current scheduler steps leave this false.
 	bool shouldWakeAgain { false };
 	std::map<std::string, ServerQueueObservation> queuesBefore;
 	std::map<std::string, ServerQueueObservation> queuesAfter;
 	std::vector<std::string> disconnectedClients;
 	std::vector<std::string> underrunClients;
 	std::vector<std::string> fillInClients;
+	std::vector<std::string> missingClients;
 	std::map<std::string, PacketStreamQueueFastForwardResult> fastForwardedClients;
+	std::map<std::string, ServerSourceContribution> contributions;
+	std::string cadenceClient;
+	bool cadenceClientChanged { false };
 	ServerInputPackets incoming;
 	ServerMixStepResult mix;
 };
@@ -46,6 +62,9 @@ struct ServerScheduledMixResult {
 // forwards the result; deterministic tests can drive this class directly.
 class ServerMixScheduler {
 public:
+	static constexpr auto CadenceFailoverGracePeriod = std::chrono::microseconds(
+		(SAMPLE_BUFFER_SIZE * 1000000LL + SAMPLE_RATE - 1) / SAMPLE_RATE);
+
 	ServerMixScheduler(JammerNetzChannelSetup mixdownSetup, ServerBufferConfig bufferConfig);
 
 	ServerScheduledMixResult process(TPacketStreamBundle& clients,
@@ -54,4 +73,7 @@ public:
 private:
 	ServerMixerCore mixerCore_;
 	ServerBufferConfig bufferConfig_;
+	std::string cadenceClient_;
+	std::map<std::string, std::size_t> sourceHealth_;
+	std::optional<ClientState::TimePoint> cadenceUnreadySince_;
 };
