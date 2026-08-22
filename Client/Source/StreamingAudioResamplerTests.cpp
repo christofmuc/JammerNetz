@@ -81,11 +81,54 @@ TEST(StreamingAudioResamplerTest, Converts44100To48000WithoutChangingPitch)
 	EXPECT_LT(rmsError(output, expected, compared), 1.0e-3);
 }
 
+TEST(StreamingAudioResamplerTest, InputConsumptionDoesNotRepresentRenderedTimeline)
+{
+	constexpr int inputSamples = 512;
+	constexpr int outputSamples = 128;
+	constexpr double factor = 44100.0 / 48000.0;
+	auto input = sineWave(inputSamples, 48000.0, 440.0);
+	std::vector<float> firstOutput(outputSamples);
+	std::vector<float> secondOutput(outputSamples);
+	const float* inputs[] { input.data() };
+	float* firstOutputs[] { firstOutput.data() };
+	float* secondOutputs[] { secondOutput.data() };
+	StreamingAudioResampler resampler;
+	ASSERT_TRUE(resampler.prepare(1, 0.8, 1.2));
+
+	const auto first = resampler.process(inputs, inputSamples, firstOutputs,
+		outputSamples, factor);
+	ASSERT_EQ(first.outputSamplesGenerated, outputSamples);
+	EXPECT_GT(first.inputSamplesUsed,
+		static_cast<int>(std::ceil(static_cast<double>(outputSamples) / factor)));
+
+	const auto second = resampler.process(inputs, 0, secondOutputs,
+		outputSamples, factor);
+	EXPECT_EQ(second.outputSamplesGenerated, outputSamples);
+	EXPECT_EQ(second.inputSamplesUsed, 0);
+}
+
+TEST(StreamingAudioResamplerTest, FailedPrepareInvalidatesPreviousState)
+{
+	auto input = sineWave(128, 48000.0, 440.0);
+	std::vector<float> output(input.size());
+	const float* inputs[] { input.data() };
+	float* outputs[] { output.data() };
+	StreamingAudioResampler resampler;
+	ASSERT_TRUE(resampler.prepare(1, 0.8, 1.2));
+
+	ASSERT_FALSE(resampler.prepare(0, 0.8, 1.2));
+	const auto result = resampler.process(inputs, static_cast<int>(input.size()), outputs,
+		static_cast<int>(output.size()), 1.0);
+	EXPECT_EQ(result.inputSamplesUsed, 0);
+	EXPECT_EQ(result.outputSamplesGenerated, 0);
+}
+
 TEST(StreamingAudioResamplerTest, CorrectsMeasured47850HzHardwareClock)
 {
 	constexpr int inputRate = 47850;
 	constexpr int outputRate = 48000;
-	auto input = sineWave(inputRate, inputRate, 440.0);
+	constexpr double frequency = 440.0;
+	auto input = sineWave(inputRate, inputRate, frequency);
 	std::vector<float> output(outputRate + 32);
 	const float* inputs[] { input.data() };
 	float* outputs[] { output.data() };
@@ -98,4 +141,9 @@ TEST(StreamingAudioResamplerTest, CorrectsMeasured47850HzHardwareClock)
 
 	EXPECT_EQ(result.inputSamplesUsed, inputRate);
 	EXPECT_NEAR(result.outputSamplesGenerated, outputRate, 3);
+	const auto expected = sineWave(result.outputSamplesGenerated, outputRate, frequency);
+	const auto compared = static_cast<std::size_t>(std::max(0,
+		result.outputSamplesGenerated - resampler.filterWidth()));
+	ASSERT_GT(compared, 40000U);
+	EXPECT_LT(rmsError(output, expected, compared), 1.0e-3);
 }

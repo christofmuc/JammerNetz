@@ -366,6 +366,59 @@ TEST(JammerNetzAudioEngineTest, Resamples48000RoomAudioFor44100Playout)
 	EXPECT_EQ(engine.getPlayoutQualityInfo().playUnderruns_, 0U);
 }
 
+TEST(JammerNetzAudioEngineTest, SingleQueueExcursionKeepsNominal48000PlayoutSampleExact)
+{
+	JammerNetzSession session;
+	JammerNetzAudioEngine engine(session, juce::File());
+	engine.prepare(SAMPLE_RATE, SAMPLE_BUFFER_SIZE);
+	engine.setLocalMonitoring(false);
+	engine.setMasterVolume(1.0);
+	engine.setMonitorBalance(1.0);
+	engine.setPlayoutBufferRange(3, 16);
+
+	uint64 packetCounter = 1;
+	auto enqueuePacket = [&]() {
+		auto audio = std::make_shared<juce::AudioBuffer<float>>(2, SAMPLE_BUFFER_SIZE);
+		const auto firstSample = (packetCounter - 1U) * SAMPLE_BUFFER_SIZE;
+		for (int sample = 0; sample < SAMPLE_BUFFER_SIZE; ++sample) {
+			const auto value = jammernetz::test::SyntheticAudioSource::valueAt(
+				1, 0, firstSample + static_cast<uint64>(sample));
+			audio->setSample(0, sample, value);
+			audio->setSample(1, sample, value);
+		}
+		JammerNetzChannelSetup setup(false, {
+			JammerNetzSingleChannelSetup(JammerNetzChannelTarget::Left),
+			JammerNetzSingleChannelSetup(JammerNetzChannelTarget::Right)
+		});
+		engine.enqueueRemoteAudio(std::make_shared<JammerNetzAudioData>(packetCounter,
+			0.0, setup, SAMPLE_RATE, 120.0f, MidiSignal_None, std::move(audio), nullptr));
+		++packetCounter;
+		while (engine.processNextIncomingPacket()) {}
+	};
+	for (int frame = 0; frame < 10; ++frame) {
+		enqueuePacket();
+	}
+
+	std::vector<float> rendered;
+	for (int callback = 0; callback < 8; ++callback) {
+		std::array<float, SAMPLE_BUFFER_SIZE> left {};
+		std::array<float, SAMPLE_BUFFER_SIZE> right {};
+		float* outputs[] { left.data(), right.data() };
+		engine.process(nullptr, 0, outputs, 2, SAMPLE_BUFFER_SIZE);
+		rendered.insert(rendered.end(), left.begin(), left.end());
+		if (callback == 0) {
+			engine.setPlayoutBufferRange(8, 16);
+		}
+	}
+
+	ASSERT_EQ(rendered.size(), 8U * SAMPLE_BUFFER_SIZE);
+	for (std::size_t sample = 0; sample < rendered.size(); ++sample) {
+		EXPECT_FLOAT_EQ(rendered[sample],
+			jammernetz::test::SyntheticAudioSource::valueAt(1, 0, sample));
+	}
+	EXPECT_EQ(engine.getPlayoutQualityInfo().playUnderruns_, 0U);
+}
+
 TEST(JammerNetzAudioEngineTest, QueueServoCorrectsUnreported47850HzPlayoutClock)
 {
 	JammerNetzSession session;

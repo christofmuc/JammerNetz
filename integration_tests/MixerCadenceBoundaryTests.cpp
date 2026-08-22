@@ -35,6 +35,15 @@ constexpr std::size_t boundaryImpairmentFrames = 640;
 constexpr std::size_t boundaryRecoveryFrames = 96;
 constexpr float boundaryAudioEpsilon = 1.0e-5f;
 constexpr std::uint64_t nominalSampleRateMilliHz = SAMPLE_RATE * 1000ULL;
+constexpr std::uint64_t departingReferenceTick = 2048;
+constexpr auto disconnectGraceMilliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(
+	ClientState::DisconnectGracePeriod).count();
+constexpr std::uint64_t disconnectGraceFrames =
+	(static_cast<std::uint64_t>(disconnectGraceMilliseconds) * SAMPLE_RATE
+		+ 1000ULL * SAMPLE_BUFFER_SIZE - 1ULL)
+	/ (1000ULL * SAMPLE_BUFFER_SIZE);
+constexpr std::uint64_t departingReferenceObservationFrames = departingReferenceTick
+	+ disconnectGraceFrames + boundaryRecoveryFrames;
 
 using jammernetz::test::SyntheticAudioSource;
 
@@ -546,9 +555,12 @@ public:
 		engine_.setMonitorBalance(1.0);
 		engine_.setPlayoutBufferRange(CLIENT_PLAYOUT_JITTER_BUFFER, CLIENT_PLAYOUT_MAX_BUFFER);
 		engine_.prepare(SAMPLE_RATE, SAMPLE_BUFFER_SIZE);
+		idealFrames_.reserve(static_cast<std::size_t>(maximumIdealFrame + 1U));
 		for (std::uint64_t frame = 0; frame <= maximumIdealFrame; ++frame) {
-			const auto ideal = idealBoundaryReceiverFrame(receiver_, participantCount_, frame);
-			idealFramesBySignature_[audioSignature(ideal)].push_back(frame);
+			auto ideal = std::make_shared<AudioBuffer<float>>(
+				idealBoundaryReceiverFrame(receiver_, participantCount_, frame));
+			idealFramesBySignature_[audioSignature(*ideal)].push_back(frame);
+			idealFrames_.push_back(std::move(ideal));
 		}
 	}
 
@@ -708,8 +720,8 @@ private:
 				continue;
 			}
 			for (const auto frame : candidates->second) {
-				const auto ideal = idealBoundaryReceiverFrame(receiver_, participantCount_, frame);
-				if (audioBuffersMatch(ideal, observed)) {
+				const auto& ideal = idealFrames_.at(static_cast<std::size_t>(frame));
+				if (audioBuffersMatch(*ideal, observed)) {
 					return frame;
 				}
 			}
@@ -727,6 +739,7 @@ private:
 	std::map<std::uint64_t, BoundaryServerFrameMetadata> serverMetadata_;
 	std::map<AudioSignature, std::vector<std::uint64_t>> serverFramesBySignature_;
 	std::map<AudioSignature, std::vector<std::uint64_t>> idealFramesBySignature_;
+	std::vector<std::shared_ptr<AudioBuffer<float>>> idealFrames_;
 	std::optional<std::uint64_t> lastServerSequence_;
 	std::optional<std::uint64_t> lastIdealFrame_;
 	std::size_t currentIncoherentRunFrames_ { 0 };
@@ -1299,7 +1312,7 @@ TEST(MixerCadenceClockDriftCharacterizationTest,
 		{ "both_47850hz_with_held_bursts", { 47850000ULL, 47850000ULL }, 4096,
 			heldBursts },
 		{ "47850hz_reference_departs", { 47850000ULL, 47850000ULL, 47850000ULL },
-			4096, clean, 0U, 2048U }
+			departingReferenceObservationFrames, clean, 0U, departingReferenceTick }
 	};
 	nlohmann::json summary {
 		{ "scenario", "hardware_clock_drift" },

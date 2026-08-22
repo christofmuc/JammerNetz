@@ -26,11 +26,12 @@ public:
 
 	bool prepare(int channels, double minimumFactor, double maximumFactor,
 		bool highQuality = true);
-	void reset();
+	bool reset() noexcept;
 	ProcessResult process(const float* const* input, int inputSamples,
 		float* const* output, int outputCapacity, double factor,
 		bool endOfInput = false) noexcept;
 	int filterWidth() const noexcept;
+	bool isPrepared() const noexcept;
 
 private:
 	struct Impl;

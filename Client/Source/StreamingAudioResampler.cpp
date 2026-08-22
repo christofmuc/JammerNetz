@@ -59,27 +59,43 @@ StreamingAudioResampler& StreamingAudioResampler::operator=(StreamingAudioResamp
 bool StreamingAudioResampler::prepare(const int channels, const double minimumFactor,
 	const double maximumFactor, const bool highQuality)
 {
+	impl_.reset();
 	if (channels <= 0 || !std::isfinite(minimumFactor) || !std::isfinite(maximumFactor)
 		|| minimumFactor <= 0.0 || maximumFactor < minimumFactor) {
 		return false;
 	}
-	impl_ = std::make_unique<Impl>();
-	impl_->channels = channels;
-	impl_->minimumFactor = minimumFactor;
-	impl_->maximumFactor = maximumFactor;
-	impl_->highQuality = highQuality;
-	if (!impl_->open()) {
+	try {
+		impl_ = std::make_unique<Impl>();
+		impl_->channels = channels;
+		impl_->minimumFactor = minimumFactor;
+		impl_->maximumFactor = maximumFactor;
+		impl_->highQuality = highQuality;
+		if (!impl_->open()) {
+			impl_.reset();
+			return false;
+		}
+	}
+	catch (...) {
 		impl_.reset();
 		return false;
 	}
 	return true;
 }
 
-void StreamingAudioResampler::reset()
+bool StreamingAudioResampler::reset() noexcept
 {
-	if (impl_) {
-		impl_->open();
+	if (!impl_) {
+		return false;
 	}
+	try {
+		if (impl_->open()) {
+			return true;
+		}
+	}
+	catch (...) {
+	}
+	impl_.reset();
+	return false;
 }
 
 StreamingAudioResampler::ProcessResult StreamingAudioResampler::process(
@@ -115,6 +131,7 @@ StreamingAudioResampler::ProcessResult StreamingAudioResampler::process(
 			factor, const_cast<float*>(input[channel]), inputSamples, endOfInput ? 1 : 0,
 			&inputUsed, output[channel], outputCapacity);
 		if (generated < 0) {
+			impl_.reset();
 			return {};
 		}
 		if (channel == 0) {
@@ -122,6 +139,7 @@ StreamingAudioResampler::ProcessResult StreamingAudioResampler::process(
 		}
 		else if (result.inputSamplesUsed != inputUsed
 			|| result.outputSamplesGenerated != generated) {
+			impl_.reset();
 			return {};
 		}
 	}
@@ -131,4 +149,9 @@ StreamingAudioResampler::ProcessResult StreamingAudioResampler::process(
 int StreamingAudioResampler::filterWidth() const noexcept
 {
 	return impl_ && !impl_->handles.empty() ? resample_get_filter_width(impl_->handles.front()) : 0;
+}
+
+bool StreamingAudioResampler::isPrepared() const noexcept
+{
+	return impl_ && !impl_->handles.empty();
 }

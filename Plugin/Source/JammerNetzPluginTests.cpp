@@ -164,6 +164,9 @@ TEST(JammerNetzPluginTest, Accepts44100WithoutTouchingDisconnectedDryAudio)
 	processor.prepareToPlay(44100.0, 512);
 	EXPECT_FALSE(processor.isSessionActive());
 	EXPECT_EQ(processor.statusText(), "Disconnected");
+	EXPECT_FALSE(processor.connectSession());
+	EXPECT_FALSE(processor.isSessionActive());
+	EXPECT_EQ(processor.statusText(), "Enter a JammerNetz server before connecting");
 
 	juce::AudioBuffer<float> buffer(2, 64);
 	buffer.getWritePointer(0)[0] = 0.75f;

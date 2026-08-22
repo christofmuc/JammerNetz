@@ -276,11 +276,12 @@ add_subdirectory("third_party/spdlog")
 set_property(TARGET spdlog APPEND PROPERTY INTERFACE_SYSTEM_INCLUDE_DIRECTORIES
 	"${CMAKE_CURRENT_SOURCE_DIR}/third_party/spdlog/include")
 
-# libresample 0.1.5 is dual-licensed. JammerNetz uses the BSD option and ships
-# its notice with binary distributions.
+# The pinned libresample commit identifies itself as 0.1.5 in its README and is
+# dual-licensed. JammerNetz uses the BSD option and ships its notice with binary
+# distributions.
 set(HAVE_INTTYPES_H 1)
 configure_file(
-	"${CMAKE_CURRENT_SOURCE_DIR}/third_party/libresample/src/configtemplate.h"
+	"${CMAKE_CURRENT_SOURCE_DIR}/cmake/libresample-config.h.in"
 	"${CMAKE_CURRENT_BINARY_DIR}/third_party/libresample/config.h")
 add_library(libresample STATIC
 	third_party/libresample/src/filterkit.c

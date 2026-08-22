@@ -200,7 +200,9 @@ private:
 	juce::AudioBuffer<float> playoutResamplerInput_;
 	int playoutResamplerInputSamples_ { 0 };
 	double playoutNetworkSamplePosition_ { 0.0 };
+	bool playoutResamplerReady_ { false };
 	bool playoutAdaptiveResampling_ { false };
+	std::uint32_t playoutQueueExcursionBlocks_ { 0 };
 	std::array<float, JAMMERNETZ_MAX_CALLBACK_SAMPLES> silentMeterChannel_ {};
 	std::atomic<AudioOutputTap*> outputTap_ { nullptr };
 
@@ -233,6 +235,8 @@ private:
 	bool started_ { false };
 	std::atomic<uint64_t> retiredMidiOutputEventsDropped_ { 0 };
 	std::atomic<bool> inputChannelMismatchReported_ { false };
+	std::atomic<bool> inputResamplerFailureReported_ { false };
+	std::atomic<bool> playoutResamplerFailureReported_ { false };
 
 	// Message-thread producer, audio-thread consumer. Start/Stop are edge events,
 	// so preserve their order instead of coalescing them like BPM.
@@ -265,6 +269,7 @@ private:
 
 	static constexpr double minimumResamplingFactor = 0.8;
 	static constexpr double maximumResamplingFactor = 1.2;
+	static constexpr std::uint32_t adaptiveResamplingActivationBlocks = 8;
 	static constexpr int resamplingScratchSamples = JAMMERNETZ_MAX_CALLBACK_SAMPLES * 3 / 2 + 512;
 
 };

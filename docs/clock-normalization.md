@@ -30,8 +30,9 @@ adaptive jitter buffer.
 
 ## Resampler and licensing
 
-The implementation pins `minorninth/libresample` 0.1.5 at commit
-`7cb7f9c3f72d4e6774d964dc324af827192df7c3`. JammerNetz selects its permissive
-BSD license option. Windows binary distributions install the upstream BSD
-notice under `licenses/libresample`. The exact-unity path bypasses libresample
-and remains sample-perfect.
+The implementation pins untagged `minorninth/libresample` commit
+`7cb7f9c3f72d4e6774d964dc324af827192df7c3`, whose upstream README identifies
+the code as version 0.1.5. JammerNetz selects its permissive BSD license option.
+Windows binary distributions install the upstream BSD notice under
+`licenses/libresample`. The exact-unity path bypasses libresample and remains
+sample-perfect.

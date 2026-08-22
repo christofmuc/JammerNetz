@@ -64,7 +64,12 @@ JammerNetzAudioEngine::JammerNetzAudioEngine(JammerNetzSession& session,
 	minPlayoutBufferLength_ = CLIENT_PLAYOUT_JITTER_BUFFER;
 	maxPlayoutBufferLength_ = CLIENT_PLAYOUT_MAX_BUFFER;
 	playoutBuffer_ = std::make_unique<RingBuffer>(2, PLAYOUT_RINGBUFFER_SIZE);
-	playoutResampler_.prepare(2, minimumResamplingFactor, maximumResamplingFactor);
+	playoutResamplerReady_ = playoutResampler_.prepare(2,
+		minimumResamplingFactor, maximumResamplingFactor);
+	if (!playoutResamplerReady_) {
+		playoutResamplerFailureReported_.store(true, std::memory_order_relaxed);
+		SimpleLogger::instance()->postMessage("Audio playout resampler initialization failed");
+	}
 	transmitWorker_ = std::make_unique<AudioTransmitWorker>(session_, std::move(packetSink));
 	receiveWorker_ = std::make_unique<AudioReceiveWorker>(session_);
 	outMeterSource_.resize(2, 1);
@@ -342,6 +347,9 @@ void JammerNetzAudioEngine::resetPlayoutState() noexcept
 	playoutSamplesWritten_ = 0;
 	playoutNetworkSamplePosition_ = 0.0;
 	playoutResamplerInputSamples_ = 0;
+	if (!playoutAdaptiveResampling_) {
+		playoutQueueExcursionBlocks_ = 0;
+	}
 }
 
 void JammerNetzAudioEngine::appendPlayoutTiming(const RemoteAudioFrame& frame) noexcept
@@ -467,8 +475,19 @@ double JammerNetzAudioEngine::playoutResamplingFactor() noexcept
 	const auto targetFrames = static_cast<double>(minPlayoutBufferLength_.load(
 		std::memory_order_relaxed) + 1U);
 	const auto queueErrorFrames = queuedFrames - targetFrames;
-	if (std::abs(baseFactor - 1.0) > 100.0e-6 || std::abs(queueErrorFrames) > 4.0) {
+	if (std::abs(baseFactor - 1.0) > 100.0e-6) {
 		playoutAdaptiveResampling_ = true;
+	}
+	else if (!playoutAdaptiveResampling_) {
+		if (std::abs(queueErrorFrames) > 4.0) {
+			playoutQueueExcursionBlocks_ = std::min(playoutQueueExcursionBlocks_ + 1U,
+				adaptiveResamplingActivationBlocks);
+			playoutAdaptiveResampling_ = playoutQueueExcursionBlocks_
+				>= adaptiveResamplingActivationBlocks;
+		}
+		else {
+			playoutQueueExcursionBlocks_ = 0;
+		}
 	}
 	if (!playoutAdaptiveResampling_) {
 		return 1.0;
@@ -588,7 +607,8 @@ void JammerNetzAudioEngine::processChunk(const float* const* inputChannelData, i
 	measureSamplesPerTime(qualityInfo, numSamples);
 
 	const bool inputStateMatchesDevice = inputState && inputState->ingestBuffer
-		&& inputState->resampler && inputState->resampleScratch
+		&& inputState->resampler && inputState->resampler->isPrepared()
+		&& inputState->resampleScratch
 		&& inputState->setup.channels.size() == static_cast<size_t>(numInputChannels);
 	if (numInputChannels > 0 && !inputStateMatchesDevice
 		&& !inputChannelMismatchReported_.exchange(true, std::memory_order_acq_rel)) {
@@ -613,6 +633,12 @@ void JammerNetzAudioEngine::processChunk(const float* const* inputChannelData, i
 		auto resampled = inputState->resampler->process(inputChannelData, numSamples,
 			inputState->resampleScratch->getArrayOfWritePointers(),
 			inputState->resampleScratch->getNumSamples(), factor);
+		if (!inputState->resampler->isPrepared()
+			&& !inputResamplerFailureReported_.exchange(true, std::memory_order_acq_rel)) {
+			MessageManager::callAsync([]() {
+				SimpleLogger::instance()->postMessage("Audio input resampler failed");
+			});
+		}
 		if (resampled.inputSamplesUsed != numSamples) {
 			inputBlocksDropped_.fetch_add(1, std::memory_order_relaxed);
 		}
@@ -659,7 +685,7 @@ void JammerNetzAudioEngine::processChunk(const float* const* inputChannelData, i
 	// For playout, we have to have enough bytes in the out ringbuffer to fill the output audio block.
 	// Let's see if we have enough data from the network!
 
-	const auto playoutFactor = playoutResamplingFactor();
+	const auto playoutFactor = playoutResamplerReady_ ? playoutResamplingFactor() : 1.0;
 	const auto resamplerLookahead = !playoutAdaptiveResampling_
 		&& std::abs(playoutFactor - 1.0) <= 1.0e-12 ? 0 : playoutResampler_.filterWidth();
 	const auto requiredNetworkSamples = static_cast<int>(std::ceil(
@@ -670,12 +696,12 @@ void JammerNetzAudioEngine::processChunk(const float* const* inputChannelData, i
 	qualityInfo.currentPlayQueueLength_ = static_cast<uint64>(
 		(queuedPlayoutNetworkSamples() + SAMPLE_BUFFER_SIZE - 1) / SAMPLE_BUFFER_SIZE);
 	qualityInfo.discardedPackageCounter_ = receiveWorker_ ? receiveWorker_->discardedFrames() : 0;
-	if (!isPlaying_.load(std::memory_order_acquire)
+	if (playoutResamplerReady_ && !isPlaying_.load(std::memory_order_acquire)
 		&& playoutResamplerInputSamples_ >= requiredNetworkSamples) {
 		isPlaying_.store(true, std::memory_order_release);
 	}
 
-	if (isPlaying_.load(std::memory_order_acquire)) {
+	if (playoutResamplerReady_ && isPlaying_.load(std::memory_order_acquire)) {
 		std::array<const float*, 2> resamplerInputs {
 			playoutResamplerInput_.getReadPointer(0), playoutResamplerInput_.getReadPointer(1)
 		};
@@ -684,7 +710,17 @@ void JammerNetzAudioEngine::processChunk(const float* const* inputChannelData, i
 		};
 		const auto resampled = playoutResampler_.process(resamplerInputs.data(),
 			playoutResamplerInputSamples_, resamplerOutputs.data(), numSamples, playoutFactor);
-		if (resampled.outputSamplesGenerated != numSamples) {
+		const bool validConsumption = resampled.inputSamplesUsed >= 0
+			&& resampled.inputSamplesUsed <= playoutResamplerInputSamples_;
+		if (resampled.outputSamplesGenerated != numSamples || !validConsumption) {
+			if (!playoutResampler_.isPrepared()) {
+				playoutResamplerReady_ = false;
+				if (!playoutResamplerFailureReported_.exchange(true, std::memory_order_acq_rel)) {
+					MessageManager::callAsync([]() {
+						SimpleLogger::instance()->postMessage("Audio playout resampler failed");
+					});
+				}
+			}
 			qualityInfo.playUnderruns_++;
 			isPlaying_.store(false, std::memory_order_release);
 			resetPlayoutState();
@@ -736,9 +772,17 @@ void JammerNetzAudioEngine::processChunk(const float* const* inputChannelData, i
 void JammerNetzAudioEngine::prepare(double sampleRate, int maximumBlockSize)
 {
 	preparedSampleRate_.store(sampleRate, std::memory_order_relaxed);
-	playoutResampler_.prepare(2, minimumResamplingFactor, maximumResamplingFactor);
+	playoutResamplerReady_ = playoutResampler_.prepare(2,
+		minimumResamplingFactor, maximumResamplingFactor);
+	if (playoutResamplerReady_) {
+		playoutResamplerFailureReported_.store(false, std::memory_order_release);
+	}
+	else if (!playoutResamplerFailureReported_.exchange(true, std::memory_order_acq_rel)) {
+		SimpleLogger::instance()->postMessage("Audio playout resampler initialization failed");
+	}
 	playoutAdaptiveResampling_ = std::abs(sampleRate - static_cast<double>(SAMPLE_RATE))
 		> static_cast<double>(SAMPLE_RATE) * 100.0e-6;
+	playoutQueueExcursionBlocks_ = 0;
 	if (configuredInputState_) {
 		publishInputState(configuredInputState_->setup);
 	}
@@ -805,10 +849,18 @@ void JammerNetzAudioEngine::publishInputState(const JammerNetzChannelSetup& chan
 	std::shared_ptr<AudioBuffer<float>> scratch;
 	if (!channelSetup.channels.empty()) {
 		resampler = std::make_shared<StreamingAudioResampler>();
-		resampler->prepare(static_cast<int>(channelSetup.channels.size()),
-			minimumResamplingFactor, maximumResamplingFactor);
-		scratch = std::make_shared<AudioBuffer<float>>(
-			static_cast<int>(channelSetup.channels.size()), resamplingScratchSamples);
+		if (resampler->prepare(static_cast<int>(channelSetup.channels.size()),
+			minimumResamplingFactor, maximumResamplingFactor)) {
+			scratch = std::make_shared<AudioBuffer<float>>(
+				static_cast<int>(channelSetup.channels.size()), resamplingScratchSamples);
+			inputResamplerFailureReported_.store(false, std::memory_order_release);
+		}
+		else {
+			resampler.reset();
+			if (!inputResamplerFailureReported_.exchange(true, std::memory_order_acq_rel)) {
+				SimpleLogger::instance()->postMessage("Audio input resampler initialization failed");
+			}
+		}
 	}
 
 	inputChannelMismatchReported_.store(false, std::memory_order_release);
