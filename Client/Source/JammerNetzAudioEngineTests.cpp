@@ -17,6 +17,7 @@
 #include <array>
 #include <cmath>
 #include <memory>
+#include <numbers>
 #include <type_traits>
 #include <vector>
 
@@ -256,6 +257,241 @@ TEST(JammerNetzAudioEngineTest, SendsDeterministicPacketThroughInjectedSink)
 		EXPECT_FLOAT_EQ(packet.audioBuffer()->getSample(0, sample),
 			jammernetz::test::SyntheticAudioSource::valueAt(7, 0, static_cast<jammernetz::test::SampleIndex>(sample)));
 	}
+}
+
+TEST(JammerNetzAudioEngineTest, Normalizes44100InputToThe48000NetworkClock)
+{
+	JammerNetzSession session;
+	auto sink = std::make_shared<CapturingAudioPacketSink>();
+	JammerNetzAudioEngine engine(session, juce::File(), sink);
+	engine.prepare(44100.0, 441);
+	engine.setChannelSetup(monoLocalSetup());
+	engine.setLocalMonitoring(false);
+
+	constexpr int inputRate = 44100;
+	constexpr double frequency = 997.0;
+	for (int offset = 0; offset < inputRate; offset += 441) {
+		const auto samples = std::min(441, inputRate - offset);
+		std::vector<float> input(static_cast<std::size_t>(samples));
+		std::vector<float> left(static_cast<std::size_t>(samples));
+		std::vector<float> right(static_cast<std::size_t>(samples));
+		for (int sample = 0; sample < samples; ++sample) {
+			input[static_cast<std::size_t>(sample)] = static_cast<float>(std::sin(
+				2.0 * std::numbers::pi * frequency
+				* static_cast<double>(offset + sample) / inputRate));
+		}
+		const float* inputs[] { input.data() };
+		float* outputs[] { left.data(), right.data() };
+		engine.process(inputs, 1, outputs, 2, samples);
+		while (engine.processNextOutgoingPacket()) {}
+	}
+	while (engine.processNextOutgoingPacket()) {}
+
+	std::vector<float> networkAudio;
+	for (const auto& packet : sink->packets) {
+		networkAudio.insert(networkAudio.end(), packet->audioBuffer()->getReadPointer(0),
+			packet->audioBuffer()->getReadPointer(0) + packet->audioBuffer()->getNumSamples());
+	}
+	ASSERT_GT(networkAudio.size(), 47000U);
+	double squaredError = 0.0;
+	for (std::size_t sample = 0; sample < 47000U; ++sample) {
+		const auto expected = std::sin(2.0 * std::numbers::pi * frequency
+			* static_cast<double>(sample) / SAMPLE_RATE);
+		const auto difference = static_cast<double>(networkAudio[sample]) - expected;
+		squaredError += difference * difference;
+	}
+	EXPECT_LT(std::sqrt(squaredError / 47000.0), 1.0e-3);
+	EXPECT_EQ(engine.getRealtimeWorkerStats().inputBlocksDropped, 0U);
+}
+
+TEST(JammerNetzAudioEngineTest, Resamples48000RoomAudioFor44100Playout)
+{
+	JammerNetzSession session;
+	JammerNetzAudioEngine engine(session, juce::File());
+	engine.prepare(44100.0, SAMPLE_BUFFER_SIZE);
+	engine.setLocalMonitoring(false);
+	engine.setMasterVolume(1.0);
+	engine.setMonitorBalance(1.0);
+	engine.setPlayoutBufferRange(3, 16);
+
+	constexpr double frequency = 440.0;
+	uint64 packetCounter = 1;
+	auto enqueuePacket = [&]() {
+		auto audio = std::make_shared<juce::AudioBuffer<float>>(2, SAMPLE_BUFFER_SIZE);
+		const auto firstSample = (packetCounter - 1U) * SAMPLE_BUFFER_SIZE;
+		for (int sample = 0; sample < SAMPLE_BUFFER_SIZE; ++sample) {
+			const auto value = static_cast<float>(std::sin(2.0 * std::numbers::pi
+				* frequency * static_cast<double>(firstSample + static_cast<uint64>(sample))
+				/ SAMPLE_RATE));
+			audio->setSample(0, sample, value);
+			audio->setSample(1, sample, value);
+		}
+		JammerNetzChannelSetup setup(false, {
+			JammerNetzSingleChannelSetup(JammerNetzChannelTarget::Left),
+			JammerNetzSingleChannelSetup(JammerNetzChannelTarget::Right)
+		});
+		engine.enqueueRemoteAudio(std::make_shared<JammerNetzAudioData>(packetCounter,
+			0.0, setup, SAMPLE_RATE, 120.0f, MidiSignal_None, std::move(audio), nullptr));
+		++packetCounter;
+		while (engine.processNextIncomingPacket()) {}
+	};
+
+	for (int frame = 0; frame < 4; ++frame) {
+		enqueuePacket();
+	}
+	std::vector<float> rendered;
+	double packetsDue = 0.0;
+	for (int callback = 0; callback < 80; ++callback) {
+		packetsDue += 48000.0 / 44100.0;
+		while (packetsDue >= 1.0) {
+			enqueuePacket();
+			packetsDue -= 1.0;
+		}
+		std::array<float, SAMPLE_BUFFER_SIZE> left {};
+		std::array<float, SAMPLE_BUFFER_SIZE> right {};
+		float* outputs[] { left.data(), right.data() };
+		engine.process(nullptr, 0, outputs, 2, SAMPLE_BUFFER_SIZE);
+		rendered.insert(rendered.end(), left.begin(), left.end());
+	}
+
+	ASSERT_EQ(rendered.size(), 80U * SAMPLE_BUFFER_SIZE);
+	double squaredError = 0.0;
+	for (std::size_t sample = 0; sample < rendered.size(); ++sample) {
+		const auto expected = std::sin(2.0 * std::numbers::pi * frequency
+			* static_cast<double>(sample) / 44100.0);
+		const auto difference = static_cast<double>(rendered[sample]) - expected;
+		squaredError += difference * difference;
+	}
+	EXPECT_LT(std::sqrt(squaredError / static_cast<double>(rendered.size())), 2.0e-3);
+	EXPECT_EQ(engine.getPlayoutQualityInfo().playUnderruns_, 0U);
+}
+
+TEST(JammerNetzAudioEngineTest, SingleQueueExcursionKeepsNominal48000PlayoutSampleExact)
+{
+	JammerNetzSession session;
+	JammerNetzAudioEngine engine(session, juce::File());
+	engine.prepare(SAMPLE_RATE, SAMPLE_BUFFER_SIZE);
+	engine.setLocalMonitoring(false);
+	engine.setMasterVolume(1.0);
+	engine.setMonitorBalance(1.0);
+	engine.setPlayoutBufferRange(3, 16);
+
+	uint64 packetCounter = 1;
+	auto enqueuePacket = [&]() {
+		auto audio = std::make_shared<juce::AudioBuffer<float>>(2, SAMPLE_BUFFER_SIZE);
+		const auto firstSample = (packetCounter - 1U) * SAMPLE_BUFFER_SIZE;
+		for (int sample = 0; sample < SAMPLE_BUFFER_SIZE; ++sample) {
+			const auto value = jammernetz::test::SyntheticAudioSource::valueAt(
+				1, 0, firstSample + static_cast<uint64>(sample));
+			audio->setSample(0, sample, value);
+			audio->setSample(1, sample, value);
+		}
+		JammerNetzChannelSetup setup(false, {
+			JammerNetzSingleChannelSetup(JammerNetzChannelTarget::Left),
+			JammerNetzSingleChannelSetup(JammerNetzChannelTarget::Right)
+		});
+		engine.enqueueRemoteAudio(std::make_shared<JammerNetzAudioData>(packetCounter,
+			0.0, setup, SAMPLE_RATE, 120.0f, MidiSignal_None, std::move(audio), nullptr));
+		++packetCounter;
+		while (engine.processNextIncomingPacket()) {}
+	};
+	for (int frame = 0; frame < 10; ++frame) {
+		enqueuePacket();
+	}
+
+	std::vector<float> rendered;
+	for (int callback = 0; callback < 8; ++callback) {
+		std::array<float, SAMPLE_BUFFER_SIZE> left {};
+		std::array<float, SAMPLE_BUFFER_SIZE> right {};
+		float* outputs[] { left.data(), right.data() };
+		engine.process(nullptr, 0, outputs, 2, SAMPLE_BUFFER_SIZE);
+		rendered.insert(rendered.end(), left.begin(), left.end());
+		if (callback == 0) {
+			engine.setPlayoutBufferRange(8, 16);
+		}
+	}
+
+	ASSERT_EQ(rendered.size(), 8U * SAMPLE_BUFFER_SIZE);
+	for (std::size_t sample = 0; sample < rendered.size(); ++sample) {
+		EXPECT_FLOAT_EQ(rendered[sample],
+			jammernetz::test::SyntheticAudioSource::valueAt(1, 0, sample));
+	}
+	EXPECT_EQ(engine.getPlayoutQualityInfo().playUnderruns_, 0U);
+}
+
+TEST(JammerNetzAudioEngineTest, QueueServoCorrectsUnreported47850HzPlayoutClock)
+{
+	JammerNetzSession session;
+	JammerNetzAudioEngine engine(session, juce::File());
+	// The device reports nominal 48 kHz, but callbacks below run at 47,850 Hz.
+	engine.prepare(48000.0, SAMPLE_BUFFER_SIZE);
+	engine.setLocalMonitoring(false);
+	engine.setMasterVolume(1.0);
+	engine.setMonitorBalance(1.0);
+	engine.setPlayoutBufferRange(4, 20);
+
+	constexpr double physicalRate = 47850.0;
+	constexpr double frequency = 440.0;
+	uint64 packetCounter = 1;
+	auto enqueuePacket = [&]() {
+		auto audio = std::make_shared<juce::AudioBuffer<float>>(2, SAMPLE_BUFFER_SIZE);
+		const auto firstSample = (packetCounter - 1U) * SAMPLE_BUFFER_SIZE;
+		for (int sample = 0; sample < SAMPLE_BUFFER_SIZE; ++sample) {
+			const auto value = static_cast<float>(std::sin(2.0 * std::numbers::pi
+				* frequency * static_cast<double>(firstSample + static_cast<uint64>(sample))
+				/ SAMPLE_RATE));
+			audio->setSample(0, sample, value);
+			audio->setSample(1, sample, value);
+		}
+		JammerNetzChannelSetup setup(false, {
+			JammerNetzSingleChannelSetup(JammerNetzChannelTarget::Left),
+			JammerNetzSingleChannelSetup(JammerNetzChannelTarget::Right)
+		});
+		engine.enqueueRemoteAudio(std::make_shared<JammerNetzAudioData>(packetCounter,
+			0.0, setup, SAMPLE_RATE, 120.0f, MidiSignal_None, std::move(audio), nullptr));
+		++packetCounter;
+		while (engine.processNextIncomingPacket()) {}
+	};
+	for (int frame = 0; frame < 8; ++frame) {
+		enqueuePacket();
+	}
+
+	std::vector<float> measured;
+	std::size_t callbackCount = 0;
+	constexpr uint64 observationNetworkFrames = 3750;
+	for (uint64 tick = 0; tick < observationNetworkFrames; ++tick) {
+		enqueuePacket();
+		const auto firstCallback = static_cast<uint64>(std::ceil(
+			static_cast<double>(tick) * physicalRate / SAMPLE_RATE));
+		const auto afterCallback = static_cast<uint64>(std::ceil(
+			static_cast<double>(tick + 1U) * physicalRate / SAMPLE_RATE));
+		for (auto callback = firstCallback; callback < afterCallback; ++callback) {
+			static_cast<void>(callback);
+			std::array<float, SAMPLE_BUFFER_SIZE> left {};
+			std::array<float, SAMPLE_BUFFER_SIZE> right {};
+			float* outputs[] { left.data(), right.data() };
+			engine.process(nullptr, 0, outputs, 2, SAMPLE_BUFFER_SIZE);
+			++callbackCount;
+			if (callbackCount > 1200U) {
+				measured.insert(measured.end(), left.begin(), left.end());
+			}
+		}
+	}
+
+	ASSERT_GT(measured.size(), static_cast<std::size_t>(physicalRate * 5.0));
+	std::size_t positiveCrossings = 0;
+	for (std::size_t sample = 1; sample < measured.size(); ++sample) {
+		if (measured[sample - 1U] <= 0.0f && measured[sample] > 0.0f) {
+			++positiveCrossings;
+		}
+	}
+	const auto duration = static_cast<double>(measured.size() - 1U) / physicalRate;
+	const auto measuredFrequency = static_cast<double>(positiveCrossings) / duration;
+	EXPECT_NEAR(measuredFrequency, frequency, 0.5);
+	const auto quality = engine.getPlayoutQualityInfo();
+	EXPECT_EQ(quality.playUnderruns_, 0U);
+	EXPECT_EQ(quality.discardedPackageCounter_, 0U);
+	EXPECT_LE(quality.currentPlayQueueLength_, 20U);
 }
 
 TEST(JammerNetzAudioEngineTest, ShutdownSilencesLateAudioCallbacks)

@@ -410,6 +410,11 @@ void AudioService::restartAudio(std::shared_ptr<ChannelSetup> inputSetup, std::s
 
 			String error = audioDevice_->open(inputChannelMask, outputChannelMask, SAMPLE_RATE, *selectedBufferSize);
 			if (error.isNotEmpty()) {
+				audioDevice_->close();
+				error = audioDevice_->open(inputChannelMask, outputChannelMask, 44100.0,
+					*selectedBufferSize);
+			}
+			if (error.isNotEmpty()) {
 				failStartup(error);
 				return;
 			}
@@ -419,8 +424,9 @@ void AudioService::restartAudio(std::shared_ptr<ChannelSetup> inputSetup, std::s
 				failStartup("the device reported an invalid sample rate");
 				return;
 			}
-			if (std::abs(actualSampleRate - static_cast<double>(SAMPLE_RATE)) > 0.5) {
-				failStartup("the device opened at " + String(actualSampleRate) + " Hz instead of " + String(SAMPLE_RATE) + " Hz");
+			if (actualSampleRate < 40000.0 || actualSampleRate > 57600.0) {
+				failStartup("the device opened at unsupported sample rate "
+					+ String(actualSampleRate) + " Hz (supported range: 40-57.6 kHz)");
 				return;
 			}
 

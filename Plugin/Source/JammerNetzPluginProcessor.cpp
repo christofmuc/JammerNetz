@@ -18,6 +18,11 @@ namespace {
 constexpr auto stateType = "JammerNetzPluginState";
 constexpr auto machineKeyPathSetting = "pluginCryptoKeyPath";
 
+bool isSupportedSampleRate(const double sampleRate) noexcept
+{
+	return std::isfinite(sampleRate) && sampleRate >= 40000.0 && sampleRate <= 57600.0;
+}
+
 juce::String limitedChannelName(juce::String name)
 {
 	return name.substring(0, 20);
@@ -70,8 +75,9 @@ void JammerNetzPluginProcessor::prepareToPlay(double sampleRate, int maximumExpe
 		disconnectSession();
 	}
 	engine_.prepare(sampleRate, std::min(maximumExpectedSamplesPerBlock, JAMMERNETZ_MAX_CALLBACK_SAMPLES));
-	if (std::abs(sampleRate - static_cast<double>(SAMPLE_RATE)) > 0.5) {
-		setError("JammerNetz currently requires a 48 kHz host sample rate", ErrorSource::sampleRate);
+	if (!isSupportedSampleRate(sampleRate)) {
+		setError("JammerNetz supports host sample rates from 40 to 57.6 kHz",
+			ErrorSource::sampleRate);
 	} else {
 		clearError(ErrorSource::sampleRate);
 	}
@@ -249,8 +255,9 @@ bool JammerNetzPluginProcessor::connectSession()
 	if (isSessionActive()) {
 		return true;
 	}
-	if (std::abs(preparedSampleRate_.load(std::memory_order_acquire) - static_cast<double>(SAMPLE_RATE)) > 0.5) {
-		setError("Set the host project to 48 kHz before connecting", ErrorSource::sampleRate);
+	if (!isSupportedSampleRate(preparedSampleRate_.load(std::memory_order_acquire))) {
+		setError("Set the host project to a sample rate from 40 to 57.6 kHz before connecting",
+			ErrorSource::sampleRate);
 		return false;
 	}
 	const auto config = configuration();

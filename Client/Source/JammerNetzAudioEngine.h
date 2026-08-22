@@ -20,6 +20,7 @@
 #include "AudioRecordingWorker.h"
 #include "AudioOutputTap.h"
 #include "AudioTransmitWorker.h"
+#include "StreamingAudioResampler.h"
 #include "Recorder.h"
 #include "MidiRecorder.h"
 #include "MidiPlayAlong.h"
@@ -155,6 +156,8 @@ private:
 	struct InputState {
 		JammerNetzChannelSetup setup;
 		std::shared_ptr<RingBuffer> ingestBuffer;
+		std::shared_ptr<StreamingAudioResampler> resampler;
+		std::shared_ptr<juce::AudioBuffer<float>> resampleScratch;
 	};
 	struct RetiredInputState {
 		std::shared_ptr<const InputState> state;
@@ -162,6 +165,11 @@ private:
 	};
 
 	void measureSamplesPerTime(PlayoutQualityInfo &qualityInfo, int numSamples) const;
+	void publishInputState(const JammerNetzChannelSetup& channelSetup);
+	double inputResamplingFactor(const PlayoutQualityInfo& qualityInfo) const noexcept;
+	double playoutResamplingFactor() noexcept;
+	int queuedPlayoutNetworkSamples() const noexcept;
+	void fillPlayoutResamplerInput(int minimumSamples);
 	void processChunk(const float* const* inputChannelData, int numInputChannels, float* const* outputChannelData,
 		int numOutputChannels, int numSamples);
 
@@ -169,9 +177,10 @@ private:
 		const JammerNetzChannelSetup& channelSetup);
 	void resetPlayoutState() noexcept;
 	void appendPlayoutTiming(const RemoteAudioFrame& frame) noexcept;
-	void scheduleMidiForPlayout(int numSamples) noexcept;
+	void scheduleMidiForPlayout(int outputSamples, double outputSamplesPerNetworkSample) noexcept;
 	void scheduleMidiFrame(MidiSendThread* sender, uint64 serverSampleEnd, float bpm,
 		MidiSignal signal, uint64_t frameOffsetSamples,
+		double outputSamplesPerNetworkSample,
 		std::chrono::steady_clock::time_point playoutStart) noexcept;
 	std::optional<MidiSignal> takeMidiSignalToSend() noexcept;
 	void retireMidiSender(std::shared_ptr<MidiSendThread> sender);
@@ -187,6 +196,13 @@ private:
 	std::atomic<bool> shutdownRequested_ { false };
 	std::unique_ptr<RingBuffer> playoutBuffer_;
 	juce::AudioBuffer<float> remoteScratch_;
+	StreamingAudioResampler playoutResampler_;
+	juce::AudioBuffer<float> playoutResamplerInput_;
+	int playoutResamplerInputSamples_ { 0 };
+	double playoutNetworkSamplePosition_ { 0.0 };
+	bool playoutResamplerReady_ { false };
+	bool playoutAdaptiveResampling_ { false };
+	std::uint32_t playoutQueueExcursionBlocks_ { 0 };
 	std::array<float, JAMMERNETZ_MAX_CALLBACK_SAMPLES> silentMeterChannel_ {};
 	std::atomic<AudioOutputTap*> outputTap_ { nullptr };
 
@@ -219,6 +235,8 @@ private:
 	bool started_ { false };
 	std::atomic<uint64_t> retiredMidiOutputEventsDropped_ { 0 };
 	std::atomic<bool> inputChannelMismatchReported_ { false };
+	std::atomic<bool> inputResamplerFailureReported_ { false };
+	std::atomic<bool> playoutResamplerFailureReported_ { false };
 
 	// Message-thread producer, audio-thread consumer. Start/Stop are edge events,
 	// so preserve their order instead of coalescing them like BPM.
@@ -236,7 +254,6 @@ private:
 	size_t playoutTimingWrite_ { 0 };
 	size_t playoutTimingCount_ { 0 };
 	uint64_t playoutSamplesWritten_ { 0 };
-	uint64_t playoutSamplesRead_ { 0 };
 	std::atomic<uint64_t> midiTimingMarkersDropped_ { 0 };
 	PlayoutQualityInfo lastPlayoutQualityInfo_;
 	std::atomic<uint64_t> publishedQueueLength_ { 0 };
@@ -249,5 +266,10 @@ private:
 	std::atomic<uint64_t> maximumCallbackNanoseconds_ { 0 };
 	std::atomic<uint64_t> callbackDeadlineMisses_ { 0 };
 	std::atomic<uint64_t> inputBlocksDropped_ { 0 };
+
+	static constexpr double minimumResamplingFactor = 0.8;
+	static constexpr double maximumResamplingFactor = 1.2;
+	static constexpr std::uint32_t adaptiveResamplingActivationBlocks = 8;
+	static constexpr int resamplingScratchSamples = JAMMERNETZ_MAX_CALLBACK_SAMPLES * 3 / 2 + 512;
 
 };
