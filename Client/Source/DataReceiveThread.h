@@ -9,6 +9,8 @@
 #include "JuceHeader.h"
 
 #include "JammerNetzPackage.h"
+
+#include <chrono>
 #include "JammerNetzClientInfoMessage.h"
 
 #include "AtomicSharedPtr.h"
@@ -35,7 +37,7 @@ private:
 	void recordReceiveError(const char* message);
 
 	DatagramSocket &socket_;
-	uint8 readbuffer_[MAXFRAMESIZE];
+	uint8 readbuffer_[MAXFRAMESIZE + JammerNetzSecure::SecureDatagramSealer::WireOverhead];
 	uint8 plaintextBuffer_[MAXFRAMESIZE];
 	std::function<void(std::shared_ptr<JammerNetzAudioData>)> newDataHandler_;
 	std::function<void(bool)> mtuCapabilityHandler_;
@@ -47,6 +49,8 @@ private:
 	std::atomic<double> currentRTT_;
 	std::atomic<bool> isReceiving_;
 	std::atomic<uint64_t> receiveErrorCount_;
+	std::uint64_t errorsSinceLastLog_{0};
+	std::chrono::steady_clock::time_point lastReceiveErrorLog_{};
 
 	// For the session UI
 	JammerNetzChannelSetup currentSession_;

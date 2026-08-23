@@ -34,6 +34,7 @@ exit /b %errorlevel%
 
 :server
 if not defined JAMMERNETZ_SESSION_KEY set "JAMMERNETZ_SESSION_KEY=%JAMMERNETZ_ROOT%\session.jnzkey"
+for %%I in ("%JAMMERNETZ_SESSION_KEY%") do set "JAMMERNETZ_SESSION_KEY=%%~fI"
 if not exist "%JAMMERNETZ_SESSION_KEY%" (
   echo Session key not found: %JAMMERNETZ_SESSION_KEY%
   echo Generate it with "%JAMMERNETZ_BUILD%\Server\Debug\JammerNetzServer.exe" --generate-session-key "%JAMMERNETZ_SESSION_KEY%"

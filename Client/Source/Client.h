@@ -46,7 +46,7 @@ private:
 	DatagramSocket &socket_;
 	uint64 messageCounter_;
 	uint8 plaintextBuffer_[MAXFRAMESIZE];
-	uint8 wireBuffer_[MAXFRAMESIZE];
+	uint8 wireBuffer_[MAXFRAMESIZE + JammerNetzSecure::SecureDatagramSealer::WireOverhead];
 	std::atomic_int currentBlockSize_;
 	std::atomic<bool> useFEC_;
 	juce::CriticalSection socketLock_;

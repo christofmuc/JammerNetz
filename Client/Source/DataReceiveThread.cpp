@@ -40,7 +40,8 @@ void DataReceiveThread::run()
 			// Ready to read data from socket!
 			String senderIPAdress;
 			int senderPortNumber;
-			int dataRead = socket_.read(readbuffer_, MAXFRAMESIZE, false, senderIPAdress, senderPortNumber);
+			int dataRead = socket_.read(readbuffer_, static_cast<int>(sizeof(readbuffer_)), false,
+				senderIPAdress, senderPortNumber);
 			if (dataRead == -1) {
 				recordReceiveError("Error reading data from socket");
 				continue;
@@ -162,8 +163,14 @@ void DataReceiveThread::run()
 void DataReceiveThread::recordReceiveError(const char* message)
 {
 	const auto errorNumber = receiveErrorCount_.fetch_add(1, std::memory_order_relaxed) + 1;
-	if (errorNumber == 1 || errorNumber % 100 == 0) {
-		std::cerr << "JammerNetz receive error " << errorNumber << ": " << message << std::endl;
+	++errorsSinceLastLog_;
+	const auto now = std::chrono::steady_clock::now();
+	constexpr auto logInterval = std::chrono::seconds(5);
+	if (lastReceiveErrorLog_.time_since_epoch().count() == 0 || now - lastReceiveErrorLog_ >= logInterval) {
+		std::cerr << "JammerNetz receive errors: " << errorsSinceLastLog_
+			<< " since the previous report (total " << errorNumber << "); latest: " << message << std::endl;
+		errorsSinceLastLog_ = 0;
+		lastReceiveErrorLog_ = now;
 	}
 }
 

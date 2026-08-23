@@ -264,6 +264,8 @@ void AudioService::refreshSessionConfiguration()
 {
 	const auto configuration = getSessionConfiguration();
 	if (!configuration) {
+		// Configuration changes must fail closed rather than retaining the previous key.
+		session_.shutdown();
 		return;
 	}
 	if (session_.isAvailable()) {

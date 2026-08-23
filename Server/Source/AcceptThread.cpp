@@ -146,7 +146,8 @@ void AcceptThread::run()
 			// Ready to read data from socket!
 			String senderIPAdress;
 			int senderPortNumber;
-			int dataRead = receiveSocket_.read(readbuffer, MAXFRAMESIZE, false, senderIPAdress, senderPortNumber);
+			int dataRead = receiveSocket_.read(readbuffer, static_cast<int>(sizeof(readbuffer)), false,
+				senderIPAdress, senderPortNumber);
 			if (dataRead == -1) {
 				ServerLogger::deinit();
 				std::cerr << "Error reading data from socket, abort!" << std::endl;

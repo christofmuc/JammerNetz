@@ -92,7 +92,7 @@ class SecureDatagramSealer {
 public:
 	static constexpr std::size_t NonceBytes = 24;
 	static constexpr std::size_t TagBytes = 16;
-	static constexpr std::size_t EnvelopeBytes = 44;
+	static constexpr std::size_t EnvelopeBytes = 48;
 	static constexpr std::size_t WireOverhead = NonceBytes + TagBytes + EnvelopeBytes;
 	static constexpr std::size_t MaximumPlaintextBytes = 65536;
 	using NonceSource = void (*)(std::span<std::uint8_t, NonceBytes>);
@@ -114,7 +114,7 @@ private:
 	NonceSource nonceSource_{nullptr};
 	std::atomic<std::uint64_t> nextCounter_{1};
 	std::atomic<bool> exhausted_{false};
-	std::array<std::uint8_t, MaximumPlaintextBytes> plaintext_{};
+	std::array<std::uint8_t, MaximumPlaintextBytes + EnvelopeBytes> plaintext_{};
 	std::mutex sealMutex_;
 	bool initialized_{false};
 };
@@ -132,7 +132,8 @@ private:
 	TrafficKey trafficKey_{};
 	Direction direction_;
 	std::map<SenderInstanceId, ReplayWindow> replayWindows_;
-	std::array<std::uint8_t, SecureDatagramSealer::MaximumPlaintextBytes> plaintext_{};
+	std::array<std::uint8_t,
+		SecureDatagramSealer::MaximumPlaintextBytes + SecureDatagramSealer::EnvelopeBytes> plaintext_{};
 	bool initialized_{false};
 };
 

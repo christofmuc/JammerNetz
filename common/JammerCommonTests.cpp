@@ -460,8 +460,8 @@ TEST(SecureDatagramTest, RoundTripsOpaqueDirectionalDatagram)
 	EXPECT_EQ(actualVector,
 		"000102030405060708090a0b0c0d0e0f1011121314151617"
 		"19a63907d9900d656247cc4b6c6e372ea8fa8d34302720ea2f"
-		"d7196dca35465b16162e6dc02cefa267d850b59916fff1fe8e"
-		"2341b4796df4c045b5964783782ff8");
+		"d7196dca35465b16162e6dc02cefa267d850b19814fcf0fa702"
+		"d61817ad407326b93540f35564bf046d70698");
 	const auto ciphertextBegin = wire.begin()
 		+ static_cast<std::ptrdiff_t>(JammerNetzSecure::SecureDatagramSealer::NonceBytes);
 	const auto wireEnd = wire.begin() + static_cast<std::ptrdiff_t>(sealed.bytesWritten);
@@ -473,6 +473,55 @@ TEST(SecureDatagramTest, RoundTripsOpaqueDirectionalDatagram)
 	EXPECT_EQ(result.metadata.senderInstanceId, senderId);
 	EXPECT_TRUE(result.metadata.advancedHighWatermark);
 	EXPECT_TRUE(std::equal(payload.begin(), payload.end(), opened.begin()));
+}
+
+TEST(SecureDatagramTest, SupportsMaximumPayloadAtExactBufferCapacity)
+{
+	JammerNetzSecure::SessionId sessionId{};
+	JammerNetzSecure::MasterKey masterKey{};
+	sessionId.fill(0x12);
+	masterKey.fill(0x34);
+	auto key = std::make_shared<JammerNetzSecure::SessionKey>(sessionId, masterKey);
+	JammerNetzSecure::SecureDatagramSealer sealer(key, JammerNetzSecure::Direction::ClientToServer);
+	JammerNetzSecure::SecureDatagramOpener opener(key, JammerNetzSecure::Direction::ClientToServer);
+	std::vector<std::uint8_t> payload(
+		JammerNetzSecure::SecureDatagramSealer::MaximumPlaintextBytes, 0x5a);
+	std::vector<std::uint8_t> wire(payload.size()
+		+ JammerNetzSecure::SecureDatagramSealer::WireOverhead);
+	std::vector<std::uint8_t> output(payload.size());
+
+	const auto sealed = sealer.seal(payload, wire);
+	ASSERT_TRUE(sealed);
+	EXPECT_EQ(sealed.bytesWritten, wire.size());
+	const auto opened = opener.open(wire, output);
+	ASSERT_TRUE(opened);
+	EXPECT_EQ(opened.bytesWritten, payload.size());
+	EXPECT_EQ(output, payload);
+}
+
+TEST(SecureDatagramTest, AcceptsConsecutiveDatagramsOfEqualLength)
+{
+	JammerNetzSecure::SessionId sessionId{};
+	JammerNetzSecure::MasterKey masterKey{};
+	sessionId.fill(0x66);
+	masterKey.fill(0x77);
+	auto key = std::make_shared<JammerNetzSecure::SessionKey>(sessionId, masterKey);
+	JammerNetzSecure::SecureDatagramSealer sealer(key, JammerNetzSecure::Direction::ClientToServer);
+	JammerNetzSecure::SecureDatagramOpener opener(key, JammerNetzSecure::Direction::ClientToServer);
+	const std::array<std::uint8_t, 4> payload{{1, 1, 1, 1}};
+	std::array<std::uint8_t, 256> wire{};
+	std::array<std::uint8_t, 16> output{};
+	std::uint64_t previousCounter = 0;
+	for (int packet = 0; packet < 3; ++packet) {
+		const auto sealed = sealer.seal(payload, wire);
+		ASSERT_TRUE(sealed);
+		const auto opened = opener.open(
+			std::span<const std::uint8_t>(wire.data(), sealed.bytesWritten), output);
+		ASSERT_TRUE(opened) << "packet " << packet;
+		EXPECT_GT(opened.metadata.securityCounter, previousCounter);
+		EXPECT_TRUE(opened.metadata.advancedHighWatermark);
+		previousCounter = opened.metadata.securityCounter;
+	}
 }
 
 TEST(SecureDatagramTest, RejectsMutationWrongDirectionAndReplayWithoutReleasingPlaintext)

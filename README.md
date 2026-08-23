@@ -239,7 +239,7 @@ The gcc version seems to matter, I am testing with a vanilla Ubuntu 18.04 LTS in
 
 Generate a fresh key for every jam session with the server command. Existing files are not overwritten unless `--force` is explicitly supplied:
 
-    JammerNetzServer --generate-session-key session.jnzkey
+    ./builds/Server/JammerNetzServer --generate-session-key session.jnzkey
 
 Distribute this file independently to the intended participants, select it as the client or plug-in session key, and delete it from active systems after the session. The file contains a versioned 16-byte session ID and 32-byte master key; JammerNetz derives separate client-to-server and server-to-client traffic keys and never sends the file contents over the network. Fingerprints shown by the applications are short BLAKE2b values for human comparison only.
 

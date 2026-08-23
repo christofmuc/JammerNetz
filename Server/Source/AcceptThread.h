@@ -45,9 +45,9 @@ private:
 	TPeerEndpointMap &peerEndpoints_;
 	TMessageQueue &wakeUpQueue_;
     ValueTree serverConfiguration_;
-	uint8 readbuffer[MAXFRAMESIZE];
+	uint8 readbuffer[MAXFRAMESIZE + JammerNetzSecure::SecureDatagramSealer::WireOverhead];
 	uint8 plaintextBuffer_[MAXFRAMESIZE];
-	uint8 wireBuffer_[MAXFRAMESIZE];
+	uint8 wireBuffer_[MAXFRAMESIZE + JammerNetzSecure::SecureDatagramSealer::WireOverhead];
 	std::unique_ptr<PrintQualityTimer> qualityTimer_;
 	ServerBufferConfig bufferConfig_;
 	JammerNetzSecure::SecureDatagramOpener opener_;

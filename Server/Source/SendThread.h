@@ -37,7 +37,7 @@ private:
 	CriticalSection& socketWriteLock_;
     ValueTree serverConfiguration_;
 	uint8 writebuffer_[MAXFRAMESIZE];
-	uint8 wireBuffer_[MAXFRAMESIZE];
+	uint8 wireBuffer_[MAXFRAMESIZE + JammerNetzSecure::SecureDatagramSealer::WireOverhead];
 	std::map<std::string, RingOfAudioBuffers<AudioBlock>> fecData_;
 	std::map<std::string, uint64_t> packageCounters_;
 	std::shared_ptr<JammerNetzSecure::SecureDatagramSealer> serverSealer_;

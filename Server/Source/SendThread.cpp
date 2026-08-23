@@ -119,7 +119,7 @@ void SendThread::sendWriteBuffer(std::string const &peerId, size_t size) {
 		// Now, back to the client! This will block when not ready to send yet, but that's ok.
 		{
 			const ScopedLock socketLock(socketWriteLock_);
-			sendSocket_.write(ipAddress, port, writebuffer_, cipherLength);
+			sendSocket_.write(ipAddress, port, wireBuffer_, cipherLength);
 		}
 
 		ServerLogger::printServerStatistics(4, ("Packet length: " + String(cipherLength)).toStdString());

@@ -285,7 +285,7 @@ SecureDatagramResult SecureDatagramSealer::seal(const std::span<const std::uint8
 	std::copy(sessionKey_->sessionId().begin(), sessionKey_->sessionId().end(), plaintext_.begin() + 4);
 	std::copy(senderInstanceId_.begin(), senderInstanceId_.end(), plaintext_.begin() + 20);
 	writeBigEndian64(plaintext_.data() + 36, counter);
-	writeBigEndian32(plaintext_.data() + 40, static_cast<std::uint32_t>(payload.size()));
+	writeBigEndian32(plaintext_.data() + 44, static_cast<std::uint32_t>(payload.size()));
 	std::copy(payload.begin(), payload.end(), plaintext_.begin() + static_cast<std::ptrdiff_t>(EnvelopeBytes));
 	unsigned long long ciphertextBytes = 0;
 	const auto aad = aadFor(direction_);
@@ -331,7 +331,7 @@ SecureDatagramResult SecureDatagramOpener::open(const std::span<const std::uint8
 	}
 	const auto payloadBytes = static_cast<std::size_t>(plaintextBytes) - SecureDatagramSealer::EnvelopeBytes;
 	const bool invalidHeader = plaintext_[0] != FormatVersion || plaintext_[1] != 0
-		|| plaintext_[2] != 0 || plaintext_[3] != 0 || readBigEndian32(plaintext_.data() + 40) != payloadBytes;
+		|| plaintext_[2] != 0 || plaintext_[3] != 0 || readBigEndian32(plaintext_.data() + 44) != payloadBytes;
 	if (invalidHeader || payloadOutput.size() < payloadBytes) {
 		sodium_memzero(plaintext_.data(), plaintextCapacity);
 		return {invalidHeader ? SecureDatagramError::InvalidEnvelope : SecureDatagramError::BufferTooSmall};

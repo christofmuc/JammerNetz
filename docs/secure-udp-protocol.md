@@ -24,7 +24,7 @@ Every UDP application message is sealed independently with libsodium's combined 
 | variable | Encrypted secure envelope and application payload |
 | 16 | Poly1305 authentication tag |
 
-The fixed authenticated-data domain is `JNZ-C2S-v1` or `JNZ-S2C-v1`. There is no application magic, version, message type, counter, session ID, or sender ID in plaintext. Wire overhead over the existing serialized message is 84 bytes.
+The fixed authenticated-data domain is `JNZ-C2S-v1` or `JNZ-S2C-v1`. There is no application magic, version, message type, counter, session ID, or sender ID in plaintext. The 48-byte envelope, 24-byte nonce, and 16-byte tag produce 88 bytes of wire overhead over the existing serialized message.
 
 The encrypted envelope is serialized explicitly:
 
