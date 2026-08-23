@@ -80,7 +80,7 @@ jobs:
     - name: Run Conan
       run: |
         conan profile detect
-        conan install . -of ConanDeps -s build_type=RelWithDebInfo --build=missing
+        conan install . -of ConanDeps -s build_type=RelWithDebInfo -c tools.cmake.cmaketoolchain:generator=Ninja --build=missing
 
     - name: Configure CMake for Flatbuffers
       run: |
