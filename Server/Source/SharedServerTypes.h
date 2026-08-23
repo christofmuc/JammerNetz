@@ -24,6 +24,31 @@
 #endif
 #include <string>
 #include <set>
+#include <mutex>
+#include <utility>
+
+struct PeerEndpoint {
+	bool updateIfNewer(const String& newAddress, int newPort, std::uint64_t securityCounter)
+	{
+		std::lock_guard<std::mutex> lock(mutex);
+		if (securityCounter <= endpointCounter) return false;
+		address = newAddress;
+		port = newPort;
+		endpointCounter = securityCounter;
+		return true;
+	}
+
+	std::pair<String, int> snapshot() const
+	{
+		std::lock_guard<std::mutex> lock(mutex);
+		return {address, port};
+	}
+
+	mutable std::mutex mutex;
+	String address;
+	int port{0};
+	std::uint64_t endpointCounter{0};
+};
 
 class OutgoingPackage {
 public:
@@ -44,6 +69,7 @@ public:
 #pragma warning( disable : 4996 ) // Disable deprecated warning for now, as it is inside TBB
 #endif
 typedef tbb::concurrent_unordered_map<std::string, std::shared_ptr<ClientState>> TPacketStreamBundle;
+typedef tbb::concurrent_unordered_map<std::string, std::shared_ptr<PeerEndpoint>> TPeerEndpointMap;
 typedef tbb::concurrent_bounded_queue < OutgoingPackage > TOutgoingQueue;
 typedef tbb::concurrent_bounded_queue<int> TMessageQueue;
 #if WIN32

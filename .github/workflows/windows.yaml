@@ -75,12 +75,12 @@ jobs:
 
     - name: Install Python dependencies
       run: |
-        pip install wheel setuptools conan
+        pip install wheel setuptools conan==2.20.1
 
     - name: Run Conan
       run: |
         conan profile detect
-        conan install -of Builds\Windows -s build_type=RelWithDebInfo --build missing .
+        conan install . -of ConanDeps -s build_type=RelWithDebInfo --build=missing --lockfile=conan.lock
 
     - name: Configure CMake for Flatbuffers
       run: |
@@ -92,7 +92,7 @@ jobs:
 
     - name: Configure CMake for Windows
       run: |
-        cmake -S . -B Builds\Windows -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DJAMMERNETZ_ENABLE_LTO=ON "-DCMAKE_POLICY_VERSION_MINIMUM=3.5" -DFLATBUFFERS_FLATC_EXECUTABLE="${{ github.workspace }}\\third_party\\flatbuffers\\Builds\\flatc.exe"
+        cmake -S . -B Builds\Windows -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}\\ConanDeps\\conan_toolchain.cmake" -DCMAKE_POLICY_DEFAULT_CMP0091=NEW -DJAMMERNETZ_ENABLE_LTO=ON "-DCMAKE_POLICY_VERSION_MINIMUM=3.5" -DFLATBUFFERS_FLATC_EXECUTABLE="${{ github.workspace }}\\third_party\\flatbuffers\\Builds\\flatc.exe"
 
     - name: Build Windows
       run: |

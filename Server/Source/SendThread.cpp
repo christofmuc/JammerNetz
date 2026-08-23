@@ -12,22 +12,29 @@
 
 SendThread::SendThread(DatagramSocket& socket, CriticalSection& socketWriteLock,
 	TOutgoingQueue &sendQueue, TPacketStreamBundle &incomingData,
-	void *keydata, int keysize, ValueTree serverConfiguration)
+	TPeerEndpointMap &peerEndpoints,
+	std::shared_ptr<JammerNetzSecure::SecureDatagramSealer> serverSealer,
+	ValueTree serverConfiguration)
 	: Thread("SenderThread")
     , sendQueue_(sendQueue)
     , incomingData_(incomingData)
+	, peerEndpoints_(peerEndpoints)
     , sendSocket_(socket)
 	, socketWriteLock_(socketWriteLock)
-    , serverConfiguration_(serverConfiguration)
+	, serverConfiguration_(serverConfiguration)
+	, serverSealer_(std::move(serverSealer))
 {
-	if (keydata) {
-		blowFish_ = std::make_unique<BlowFish>(keydata, keysize);
-	}
 }
 
-void SendThread::determineTargetIP(std::string const &targetAddress, String &ipAddress, int &portNumber) {
-	ipAddress = targetAddress.substr(0, targetAddress.find(':'));
-	portNumber = atoi(targetAddress.substr(targetAddress.find(':') + 1).c_str());
+bool SendThread::determineTargetIP(std::string const &peerId, String &ipAddress, int &portNumber) const {
+	const auto endpoint = peerEndpoints_.find(peerId);
+	if (endpoint == peerEndpoints_.end() || !endpoint->second) {
+		return false;
+	}
+	const auto snapshot = endpoint->second->snapshot();
+	ipAddress = snapshot.first;
+	portNumber = snapshot.second;
+	return ipAddress.isNotEmpty() && portNumber > 0;
 }
 
 void SendThread::sendAudioBlock(OutgoingPackage const &package) {
@@ -56,11 +63,7 @@ void SendThread::sendAudioBlock(OutgoingPackage const &package) {
 	auto redundancyData = std::make_shared<AudioBlock>(package.audioBlock);
 	fecData_.find(targetAddress)->second.push(redundancyData);
 
-	String ipAddress;
-	int port;
-	determineTargetIP(targetAddress, ipAddress, port);
-
-	sendWriteBuffer(ipAddress, port, bytesWritten);
+	sendWriteBuffer(targetAddress, bytesWritten);
 }
 
 
@@ -73,9 +76,10 @@ void SendThread::sendClientInfoPackage(std::string const &targetAddress)
 		JammerNetzStreamQualityInfo qualityInfo;
 		if (incoming.second && incoming.second->snapshot().size > 0 && incoming.second->qualityInfo(qualityInfo)) {
 			String ipAddress;
-			int port;
-			determineTargetIP(incoming.first, ipAddress, port);
-			clientInfoPackage.addClientInfo(IPAddress(ipAddress), port, qualityInfo);
+			int port = 0;
+			if (determineTargetIP(incoming.first, ipAddress, port)) {
+				clientInfoPackage.addClientInfo(IPAddress(ipAddress), port, qualityInfo);
+			}
 		}
 	}
 	if (clientInfoPackage.getNumClients() == 0) {
@@ -85,10 +89,7 @@ void SendThread::sendClientInfoPackage(std::string const &targetAddress)
 	size_t bytesWritten = 0;
 	clientInfoPackage.serialize(writebuffer_, bytesWritten);
 
-	String ipAddress;
-	int port;
-	determineTargetIP(targetAddress, ipAddress, port);
-	sendWriteBuffer(ipAddress, port, bytesWritten);
+	sendWriteBuffer(targetAddress, bytesWritten);
 }
 
 void SendThread::sendSessionInfoPackage(std::string const &targetAddress, JammerNetzChannelSetup &sessionSetup)
@@ -101,24 +102,19 @@ void SendThread::sendSessionInfoPackage(std::string const &targetAddress, Jammer
     size_t bytesWritten = 0;
     sessionInfoMessage.serialize(writebuffer_, bytesWritten);
 
-    String ipAddress;
-    int port;
-    determineTargetIP(targetAddress, ipAddress, port);
-    sendWriteBuffer(ipAddress, port, bytesWritten);
+    sendWriteBuffer(targetAddress, bytesWritten);
 }
 
-void SendThread::sendWriteBuffer(String ipAddress, int port, size_t size) {
-	if (sizet_is_safe_as_int(size)) {
-		int cipherLength = static_cast<int>(size);
-		if (blowFish_) {
-			// Encrypt in place. If no BlowFish is instantiated, it will just send unencrypted
-			cipherLength = blowFish_->encrypt(writebuffer_, size, MAXFRAMESIZE);
-			if (cipherLength == -1) {
-				ServerLogger::deinit();
-				std::cerr << "Fatal: Failed to encrypt data package, abort!" << std::endl;
-				exit(-1);
-			}
-		}
+void SendThread::sendWriteBuffer(std::string const &peerId, size_t size) {
+	String ipAddress;
+	int port = 0;
+	if (!determineTargetIP(peerId, ipAddress, port)) {
+		return;
+	}
+	const auto sealed = serverSealer_->seal(
+		std::span<const uint8>(writebuffer_, size), std::span<uint8>(wireBuffer_));
+	if (sealed && sizet_is_safe_as_int(sealed.bytesWritten)) {
+		const int cipherLength = static_cast<int>(sealed.bytesWritten);
 
 		// Now, back to the client! This will block when not ready to send yet, but that's ok.
 		{

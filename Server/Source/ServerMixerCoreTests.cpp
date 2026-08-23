@@ -167,4 +167,15 @@ TEST(ServerMixerCoreTest, IgnoresAudioChannelsWithoutMatchingChannelSetup)
 	EXPECT_FLOAT_EQ(result.outgoing.front().audioBlock.audioBuffer->getSample(1, 0), 0.0f);
 }
 
+TEST(PeerEndpointTest, NewAuthenticatedCounterMigratesEndpointButReorderingCannotRollItBack)
+{
+	PeerEndpoint endpoint;
+	EXPECT_TRUE(endpoint.updateIfNewer("198.51.100.10", 4000, 10));
+	EXPECT_TRUE(endpoint.updateIfNewer("198.51.100.10", 5000, 12));
+	EXPECT_FALSE(endpoint.updateIfNewer("198.51.100.10", 4000, 11));
+	const auto current = endpoint.snapshot();
+	EXPECT_EQ(current.first, String("198.51.100.10"));
+	EXPECT_EQ(current.second, 5000);
+}
+
 } // namespace

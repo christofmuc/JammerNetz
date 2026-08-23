@@ -236,10 +236,9 @@ JammerNetzSessionConfiguration JammerNetzPluginProcessor::makeSessionConfigurati
 	sessionConfig.useFEC = config.useFEC;
 	const auto keyPath = machineKeyPath();
 	if (keyPath.isNotEmpty()) {
-		std::shared_ptr<juce::MemoryBlock> key;
-		if (UDPEncryption::loadKeyfile(keyPath.toRawUTF8(), &key)) {
-			sessionConfig.cryptoKey = std::move(key);
-		}
+		std::string keyError;
+		sessionConfig.sessionKey = JammerNetzSecure::SessionKey::load(
+			std::filesystem::path(keyPath.toStdString()), keyError);
 	}
 	return sessionConfig;
 }
@@ -263,9 +262,9 @@ bool JammerNetzPluginProcessor::connectSession()
 		return false;
 	}
 	const auto sessionConfiguration = makeSessionConfiguration(config);
-	if (machineKeyPath().isNotEmpty() && !sessionConfiguration.cryptoKey) {
+	if (!sessionConfiguration.sessionKey) {
 		instanceLease_.release();
-		setError("Could not load the configured JammerNetz key file");
+		setError("Select a valid JammerNetz session key before connecting");
 		return false;
 	}
 

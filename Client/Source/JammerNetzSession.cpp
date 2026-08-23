@@ -75,27 +75,25 @@ void JammerNetzSession::shutdown()
 	}
 	receiver_.reset();
 	sender_.reset();
+	activeSessionKey_.reset();
 	socket_.reset();
 }
 
 void JammerNetzSession::updateConfiguration(const JammerNetzSessionConfiguration& configuration)
 {
+	const bool keyChanged = (!activeSessionKey_ != !configuration.sessionKey)
+		|| (activeSessionKey_ && configuration.sessionKey
+			&& (activeSessionKey_->sessionId() != configuration.sessionKey->sessionId()
+				|| activeSessionKey_->masterKey() != configuration.sessionKey->masterKey()));
 	if (sender_) {
 		sender_->setServer(configuration.serverName, configuration.serverPort, configuration.useLocalhost);
-		if (configuration.cryptoKey) {
-			sender_->setCryptoKey(configuration.cryptoKey->getData(), static_cast<int>(configuration.cryptoKey->getSize()));
-		} else {
-			sender_->setCryptoKey(nullptr, 0);
-		}
+		if (keyChanged) sender_->setSessionKey(configuration.sessionKey);
 		sender_->setUseFEC(configuration.useFEC);
 	}
 	if (receiver_) {
-		if (configuration.cryptoKey) {
-			receiver_->setCryptoKey(configuration.cryptoKey->getData(), static_cast<int>(configuration.cryptoKey->getSize()));
-		} else {
-			receiver_->setCryptoKey(nullptr, 0);
-		}
+		if (keyChanged) receiver_->setSessionKey(configuration.sessionKey);
 	}
+	if (keyChanged) activeSessionKey_ = configuration.sessionKey;
 }
 
 Client* JammerNetzSession::sender()

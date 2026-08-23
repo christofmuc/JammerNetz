@@ -13,6 +13,7 @@
 
 #include "RingOfAudioBuffers.h"
 #include "PathMtuDiscovery.h"
+#include "Encryption.h"
 #include "nlohmann/json.hpp"
 
 class Client : public AudioPacketSink {
@@ -26,7 +27,7 @@ public:
 	bool sendControl(nlohmann::json &json);
 	void setServer(const juce::String& serverName, int serverPort, bool useLocalhost);
 	void setUseFEC(bool enabled);
-	void setCryptoKey(const void* keyData, int keyBytes);
+	void setSessionKey(std::shared_ptr<const JammerNetzSecure::SessionKey> sessionKey);
 	void setMtuDiscoverySupported(bool supported);
 	void acknowledgeMtuProbe(uint64 probeId, int payloadBytes);
 
@@ -44,7 +45,8 @@ private:
 
 	DatagramSocket &socket_;
 	uint64 messageCounter_;
-	uint8 sendBuffer_[65536];
+	uint8 plaintextBuffer_[MAXFRAMESIZE];
+	uint8 wireBuffer_[MAXFRAMESIZE];
 	std::atomic_int currentBlockSize_;
 	std::atomic<bool> useFEC_;
 	juce::CriticalSection socketLock_;
@@ -54,8 +56,8 @@ private:
 	std::atomic<bool> useLocalhost_;
 
 	RingOfAudioBuffers<AudioBlock> fecBuffer_; // Forward error correction buffer, keep the last n sent packages
-	juce::CriticalSection blowFishLock_;
-	std::unique_ptr<BlowFish> blowFish_;
+	juce::CriticalSection cryptoLock_;
+	std::unique_ptr<JammerNetzSecure::SecureDatagramSealer> sealer_;
 	mutable juce::CriticalSection mtuDiscoveryLock_;
 	PathMtuDiscovery mtuDiscovery_;
 };

@@ -16,7 +16,7 @@ struct JammerNetzSessionConfiguration {
 	int serverPort { 7777 };
 	bool useLocalhost { false };
 	bool useFEC { false };
-	std::shared_ptr<const juce::MemoryBlock> cryptoKey;
+	std::shared_ptr<const JammerNetzSecure::SessionKey> sessionKey;
 };
 
 class JammerNetzSession {
@@ -47,6 +47,7 @@ private:
 	std::unique_ptr<juce::DatagramSocket> socket_;
 	std::unique_ptr<Client> sender_;
 	std::unique_ptr<DataReceiveThread> receiver_;
+	std::shared_ptr<const JammerNetzSecure::SessionKey> activeSessionKey_;
 	std::atomic<bool> shutdown_ { true };
 	juce::String startupError_;
 };

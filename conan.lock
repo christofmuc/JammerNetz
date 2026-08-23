@@ -1,0 +1,10 @@
+{
+    "version": "0.5",
+    "requires": [
+        "pdcurses/3.9#151e47cd65e9f5c5e617d360e33e5042%1765542400.991",
+        "libsodium/1.0.22#4341e5bf9dbeb73e119e30ad0370bfe5%1780647221.185"
+    ],
+    "build_requires": [],
+    "python_requires": [],
+    "config_requires": []
+}

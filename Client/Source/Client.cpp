@@ -51,16 +51,13 @@ void Client::setUseFEC(bool enabled)
 	sendControl(fecControl);
 }
 
-void Client::setCryptoKey(const void* keyData, int keyBytes)
+void Client::setSessionKey(std::shared_ptr<const JammerNetzSecure::SessionKey> sessionKey)
 {
-	ScopedLock blowfishLock(blowFishLock_);
-	if (keyData)
-	{
-		blowFish_ = std::make_unique<BlowFish>(keyData, keyBytes);
-	}
-	else {
-		blowFish_.reset();
-	}
+	ScopedLock cryptoLock(cryptoLock_);
+	sealer_ = sessionKey
+		? std::make_unique<JammerNetzSecure::SecureDatagramSealer>(
+			std::move(sessionKey), JammerNetzSecure::Direction::ClientToServer)
+		: nullptr;
 }
 
 bool Client::sendData(String const &remoteHostname, int remotePort, void *data, int numbytes) {
@@ -93,7 +90,7 @@ bool Client::sendData(JammerNetzChannelSetup const& channelSetup, std::shared_pt
 
     messageCounter_++;
     size_t totalBytes;
-    audioMessage.serialize(sendBuffer_, totalBytes);
+    audioMessage.serialize(plaintextBuffer_, totalBytes);
 
     // Store the audio data somewhere else because we need it for forward error correction
     std::shared_ptr<AudioBlock> redundencyData = std::make_shared<AudioBlock>();
@@ -125,30 +122,18 @@ bool Client::sendBufferToServer(size_t totalBytes)
 		servername = "127.0.0.1";
 	}
 
-	{
-		ScopedLock blowfishLock(blowFishLock_);
-		if (blowFish_) {
-			int encryptedLength = blowFish_->encrypt(sendBuffer_, totalBytes, MAXFRAMESIZE);
-			if (encryptedLength == -1) {
-				std::cerr << "Fatal: Couldn't encrypt package, not sending to server!" << std::endl;
-				return false;
-			}
-			currentBlockSize_ = encryptedLength;
-			const bool sent = sendData(servername, serverPort, sendBuffer_, encryptedLength);
-			return sent;
-		}
-	}
-
-	// No encryption key loaded - send unencrypted Audio stream through the Internet. This is for testing only,
-	// and probably at some point should be disabled again ;-O
-	if (!sizet_is_safe_as_int(totalBytes)) {
+	ScopedLock cryptoLock(cryptoLock_);
+	if (!sealer_) {
 		return false;
 	}
-
-	const int bytesToSend = static_cast<int>(totalBytes);
+	const auto sealed = sealer_->seal(
+		std::span<const uint8>(plaintextBuffer_, totalBytes), std::span<uint8>(wireBuffer_));
+	if (!sealed || !sizet_is_safe_as_int(sealed.bytesWritten)) {
+		return false;
+	}
+	const int bytesToSend = static_cast<int>(sealed.bytesWritten);
 	currentBlockSize_ = bytesToSend;
-	const bool sent = sendData(servername, serverPort, sendBuffer_, bytesToSend);
-	return sent;
+	return sendData(servername, serverPort, wireBuffer_, bytesToSend);
 }
 
 bool Client::sendControl(nlohmann::json &json)
@@ -157,7 +142,7 @@ bool Client::sendControl(nlohmann::json &json)
 
     JammerNetzControlMessage controlMessage(json);
     size_t totalBytes;
-    controlMessage.serialize(sendBuffer_, totalBytes);
+    controlMessage.serialize(plaintextBuffer_, totalBytes);
     if (totalBytes > 0) {
         return sendBufferToServer(totalBytes);
     }
@@ -219,17 +204,17 @@ bool Client::sendMtuProbe(const PathMtuProbe& probe)
 	json["mtu_probe_v1"]["id"] = probe.id;
 	json["mtu_probe_v1"]["size"] = probe.payloadBytes;
 
-	const ScopedLock blowfishLock(blowFishLock_);
+	const ScopedLock cryptoLock(cryptoLock_);
+	if (!sealer_) {
+		return false;
+	}
 	auto serializeWithPadding = [&](int paddingBytes, size_t& plaintextBytes) {
 		json["mtu_probe_v1"]["padding"] = std::string(static_cast<size_t>(paddingBytes), 'p');
 		JammerNetzControlMessage message(json);
-		message.serialize(sendBuffer_, plaintextBytes);
+		message.serialize(plaintextBuffer_, plaintextBytes);
 	};
 	auto wireSizeFor = [&](size_t plaintextBytes) {
-		if (!blowFish_) {
-			return static_cast<int>(plaintextBytes);
-		}
-		return static_cast<int>(plaintextBytes + (8u - (plaintextBytes % 8u)));
+		return static_cast<int>(plaintextBytes + JammerNetzSecure::SecureDatagramSealer::WireOverhead);
 	};
 
 	size_t emptyPlaintextBytes = 0;
@@ -244,10 +229,10 @@ bool Client::sendMtuProbe(const PathMtuProbe& probe)
 			continue;
 		}
 
-		int wireBytes = static_cast<int>(plaintextBytes);
-		if (blowFish_) {
-			wireBytes = blowFish_->encrypt(sendBuffer_, plaintextBytes, MAXFRAMESIZE);
-		}
+		const auto sealed = sealer_->seal(
+			std::span<const uint8>(plaintextBuffer_, plaintextBytes), std::span<uint8>(wireBuffer_));
+		const int wireBytes = sealed && sizet_is_safe_as_int(sealed.bytesWritten)
+			? static_cast<int>(sealed.bytesWritten) : -1;
 		if (wireBytes != probe.payloadBytes) {
 			return false;
 		}
@@ -264,7 +249,7 @@ bool Client::sendMtuProbe(const PathMtuProbe& probe)
 		if (useLocalhost) {
 			serverName = "127.0.0.1";
 		}
-		return sendData(serverName, serverPort, sendBuffer_, wireBytes);
+		return sendData(serverName, serverPort, wireBuffer_, wireBytes);
 	}
 	return false;
 }

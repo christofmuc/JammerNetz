@@ -10,7 +10,7 @@ configure_file("Source/version.cpp.in" "Source/version.cpp")
 
 if(BUILD_JAMMERNETZ_SERVER AND WIN32)
 	# Need PDCurses for nicer statistics output
-	find_package(pdcurses REQUIRED PATHS ${CMAKE_BINARY_DIR} NO_DEFAULT_PATH)
+	find_package(pdcurses CONFIG REQUIRED)
 endif()
 
 set(SOURCES

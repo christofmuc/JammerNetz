@@ -38,7 +38,7 @@ std::string getServerVersion();
 
 class Server {
 public:
-	Server(std::shared_ptr<MemoryBlock> cryptoKey, ServerBufferConfig bufferConfig, int serverPort, bool useFEC) :
+	Server(std::shared_ptr<const JammerNetzSecure::SessionKey> sessionKey, ServerBufferConfig bufferConfig, int serverPort, bool useFEC) :
     clientRecorder_(File(), "input", RecordingType::AIFF)
     , mixdownRecorder_(File::getCurrentWorkingDirectory(), "mixdown", RecordingType::FLAC)
     , mixdownSetup_(false, { JammerNetzSingleChannelSetup(JammerNetzChannelTarget::Left), JammerNetzSingleChannelSetup(JammerNetzChannelTarget::Right) }) // Setup standard mix down setup - two channels only in stereo
@@ -48,16 +48,12 @@ public:
 		//mixdownRecorder_.updateChannelInfo(48000, mixdownSetup_);
         serverConfiguration_.setProperty("FEC", useFEC, nullptr);
 
-		// optional crypto key
-		void* cryptoData = nullptr;
-		int cipherLength = 0;
-		if (cryptoKey && sizet_is_safe_as_int(cryptoKey->getSize())) {
-			cryptoData = cryptoKey->getData();
-			cipherLength = static_cast<int>(cryptoKey->getSize());
-		}
-
-		acceptThread_ = std::make_unique<AcceptThread>(serverPort, socket_, socketWriteLock_, incomingStreams_, wakeUpQueue_, bufferConfig, cryptoData, cipherLength, serverConfiguration_);
-		sendThread_ = std::make_unique <SendThread>(socket_, socketWriteLock_, sendQueue_, incomingStreams_, cryptoData, cipherLength, serverConfiguration_);
+		auto serverSealer = std::make_shared<JammerNetzSecure::SecureDatagramSealer>(
+			sessionKey, JammerNetzSecure::Direction::ServerToClient);
+		acceptThread_ = std::make_unique<AcceptThread>(serverPort, socket_, socketWriteLock_, incomingStreams_, wakeUpQueue_,
+			peerEndpoints_, bufferConfig, sessionKey, serverSealer, serverConfiguration_);
+		sendThread_ = std::make_unique <SendThread>(socket_, socketWriteLock_, sendQueue_, incomingStreams_,
+			peerEndpoints_, serverSealer, serverConfiguration_);
 		mixerThread_ = std::make_unique<MixerThread>(incomingStreams_, mixdownSetup_, sendQueue_, wakeUpQueue_, bufferConfig);
 
 		sendQueue_.set_capacity(128); // This is an arbitrary number only to prevent memory overflow should the sender thread somehow die (i.e. no network or something)
@@ -99,6 +95,7 @@ private:
 	std::unique_ptr<MixerThread> mixerThread_;
 
 	TPacketStreamBundle incomingStreams_;
+	TPeerEndpointMap peerEndpoints_;
 	TOutgoingQueue sendQueue_;
 	TMessageQueue wakeUpQueue_;
 
@@ -111,13 +108,44 @@ private:
 
 int main(int argc, char *argv[])
 {
+	if (!JammerNetzSecure::initializeCrypto()) {
+		std::cerr << "Fatal: libsodium initialization failed" << std::endl;
+		return -1;
+	}
+	for (int index = 1; index < argc; ++index) {
+		const std::string argument(argv[index]);
+		std::string outputPath;
+		if (argument == "--generate-session-key" && index + 1 < argc) {
+			outputPath = argv[++index];
+		}
+		else if (argument.rfind("--generate-session-key=", 0) == 0) {
+			outputPath = argument.substr(std::string("--generate-session-key=").size());
+		}
+		if (!outputPath.empty()) {
+			bool overwrite = false;
+			for (int optionIndex = 1; optionIndex < argc; ++optionIndex) {
+				overwrite = overwrite || std::string(argv[optionIndex]) == "--force";
+			}
+			std::string error;
+			if (!JammerNetzSecure::SessionKey::generate(outputPath, overwrite, error)) {
+				std::cerr << "Failed to generate session key: " << error << std::endl;
+				return -1;
+			}
+			std::string loadError;
+			const auto generated = JammerNetzSecure::SessionKey::load(outputPath, loadError);
+			std::cout << "Generated session key " << outputPath;
+			if (generated) std::cout << " (fingerprint " << generated->fingerprint() << ")";
+			std::cout << std::endl;
+			return 0;
+		}
+	}
 	int serverPort = 7777;
 	bool useFEC = false;
 	ServerBufferConfig bufferConfig;
 	bufferConfig.serverIncomingJitterBuffer = SERVER_INCOMING_JITTER_BUFFER;
 	bufferConfig.serverIncomingMaximumBuffer = SERVER_INCOMING_MAXIMUM_BUFFER;
 	bufferConfig.serverBufferPrefillOnConnect = BUFFER_PREFILL_ON_CONNECT;
-	std::shared_ptr<MemoryBlock> cryptoKey;
+	std::shared_ptr<const JammerNetzSecure::SessionKey> sessionKey;
 
 	// Parse command line arguments
 	ArgumentList arguments(argc, argv);
@@ -128,16 +156,21 @@ int main(int argc, char *argv[])
 
 	// Specify commands
 	ConsoleApplication app;
-	app.addHelpCommand("--help|-h", "This is the JammerNetzServer " + String(getServerVersion()) + "\n\n  " + shortExeName + " --key=<key file> [--port=<port>|-P <port>] [--fec|-F] [--buffer=<buffer count>] [--wait=<buffer count>] [--prefill=<buffer count>]\n\n" +
+	app.addHelpCommand("--help|-h", "This is the JammerNetzServer " + String(getServerVersion()) + "\n\n  " + shortExeName + " --key=<session.jnzkey> [--port=<port>|-P <port>] [--fec|-F] [--buffer=<buffer count>] [--wait=<buffer count>] [--prefill=<buffer count>]\n\n" +
+		"Generate a new key with: " + shortExeName + " --generate-session-key <session.jnzkey> [--force]\n\n" +
 		"or\n\n  " + shortExeName + " -k <key file> [-b <buffer count>] [-w <buffer count>] [-p <buffer count>]\n\n", true);
 	app.addVersionCommand("--version|-v", "JammerNetzServer " + String(getServerVersion()));
 	app.addDefaultCommand({ "launch", "-k <key file>", "Launch the JammerNetzServer", "Use this to launch the server in the foreground", [&](const auto &args) {
-		if (args.containsOption("--key|-k")) { //, "crypto key", "Crypto key file name", "Specify the file name of the file containing the crypto key to use", [&](const ArgumentList &args) {
+		if (args.containsOption("--key|-k")) {
 			File file(args.getFileForOption("--key|-k"));
-			// Try to load Crypto file
-			if (!file.existsAsFile() || !UDPEncryption::loadKeyfile(file.getFullPathName().toStdString().c_str(), &cryptoKey)) {
-				app.fail("Failed to load crypto file from file " + file.getFullPathName(), -1);
+			std::string keyError;
+			sessionKey = JammerNetzSecure::SessionKey::load(file.getFullPathName().toStdString(), keyError);
+			if (!sessionKey) {
+				app.fail("Failed to load session key from " + file.getFullPathName() + ": " + keyError, -1);
 			}
+		}
+		else {
+			app.fail("A valid --key session key file is required", -1);
 		}
 		if (args.containsOption("--port|-P")) {
 			const String portValue = args.getValueForOption("--port|-P");
@@ -165,7 +198,8 @@ int main(int argc, char *argv[])
 		ServerLogger::init();
 
 		// Create Server
-		Server server(cryptoKey, bufferConfig, serverPort, useFEC);
+		ServerLogger::printServerStatus("Session key fingerprint " + sessionKey->fingerprint());
+		Server server(sessionKey, bufferConfig, serverPort, useFEC);
 		server.launchServer();
 
 		// Close screen

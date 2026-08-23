@@ -21,7 +21,7 @@ JammerNetz is quite feature rich, the following are the main items:
   * Does automatic MIDI recording in case it detects any incoming MIDI notes, thereby logging all keys played into a MIDI file for later revisit ("what did I play? Sounds great!")
   * Features a built-in instrument tuner display showing you the detected note and cents for each channel, so it is easy and quick to get everybody on the same A.
   * Shows the final master mix as an FFT/waterfall with optional circle-of-fifths pitch colours and tracked-note annotations. Fast, Balanced, and Stable presets plus the concert-A reference can be changed directly in the spectrum panel.
-  * BlowFish encryption based on a shared secret, so you are not sending data unsecured through the internet. We don't claim this is state of the art and probably not enough bits of encryption, but better than sending unencrypted audio data. This certainly is a point for improvement.
+  * Authenticated XChaCha20-Poly1305 encryption for every UDP datagram, using a fresh nonce and replay protection while keeping protocol metadata opaque on the wire.
 
 ## Screenshot
 
@@ -63,13 +63,14 @@ The recursive clone with  submodules is required to retrieve the following addit
 4. [Infra](https://github.com/cycfi/infra), a little helper library required by Q.
 5. [Flatbuffers](https://google.github.io/flatbuffers/), a C++ serialization library we use for parts of the network protocol.
 
-As we don't want to send any unencrypted audio data through the internet, we use a simple BlowFish encryption scheme to make sure that only authorized people join the jam session. More on that below.
+JammerNetz encrypts and authenticates every UDP datagram with XChaCha20-Poly1305. A valid session key is mandatory for clients, plug-ins, and servers.
 
 ## Installing more dependencies with Conan
 
-We are moving towards Conan 2.1 for dependency management, and in order to include the pdcurses library on Windows, just run the following conan install command before building from within the JammerNetz top-level-directory:
+Dependencies are locked and installed with Conan 2.20.1. From the JammerNetz top-level directory, run:
 
-    conan install -of Builds\Windows -s build_type=Release --build missing .
+    conan profile detect
+    conan install . -of conan-deps -s build_type=RelWithDebInfo --build=missing --lockfile=conan.lock
 
 In case you do not have conan installed, have a look at their documentation and [download page](https://conan.io/downloads.html). It is a great tool!
 
@@ -217,7 +218,7 @@ For a Fedora-based distribution like Amazon Linux 2, you would use `yum` to inst
 
 With those installs and the recursive git clone from above, cd into the cloned directory and run cmake with the following commands:
 
-    cmake -S . -B builds -G Ninja
+    cmake -S . -B builds -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_TOOLCHAIN_FILE=conan-deps/conan_toolchain.cmake
     cd third_party/flatbuffers
     cmake -S . -B LinuxBuilds -G Ninja -D FLATBUFFERS_CXX_FLAGS="-Wno-error"
     cmake --build LinuxBuilds --parallel
@@ -228,21 +229,21 @@ This should have created a server binary as `builds/Server/JammerNetzServer` and
 
 To launch the server, just type
 
-    ./builds/Server/JammerNetzServer -k [nameOfSecretsFile]
+    ./builds/Server/JammerNetzServer -k session.jnzkey
 
-and it shall listen on port 7777. If you omit the -k you can use unencrypted traffic, then the client also needs a blank secrets file path. Recommended for testing only.
+and it shall listen on port 7777. The server fails closed if `-k` is omitted or the file is invalid.
 
 The gcc version seems to matter, I am testing with a vanilla Ubuntu 18.04 LTS installation which comes with gcc 7.5.0 out of the box.
 
-## The encryption secrets
+## Session keys
 
-Earlier versions had the 72 random bytes required for the Blowfish encryption compiled into the executable. But now the secrets are read from the command line by the server, and the client has a browse to... feature to select a file with the secret key. The encryption is symmetric, so both the server and all clients need to have the same secrets file, and the secure distribution of the key is left to the user.
+Generate a fresh key for every jam session with the server command. Existing files are not overwritten unless `--force` is explicitly supplied:
 
-To generate the shared secret, create a file e.g. named RandomNumbers.bin and specify this in the command line when launching the server, and distribute to the clients for selecting in the UI.
+    JammerNetzServer --generate-session-key session.jnzkey
 
-For example, you can use an external source like https://www.random.org/bytes/ to generate 72 random bytes, or use a more trustworthy key source as you like, or on Linux and Mac use your random device:
+Distribute this file independently to the intended participants, select it as the client or plug-in session key, and delete it from active systems after the session. The file contains a versioned 16-byte session ID and 32-byte master key; JammerNetz derives separate client-to-server and server-to-client traffic keys and never sends the file contents over the network. Fingerprints shown by the applications are short BLAKE2b values for human comparison only.
 
-    head -c 72 /dev/urandom > JammerNetz-secret.bin
+Do not reuse a key after restarting a security session: replay state is process-local, so a new session requires a new key file and session ID.
 
 ## Similar systems
 

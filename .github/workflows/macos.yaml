@@ -64,6 +64,17 @@ jobs:
       run: |
         brew install gtk+3 glew ninja
 
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.x'
+
+    - name: Install locked Conan dependencies
+      run: |
+        pip install conan==2.20.1
+        conan profile detect
+        conan install . -of conan-deps -s build_type=RelWithDebInfo -s os.version=11.0 --build=missing --lockfile=conan.lock
+
     - name: Build Flatbuffers
       run: |
         cd third_party/flatbuffers
@@ -73,7 +84,7 @@ jobs:
 
     - name: Build with CMake
       run: |
-        cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 -DCMAKE_INSTALL_RPATH_USE_LINK_PATH="ON" -DJAMMERNETZ_ENABLE_LTO=ON -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+        cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}/conan-deps/conan_toolchain.cmake" -DCMAKE_POLICY_DEFAULT_CMP0091=NEW -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 -DCMAKE_INSTALL_RPATH_USE_LINK_PATH="ON" -DJAMMERNETZ_ENABLE_LTO=ON -DCMAKE_POLICY_VERSION_MINIMUM=3.5
         cmake --build build --parallel
         ctest --test-dir build -R JammerNetzPluginTest --no-tests=error --output-on-failure
 
