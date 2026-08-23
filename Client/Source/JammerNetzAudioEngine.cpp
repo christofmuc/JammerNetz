@@ -264,7 +264,13 @@ void JammerNetzAudioEngine::setBypassed(bool bypassed) noexcept
 void JammerNetzAudioEngine::invalidateRemotePlayout() noexcept
 {
 	if (receiveWorker_) {
-		expectedRemoteGeneration_.store(receiveWorker_->requestReset(), std::memory_order_release);
+		const auto requestedGeneration = receiveWorker_->requestReset();
+		auto publishedGeneration = expectedRemoteGeneration_.load(std::memory_order_relaxed);
+		// Invalidations can come from the audio and session threads. Do not let a
+		// delayed publisher replace a newer generation with its older result.
+		while (publishedGeneration < requestedGeneration
+			&& !expectedRemoteGeneration_.compare_exchange_weak(publishedGeneration, requestedGeneration,
+				std::memory_order_release, std::memory_order_relaxed)) {}
 	}
 	resetPlayoutRequested_.store(true, std::memory_order_release);
 }
