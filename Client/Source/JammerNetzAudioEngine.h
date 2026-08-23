@@ -198,6 +198,8 @@ private:
 	std::atomic_bool bypassed_ { false };
 	std::atomic_bool resetQualityInfo_ { false };
 	std::atomic_bool resetPlayoutRequested_ { false };
+	static_assert(std::atomic<uint64_t>::is_always_lock_free,
+		"Remote playout generations must remain lock-free on the audio thread");
 	std::atomic<uint64_t> expectedRemoteGeneration_ { 0 };
 	std::atomic_uint64_t minPlayoutBufferLength_;
 	std::atomic_uint64_t maxPlayoutBufferLength_;

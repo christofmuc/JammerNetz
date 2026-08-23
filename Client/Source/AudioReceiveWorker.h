@@ -57,6 +57,8 @@ private:
 	std::atomic<uint64_t> minimumFrames_ { CLIENT_PLAYOUT_JITTER_BUFFER };
 	std::atomic<uint64_t> maximumFrames_ { CLIENT_PLAYOUT_MAX_BUFFER };
 	std::atomic<bool> rebufferRequested_ { false };
+	static_assert(std::atomic<uint64_t>::is_always_lock_free,
+		"Audio receive generations must remain lock-free for audio-thread resets");
 	std::atomic<uint64_t> requestedGeneration_ { 0 };
 	std::atomic<uint64_t> activeGeneration_ { 0 };
 	std::atomic<bool> streamStarted_ { false };
