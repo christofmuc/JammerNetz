@@ -67,10 +67,10 @@ JammerNetz encrypts and authenticates every UDP datagram with XChaCha20-Poly1305
 
 ## Installing more dependencies with Conan
 
-Dependencies are locked and installed with Conan 2.20.1. From the JammerNetz top-level directory, run:
+Dependency versions are pinned in `conanfile.py` and installed with a current Conan 2 release. From the JammerNetz top-level directory, run:
 
     conan profile detect
-    conan install . -of conan-deps -s build_type=RelWithDebInfo --build=missing --lockfile=conan.lock
+    conan install . -of conan-deps -s build_type=RelWithDebInfo --build=missing
 
 In case you do not have conan installed, have a look at their documentation and [download page](https://conan.io/downloads.html). It is a great tool!
 

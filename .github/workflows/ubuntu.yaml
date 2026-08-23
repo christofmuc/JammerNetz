@@ -71,9 +71,9 @@ jobs:
 
     - name: Install locked Conan dependencies
       run: |
-        pip install conan==2.20.1
+        pip install "conan>=2,<3"
         conan profile detect
-        conan install . -of conan-deps -s build_type=RelWithDebInfo --build=missing --lockfile=conan.lock
+        conan install . -of conan-deps -s build_type=RelWithDebInfo --build=missing
 
     - name: Build Flatbuffers and Sentry
       run: |

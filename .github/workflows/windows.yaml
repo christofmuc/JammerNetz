@@ -75,12 +75,12 @@ jobs:
 
     - name: Install Python dependencies
       run: |
-        pip install wheel setuptools conan==2.20.1
+        pip install wheel setuptools "conan>=2,<3"
 
     - name: Run Conan
       run: |
         conan profile detect
-        conan install . -of ConanDeps -s build_type=RelWithDebInfo --build=missing --lockfile=conan.lock
+        conan install . -of ConanDeps -s build_type=RelWithDebInfo --build=missing
 
     - name: Configure CMake for Flatbuffers
       run: |
