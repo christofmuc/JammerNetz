@@ -103,14 +103,20 @@ protected:
 	{
 		if (receiveThread_) receiveThread_->signalThreadShouldExit();
 		clientSocket_.shutdown();
-		if (receiveThread_) EXPECT_TRUE(receiveThread_->waitForThreadToExit(2000));
+		if (receiveThread_) {
+			EXPECT_TRUE(receiveThread_->waitForThreadToExit(2000));
+		}
 
 		if (sendThread_) sendThread_->signalThreadShouldExit();
 		outgoing_.push(OutgoingPackage {});
-		if (sendThread_) EXPECT_TRUE(sendThread_->waitForThreadToExit(2000));
+		if (sendThread_) {
+			EXPECT_TRUE(sendThread_->waitForThreadToExit(2000));
+		}
 
 		if (acceptThread_) acceptThread_->signalThreadShouldExit();
-		if (acceptThread_) EXPECT_TRUE(acceptThread_->waitForThreadToExit(2000));
+		if (acceptThread_) {
+			EXPECT_TRUE(acceptThread_->waitForThreadToExit(2000));
+		}
 		serverSocket_.shutdown();
 	}
 
