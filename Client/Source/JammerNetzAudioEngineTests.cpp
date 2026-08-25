@@ -306,6 +306,18 @@ TEST(JammerNetzAudioEngineTest, MixesASimulatedRemoteFrame)
 	EXPECT_FLOAT_EQ(*serverBpm, 120.0f);
 }
 
+TEST(RemoteGenerationTest, DelayedOlderPublicationCannotReplaceNewerGeneration)
+{
+	std::atomic<uint64_t> publishedGeneration { 0 };
+	const uint64_t delayedGeneration = 1;
+	const uint64_t newerGeneration = 2;
+
+	jammernetz::detail::publishGenerationAtLeast(publishedGeneration, newerGeneration);
+	jammernetz::detail::publishGenerationAtLeast(publishedGeneration, delayedGeneration);
+
+	EXPECT_EQ(publishedGeneration.load(std::memory_order_acquire), newerGeneration);
+}
+
 TEST(JammerNetzAudioEngineTest, BypassTransitionsDiscardStaleRemoteAudioAndRebuffer)
 {
 	const std::array<uint64_t, 2> maximums {

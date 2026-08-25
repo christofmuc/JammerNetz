@@ -11,10 +11,21 @@
 #include "JammerNetzPackage.h"
 
 #include <array>
+#include <atomic>
 #include <optional>
 
 constexpr int JAMMERNETZ_MAX_AUDIO_CHANNELS = 64;
 constexpr int JAMMERNETZ_MAX_CALLBACK_SAMPLES = 8192;
+
+namespace jammernetz::detail {
+inline void publishGenerationAtLeast(std::atomic<uint64_t>& publishedGeneration, uint64_t requestedGeneration) noexcept
+{
+	auto published = publishedGeneration.load(std::memory_order_relaxed);
+	while (published < requestedGeneration
+		&& !publishedGeneration.compare_exchange_weak(published, requestedGeneration,
+			std::memory_order_release, std::memory_order_relaxed)) {}
+}
+}
 
 struct TransmitAudioFrame {
 	int channels { 0 };
