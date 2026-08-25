@@ -10,6 +10,7 @@
 #include "ApplicationState.h"
 #include "BuffersConfig.h"
 #include "AudioDeviceDiscovery.h"
+#include "AudioInputPermission.h"
 #include "AudioCorrectness.h"
 #include "Encryption.h"
 #include "Settings.h"
@@ -100,6 +101,7 @@ void AudioService::refreshChannelSetup(std::shared_ptr<ChannelSetup> setup)
 void AudioService::stopAudioIfRunning()
 {
 	jassert(juce::MessageManager::getInstance()->isThisTheMessageThread());
+	++audioRestartGeneration_;
 
 	Data::instance().getEphemeral().setProperty(EPHEMERAL_VALUE_AUDIO_RUNNING, false, nullptr);
 	if (audioDevice_) {
@@ -284,10 +286,6 @@ void AudioService::valueTreePropertyChanged(ValueTree& treeWhosePropertyHasChang
 			    bool shouldRun = Data::getEphemeralProperty(EPHEMERAL_VALUE_AUDIO_SHOULD_RUN);
 			    if (shouldRun) {
 				    restartAudio();
-				    if (!Data::getEphemeralProperty(EPHEMERAL_VALUE_AUDIO_RUNNING)) {
-						// That failed, turn it off again without notifying us.
-					    Data::instance().getEphemeral().setPropertyExcludingListener(this, EPHEMERAL_VALUE_AUDIO_SHOULD_RUN, false, nullptr);
-				    }
 			    } else {
 				    stopAudioIfRunning();
 				}
@@ -346,36 +344,45 @@ static BigInteger makeChannelMask(std::vector<int> const& indices) {
 	return inputChannelMask;
 }
 
+void AudioService::reportAudioStartupFailure(const String& technicalMessage, const String& userMessage)
+{
+	jassert(juce::MessageManager::getInstance()->isThisTheMessageThread());
+	SimpleLogger::instance()->postMessage("Audio startup failed: " + technicalMessage);
+	Data::instance().getEphemeral().setProperty(EPHEMERAL_VALUE_AUDIO_RUNNING, false, nullptr);
+	Data::instance().getEphemeral().setPropertyExcludingListener(this, EPHEMERAL_VALUE_AUDIO_SHOULD_RUN, false, nullptr);
+	refreshChannelSetup({});
+	if (audioDevice_) {
+		if (audioDevice_->isPlaying()) {
+			audioDevice_->stop();
+		}
+		if (audioDevice_->isOpen()) {
+			audioDevice_->close();
+		}
+		audioDevice_.reset();
+	}
+
+	const auto message = userMessage.isNotEmpty()
+		? userMessage
+		: "JammerNetz could not start the selected audio device.\n\n" + technicalMessage
+			+ "\n\nCheck the selected input and output devices, then try again.";
+	AlertWindow::showMessageBoxAsync(AlertWindow::WarningIcon, "Unable to start audio", message);
+}
+
 void AudioService::restartAudio(std::shared_ptr<ChannelSetup> inputSetup, std::shared_ptr<ChannelSetup> outputSetup)
 {
 	if (shutdown_.load(std::memory_order_acquire)) {
 		return;
 	}
 
-	auto failStartup = [this](const String& message) {
-		SimpleLogger::instance()->postMessage("Audio startup failed: " + message);
-		Data::instance().getEphemeral().setProperty(EPHEMERAL_VALUE_AUDIO_RUNNING, false, nullptr);
-		refreshChannelSetup({});
-		if (audioDevice_) {
-			if (audioDevice_->isPlaying()) {
-				audioDevice_->stop();
-			}
-			if (audioDevice_->isOpen()) {
-				audioDevice_->close();
-			}
-			audioDevice_.reset();
-		}
-	};
-
 	if (!inputSetup || !outputSetup || !AudioCorrectness::hasUsableChannelSelection(inputSetup->activeChannelIndices, outputSetup->activeChannelIndices)) {
-		failStartup("at least one input and one output channel must be selected");
+		reportAudioStartupFailure("at least one input and one output channel must be selected");
 		return;
 	}
 
 	juce::AudioIODeviceType* selectedType = AudioDeviceDiscovery::deviceTypeByName(inputSetup->typeName);
 	// Sample rate and buffer size are hard coded for now
 	if (!selectedType) {
-		failStartup("the selected audio device type is unavailable");
+		reportAudioStartupFailure("the selected audio device type is unavailable");
 		return;
 	}
 
@@ -391,7 +398,7 @@ void AudioService::restartAudio(std::shared_ptr<ChannelSetup> inputSetup, std::s
 		}
 
 		if (!audioDevice_) {
-			failStartup("the selected audio device could not be created");
+			reportAudioStartupFailure("the selected audio device could not be created");
 			return;
 		}
 
@@ -404,7 +411,7 @@ void AudioService::restartAudio(std::shared_ptr<ChannelSetup> inputSetup, std::s
 			const std::vector<int> availableBufferSizes(buffers.begin(), buffers.end());
 			const auto selectedBufferSize = AudioCorrectness::selectBufferSize(availableBufferSizes, SAMPLE_BUFFER_SIZE);
 			if (!selectedBufferSize) {
-				failStartup("the device reports no usable buffer sizes");
+				reportAudioStartupFailure("the device reports no usable buffer sizes");
 				return;
 			}
 
@@ -415,17 +422,17 @@ void AudioService::restartAudio(std::shared_ptr<ChannelSetup> inputSetup, std::s
 					*selectedBufferSize);
 			}
 			if (error.isNotEmpty()) {
-				failStartup(error);
+				reportAudioStartupFailure(error);
 				return;
 			}
 
 			const double actualSampleRate = audioDevice_->getCurrentSampleRate();
 			if (!std::isfinite(actualSampleRate) || actualSampleRate <= 0.0) {
-				failStartup("the device reported an invalid sample rate");
+				reportAudioStartupFailure("the device reported an invalid sample rate");
 				return;
 			}
 			if (actualSampleRate < 40000.0 || actualSampleRate > 57600.0) {
-				failStartup("the device opened at unsupported sample rate "
+				reportAudioStartupFailure("the device opened at unsupported sample rate "
 					+ String(actualSampleRate) + " Hz (supported range: 40-57.6 kHz)");
 				return;
 			}
@@ -453,9 +460,39 @@ void AudioService::restartAudio()
 	}
 
 	stopAudioIfRunning();
+	const auto restartGeneration = audioRestartGeneration_;
 
 	auto& data = Data::instance().get();
 	auto inputSetup = getSetup(data.getChildWithName(VALUE_INPUT_SETUP));
 	auto outputSetup = getSetup(data.getChildWithName(VALUE_OUTPUT_SETUP));
-	restartAudio(inputSetup, outputSetup);
+	if (!inputSetup || !outputSetup || !AudioCorrectness::hasUsableChannelSelection(inputSetup->activeChannelIndices, outputSetup->activeChannelIndices)) {
+		reportAudioStartupFailure("at least one input and one output channel must be selected");
+		return;
+	}
+
+	auto weakSelf = weak_from_this();
+	requestAudioInputPermission([weakSelf, restartGeneration, requestedInputSetup = std::move(inputSetup), requestedOutputSetup = std::move(outputSetup)](AudioInputPermissionStatus status) {
+		auto self = weakSelf.lock();
+		if (!self || self->shutdown_.load(std::memory_order_acquire)
+			|| self->audioRestartGeneration_ != restartGeneration
+			|| !Data::getEphemeralProperty(EPHEMERAL_VALUE_AUDIO_SHOULD_RUN)) {
+			return;
+		}
+
+		switch (status) {
+		case AudioInputPermissionStatus::granted:
+			self->restartAudio(requestedInputSetup, requestedOutputSetup);
+			break;
+		case AudioInputPermissionStatus::denied:
+			self->reportAudioStartupFailure("macOS denied microphone access",
+				"JammerNetz cannot receive audio because microphone access is turned off.\n\n"
+				"Open System Settings > Privacy & Security > Microphone, enable JammerNetzClient, then start audio again.");
+			break;
+		case AudioInputPermissionStatus::restricted:
+			self->reportAudioStartupFailure("macOS restricted microphone access",
+				"JammerNetz cannot receive audio because microphone access is restricted by macOS or a device-management policy.\n\n"
+				"Allow microphone access for JammerNetzClient, then start audio again.");
+			break;
+		}
+	});
 }
