@@ -8,6 +8,7 @@
 #include "AudioReceiveWorker.h"
 #include "BuffersConfig.h"
 #include "DeterministicAudioTestSupport.h"
+#include "DataReceiveThread.h"
 #include "BoundedSpscQueue.h"
 #include "RingBuffer.h"
 
@@ -20,6 +21,15 @@
 #include <vector>
 
 namespace {
+
+TEST(DataReceiveThreadTest, UpdatesRttOnlyForANewerEchoedUploadTimestamp)
+{
+	EXPECT_TRUE(shouldUpdateRoundTripTime(1000.0,
+		-std::numeric_limits<double>::infinity()));
+	EXPECT_TRUE(shouldUpdateRoundTripTime(1001.0, 1000.0));
+	EXPECT_FALSE(shouldUpdateRoundTripTime(1000.0, 1000.0));
+	EXPECT_FALSE(shouldUpdateRoundTripTime(999.0, 1000.0));
+}
 
 class CapturingOutputTap final : public AudioOutputTap {
 public:

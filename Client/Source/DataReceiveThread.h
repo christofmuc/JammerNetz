@@ -13,6 +13,10 @@
 
 #include "AtomicSharedPtr.h"
 
+#include <limits>
+
+bool shouldUpdateRoundTripTime(double echoedTimestamp, double lastEchoedTimestamp) noexcept;
+
 class DataReceiveThread : public Thread {
 public:
 	DataReceiveThread(DatagramSocket & socket,
@@ -43,6 +47,7 @@ private:
 
 	// Thread safe storage of info for the UI thread
 	std::atomic<double> currentRTT_;
+	double lastRttTimestamp_ { -std::numeric_limits<double>::infinity() };
 	std::atomic<bool> isReceiving_;
 	std::atomic<uint64_t> receiveErrorCount_;
 
