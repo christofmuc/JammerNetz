@@ -106,6 +106,9 @@ public:
 	void setMidiSignalToSend(MidiSignal signal);
 
 	void process(const float* const* inputChannelData, int numInputChannels, float* const* outputChannelData, int numOutputChannels, int numSamples);
+	// Invalidate remote playout on both bypass edges. This is safe to call from
+	// the audio thread: it only updates lock-free state and requests worker work.
+	void setBypassed(bool bypassed) noexcept;
 	void prepare(double sampleRate, int maximumBlockSize);
 	void release();
 	void setOutputTap(AudioOutputTap* tap) noexcept;
@@ -167,6 +170,7 @@ private:
 
 	void calcLocalMonitoring(const float* const* inputChannels, int numInputChannels, AudioBuffer<float>& outputBuffer,
 		const JammerNetzChannelSetup& channelSetup);
+	void invalidateRemotePlayout() noexcept;
 	void resetPlayoutState() noexcept;
 	void appendPlayoutTiming(const RemoteAudioFrame& frame) noexcept;
 	void scheduleMidiForPlayout(int numSamples) noexcept;
@@ -190,9 +194,14 @@ private:
 	std::array<float, JAMMERNETZ_MAX_CALLBACK_SAMPLES> silentMeterChannel_ {};
 	std::atomic<AudioOutputTap*> outputTap_ { nullptr };
 
+	static_assert(std::atomic<bool>::is_always_lock_free,
+		"Audio-thread Boolean atomics must remain lock-free");
 	std::atomic_bool isPlaying_ { false };
+	std::atomic_bool bypassed_ { false };
 	std::atomic_bool resetQualityInfo_ { false };
 	std::atomic_bool resetPlayoutRequested_ { false };
+	static_assert(std::atomic<uint64_t>::is_always_lock_free,
+		"Remote playout generations must remain lock-free on the audio thread");
 	std::atomic<uint64_t> expectedRemoteGeneration_ { 0 };
 	std::atomic_uint64_t minPlayoutBufferLength_;
 	std::atomic_uint64_t maxPlayoutBufferLength_;
