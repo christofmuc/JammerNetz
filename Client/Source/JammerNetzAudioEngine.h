@@ -194,6 +194,8 @@ private:
 	std::array<float, JAMMERNETZ_MAX_CALLBACK_SAMPLES> silentMeterChannel_ {};
 	std::atomic<AudioOutputTap*> outputTap_ { nullptr };
 
+	static_assert(std::atomic<bool>::is_always_lock_free,
+		"Audio-thread Boolean atomics must remain lock-free");
 	std::atomic_bool isPlaying_ { false };
 	std::atomic_bool bypassed_ { false };
 	std::atomic_bool resetQualityInfo_ { false };
