@@ -46,7 +46,8 @@ void DataReceiveThread::run()
 			// Ready to read data from socket!
 			String senderIPAdress;
 			int senderPortNumber;
-			int dataRead = socket_.read(readbuffer_, MAXFRAMESIZE, false, senderIPAdress, senderPortNumber);
+			int dataRead = socket_.read(readbuffer_, static_cast<int>(sizeof(readbuffer_)), false,
+				senderIPAdress, senderPortNumber);
 			if (dataRead == -1) {
 				recordReceiveError("Error reading data from socket");
 				continue;
@@ -57,16 +58,21 @@ void DataReceiveThread::run()
 				isReceiving_ = false;
 				continue;
 			}
-			int messageLength = dataRead;
+			int messageLength = -1;
 			{
-				ScopedLock lock(blowFishLock_);
-				if (blowFish_) {
-					messageLength = blowFish_->decrypt(readbuffer_, safe_int_to_sizet(dataRead));
-					if (messageLength == -1) {
-						recordReceiveError("Could not decrypt packet received from server");
-						continue;
-					}
+				ScopedLock lock(cryptoLock_);
+				if (!opener_) {
+					recordReceiveError("No session key loaded");
+					continue;
 				}
+				const auto opened = opener_->open(
+					std::span<const uint8>(readbuffer_, safe_int_to_sizet(dataRead)),
+					std::span<uint8>(plaintextBuffer_));
+				if (!opened || !sizet_is_safe_as_int(opened.bytesWritten)) {
+					recordReceiveError("Rejected unauthenticated or replayed packet");
+					continue;
+				}
+				messageLength = static_cast<int>(opened.bytesWritten);
 			}
 
 			// Check that the package at least seems to come from the currently active server
@@ -75,7 +81,7 @@ void DataReceiveThread::run()
 #else
 			{
 #endif
-				auto message = JammerNetzMessage::deserialize(readbuffer_, safe_int_to_sizet(messageLength));
+				auto message = JammerNetzMessage::deserialize(plaintextBuffer_, safe_int_to_sizet(messageLength));
 				if (message) {
 					isReceiving_ = true;
 					switch (message->getType()) {
@@ -166,8 +172,14 @@ void DataReceiveThread::run()
 void DataReceiveThread::recordReceiveError(const char* message)
 {
 	const auto errorNumber = receiveErrorCount_.fetch_add(1, std::memory_order_relaxed) + 1;
-	if (errorNumber == 1 || errorNumber % 100 == 0) {
-		std::cerr << "JammerNetz receive error " << errorNumber << ": " << message << std::endl;
+	++errorsSinceLastLog_;
+	const auto now = std::chrono::steady_clock::now();
+	constexpr auto logInterval = std::chrono::seconds(5);
+	if (lastReceiveErrorLog_.time_since_epoch().count() == 0 || now - lastReceiveErrorLog_ >= logInterval) {
+		std::cerr << "JammerNetz receive errors: " << errorsSinceLastLog_
+			<< " since the previous report (total " << errorNumber << "); latest: " << message << std::endl;
+		errorsSinceLastLog_ = 0;
+		lastReceiveErrorLog_ = now;
 	}
 }
 
@@ -197,13 +209,10 @@ bool DataReceiveThread::isReceivingData() const
 	return isReceiving_;
 }
 
-void DataReceiveThread::setCryptoKey(const void* keyData, int keyBytes) {
-	ScopedLock lock(blowFishLock_);
-	if (keyData) {
-		blowFish_ = std::make_unique<BlowFish>(keyData, keyBytes);
-	}
-	else {
-		// No more encryption from here on
-		blowFish_.reset();
-	}
+void DataReceiveThread::setSessionKey(std::shared_ptr<const JammerNetzSecure::SessionKey> sessionKey) {
+	ScopedLock lock(cryptoLock_);
+	opener_ = sessionKey
+		? std::make_unique<JammerNetzSecure::SecureDatagramOpener>(
+			std::move(sessionKey), JammerNetzSecure::Direction::ServerToClient)
+		: nullptr;
 }

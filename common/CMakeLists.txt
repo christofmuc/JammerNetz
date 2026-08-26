@@ -11,6 +11,7 @@ ENDIF()
 
 # Add flatbuffers
 find_package(Flatbuffers REQUIRED PATHS "${CMAKE_CURRENT_LIST_DIR}/../third_party/flatbuffers")
+find_package(libsodium CONFIG REQUIRED)
 include(HomegrownFlatC)
 
 # Compile Flatbuffers. The output will be found because we added CMAKE_CURRENT_BINARY_DIR to the list of includes above
@@ -64,7 +65,7 @@ target_include_directories(JammerCommon
 	INTERFACE ${CMAKE_CURRENT_LIST_DIR}
 	PRIVATE ${JUCE_INCLUDES}
 )
-target_link_libraries(JammerCommon PRIVATE juce-utils)
+target_link_libraries(JammerCommon PUBLIC libsodium::libsodium PRIVATE juce-utils)
 
 # Pedantic about warnings
 if (MSVC)

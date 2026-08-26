@@ -22,6 +22,9 @@ builds_ds/
 build/
 builds2019/
 venv/
+.venv/
+.conan2/
+CMakeUserPresets.json
 .vs/
 builds2024/
 .conan_venv/
@@ -31,6 +34,7 @@ builds
 builds-relwithdebinfo/
 /builds-ninja
 /RandomNumbers.bin
+*.jnzkey
 /aws/ami/staging/
 /aws/ami/packer-manifest.json
 /aws/ami/packer.log

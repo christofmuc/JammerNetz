@@ -16,8 +16,6 @@
       <FILE id="AMIMNa" name="live.png" compile="0" resource="1" file="Resources/live.png"/>
     </GROUP>
     <GROUP id="{A2C4E24A-E15E-AC8B-EADC-C4CDB0F5FD6D}" name="Common">
-      <FILE id="z3X48N" name="RandomNumbers.bin" compile="0" resource="1"
-            file="../common/RandomNumbers.bin"/>
       <FILE id="jyaqcu" name="RingOfAudioBuffers.h" compile="0" resource="0"
             file="../common/RingOfAudioBuffers.h"/>
       <FILE id="RYZCV6" name="BuffersConfig.h" compile="0" resource="0" file="../common/BuffersConfig.h"/>
