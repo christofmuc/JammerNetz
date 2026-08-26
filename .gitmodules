@@ -45,3 +45,6 @@
 	path = modules/juce-spectroscope19
 	url = https://github.com/christofmuc/juce-spectroscope19.git
 	branch = master
+[submodule "third_party/libresample"]
+	path = third_party/libresample
+	url = https://github.com/minorninth/libresample.git

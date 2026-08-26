@@ -160,13 +160,32 @@ TEST(JammerNetzPluginTest, BypassAndOfflineRenderingRemainTransparent)
 	EXPECT_FLOAT_EQ(buffer.getSample(1, 0), -0.5f);
 }
 
-TEST(JammerNetzPluginTest, UnsupportedSampleRatesFailWithoutTouchingDryAudio)
+TEST(JammerNetzPluginTest, Accepts44100WithoutTouchingDisconnectedDryAudio)
 {
 	JammerNetzPluginProcessor processor;
 	processor.prepareToPlay(44100.0, 512);
+	EXPECT_FALSE(processor.isSessionActive());
+	EXPECT_EQ(processor.statusText(), "Disconnected");
 	EXPECT_FALSE(processor.connectSession());
 	EXPECT_FALSE(processor.isSessionActive());
-	EXPECT_TRUE(processor.statusText().contains("48 kHz"));
+	EXPECT_EQ(processor.statusText(), "Enter a JammerNetz server before connecting");
+
+	juce::AudioBuffer<float> buffer(2, 64);
+	buffer.getWritePointer(0)[0] = 0.75f;
+	buffer.getWritePointer(1)[0] = -0.75f;
+	juce::MidiBuffer midi;
+	processor.processBlock(buffer, midi);
+	EXPECT_FLOAT_EQ(buffer.getSample(0, 0), 0.75f);
+	EXPECT_FLOAT_EQ(buffer.getSample(1, 0), -0.75f);
+}
+
+TEST(JammerNetzPluginTest, UnsupportedSampleRatesStillFailWithoutTouchingDryAudio)
+{
+	JammerNetzPluginProcessor processor;
+	processor.prepareToPlay(96000.0, 512);
+	EXPECT_FALSE(processor.connectSession());
+	EXPECT_FALSE(processor.isSessionActive());
+	EXPECT_TRUE(processor.statusText().contains("40 to 57.6 kHz"));
 
 	juce::AudioBuffer<float> buffer(2, 64);
 	buffer.getWritePointer(0)[0] = 0.75f;
