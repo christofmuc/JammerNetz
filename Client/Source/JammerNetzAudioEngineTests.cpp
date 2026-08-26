@@ -366,6 +366,165 @@ TEST(JammerNetzAudioEngineTest, Resamples48000RoomAudioFor44100Playout)
 	EXPECT_EQ(engine.getPlayoutQualityInfo().playUnderruns_, 0U);
 }
 
+TEST(JammerNetzAudioEngineTest, CaptureResamplingSupportsDeviceBufferSizesIndependentOfNetworkFrames)
+{
+	const std::array<double, 2> deviceRates { 44100.0, 48000.0 };
+	const std::array<std::vector<int>, 6> callbackSchedules {
+		std::vector<int> { 64 },
+		std::vector<int> { 128 },
+		std::vector<int> { 256 },
+		std::vector<int> { 512 },
+		std::vector<int> { 1024 },
+		std::vector<int> { 64, 256, 128, 1024, 512 }
+	};
+	constexpr double frequency = 997.0;
+
+	for (const auto deviceRate : deviceRates) {
+		for (const auto& callbackSchedule : callbackSchedules) {
+			SCOPED_TRACE(testing::Message() << "deviceRate=" << deviceRate
+				<< " firstBufferSize=" << callbackSchedule.front()
+				<< " scheduleLength=" << callbackSchedule.size());
+
+			JammerNetzSession session;
+			auto sink = std::make_shared<CapturingAudioPacketSink>();
+			JammerNetzAudioEngine engine(session, juce::File(), sink);
+			engine.prepare(deviceRate, 1024);
+			engine.setChannelSetup(monoLocalSetup());
+			engine.setLocalMonitoring(false);
+
+			const auto targetDeviceSamples = static_cast<uint64>(std::llround(deviceRate * 0.5));
+			uint64 renderedDeviceSamples = 0;
+			std::size_t callbackIndex = 0;
+			while (renderedDeviceSamples < targetDeviceSamples) {
+				const auto blockSize = callbackSchedule[callbackIndex % callbackSchedule.size()];
+				std::vector<float> input(static_cast<std::size_t>(blockSize));
+				std::vector<float> left(static_cast<std::size_t>(blockSize));
+				std::vector<float> right(static_cast<std::size_t>(blockSize));
+				for (int sample = 0; sample < blockSize; ++sample) {
+					input[static_cast<std::size_t>(sample)] = static_cast<float>(std::sin(
+						2.0 * std::numbers::pi * frequency
+						* static_cast<double>(renderedDeviceSamples + static_cast<uint64>(sample))
+						/ deviceRate));
+				}
+				const float* inputs[] { input.data() };
+				float* outputs[] { left.data(), right.data() };
+				engine.process(inputs, 1, outputs, 2, blockSize);
+				while (engine.processNextOutgoingPacket()) {}
+				renderedDeviceSamples += static_cast<uint64>(blockSize);
+				++callbackIndex;
+			}
+			while (engine.processNextOutgoingPacket()) {}
+
+			std::vector<float> networkAudio;
+			for (const auto& packet : sink->packets) {
+				ASSERT_EQ(packet->audioBuffer()->getNumSamples(), SAMPLE_BUFFER_SIZE);
+				networkAudio.insert(networkAudio.end(), packet->audioBuffer()->getReadPointer(0),
+					packet->audioBuffer()->getReadPointer(0) + SAMPLE_BUFFER_SIZE);
+			}
+			ASSERT_GT(networkAudio.size(), 20000U);
+			double squaredError = 0.0;
+			for (std::size_t sample = 0; sample < 20000U; ++sample) {
+				const auto expected = std::sin(2.0 * std::numbers::pi * frequency
+					* static_cast<double>(sample) / SAMPLE_RATE);
+				const auto difference = static_cast<double>(networkAudio[sample]) - expected;
+				squaredError += difference * difference;
+			}
+			EXPECT_LT(std::sqrt(squaredError / 20000.0), 1.0e-3);
+			EXPECT_EQ(engine.getRealtimeWorkerStats().inputBlocksDropped, 0U);
+		}
+	}
+}
+
+TEST(JammerNetzAudioEngineTest, PlayoutResamplingSupportsDeviceBufferSizesIndependentOfNetworkFrames)
+{
+	const std::array<double, 2> deviceRates { 44100.0, 48000.0 };
+	const std::array<std::vector<int>, 6> callbackSchedules {
+		std::vector<int> { 64 },
+		std::vector<int> { 128 },
+		std::vector<int> { 256 },
+		std::vector<int> { 512 },
+		std::vector<int> { 1024 },
+		std::vector<int> { 64, 256, 128, 1024, 512 }
+	};
+	constexpr double frequency = 440.0;
+
+	for (const auto deviceRate : deviceRates) {
+		for (const auto& callbackSchedule : callbackSchedules) {
+			SCOPED_TRACE(testing::Message() << "deviceRate=" << deviceRate
+				<< " firstBufferSize=" << callbackSchedule.front()
+				<< " scheduleLength=" << callbackSchedule.size());
+
+			JammerNetzSession session;
+			JammerNetzAudioEngine engine(session, juce::File());
+			engine.prepare(deviceRate, 1024);
+			engine.setLocalMonitoring(false);
+			engine.setMasterVolume(1.0);
+			engine.setMonitorBalance(1.0);
+			engine.setPlayoutBufferRange(3, 32);
+
+			uint64 packetCounter = 1;
+			auto enqueuePacket = [&]() {
+				auto audio = std::make_shared<juce::AudioBuffer<float>>(2, SAMPLE_BUFFER_SIZE);
+				const auto firstSample = (packetCounter - 1U) * SAMPLE_BUFFER_SIZE;
+				for (int sample = 0; sample < SAMPLE_BUFFER_SIZE; ++sample) {
+					const auto value = static_cast<float>(std::sin(2.0 * std::numbers::pi
+						* frequency * static_cast<double>(firstSample + static_cast<uint64>(sample))
+						/ SAMPLE_RATE));
+					audio->setSample(0, sample, value);
+					audio->setSample(1, sample, value);
+				}
+				JammerNetzChannelSetup setup(false, {
+					JammerNetzSingleChannelSetup(JammerNetzChannelTarget::Left),
+					JammerNetzSingleChannelSetup(JammerNetzChannelTarget::Right)
+				});
+				engine.enqueueRemoteAudio(std::make_shared<JammerNetzAudioData>(packetCounter,
+					0.0, setup, SAMPLE_RATE, 120.0f, MidiSignal_None, std::move(audio), nullptr));
+				++packetCounter;
+				while (engine.processNextIncomingPacket()) {}
+			};
+
+			for (int frame = 0; frame < 4; ++frame) {
+				enqueuePacket();
+			}
+			const auto targetDeviceSamples = static_cast<uint64>(std::llround(deviceRate * 0.5));
+			uint64 renderedDeviceSamples = 0;
+			double networkSamplesDue = 0.0;
+			std::size_t callbackIndex = 0;
+			std::vector<float> rendered;
+			while (renderedDeviceSamples < targetDeviceSamples) {
+				const auto blockSize = callbackSchedule[callbackIndex % callbackSchedule.size()];
+				networkSamplesDue += static_cast<double>(blockSize) * SAMPLE_RATE / deviceRate;
+				while (networkSamplesDue >= SAMPLE_BUFFER_SIZE) {
+					enqueuePacket();
+					networkSamplesDue -= SAMPLE_BUFFER_SIZE;
+				}
+
+				std::vector<float> left(static_cast<std::size_t>(blockSize));
+				std::vector<float> right(static_cast<std::size_t>(blockSize));
+				float* outputs[] { left.data(), right.data() };
+				engine.process(nullptr, 0, outputs, 2, blockSize);
+				rendered.insert(rendered.end(), left.begin(), left.end());
+				renderedDeviceSamples += static_cast<uint64>(blockSize);
+				++callbackIndex;
+			}
+
+			ASSERT_GT(rendered.size(), 20000U);
+			double squaredError = 0.0;
+			for (std::size_t sample = 0; sample < 20000U; ++sample) {
+				const auto expected = std::sin(2.0 * std::numbers::pi * frequency
+					* static_cast<double>(sample) / deviceRate);
+				const auto difference = static_cast<double>(rendered[sample]) - expected;
+				squaredError += difference * difference;
+			}
+			EXPECT_LT(std::sqrt(squaredError / 20000.0), 2.0e-3);
+			const auto quality = engine.getPlayoutQualityInfo();
+			EXPECT_EQ(quality.playUnderruns_, 0U);
+			EXPECT_EQ(quality.discardedPackageCounter_, 0U);
+			EXPECT_LE(quality.currentPlayQueueLength_, 32U);
+		}
+	}
+}
+
 TEST(JammerNetzAudioEngineTest, SingleQueueExcursionKeepsNominal48000PlayoutSampleExact)
 {
 	JammerNetzSession session;

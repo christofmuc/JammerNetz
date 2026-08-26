@@ -168,7 +168,7 @@ private:
 	void publishInputState(const JammerNetzChannelSetup& channelSetup);
 	double inputResamplingFactor(const PlayoutQualityInfo& qualityInfo) const noexcept;
 	double playoutResamplingFactor() noexcept;
-	int queuedPlayoutNetworkSamples() const noexcept;
+	double queuedPlayoutNetworkSamples() const noexcept;
 	void fillPlayoutResamplerInput(int minimumSamples);
 	void processChunk(const float* const* inputChannelData, int numInputChannels, float* const* outputChannelData,
 		int numOutputChannels, int numSamples);
@@ -203,6 +203,7 @@ private:
 	bool playoutResamplerReady_ { false };
 	bool playoutAdaptiveResampling_ { false };
 	std::uint32_t playoutQueueExcursionBlocks_ { 0 };
+	double playoutQueueErrorFrames_ { 0.0 };
 	std::array<float, JAMMERNETZ_MAX_CALLBACK_SAMPLES> silentMeterChannel_ {};
 	std::atomic<AudioOutputTap*> outputTap_ { nullptr };
 

@@ -5,6 +5,13 @@ JammerNetz keeps one canonical wire format: 48,000 samples per second in
 the server mixer therefore never has to combine different nominal sample
 rates or reinterpret a packet's duration.
 
+Audio-device and host callback sizes are independent of that wire framing.
+Capture callbacks are accumulated or split into 128-sample network packets,
+and playout fills the callback size requested by the device or host. Signal-level
+tests cover fixed 64, 128, 256, 512, and 1,024-sample callbacks plus changing
+successive sizes at both 44.1 and 48 kHz. Larger callbacks remain supported but
+naturally add device latency and may release several network packets in a burst.
+
 ## Capture
 
 Input is converted from the reported device/host rate to the canonical network
