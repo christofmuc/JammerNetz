@@ -24,6 +24,7 @@ juce_add_plugin(JammerNetzPlugin
 	NEEDS_MIDI_OUTPUT FALSE
 	IS_MIDI_EFFECT FALSE
 	EDITOR_WANTS_KEYBOARD_FOCUS FALSE
+	VST3_AUTO_MANIFEST FALSE
 	COPY_PLUGIN_AFTER_BUILD FALSE)
 
 target_sources(JammerNetzPlugin PRIVATE
@@ -41,6 +42,13 @@ target_link_libraries(JammerNetzPlugin
 target_compile_definitions(JammerNetzPlugin PUBLIC
 	JUCE_VST3_CAN_REPLACE_VST2=0)
 
+# The manifest helper loads the freshly-built VST3. Stage its local Debug
+# runtime first so a normal CMake build does not depend on the caller's PATH.
+jammernetz_stage_msvc_debug_runtime(
+	"${CMAKE_BINARY_DIR}/vst3_helpers/JammerNetzPlugin")
+jammernetz_copy_msvc_debug_runtime(JammerNetzPlugin_VST3)
+juce_enable_vst3_manifest_step(JammerNetzPlugin)
+
 if(MSVC)
 	target_compile_options(JammerNetzPlugin PRIVATE /W4 /WX)
 elseif(APPLE)
@@ -52,6 +60,7 @@ endif()
 set(PLUGIN_TEST_NAME JammerNetzPluginTest)
 add_executable(${PLUGIN_TEST_NAME} Source/JammerNetzPluginTests.cpp)
 target_link_libraries(${PLUGIN_TEST_NAME} PRIVATE JammerNetzPlugin gtest gtest_main)
+jammernetz_copy_msvc_debug_runtime(${PLUGIN_TEST_NAME})
 
 gtest_discover_tests(${PLUGIN_TEST_NAME} DISCOVERY_MODE PRE_TEST)
 set_target_properties(${PLUGIN_TEST_NAME} PROPERTIES FOLDER tests)

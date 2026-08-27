@@ -25,6 +25,13 @@ IF (NOT FLATBUFFERS_FLATC_EXECUTABLE)
 		set(FLATBUFFERS_FLATC_EXECUTABLE "${CMAKE_CURRENT_LIST_DIR}/../third_party/flatbuffers/LinuxBuilds/flatc")
 	ENDIF()
 ENDIF()
+
+# The checked-in Windows workflow uses a configuration-matching flatc. Keep
+# its non-redistributable Debug CRT private to the local tool output so schema
+# generation does not depend on the caller's PATH.
+jammernetz_stage_msvc_debug_runtime(
+	"${CMAKE_CURRENT_LIST_DIR}/../third_party/flatbuffers/Builds/Debug")
+
 set(FLATBUFFER_INPUT
 		JammerNetzPackages.fbs
 		JammerNetzAudioData.fbs
