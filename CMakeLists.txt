@@ -141,8 +141,18 @@ if(MSVC)
 			COMMENT "Deploying the MSVC Debug runtime for ${target}"
 		)
 	endfunction()
+
+	function(jammernetz_stage_msvc_debug_runtime directory)
+		if(CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS)
+			file(COPY ${CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS}
+				DESTINATION "${directory}")
+		endif()
+	endfunction()
 else()
 	function(jammernetz_copy_msvc_debug_runtime target)
+	endfunction()
+
+	function(jammernetz_stage_msvc_debug_runtime directory)
 	endfunction()
 endif()
 
