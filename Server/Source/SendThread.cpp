@@ -69,6 +69,7 @@ void SendThread::sendClientInfoPackage(std::string const &targetAddress)
 	// Loop over the incoming data streams and add them to our statistics package we are going to send to the client
 	JammerNetzClientInfoMessage clientInfoPackage;
 	clientInfoPackage.addCapability(JammerNetzCapability::MtuProbeV1);
+	clientInfoPackage.addCapability(JammerNetzCapability::ControlPlaneV1);
 	for (auto &incoming : incomingData_) {
 		JammerNetzStreamQualityInfo qualityInfo;
 		if (incoming.second && incoming.second->snapshot().size > 0 && incoming.second->qualityInfo(qualityInfo)) {
@@ -97,6 +98,7 @@ void SendThread::sendSessionInfoPackage(std::string const &targetAddress, Jammer
         JammerNetzSessionInfoMessage sessionInfoMessage;
     sessionInfoMessage.channels_.channels = sessionSetup.channels;
 	sessionInfoMessage.addCapability(JammerNetzCapability::MtuProbeV1);
+	sessionInfoMessage.addCapability(JammerNetzCapability::ControlPlaneV1);
 
     size_t bytesWritten = 0;
     sessionInfoMessage.serialize(writebuffer_, bytesWritten);

@@ -93,6 +93,8 @@ set(AUDIO_PROCESSING_FILES
 source_group(Source\\AudioProcessing FILES ${CORE_AUDIO_PROCESSING_FILES} ${AUDIO_PROCESSING_FILES})
 
 set(NETWORK_FILES
+	Source/ControlTransport.cpp
+	Source/ControlTransport.h
 	Source/JammerNetzSession.cpp
 	Source/JammerNetzSession.h
 	Source/Client.cpp
@@ -173,6 +175,7 @@ set_target_properties(${TESTNAME} PROPERTIES FOLDER tests)
 
 set(CORE_TEST_NAME JammerNetzCoreTest)
 add_executable(${CORE_TEST_NAME}
+	Source/ControlTransportTests.cpp
 	Source/JammerNetzAudioEngineTests.cpp
 	Source/StreamingAudioResamplerTests.cpp)
 target_link_libraries(${CORE_TEST_NAME} PRIVATE JammerNetzCore JammerNetzTestSupport gtest gtest_main)

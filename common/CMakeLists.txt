@@ -31,12 +31,14 @@ set(FLATBUFFER_INPUT
 		JammerNetzChannelSetup.fbs
 		JammerNetzSessionInfo.fbs
 		JammerNetzControlMessage.fbs
+		JammerNetzControlEnvelope.fbs
 		)
 FLATBUFFERS_GENERATE_C_HEADERS(FlatJammer ${FLATBUFFER_INPUT})
 
 # Define the sources for the static library
 set(Sources
 	BuffersConfig.h
+	ControlProtocol.cpp ControlProtocol.h
 	CMakeLists.txt
 	Encryption.cpp Encryption.h
 	JammerNetzClientInfoMessage.cpp JammerNetzClientInfoMessage.h
