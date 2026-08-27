@@ -25,6 +25,13 @@
 #include <string>
 #include <set>
 
+struct ControlIncomingPackage {
+	std::string sourceEndpoint;
+	String sourceAddress;
+	int sourcePort { 0 };
+	JammerNetzControlEnvelopeData envelope;
+};
+
 class OutgoingPackage {
 public:
 	OutgoingPackage() : targetAddress(""), audioBlock(), sessionSetup(false), receiverProtocolVersion(JammerNetzProtocol::Current) {}
@@ -46,6 +53,7 @@ public:
 typedef tbb::concurrent_unordered_map<std::string, std::shared_ptr<ClientState>> TPacketStreamBundle;
 typedef tbb::concurrent_bounded_queue < OutgoingPackage > TOutgoingQueue;
 typedef tbb::concurrent_bounded_queue<int> TMessageQueue;
+typedef tbb::concurrent_bounded_queue<ControlIncomingPackage> TControlIncomingQueue;
 #if WIN32
 #pragma warning( pop )
 #endif

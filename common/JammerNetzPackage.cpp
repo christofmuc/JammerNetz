@@ -11,6 +11,7 @@
 #include "JammerNetzClientInfoMessage.h"
 
 #include <limits>
+#include <utility>
 
 JammerNetzSingleChannelSetup::JammerNetzSingleChannelSetup() :
 	target(JammerNetzChannelTarget::Mono), volume(1.0f), mag(0.0f), rms(0.0f), pitch(0.0f), name("")
@@ -75,6 +76,8 @@ std::shared_ptr<JammerNetzMessage> JammerNetzMessage::deserialize(uint8 *data, s
                     return std::make_shared<JammerNetzSessionInfoMessage>(data, bytes);
                 case GENERIC_JSON:
                     return std::make_shared<JammerNetzControlMessage>(data, bytes);
+				case CONTROL_V1:
+					return std::make_shared<JammerNetzControlEnvelopeMessage>(data, bytes);
 				default:
 					std::cerr << "Unknown message type received, ignoring it" << std::endl;
 				}
@@ -86,6 +89,73 @@ std::shared_ptr<JammerNetzMessage> JammerNetzMessage::deserialize(uint8 *data, s
 		}
 	}
 	return nullptr;;
+}
+
+JammerNetzControlEnvelopeMessage::JammerNetzControlEnvelopeMessage(JammerNetzControlEnvelopeData envelope)
+	: envelope_(std::move(envelope))
+{
+	if (!envelope_.isStructurallyValid()) {
+		throw JammerNetzMessageParseException();
+	}
+}
+
+JammerNetzControlEnvelopeMessage::JammerNetzControlEnvelopeMessage(uint8* data, size_t size)
+	: JammerNetzFlatbufferMessage<JammerNetzMessage::MessageType::CONTROL_V1>(size)
+{
+	auto* dataStart = data + sizeof(JammerNetzHeader);
+	flatbuffers::Verifier verifier(dataStart, size - sizeof(JammerNetzHeader));
+	if (!JammerNetzWire::VerifyJammerNetzControlEnvelopeBuffer(verifier)) {
+		throw JammerNetzMessageParseException();
+	}
+
+	const auto* root = JammerNetzWire::GetJammerNetzControlEnvelope(dataStart);
+	if (root->topic() == nullptr || root->payload_json() == nullptr) {
+		throw JammerNetzMessageParseException();
+	}
+
+	envelope_.protocolVersion = root->protocol_version();
+	envelope_.sessionEpoch = root->session_epoch();
+	envelope_.senderId = root->sender_id();
+	envelope_.targetId = root->target_id();
+	envelope_.messageId = root->message_id();
+	envelope_.sequence = root->sequence();
+	envelope_.acknowledgementFor = root->ack_for();
+	envelope_.route = static_cast<JammerNetzControlRoute>(root->route());
+	envelope_.delivery = static_cast<JammerNetzControlDelivery>(root->delivery());
+	envelope_.includeSender = root->include_sender();
+	envelope_.topic = root->topic()->str();
+	try {
+		envelope_.payload = nlohmann::json::parse(root->payload_json()->str());
+	}
+	catch (const nlohmann::json::parse_error&) {
+		throw JammerNetzMessageParseException();
+	}
+	if (!envelope_.isStructurallyValid()) {
+		throw JammerNetzMessageParseException();
+	}
+}
+
+void JammerNetzControlEnvelopeMessage::serializeToFlatbuffer(flatbuffers::FlatBufferBuilder& fbb) const
+{
+	if (!envelope_.isStructurallyValid()) {
+		throw JammerNetzMessageParseException();
+	}
+	const auto topic = fbb.CreateString(envelope_.topic);
+	const auto payload = fbb.CreateString(envelope_.payload.dump());
+	const auto root = JammerNetzWire::CreateJammerNetzControlEnvelope(fbb,
+		envelope_.protocolVersion,
+		envelope_.sessionEpoch,
+		envelope_.senderId,
+		envelope_.targetId,
+		envelope_.messageId,
+		envelope_.sequence,
+		envelope_.acknowledgementFor,
+		static_cast<JammerNetzWire::JammerNetzControlRoute>(envelope_.route),
+		static_cast<JammerNetzWire::JammerNetzControlDelivery>(envelope_.delivery),
+		envelope_.includeSender,
+		topic,
+		payload);
+	fbb.Finish(root);
 }
 
 size_t JammerNetzMessage::writeHeader(uint8 *output, uint8 messageType) const

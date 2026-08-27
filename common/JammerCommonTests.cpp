@@ -412,3 +412,62 @@ TEST(SessionInfoTest, RoundTripsServerCapabilities)
 	ASSERT_NE(decoded, nullptr);
 	EXPECT_TRUE(decoded->supportsCapability(JammerNetzCapability::MtuProbeV1));
 }
+
+TEST(ControlEnvelopeTest, RoundTripsVersionedRoutingAndPayload)
+{
+	JammerNetzControlEnvelopeData envelope;
+	envelope.sessionEpoch = 123;
+	envelope.senderId = 7;
+	envelope.targetId = 8;
+	envelope.messageId = 99;
+	envelope.sequence = 4;
+	envelope.route = JammerNetzControlRoute::Unicast;
+	envelope.delivery = JammerNetzControlDelivery::Acknowledged;
+	envelope.topic = "jn.test.gain.v1";
+	envelope.payload = {{ "gain", 0.5 }};
+
+	JammerNetzControlEnvelopeMessage message(envelope);
+	std::array<uint8, 4096> bytes {};
+	size_t size = 0;
+	message.serialize(bytes.data(), size);
+
+	auto decoded = std::dynamic_pointer_cast<JammerNetzControlEnvelopeMessage>(
+		JammerNetzMessage::deserialize(bytes.data(), size));
+	ASSERT_NE(decoded, nullptr);
+	EXPECT_EQ(decoded->getType(), JammerNetzMessage::CONTROL_V1);
+	EXPECT_EQ(decoded->envelope_.sessionEpoch, 123u);
+	EXPECT_EQ(decoded->envelope_.senderId, 7u);
+	EXPECT_EQ(decoded->envelope_.targetId, 8u);
+	EXPECT_EQ(decoded->envelope_.messageId, 99u);
+	EXPECT_EQ(decoded->envelope_.sequence, 4u);
+	EXPECT_EQ(decoded->envelope_.topic, "jn.test.gain.v1");
+	EXPECT_DOUBLE_EQ(decoded->envelope_.payload["gain"].get<double>(), 0.5);
+}
+
+TEST(ControlEnvelopeTest, RejectsOversizedPayloadBeforeSerialization)
+{
+	JammerNetzControlEnvelopeData envelope;
+	envelope.messageId = 1;
+	envelope.topic = "jn.test.large.v1";
+	envelope.payload = {{ "data", std::string(JammerNetzControlProtocol::MaximumPayloadBytes, 'x') }};
+	EXPECT_FALSE(envelope.isStructurallyValid());
+	EXPECT_THROW((void) JammerNetzControlEnvelopeMessage { envelope }, JammerNetzMessageParseException);
+}
+
+TEST(ControlEnvelopeTest, UnknownMessageTypeRemainsIgnorableByDispatch)
+{
+	std::array<uint8, sizeof(JammerNetzHeader)> bytes { '1', '2', '3', 127 };
+	EXPECT_EQ(JammerNetzMessage::deserialize(bytes.data(), bytes.size()), nullptr);
+}
+
+TEST(ControlEnvelopeTest, RejectsUnknownRoutingAndDeliveryValues)
+{
+	JammerNetzControlEnvelopeData envelope;
+	envelope.messageId = 1;
+	envelope.topic = "jn.test.invalid-enum.v1";
+	envelope.route = static_cast<JammerNetzControlRoute>(99);
+	EXPECT_FALSE(envelope.isStructurallyValid());
+	envelope.route = JammerNetzControlRoute::Server;
+	envelope.delivery = static_cast<JammerNetzControlDelivery>(99);
+	EXPECT_FALSE(envelope.isStructurallyValid());
+}

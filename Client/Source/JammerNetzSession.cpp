@@ -7,6 +7,7 @@
 #include "JammerNetzSession.h"
 
 #include <iostream>
+#include <utility>
 
 bool JammerNetzSession::start(std::function<void(std::shared_ptr<JammerNetzAudioData>)> newDataHandler,
 	const JammerNetzSessionConfiguration& configuration)
@@ -35,6 +36,8 @@ bool JammerNetzSession::start(std::function<void(std::shared_ptr<JammerNetzAudio
 
 	// Create the sender
 	sender_ = std::make_unique<Client>(*socket_);
+	controlTransport_ = std::make_unique<ControlTransport>(*sender_);
+	controlTransport_->startThread();
 
 	// Fire up the network listener thread which will receive the answers from the server
 	receiver_ = std::make_unique<DataReceiveThread>(*socket_, std::move(newDataHandler),
@@ -46,6 +49,16 @@ bool JammerNetzSession::start(std::function<void(std::shared_ptr<JammerNetzAudio
 		[this](uint64 probeId, int payloadBytes) {
 			if (sender_) {
 				sender_->acknowledgeMtuProbe(probeId, payloadBytes);
+			}
+		},
+		[this](bool supported) {
+			if (controlTransport_) {
+				controlTransport_->setSupported(supported);
+			}
+		},
+		[this](const JammerNetzControlEnvelopeData& envelope) {
+			if (controlTransport_) {
+				controlTransport_->enqueueIncoming(envelope);
 			}
 		});
 	updateConfiguration(configuration);
@@ -66,6 +79,9 @@ void JammerNetzSession::shutdown()
 	if (receiver_) {
 		receiver_->signalThreadShouldExit();
 	}
+	if (controlTransport_) {
+		controlTransport_->shutdown();
+	}
 	if (socket_) {
 		socket_->shutdown();
 	}
@@ -74,6 +90,7 @@ void JammerNetzSession::shutdown()
 		receiver_->waitForThreadToExit(-1);
 	}
 	receiver_.reset();
+	controlTransport_.reset();
 	sender_.reset();
 	socket_.reset();
 }
@@ -136,6 +153,35 @@ std::shared_ptr<JammerNetzClientInfoMessage> JammerNetzSession::getClientInfo() 
 JammerNetzChannelSetup JammerNetzSession::getCurrentSessionSetup() const
 {
 	return receiver_ ? receiver_->sessionSetup() : JammerNetzChannelSetup(false);
+}
+
+bool JammerNetzSession::sendControl(const std::string& topic, nlohmann::json payload,
+	const JammerNetzControlRoute route, const uint32_t targetId,
+	const JammerNetzControlDelivery delivery, const bool includeSender,
+	const uint64_t sequence)
+{
+	return controlTransport_ && controlTransport_->send(topic, std::move(payload),
+		route, targetId, delivery, includeSender, sequence);
+}
+
+bool JammerNetzSession::pollControlEvent(JammerNetzControlEnvelopeData& envelope)
+{
+	return controlTransport_ && controlTransport_->pollEvent(envelope);
+}
+
+bool JammerNetzSession::isControlReady() const
+{
+	return controlTransport_ && controlTransport_->isReady();
+}
+
+uint32_t JammerNetzSession::controlParticipantId() const
+{
+	return controlTransport_ ? controlTransport_->participantId() : 0;
+}
+
+ControlTransportStats JammerNetzSession::controlStats() const
+{
+	return controlTransport_ ? controlTransport_->stats() : ControlTransportStats {};
 }
 
 uint64_t JammerNetzSession::receiveErrorCount() const
