@@ -14,6 +14,8 @@ jammernetz_copy_tbb_runtime(${SYSTEM_TEST_TARGET})
 gtest_discover_tests(${SYSTEM_TEST_TARGET} PROPERTIES LABELS system TIMEOUT 60)
 set_target_properties(${SYSTEM_TEST_TARGET} PROPERTIES FOLDER tests)
 
+add_subdirectory(compatibility)
+
 if(MSVC)
 	target_compile_options(${SYSTEM_TEST_TARGET} PRIVATE /W4 /WX)
 else()

@@ -1,0 +1,105 @@
+/*
+   Copyright (c) 2019 Christof Ruch. All rights reserved.
+
+   Dual licensed: Distributed under Affero GPL license by default, an MIT license is available for purchase
+*/
+
+#include "Tuner.h"
+
+#include "BuffersConfig.h"
+
+#include <array>
+#include <atomic>
+
+#ifndef __GNUC__
+#pragma warning( push )
+#pragma warning( disable: 4244 4267 4305 4456)
+#else
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wfloat-conversion"
+#pragma GCC diagnostic ignored "-Wsign-conversion"
+#pragma GCC diagnostic ignored "-Wextra-semi"
+#pragma GCC diagnostic ignored "-Wshadow"
+#pragma GCC diagnostic ignored "-Wfloat-equal"
+#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
+#endif
+#ifdef __clang__
+#pragma clang diagnostic ignored "-Wimplicit-float-conversion"
+#pragma clang diagnostic ignored "-Wshorten-64-to-32"
+#pragma clang diagnostic ignored "-Wc++98-compat-extra-semi"
+#pragma clang diagnostic ignored "-Wshadow-field-in-constructor"
+#pragma clang diagnostic ignored "-Wimplicit-int-conversion"
+#pragma clang diagnostic ignored "-Wc99-extensions"
+#pragma clang diagnostic ignored "-Wgnu-statement-expression"
+#pragma clang diagnostic ignored "-Wgnu-statement-expression-from-macro-expansion"
+#endif
+#include <q/pitch/pitch_detector.hpp>
+#ifndef __GNUC__
+#pragma warning(pop)
+#else
+#pragma GCC diagnostic pop
+#endif
+
+
+namespace q = cycfi::q;
+using namespace q::literals;
+
+class Tuner::TunerImpl {
+public:
+	TunerImpl() {
+		for (auto& pitch : lastPitches) {
+			pitch.store(0.0f, std::memory_order_relaxed);
+		}
+	}
+
+	void detectPitch(std::shared_ptr<AudioBuffer<float>> audioData) {
+		if (audioData) {
+
+			auto readPointers = audioData->getArrayOfReadPointers();
+			for (size_t channel = 0; channel < (size_t) audioData->getNumChannels(); channel++) {
+				// Do we already create a detector for this channel?
+				if (detectors.size() <= channel) {
+					detectors.push_back(std::make_unique<q::pitch_detector>(50.0_Hz, 2000.0_Hz, (float) SAMPLE_RATE, q::lin_to_db(0.0)));
+				}
+
+				// Feed the samples of this channel into the pitch detector
+				for (size_t s = 0; s < (size_t) audioData->getNumSamples(); s++) {
+					(*detectors[channel])(readPointers[channel][s]);
+				}
+				if (channel < lastPitches.size()) {
+					lastPitches[channel].store(detectors[channel]->predict_frequency(), std::memory_order_release);
+				}
+			}
+		}
+	}
+
+	float getPitch(size_t channel) const {
+		if (channel < lastPitches.size()) {
+			return lastPitches[channel].load(std::memory_order_acquire);
+		}
+		else {
+			return 0.0f;
+		}
+	}
+
+private:
+	std::vector<std::unique_ptr<q::pitch_detector>> detectors;
+	std::array<std::atomic<float>, 64> lastPitches;
+};
+
+Tuner::Tuner()
+{
+	impl = std::make_unique<TunerImpl>();
+}
+
+Tuner::~Tuner() = default;
+
+void Tuner::detectPitch(std::shared_ptr<AudioBuffer<float>> audioBuffer)
+{
+	impl->detectPitch(audioBuffer);
+}
+
+float Tuner::getPitch(size_t channel) const
+{
+	return impl->getPitch(channel);
+}
