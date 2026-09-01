@@ -101,14 +101,20 @@ jobs:
 
     - name: Run unit and system tests
       run: |
-        ctest --test-dir Builds\Windows -C RelWithDebInfo --output-on-failure --no-tests=error --output-junit Builds\Windows\test-results.xml -L "unit|system"
+        ctest --test-dir Builds\Windows -C RelWithDebInfo --output-on-failure --no-tests=error --output-junit test-results.xml -L "unit|system"
+
+    - name: Run release compatibility tests
+      run: |
+        ctest --test-dir Builds\Windows -C RelWithDebInfo --output-on-failure --no-tests=error --output-junit compatibility-results.xml -L compatibility
 
     - name: Upload test results
       if: always()
       uses: actions/upload-artifact@v4
       with:
         name: WindowsTestResults
-        path: Builds/Windows/test-results.xml
+        path: |
+          Builds/Windows/test-results.xml
+          Builds/Windows/compatibility-results.xml
         if-no-files-found: warn
 
     - name: Upload test failure artifacts
