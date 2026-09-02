@@ -18,11 +18,11 @@ MANIFEST_NAME = "MANIFEST.json"
 
 
 def digest(path: Path) -> str:
-    result = hashlib.sha256()
-    with path.open("rb") as stream:
-        for block in iter(lambda: stream.read(1024 * 1024), b""):
-            result.update(block)
-    return result.hexdigest()
+    # Git may materialize these source files with LF or CRLF depending on the
+    # checkout platform. Hash their canonical text rather than platform-local
+    # line endings so an unchanged snapshot verifies everywhere.
+    canonical = path.read_bytes().replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+    return hashlib.sha256(canonical).hexdigest()
 
 
 def snapshot_files(destination: Path) -> dict[str, str]:
@@ -40,6 +40,7 @@ def write_manifest(destination: Path, release: str, tag: str, commit: str) -> No
         "tag": tag,
         "commit": commit,
         "paths": list(SNAPSHOT_PATHS),
+        "hash_normalization": "CRLF and CR line endings are normalized to LF",
         "files": snapshot_files(destination),
         "build_note": (
             "Frozen JammerNetz production sources; compatibility adapters and "
