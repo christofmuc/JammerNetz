@@ -1,5 +1,30 @@
 # Changelog
 
+## 2.4.3 - 2026-09-02
+
+- Normalized client capture and playout clocks to the canonical 48 kHz room
+  rate, adding 44.1 kHz support, bounded clock-drift correction, and arbitrary
+  audio callback sizes while preserving the bit-exact 48 kHz path.
+- Kept healthy room audio flowing when another participant stalls, disconnects,
+  or overruns its upload queue, with deterministic cadence failover and bounded
+  per-client recovery.
+- Discarded stale remote audio across plug-in bypass transitions and required a
+  freshly buffered stream before remote playback resumes.
+- Fixed macOS standalone microphone permission handling and serialized audio
+  restarts after asynchronous permission decisions.
+- Fixed Windows Debug VST3 builds by staging the configuration-matching runtime
+  before manifest generation, schema compilation, and plug-in tests.
+- Added a checksum-pinned, source-level 2.4.2 compatibility matrix to CI for
+  released and candidate clients and servers, including mixed rooms, upload
+  outages, and queue pressure.
+
+### Known limitation
+
+- Replacing a running 2.4.2 server while clients retain their receive state can
+  leave those clients silent because the replacement server restarts its output
+  sequence counters. The compatibility suite records this rolling-replacement
+  scenario as an expected failure.
+
 ## 2.4.2 - 2026-08-18
 
 - Added a real-time final-mix spectrogram with waterfall display, pitch
