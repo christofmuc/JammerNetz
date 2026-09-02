@@ -135,7 +135,7 @@ jobs:
 
         app_entitlements="$RUNNER_TEMP/jammernetz-client-entitlements.plist"
         codesign -d --entitlements :- "$app" > "$app_entitlements" 2>/dev/null
-        test "$(plutil -extract com.apple.security.device.audio-input raw "$app_entitlements")" = "true"
+        test "$(/usr/libexec/PlistBuddy -c 'Print :com.apple.security.device.audio-input' "$app_entitlements")" = "true"
         test -n "$(plutil -extract NSMicrophoneUsageDescription raw "$app/Contents/Info.plist")"
         test -n "$(plutil -extract NSDocumentsFolderUsageDescription raw "$app/Contents/Info.plist")"
         test -n "$(plutil -extract NSLocalNetworkUsageDescription raw "$app/Contents/Info.plist")"
