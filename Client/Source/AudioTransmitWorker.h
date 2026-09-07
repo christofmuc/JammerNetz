@@ -34,10 +34,15 @@ public:
 	uint64_t enqueuedFrames() const noexcept;
 	uint64_t sentFrames() const noexcept;
 	uint64_t droppedFrames() const noexcept;
+	uint64_t maximumQueueWaitNanoseconds() const noexcept;
+	uint64_t maximumQueueToSendNanoseconds() const noexcept;
+	bool multimediaSchedulingActive() const noexcept;
 	float channelPitch(size_t channel) const;
 	FFAU::LevelMeterSource* meterSource() noexcept;
 
 private:
+	struct WindowsScheduling;
+	std::unique_ptr<WindowsScheduling> windowsScheduling_;
 	void run() override;
 	bool processNextFrame();
 	void processFrame(TransmitAudioFrame& frame);
@@ -53,4 +58,7 @@ private:
 	std::atomic<uint64_t> enqueued_ { 0 };
 	std::atomic<uint64_t> sent_ { 0 };
 	std::atomic<uint64_t> dropped_ { 0 };
+	std::atomic<uint64_t> maximumQueueWaitNanoseconds_ { 0 };
+	std::atomic<uint64_t> maximumQueueToSendNanoseconds_ { 0 };
+	std::atomic<bool> multimediaSchedulingActive_ { false };
 };

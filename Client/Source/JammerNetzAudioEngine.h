@@ -53,10 +53,16 @@ struct RealtimeWorkerStats {
 	uint64_t callbackCount { 0 };
 	uint64_t maximumCallbackNanoseconds { 0 };
 	uint64_t callbackDeadlineMisses { 0 };
+	// Lifetime maxima. Gap excess uses the preceding callback's frame duration.
+	uint64_t maximumCallbackGapNanoseconds { 0 };
+	uint64_t maximumCallbackGapExcessNanoseconds { 0 };
 	uint64_t inputBlocksDropped { 0 };
 	uint64_t transmitFramesQueued { 0 };
 	uint64_t transmitFramesSent { 0 };
 	uint64_t transmitFramesDropped { 0 };
+	uint64_t maximumTransmitQueueWaitNanoseconds { 0 };
+	uint64_t maximumTransmitQueueToSendNanoseconds { 0 };
+	bool transmitMultimediaSchedulingActive { false };
 	uint64_t receiveFramesDiscarded { 0 };
 	uint64_t receiveQueueOverruns { 0 };
 	uint64_t recordingFramesWritten { 0 };
@@ -275,6 +281,10 @@ private:
 	std::atomic<uint64_t> callbackCount_ { 0 };
 	std::atomic<uint64_t> maximumCallbackNanoseconds_ { 0 };
 	std::atomic<uint64_t> callbackDeadlineMisses_ { 0 };
+	std::atomic<uint64_t> maximumCallbackGapNanoseconds_ { 0 };
+	std::atomic<uint64_t> maximumCallbackGapExcessNanoseconds_ { 0 };
+	std::optional<std::chrono::steady_clock::time_point> previousCallbackStart_;
+	uint64_t previousCallbackDurationNanoseconds_ { 0 };
 	std::atomic<uint64_t> inputBlocksDropped_ { 0 };
 
 	static constexpr double minimumResamplingFactor = 0.8;

@@ -28,6 +28,23 @@ void AudioCallback::audioDeviceIOCallbackWithContext(const float* const* inputCh
 
 void AudioCallback::timerCallback()
 {
+	// Formatting/logging stays on the message thread, never the audio callback.
+	if (++diagnosticTimerTicks_ >= 100) {
+		diagnosticTimerTicks_ = 0;
+		const auto stats = engine_.getRealtimeWorkerStats();
+		if (stats.callbackCount != lastDiagnosticCallbackCount_) {
+			lastDiagnosticCallbackCount_ = stats.callbackCount;
+			const auto milliseconds = [](uint64_t ns) { return juce::String(static_cast<double>(ns) / 1.0e6, 3); };
+			SimpleLogger::instance()->postMessage("Audio timing (lifetime maxima, ms): callback gap="
+				+ milliseconds(stats.maximumCallbackGapNanoseconds)
+				+ ", gap excess=" + milliseconds(stats.maximumCallbackGapExcessNanoseconds)
+				+ ", processing=" + milliseconds(stats.maximumCallbackNanoseconds)
+				+ ", transmit queue=" + milliseconds(stats.maximumTransmitQueueWaitNanoseconds)
+				+ ", queue-to-send=" + milliseconds(stats.maximumTransmitQueueToSendNanoseconds)
+				+ ", transmit MMCSS=" + juce::String(stats.transmitMultimediaSchedulingActive ? "active" : "inactive")
+				+ ", transmit drops=" + juce::String(static_cast<juce::int64>(stats.transmitFramesDropped)));
+		}
+	}
 	if (const auto bpm = engine_.takeServerBpmUpdate(); bpm && serverBpmChanged_) {
 		serverBpmChanged_(*bpm);
 	}

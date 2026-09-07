@@ -28,4 +28,6 @@ private:
 
 	JammerNetzAudioEngine& engine_;
 	std::function<void(float)> serverBpmChanged_;
+	int diagnosticTimerTicks_ { 0 };
+	uint64_t lastDiagnosticCallbackCount_ { 0 };
 };

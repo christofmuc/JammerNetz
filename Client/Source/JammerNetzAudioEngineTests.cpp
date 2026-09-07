@@ -966,6 +966,83 @@ TEST(JammerNetzAudioEngineTest, DropsFramesInsteadOfBlockingWhenTransmitWorkerIs
 	EXPECT_GT(stats.transmitFramesDropped, 0u);
 }
 
+TEST(AudioTransmitWorkerTest, DeliversBurstsAndWakesAgainAfterBecomingIdle)
+{
+	class SignallingSink final : public AudioPacketSink {
+	public:
+		bool sendData(const JammerNetzChannelSetup&, std::shared_ptr<AudioBuffer<float>>, ControlData) override
+		{
+			count.fetch_add(1, std::memory_order_release);
+			delivered.signal();
+			return true;
+		}
+		std::atomic<int> count { 0 };
+		juce::WaitableEvent delivered;
+	};
+	JammerNetzSession session;
+	auto sink = std::make_shared<SignallingSink>();
+	AudioTransmitWorker worker(session, sink);
+	worker.setChannelSetup(monoLocalSetup());
+	RingBuffer input(1, SAMPLE_BUFFER_SIZE * 2);
+	std::array<float, SAMPLE_BUFFER_SIZE> samples {};
+	const float* channels[] { samples.data() };
+	const auto enqueue = [&]() {
+		input.write(channels, 1, SAMPLE_BUFFER_SIZE);
+		return worker.enqueueFrom(input, 1, {}, {});
+	};
+	// Coalesced notifications must drain the entire pre-start burst.
+	for (int i = 0; i < 16; ++i) ASSERT_TRUE(enqueue());
+	worker.start();
+	for (int expected = 16; expected <= 36; ++expected) {
+		const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+		while (sink->count.load(std::memory_order_acquire) < expected
+			&& std::chrono::steady_clock::now() < deadline) {
+			sink->delivered.wait(20);
+		}
+		ASSERT_EQ(sink->count.load(std::memory_order_acquire), expected);
+		if (expected < 36) {
+			// Exercise both an idle consumer and enqueue racing its wait.
+			if (expected % 2 == 0) juce::Thread::sleep(5);
+			ASSERT_TRUE(enqueue());
+		}
+	}
+	RecordProperty("transmit_mmcss_active", worker.multimediaSchedulingActive() ? 1 : 0);
+	worker.shutdown();
+	EXPECT_EQ(worker.sentFrames(), 36u);
+	EXPECT_EQ(worker.droppedFrames(), 0u);
+	EXPECT_FALSE(worker.multimediaSchedulingActive());
+	worker.start();
+	worker.shutdown();
+}
+
+TEST(JammerNetzAudioEngineTest, ReportsCallbackGapsAndTransmitQueueResidence)
+{
+	JammerNetzSession session;
+	auto sink = std::make_shared<CapturingAudioPacketSink>();
+	JammerNetzAudioEngine engine(session, juce::File(), sink);
+	engine.setChannelSetup(monoLocalSetup());
+	engine.prepare(SAMPLE_RATE, SAMPLE_BUFFER_SIZE);
+	std::array<float, SAMPLE_BUFFER_SIZE> input {}, left {}, right {};
+	const float* inputs[] { input.data() };
+	float* outputs[] { left.data(), right.data() };
+	engine.process(inputs, 1, outputs, 2, SAMPLE_BUFFER_SIZE);
+	// Leave a captured frame queued with the worker deliberately stopped.
+	juce::Thread::sleep(30);
+	ASSERT_TRUE(engine.processNextOutgoingPacket());
+	engine.process(inputs, 1, outputs, 2, SAMPLE_BUFFER_SIZE);
+	const auto stats = engine.getRealtimeWorkerStats();
+	EXPECT_GT(stats.maximumCallbackGapNanoseconds, 10000000u);
+	EXPECT_GT(stats.maximumCallbackGapExcessNanoseconds, 7000000u);
+	EXPECT_GT(stats.maximumTransmitQueueWaitNanoseconds, 10000000u);
+	EXPECT_GE(stats.maximumTransmitQueueToSendNanoseconds, stats.maximumTransmitQueueWaitNanoseconds);
+	// Device downtime must not count as a late callback after prepare.
+	engine.release();
+	juce::Thread::sleep(50);
+	engine.prepare(SAMPLE_RATE, SAMPLE_BUFFER_SIZE);
+	engine.process(inputs, 1, outputs, 2, SAMPLE_BUFFER_SIZE);
+	EXPECT_EQ(engine.getRealtimeWorkerStats().maximumCallbackGapNanoseconds, stats.maximumCallbackGapNanoseconds);
+}
+
 TEST(JammerNetzAudioEngineTest, BoundsReceiveBurstsBeforeTheWorkerStarts)
 {
 	JammerNetzSession session;
