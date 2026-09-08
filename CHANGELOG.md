@@ -1,5 +1,24 @@
 # Changelog
 
+## 2.4.4 - 2026-09-09
+
+- Reduced Windows audio-transmit latency and jitter by waking the sender when
+  frames are queued and registering its worker thread with the MMCSS Pro Audio
+  profile.
+- Added Windows scheduling and queue-residence diagnostics, corrected frame
+  enqueue timing, and retained safe 1 ms polling when the native wake event is
+  unavailable.
+- Fixed entitlement validation in the signed macOS distribution workflow.
+- Documented the stable-release ceremony, including immutable tags, required
+  release gates, artifact verification, and ARM64 AMI publication.
+
+### Known limitation
+
+- Replacing a running 2.4.2 server while clients retain their receive state can
+  leave those clients silent because the replacement server restarts its output
+  sequence counters. The compatibility suite records this rolling-replacement
+  scenario as an expected failure.
+
 ## 2.4.3 - 2026-09-02
 
 - Normalized client capture and playout clocks to the canonical 48 kHz room
