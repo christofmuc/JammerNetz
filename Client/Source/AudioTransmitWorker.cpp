@@ -8,9 +8,77 @@
 
 #include <utility>
 
+#if JUCE_WINDOWS
+#include <windows.h>
+#include <avrt.h>
+#endif
+
+// Constructed off the audio thread; only SetEvent is used by the producer.
+// Auto-reset events retain a signal sent between checking the queue and waiting.
+struct AudioTransmitWorker::WindowsScheduling {
+#if JUCE_WINDOWS
+	~WindowsScheduling() { if (wakeEvent) CloseHandle(wakeEvent); }
+	void signal() noexcept { if (wakeEvent) SetEvent(wakeEvent); }
+	void wait()
+	{
+		if (wakeEvent) {
+			WaitForSingleObject(wakeEvent, INFINITE);
+		} else {
+			// Keep audio available if Windows cannot allocate the wake event.
+			juce::Thread::sleep(1);
+		}
+	}
+
+	HANDLE wakeEvent = CreateEventW(nullptr, FALSE, FALSE, nullptr);
+#else
+	void signal() noexcept {}
+	void wait() { juce::Thread::sleep(1); }
+#endif
+};
+
+namespace {
+
+#if JUCE_WINDOWS
+// Registration and reversion must both happen on the worker itself. Loading
+// dynamically lets transmission continue if MMCSS is unavailable/disabled.
+class ScopedAudioScheduling {
+public:
+	ScopedAudioScheduling()
+	{
+		const auto set = reinterpret_cast<decltype(&AvSetMmThreadCharacteristicsW)>(
+			library.getFunction("AvSetMmThreadCharacteristicsW"));
+		revert = reinterpret_cast<decltype(&AvRevertMmThreadCharacteristics)>(
+			library.getFunction("AvRevertMmThreadCharacteristics"));
+		if (set && revert) {
+			DWORD taskIndex = 0;
+			handle = set(L"Pro Audio", &taskIndex);
+		}
+	}
+	~ScopedAudioScheduling() { if (handle) revert(handle); }
+	bool active() const noexcept { return handle != nullptr; }
+private:
+	juce::DynamicLibrary library { "avrt.dll" };
+	decltype(&AvRevertMmThreadCharacteristics) revert = nullptr;
+	HANDLE handle = nullptr;
+};
+#endif
+
+void recordMaximum(std::atomic<uint64_t>& maximum, std::chrono::steady_clock::time_point since)
+{
+	const auto elapsed = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(
+		std::chrono::steady_clock::now() - since).count());
+	// Each counter has a single writer: the transmit worker.
+	if (elapsed > maximum.load(std::memory_order_relaxed)) {
+		maximum.store(elapsed, std::memory_order_relaxed);
+	}
+}
+
+} // namespace
+
 AudioTransmitWorker::AudioTransmitWorker(JammerNetzSession& session,
 	std::shared_ptr<AudioPacketSink> packetSink)
-	: juce::Thread("JammerNetz transmit"), session_(session), packetSink_(std::move(packetSink))
+	: juce::Thread("JammerNetz transmit"), windowsScheduling_(std::make_unique<WindowsScheduling>()),
+	  session_(session), packetSink_(std::move(packetSink))
 {
 	channelSetup_.store(std::make_shared<const JammerNetzChannelSetup>(false), std::memory_order_release);
 }
@@ -30,6 +98,7 @@ void AudioTransmitWorker::start()
 void AudioTransmitWorker::shutdown()
 {
 	signalThreadShouldExit();
+	windowsScheduling_->signal();
 	stopThread(2000);
 	// The owning engine stops its audio callback producer before shutdown.
 	queue_.reset();
@@ -61,10 +130,12 @@ bool AudioTransmitWorker::enqueueFrom(RingBuffer& source, int channels, std::opt
 			pointers[static_cast<size_t>(channel)] = frame.samples[static_cast<size_t>(channel)].data();
 		}
 		source.read(pointers.data(), channels, SAMPLE_BUFFER_SIZE);
+		frame.enqueuedAt = std::chrono::steady_clock::now();
 	});
 
 	if (written) {
 		enqueued_.fetch_add(1, std::memory_order_relaxed);
+		windowsScheduling_->signal();
 	} else {
 		recordDroppedFrame();
 	}
@@ -79,16 +150,24 @@ void AudioTransmitWorker::recordDroppedFrame() noexcept
 uint64_t AudioTransmitWorker::enqueuedFrames() const noexcept { return enqueued_.load(std::memory_order_relaxed); }
 uint64_t AudioTransmitWorker::sentFrames() const noexcept { return sent_.load(std::memory_order_relaxed); }
 uint64_t AudioTransmitWorker::droppedFrames() const noexcept { return dropped_.load(std::memory_order_relaxed); }
+uint64_t AudioTransmitWorker::maximumQueueWaitNanoseconds() const noexcept { return maximumQueueWaitNanoseconds_.load(std::memory_order_relaxed); }
+uint64_t AudioTransmitWorker::maximumQueueToSendNanoseconds() const noexcept { return maximumQueueToSendNanoseconds_.load(std::memory_order_relaxed); }
+bool AudioTransmitWorker::multimediaSchedulingActive() const noexcept { return multimediaSchedulingActive_.load(std::memory_order_relaxed); }
 float AudioTransmitWorker::channelPitch(size_t channel) const { return tuner_.getPitch(channel); }
 FFAU::LevelMeterSource* AudioTransmitWorker::meterSource() noexcept { return &meterSource_; }
 
 void AudioTransmitWorker::run()
 {
+#if JUCE_WINDOWS
+	ScopedAudioScheduling scheduling;
+	multimediaSchedulingActive_.store(scheduling.active(), std::memory_order_relaxed);
+#endif
 	while (!threadShouldExit()) {
 		if (!processNextFrame()) {
-			juce::Thread::sleep(1);
+			windowsScheduling_->wait();
 		}
 	}
+	multimediaSchedulingActive_.store(false, std::memory_order_relaxed);
 }
 
 bool AudioTransmitWorker::processNextPendingFrame()
@@ -106,6 +185,7 @@ bool AudioTransmitWorker::processNextFrame()
 
 void AudioTransmitWorker::processFrame(TransmitAudioFrame& frame)
 {
+	recordMaximum(maximumQueueWaitNanoseconds_, frame.enqueuedAt);
 	std::array<float*, JAMMERNETZ_MAX_AUDIO_CHANNELS> pointers {};
 	for (int channel = 0; channel < frame.channels; ++channel) {
 		pointers[static_cast<size_t>(channel)] = frame.samples[static_cast<size_t>(channel)].data();
@@ -132,6 +212,8 @@ void AudioTransmitWorker::processFrame(TransmitAudioFrame& frame)
 		ControlData controls;
 		controls.bpm = frame.bpm;
 		controls.midiSignal = frame.midiSignal;
+		// Includes pitch/meter preparation, but excludes the socket send itself.
+		recordMaximum(maximumQueueToSendNanoseconds_, frame.enqueuedAt);
 		if (packetSink->sendData(outgoing, audio, controls)) {
 			sent_.fetch_add(1, std::memory_order_relaxed);
 		}

@@ -12,6 +12,7 @@
 
 #include <array>
 #include <atomic>
+#include <chrono>
 #include <optional>
 
 constexpr int JAMMERNETZ_MAX_AUDIO_CHANNELS = 64;
@@ -28,6 +29,7 @@ inline void publishGenerationAtLeast(std::atomic<uint64_t>& publishedGeneration,
 }
 
 struct TransmitAudioFrame {
+	std::chrono::steady_clock::time_point enqueuedAt;
 	int channels { 0 };
 	std::array<std::array<float, SAMPLE_BUFFER_SIZE>, JAMMERNETZ_MAX_AUDIO_CHANNELS> samples {};
 	std::optional<float> bpm;

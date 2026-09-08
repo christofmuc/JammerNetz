@@ -570,6 +570,21 @@ void JammerNetzAudioEngine::process(const float* const* inputChannelData, int nu
 		return;
 	}
 	const auto callbackStart = std::chrono::steady_clock::now();
+	if (previousCallbackStart_) {
+		const auto gap = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(
+			callbackStart - *previousCallbackStart_).count());
+		const auto excess = gap > previousCallbackDurationNanoseconds_ ? gap - previousCallbackDurationNanoseconds_ : 0;
+		if (gap > maximumCallbackGapNanoseconds_.load(std::memory_order_relaxed)) {
+			maximumCallbackGapNanoseconds_.store(gap, std::memory_order_relaxed);
+		}
+		if (excess > maximumCallbackGapExcessNanoseconds_.load(std::memory_order_relaxed)) {
+			maximumCallbackGapExcessNanoseconds_.store(excess, std::memory_order_relaxed);
+		}
+	}
+	previousCallbackStart_ = callbackStart;
+	const auto callbackSampleRate = preparedSampleRate_.load(std::memory_order_relaxed);
+	previousCallbackDurationNanoseconds_ = callbackSampleRate > 0.0
+		? static_cast<uint64_t>(1.0e9 * static_cast<double>(numSamples) / callbackSampleRate) : 0;
 	if (numInputChannels > JAMMERNETZ_MAX_AUDIO_CHANNELS || numOutputChannels > JAMMERNETZ_MAX_AUDIO_CHANNELS) {
 		for (int channel = 0; channel < numOutputChannels; ++channel) {
 			if (outputChannelData[channel]) {
@@ -790,6 +805,7 @@ void JammerNetzAudioEngine::processChunk(const float* const* inputChannelData, i
 
 void JammerNetzAudioEngine::prepare(double sampleRate, int maximumBlockSize)
 {
+	previousCallbackStart_.reset();
 	preparedSampleRate_.store(sampleRate, std::memory_order_relaxed);
 	playoutResamplerReady_ = playoutResampler_.prepare(2,
 		minimumResamplingFactor, maximumResamplingFactor);
@@ -823,6 +839,7 @@ void JammerNetzAudioEngine::prepare(double sampleRate, int maximumBlockSize)
 
 void JammerNetzAudioEngine::release()
 {
+	previousCallbackStart_.reset();
 	resetPlayoutRequested_.store(true, std::memory_order_release);
 	if (auto* tap = outputTap_.load(std::memory_order_acquire)) {
 		tap->release();
@@ -937,11 +954,16 @@ RealtimeWorkerStats JammerNetzAudioEngine::getRealtimeWorkerStats() const
 	stats.callbackCount = callbackCount_.load(std::memory_order_relaxed);
 	stats.maximumCallbackNanoseconds = maximumCallbackNanoseconds_.load(std::memory_order_relaxed);
 	stats.callbackDeadlineMisses = callbackDeadlineMisses_.load(std::memory_order_relaxed);
+	stats.maximumCallbackGapNanoseconds = maximumCallbackGapNanoseconds_.load(std::memory_order_relaxed);
+	stats.maximumCallbackGapExcessNanoseconds = maximumCallbackGapExcessNanoseconds_.load(std::memory_order_relaxed);
 	stats.inputBlocksDropped = inputBlocksDropped_.load(std::memory_order_relaxed);
 	if (transmitWorker_) {
 		stats.transmitFramesQueued = transmitWorker_->enqueuedFrames();
 		stats.transmitFramesSent = transmitWorker_->sentFrames();
 		stats.transmitFramesDropped = transmitWorker_->droppedFrames();
+		stats.maximumTransmitQueueWaitNanoseconds = transmitWorker_->maximumQueueWaitNanoseconds();
+		stats.maximumTransmitQueueToSendNanoseconds = transmitWorker_->maximumQueueToSendNanoseconds();
+		stats.transmitMultimediaSchedulingActive = transmitWorker_->multimediaSchedulingActive();
 	}
 	if (receiveWorker_) {
 		stats.receiveFramesDiscarded = receiveWorker_->discardedFrames();
