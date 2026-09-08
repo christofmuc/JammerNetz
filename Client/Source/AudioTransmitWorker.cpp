@@ -7,7 +7,6 @@
 #include "AudioTransmitWorker.h"
 
 #include <utility>
-#include <stdexcept>
 
 #if JUCE_WINDOWS
 #include <windows.h>
@@ -18,15 +17,17 @@
 // Auto-reset events retain a signal sent between checking the queue and waiting.
 struct AudioTransmitWorker::WindowsScheduling {
 #if JUCE_WINDOWS
-	WindowsScheduling()
+	~WindowsScheduling() { if (wakeEvent) CloseHandle(wakeEvent); }
+	void signal() noexcept { if (wakeEvent) SetEvent(wakeEvent); }
+	void wait()
 	{
-		if (!wakeEvent) {
-			throw std::runtime_error("Cannot create audio transmit wake event");
+		if (wakeEvent) {
+			WaitForSingleObject(wakeEvent, INFINITE);
+		} else {
+			// Keep audio available if Windows cannot allocate the wake event.
+			juce::Thread::sleep(1);
 		}
 	}
-	~WindowsScheduling() { CloseHandle(wakeEvent); }
-	void signal() noexcept { SetEvent(wakeEvent); }
-	void wait() { WaitForSingleObject(wakeEvent, INFINITE); }
 
 	HANDLE wakeEvent = CreateEventW(nullptr, FALSE, FALSE, nullptr);
 #else
@@ -121,7 +122,6 @@ bool AudioTransmitWorker::enqueueFrom(RingBuffer& source, int channels, std::opt
 	}
 
 	const bool written = queue_.tryWrite([&](TransmitAudioFrame& frame) {
-		frame.enqueuedAt = std::chrono::steady_clock::now();
 		frame.channels = channels;
 		frame.bpm = bpm;
 		frame.midiSignal = midiSignal;
@@ -130,6 +130,7 @@ bool AudioTransmitWorker::enqueueFrom(RingBuffer& source, int channels, std::opt
 			pointers[static_cast<size_t>(channel)] = frame.samples[static_cast<size_t>(channel)].data();
 		}
 		source.read(pointers.data(), channels, SAMPLE_BUFFER_SIZE);
+		frame.enqueuedAt = std::chrono::steady_clock::now();
 	});
 
 	if (written) {

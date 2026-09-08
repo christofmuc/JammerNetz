@@ -5,6 +5,8 @@ a native auto-reset event. The transmit worker drains that queue before waiting
 again. Signals are retained across the empty-queue/wait transition; shutdown also
 signals the event. The callback never waits for the sender or takes a user-space
 mutex to signal it. Network I/O and pitch/meter processing remain on the worker.
+If Windows cannot create the event, the worker retains the previous polling
+behavior instead of preventing audio initialization.
 
 The worker registers with Windows MMCSS as `Pro Audio` for its lifetime. If that
 registration is unavailable, transmission continues at the existing high thread
