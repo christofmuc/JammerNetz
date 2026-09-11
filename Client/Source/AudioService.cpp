@@ -388,14 +388,9 @@ void AudioService::restartAudio(std::shared_ptr<ChannelSetup> inputSetup, std::s
 
 	selectedType->scanForDevices();
 	{
-		if (selectedType->hasSeparateInputsAndOutputs()) {
-			// This is for other Audio types like DirectSound
-			audioDevice_.reset(selectedType->createDevice(outputSetup->device, inputSetup->device));
-		}
-		else {
-			// Try to create the device purely from the input name, this would be the path for ASIO)
-			audioDevice_.reset(selectedType->createDevice("", inputSetup->device));
-		}
+		// Non-separate device types such as ASIO are duplex devices. Supplying both
+		// names lets the backend expose both channel sets before open() selects them.
+		audioDevice_.reset(selectedType->createDevice(outputSetup->device, inputSetup->device));
 
 		if (!audioDevice_) {
 			reportAudioStartupFailure("the selected audio device could not be created");

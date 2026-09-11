@@ -15,6 +15,20 @@
 
 #include "LayoutConstants.h"
 
+namespace
+{
+std::unique_ptr<AudioIODevice> createSelectedDevice(AudioIODeviceType* type, const String& name, bool inputDevice)
+{
+	if (type->hasSeparateInputsAndOutputs()) {
+		return std::unique_ptr<AudioIODevice>(inputDevice
+			? type->createDevice("", name)
+			: type->createDevice(name, ""));
+	}
+
+	return std::unique_ptr<AudioIODevice>(type->createDevice(name, name));
+}
+}
+
 DeviceSelector::DeviceSelector(String const& title, bool showTitle, bool inputInsteadOfOutputDevices)
 	:
     showTitle_(showTitle)
@@ -73,27 +87,26 @@ DeviceSelector::DeviceSelector(String const& title, bool showTitle, bool inputIn
 		if (selectedType) {
 			String name = newValue.getValue();
 			if (name.isNotEmpty()) {
-				std::shared_ptr<AudioIODevice> selectedDevice;
+				std::unique_ptr<AudioIODevice> selectedDevice;
 				if (selectedType->hasSeparateInputsAndOutputs()) {
-					if (inputDevices_) {
-						selectedDevice.reset(selectedType->createDevice("", name));
-					} else {
-						selectedDevice.reset(selectedType->createDevice(name, ""));
-					}
+					selectedDevice = createSelectedDevice(selectedType, name, inputDevices_);
 				} else {
 					if (inputDevices_) {
 						ValueTree outputSelector = ::Data::instance().get().getOrCreateChildWithName(VALUE_OUTPUT_SETUP, nullptr);
 						outputSelector.setProperty(VALUE_DEVICE_TYPE, typeName, nullptr);
 						outputSelector.setProperty(VALUE_DEVICE_NAME, name, nullptr);
 					}
-					selectedDevice.reset(selectedType->createDevice(name, name));
+					selectedDevice = createSelectedDevice(selectedType, name, inputDevices_);
 				}
 				if (selectedDevice) {
 					// Does it have a control panel?
 					if (selectedDevice->hasControlPanel()) {
 						controlPanelButton_ = std::make_unique<TextButton>("Configure");
-						controlPanelButton_->onClick = [selectedDevice]() {
-							selectedDevice->showControlPanel();
+						controlPanelButton_->onClick = [selectedType, name, inputDevice = inputDevices_]() {
+							auto controlPanelDevice = createSelectedDevice(selectedType, name, inputDevice);
+							if (controlPanelDevice && controlPanelDevice->hasControlPanel()) {
+								controlPanelDevice->showControlPanel();
+							}
 						};
 						addAndMakeVisible(*controlPanelButton_);
 					}
