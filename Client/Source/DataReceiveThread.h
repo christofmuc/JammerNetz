@@ -22,7 +22,9 @@ public:
 	DataReceiveThread(DatagramSocket & socket,
 		std::function<void(std::shared_ptr<JammerNetzAudioData>)> newDataHandler,
 		std::function<void(bool)> mtuCapabilityHandler,
-		std::function<void(uint64, int)> mtuAcknowledgementHandler);
+		std::function<void(uint64, int)> mtuAcknowledgementHandler,
+		std::function<void(bool)> controlCapabilityHandler,
+		std::function<void(const JammerNetzControlEnvelopeData&)> controlEnvelopeHandler);
 	virtual ~DataReceiveThread() override;
 
 	virtual void run() override;
@@ -42,6 +44,8 @@ private:
 	std::function<void(std::shared_ptr<JammerNetzAudioData>)> newDataHandler_;
 	std::function<void(bool)> mtuCapabilityHandler_;
 	std::function<void(uint64, int)> mtuAcknowledgementHandler_;
+	std::function<void(bool)> controlCapabilityHandler_;
+	std::function<void(const JammerNetzControlEnvelopeData&)> controlEnvelopeHandler_;
 	std::unique_ptr<BlowFish> blowFish_;
 	juce::CriticalSection blowFishLock_;
 

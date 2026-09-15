@@ -24,6 +24,7 @@ public:
 		std::shared_ptr<AudioBuffer<float>> audioBuffer,
 		ControlData controllers) override;
 	bool sendControl(nlohmann::json &json);
+	bool sendControlEnvelope(const JammerNetzControlEnvelopeData& envelope);
 	void setServer(const juce::String& serverName, int serverPort, bool useLocalhost);
 	void setUseFEC(bool enabled);
 	void setCryptoKey(const void* keyData, int keyBytes);

@@ -19,6 +19,7 @@ set(SOURCES
 	Source/AcceptThread.cpp Source/AcceptThread.h
 	Source/MixerThread.cpp Source/MixerThread.h
 	Source/SendThread.cpp Source/SendThread.h
+	Source/SessionControlThread.cpp Source/SessionControlThread.h
 	Source/SharedServerTypes.h
 	Source/ServerLogger.cpp Source/ServerLogger.h
 	Source/ServerPort.h
@@ -32,6 +33,8 @@ add_library(JammerNetzServerCore STATIC
 	Source/ServerMixScheduler.h
 	Source/ServerMixerCore.cpp
 	Source/ServerMixerCore.h
+	Source/SessionControlHub.cpp
+	Source/SessionControlHub.h
 	Source/SharedServerTypes.h
 )
 target_include_directories(JammerNetzServerCore PUBLIC "${CMAKE_CURRENT_LIST_DIR}/Source")
@@ -51,6 +54,7 @@ endif()
 add_executable(ServerMixerCoreTest
 	Source/ServerMixerCoreTests.cpp
 	Source/ServerMixSchedulerTests.cpp
+	Source/SessionControlHubTests.cpp
 )
 target_link_libraries(ServerMixerCoreTest PRIVATE JammerNetzServerCore gtest gtest_main)
 jammernetz_copy_msvc_debug_runtime(ServerMixerCoreTest)

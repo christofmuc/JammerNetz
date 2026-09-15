@@ -20,6 +20,9 @@
 #include "JammerNetzAudioData_generated.h"
 #include "JammerNetzSessionInfo_generated.h"
 #include "JammerNetzControlMessage_generated.h"
+#include "JammerNetzControlEnvelope_generated.h"
+
+#include "ControlProtocol.h"
 
 #include "nlohmann/json.hpp"
 
@@ -44,6 +47,7 @@ constexpr uint16 Current = SplitSessionInfo;
 
 namespace JammerNetzCapability {
 constexpr const char* MtuProbeV1 = "mtu-probe-v1";
+constexpr const char* ControlPlaneV1 = "control-plane-v1";
 }
 
 /*
@@ -142,6 +146,7 @@ public:
 		CLIENTINFO = 8,
         SESSIONSETUP = 16,
         GENERIC_JSON = 32,
+		CONTROL_V1 = 64,
 	};
 
     JammerNetzMessage() = default;
@@ -213,6 +218,17 @@ public:
     }
 
     nlohmann::json json_;
+};
+
+class JammerNetzControlEnvelopeMessage : public JammerNetzFlatbufferMessage<JammerNetzMessage::MessageType::CONTROL_V1>
+{
+public:
+	explicit JammerNetzControlEnvelopeMessage(JammerNetzControlEnvelopeData envelope);
+	JammerNetzControlEnvelopeMessage(uint8* data, size_t size);
+
+	void serializeToFlatbuffer(flatbuffers::FlatBufferBuilder& fbb) const override;
+
+	JammerNetzControlEnvelopeData envelope_;
 };
 
 class JammerNetzSessionInfoMessage : public JammerNetzFlatbufferMessage<JammerNetzMessage::MessageType::SESSIONSETUP>

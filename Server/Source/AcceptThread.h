@@ -13,6 +13,8 @@
 
 #include "JammerNetzPackage.h"
 
+#include <atomic>
+
 class PrintQualityTimer;
 
 class AcceptThread : public Thread {
@@ -23,10 +25,12 @@ public:
                  ServerBufferConfig bufferConfig,
                  void *keydata,
                  int keysize,
-                 ValueTree serverConfiguration);
+                 ValueTree serverConfiguration,
+				 TControlIncomingQueue& controlIncomingQueue);
 	virtual ~AcceptThread() override;
 
 	virtual void run() override;
+	[[nodiscard]] uint64_t controlQueueOverflowCount() const noexcept;
 
 private:
     void processControlMessage(std::shared_ptr<JammerNetzControlMessage> message,
@@ -39,9 +43,11 @@ private:
 	CriticalSection& socketWriteLock_;
 	TPacketStreamBundle &incomingData_;
 	TMessageQueue &wakeUpQueue_;
+	TControlIncomingQueue& controlIncomingQueue_;
     ValueTree serverConfiguration_;
 	uint8 readbuffer[MAXFRAMESIZE];
 	std::unique_ptr<PrintQualityTimer> qualityTimer_;
 	ServerBufferConfig bufferConfig_;
 	std::unique_ptr<BlowFish> blowFish_;
+	std::atomic<uint64_t> controlQueueOverflowCount_ { 0 };
 };

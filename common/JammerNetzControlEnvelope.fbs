@@ -1,0 +1,36 @@
+//
+//   Copyright (c) 2026 Christof Ruch. All rights reserved.
+//
+//   Dual licensed: Distributed under Affero GPL license by default, an MIT license is available for purchase
+//
+
+namespace JammerNetzWire;
+
+enum JammerNetzControlRoute : uint8 {
+	Server = 0,
+	Unicast = 1,
+	Broadcast = 2
+}
+
+enum JammerNetzControlDelivery : uint8 {
+	Ephemeral = 0,
+	Acknowledged = 1,
+	Retained = 2
+}
+
+table JammerNetzControlEnvelope {
+	protocol_version :uint16 = 1;
+	session_epoch :uint64 = 0;
+	sender_id :uint32 = 0;
+	target_id :uint32 = 0;
+	message_id :uint64 = 0;
+	sequence :uint64 = 0;
+	ack_for :uint64 = 0;
+	route :JammerNetzControlRoute = Server;
+	delivery :JammerNetzControlDelivery = Ephemeral;
+	include_sender :bool = false;
+	topic :string;
+	payload_json :string;
+}
+
+root_type JammerNetzControlEnvelope;

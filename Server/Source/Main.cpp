@@ -11,6 +11,7 @@
 #include "MixerThread.h"
 #include "AcceptThread.h"
 #include "SendThread.h"
+#include "SessionControlThread.h"
 #include "Encryption.h"
 
 #include "BuffersConfig.h"
@@ -56,18 +57,23 @@ public:
 			cipherLength = static_cast<int>(cryptoKey->getSize());
 		}
 
-		acceptThread_ = std::make_unique<AcceptThread>(serverPort, socket_, socketWriteLock_, incomingStreams_, wakeUpQueue_, bufferConfig, cryptoData, cipherLength, serverConfiguration_);
+		controlIncomingQueue_.set_capacity(128);
+		acceptThread_ = std::make_unique<AcceptThread>(serverPort, socket_, socketWriteLock_, incomingStreams_, wakeUpQueue_, bufferConfig, cryptoData, cipherLength, serverConfiguration_, controlIncomingQueue_);
 		sendThread_ = std::make_unique <SendThread>(socket_, socketWriteLock_, sendQueue_, incomingStreams_, cryptoData, cipherLength, serverConfiguration_);
 		mixerThread_ = std::make_unique<MixerThread>(incomingStreams_, mixdownSetup_, sendQueue_, wakeUpQueue_, bufferConfig);
+		controlThread_ = std::make_unique<SessionControlThread>(socket_, socketWriteLock_, controlIncomingQueue_, cryptoData, cipherLength);
 
 		sendQueue_.set_capacity(128); // This is an arbitrary number only to prevent memory overflow should the sender thread somehow die (i.e. no network or something)
 	}
 
 	~Server() {
+		controlThread_->signalThreadShouldExit();
+		controlIncomingQueue_.try_push(ControlIncomingPackage());
 		sendThread_->signalThreadShouldExit();
 		mixerThread_->signalThreadShouldExit();
 		acceptThread_->signalThreadShouldExit();
 		acceptThread_->stopThread(1000);
+		controlThread_->stopThread(1000);
 		mixerThread_->stopThread(1000);
 		sendThread_->stopThread(1000);
 
@@ -76,6 +82,7 @@ public:
 
 	void launchServer() {
 		acceptThread_->startThread();
+		controlThread_->startThread();
 		sendThread_->startThread();
 		mixerThread_->startThread();
 #ifdef WIN32
@@ -97,10 +104,12 @@ private:
 	std::unique_ptr<AcceptThread> acceptThread_;
 	std::unique_ptr<SendThread> sendThread_;
 	std::unique_ptr<MixerThread> mixerThread_;
+	std::unique_ptr<SessionControlThread> controlThread_;
 
 	TPacketStreamBundle incomingStreams_;
 	TOutgoingQueue sendQueue_;
 	TMessageQueue wakeUpQueue_;
+	TControlIncomingQueue controlIncomingQueue_;
 
 	Recorder clientRecorder_; // Later I need one per client
 	Recorder mixdownRecorder_;

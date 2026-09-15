@@ -32,12 +32,14 @@ private:
 
 AcceptThread::AcceptThread(int serverPort, DatagramSocket &socket, CriticalSection& socketWriteLock,
 	TPacketStreamBundle &incomingData, TMessageQueue &wakeUpQueue, ServerBufferConfig bufferConfig,
-	void *keydata, int keysize, ValueTree serverConfiguration)
+	void *keydata, int keysize, ValueTree serverConfiguration,
+	TControlIncomingQueue& controlIncomingQueue)
 	: Thread("ReceiverThread")
     , receiveSocket_(socket)
 	, socketWriteLock_(socketWriteLock)
     , incomingData_(incomingData)
     , wakeUpQueue_(wakeUpQueue)
+	, controlIncomingQueue_(controlIncomingQueue)
     , serverConfiguration_(serverConfiguration)
     , bufferConfig_(bufferConfig)
 {
@@ -58,6 +60,11 @@ AcceptThread::AcceptThread(int serverPort, DatagramSocket &socket, CriticalSecti
 AcceptThread::~AcceptThread()
 {
 	qualityTimer_->stopTimer();
+}
+
+uint64_t AcceptThread::controlQueueOverflowCount() const noexcept
+{
+	return controlQueueOverflowCount_.load(std::memory_order_relaxed);
 }
 
 void AcceptThread::processControlMessage(std::shared_ptr<JammerNetzControlMessage> message,
@@ -183,7 +190,21 @@ void AcceptThread::run()
                         case JammerNetzMessage::MessageType::GENERIC_JSON:
                             processControlMessage(std::dynamic_pointer_cast<JammerNetzControlMessage>(message),
 								senderIPAdress, senderPortNumber, dataRead);
-                            break;
+							break;
+						case JammerNetzMessage::MessageType::CONTROL_V1: {
+							auto control = std::dynamic_pointer_cast<JammerNetzControlEnvelopeMessage>(message);
+							if (control) {
+								ControlIncomingPackage incoming;
+								incoming.sourceEndpoint = clientName;
+								incoming.sourceAddress = senderIPAdress;
+								incoming.sourcePort = senderPortNumber;
+								incoming.envelope = control->envelope_;
+								if (!controlIncomingQueue_.try_push(std::move(incoming))) {
+									controlQueueOverflowCount_.fetch_add(1, std::memory_order_relaxed);
+								}
+							}
+							break;
+						}
                         case JammerNetzMessage::MessageType::CLIENTINFO:
                             // fall through
                         case JammerNetzMessage::MessageType::SESSIONSETUP:

@@ -21,10 +21,14 @@ bool shouldUpdateRoundTripTime(const double echoedTimestamp,
 DataReceiveThread::DataReceiveThread(DatagramSocket &socket,
 	std::function<void(std::shared_ptr<JammerNetzAudioData>)> newDataHandler,
 	std::function<void(bool)> mtuCapabilityHandler,
-	std::function<void(uint64, int)> mtuAcknowledgementHandler)
+	std::function<void(uint64, int)> mtuAcknowledgementHandler,
+	std::function<void(bool)> controlCapabilityHandler,
+	std::function<void(const JammerNetzControlEnvelopeData&)> controlEnvelopeHandler)
 	: Thread("ReceiveDataFromServer"), socket_(socket), newDataHandler_(newDataHandler),
 	mtuCapabilityHandler_(std::move(mtuCapabilityHandler)),
 	mtuAcknowledgementHandler_(std::move(mtuAcknowledgementHandler)),
+	controlCapabilityHandler_(std::move(controlCapabilityHandler)),
+	controlEnvelopeHandler_(std::move(controlEnvelopeHandler)),
 	currentRTT_(0.0), isReceiving_(false), receiveErrorCount_(0), currentSession_(false)
 {
 }
@@ -103,6 +107,9 @@ void DataReceiveThread::run()
 							if (mtuCapabilityHandler_) {
 								mtuCapabilityHandler_(clientInfo->supportsCapability(JammerNetzCapability::MtuProbeV1));
 							}
+							if (controlCapabilityHandler_) {
+								controlCapabilityHandler_(clientInfo->supportsCapability(JammerNetzCapability::ControlPlaneV1));
+							}
 							// Yes, got it. Copy it! This is thread safe if and only if the read function to the shared_ptr is atomic!
 							lastClientInfoMessage_.store(std::make_shared<JammerNetzClientInfoMessage>(*clientInfo), std::memory_order_release);
 						}
@@ -113,6 +120,9 @@ void DataReceiveThread::run()
                         if (sessionInfo) {
 							if (mtuCapabilityHandler_) {
 								mtuCapabilityHandler_(sessionInfo->supportsCapability(JammerNetzCapability::MtuProbeV1));
+							}
+							if (controlCapabilityHandler_) {
+								controlCapabilityHandler_(sessionInfo->supportsCapability(JammerNetzCapability::ControlPlaneV1));
 							}
 							ScopedLock sessionLock(sessionDataLock_);
                             currentSession_ = sessionInfo->channels_;
@@ -133,6 +143,13 @@ void DataReceiveThread::run()
 										static_cast<int>(payloadBytes));
 								}
 							}
+						}
+						break;
+					}
+					case JammerNetzMessage::MessageType::CONTROL_V1: {
+						auto control = std::dynamic_pointer_cast<JammerNetzControlEnvelopeMessage>(message);
+						if (control && controlEnvelopeHandler_) {
+							controlEnvelopeHandler_(control->envelope_);
 						}
 						break;
 					}

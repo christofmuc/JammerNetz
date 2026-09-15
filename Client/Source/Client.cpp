@@ -167,6 +167,20 @@ bool Client::sendControl(nlohmann::json &json)
     }
 }
 
+bool Client::sendControlEnvelope(const JammerNetzControlEnvelopeData& envelope)
+{
+	ScopedLock lockSocket(socketLock_);
+	try {
+		JammerNetzControlEnvelopeMessage controlMessage(envelope);
+		size_t totalBytes = 0;
+		controlMessage.serialize(sendBuffer_, totalBytes);
+		return totalBytes > 0 && sendBufferToServer(totalBytes);
+	}
+	catch (const JammerNetzMessageParseException&) {
+		return false;
+	}
+}
+
 int Client::getCurrentBlockSize() const
 {
 	return currentBlockSize_;

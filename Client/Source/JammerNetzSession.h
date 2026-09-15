@@ -8,6 +8,7 @@
 
 #include "Client.h"
 #include "DataReceiveThread.h"
+#include "ControlTransport.h"
 
 #include <atomic>
 
@@ -39,6 +40,16 @@ public:
 	PathMtuDiscoveryStatus mtuDiscoveryStatus() const;
 	std::shared_ptr<JammerNetzClientInfoMessage> getClientInfo() const;
 	JammerNetzChannelSetup getCurrentSessionSetup() const;
+	bool sendControl(const std::string& topic, nlohmann::json payload,
+		JammerNetzControlRoute route = JammerNetzControlRoute::Server,
+		uint32_t targetId = 0,
+		JammerNetzControlDelivery delivery = JammerNetzControlDelivery::Ephemeral,
+		bool includeSender = false,
+		uint64_t sequence = 0);
+	bool pollControlEvent(JammerNetzControlEnvelopeData& envelope);
+	bool isControlReady() const;
+	uint32_t controlParticipantId() const;
+	ControlTransportStats controlStats() const;
 	uint64_t receiveErrorCount() const;
 	bool isAvailable() const;
 	juce::String startupError() const;
@@ -47,6 +58,7 @@ private:
 	std::unique_ptr<juce::DatagramSocket> socket_;
 	std::unique_ptr<Client> sender_;
 	std::unique_ptr<DataReceiveThread> receiver_;
+	std::unique_ptr<ControlTransport> controlTransport_;
 	std::atomic<bool> shutdown_ { true };
 	juce::String startupError_;
 };
