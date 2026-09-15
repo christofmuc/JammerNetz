@@ -25,11 +25,11 @@ ServerSelector::ServerSelector() //: localhostSelected_(false), lastServer_(glob
 	connectButton_.setButtonText("Connect");
 	//connectButton_.onClick = [this]() { updateServerInfo(); };
 
-	keyLabel_.setText("Crypto file", dontSendNotification);
+	keyLabel_.setText("Session key", dontSendNotification);
 	browseToKey_.setButtonText("Browse...");
 	browseToKey_.onClick = [this]() {
 		String cryptoKeyPath = ::Data::getProperty(VALUE_CRYPTOPATH);
-		FileChooser fileChooser("Select crypto file to use", File(cryptoKeyPath).getParentDirectory());
+		FileChooser fileChooser("Select JammerNetz session key", File(cryptoKeyPath).getParentDirectory(), "*.jnzkey");
 		if (fileChooser.browseForFileToOpen()) {
 			::Data::instance().get().setProperty(VALUE_CRYPTOPATH, fileChooser.getResult().getFullPathName(), nullptr);
 			reloadCryptoKey();
@@ -59,10 +59,10 @@ void ServerSelector::reloadCryptoKey() {
 	String cryptoKeyPath = ::Data::instance().get().getProperty(VALUE_CRYPTOPATH);
 	//notify_();
 	if (cryptoKeyPath.isNotEmpty()) {
-		AlertWindow::showMessageBox(AlertWindow::InfoIcon, "New key loaded", "The new crypto key was loaded from " + cryptoKeyPath);
+		AlertWindow::showMessageBox(AlertWindow::InfoIcon, "Session key selected", "The session key was selected from " + cryptoKeyPath);
 	}
 	else {
-		AlertWindow::showMessageBox(AlertWindow::WarningIcon, "No key loaded", "Connecting to the server sending with unencrypted audio");
+		AlertWindow::showMessageBox(AlertWindow::WarningIcon, "No session key selected", "JammerNetz will not connect without a valid session key");
 	}
 }
 

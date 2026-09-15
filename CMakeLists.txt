@@ -18,6 +18,13 @@ set(CMAKE_OSX_DEPLOYMENT_TARGET "10.12" CACHE STRING "Minimum OS X version to ta
 
 project(JammerNetz)
 
+# Conan dependencies are static and add no runtime search paths. Leaving its
+# generated PATH debugger entry in Visual Studio also duplicates Path/PATH in
+# some Windows environments and prevents MSBuild from launching cl.exe.
+if(MSVC)
+	set(CMAKE_VS_DEBUGGER_ENVIRONMENT "")
+endif()
+
 if(APPLE AND CMAKE_OSX_DEPLOYMENT_TARGET VERSION_LESS "10.12")
 	message(FATAL_ERROR "CMAKE_OSX_DEPLOYMENT_TARGET must be 10.12 or newer (got '${CMAKE_OSX_DEPLOYMENT_TARGET}')")
 endif()
@@ -100,15 +107,6 @@ elseif(UNIX)
 	endif()
 endif()
 
-
-# We need a cryptographic key that server and client will share so they can communicate. In its simplest form, we will just take some random numbers from the internet
-set(CRYPTO_FILE "${CMAKE_CURRENT_LIST_DIR}/RandomNumbers.bin")
-if(NOT EXISTS ${CRYPTO_FILE})
-	message(STATUS "Creating 72 random byte crypto seed with the help of random.org")
-	file(DOWNLOAD "https://www.random.org/cgi-bin/randbyte?nbytes=72&format=f" ${CRYPTO_FILE}
-		   TIMEOUT 60  # seconds
-	  )
-endif()
 
 # Use all cores
 IF (MSVC)

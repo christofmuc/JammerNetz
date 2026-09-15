@@ -72,6 +72,17 @@ jobs:
         sudo apt-get install -y libx11-dev libxcomposite-dev libxcursor-dev libxext-dev libxinerama-dev libxrandr-dev libxrender-dev
         sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libglu1-mesa-dev mesa-common-dev
 
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.x'
+
+    - name: Install locked Conan dependencies
+      run: |
+        pip install "conan>=2,<3"
+        conan profile detect
+        conan install . -of conan-deps -s build_type=RelWithDebInfo --build=missing
+
     - name: Build Flatbuffers
       run: |
         cmake -S third_party/flatbuffers -B third_party/flatbuffers/LinuxBuilds -G Ninja -DCMAKE_BUILD_TYPE=Release
@@ -79,8 +90,9 @@ jobs:
 
     - name: Build JammerNetzServer
       run: |
-        cmake -S . -B builds-arm64-server -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DBUILD_JAMMERNETZ_CLIENT=OFF -DJAMMERNETZ_ENABLE_LTO=ON -DCMAKE_POLICY_VERSION_MINIMUM=3.5
-        cmake --build builds-arm64-server --target JammerNetzServer --parallel
+        cmake -S . -B builds-arm64-server -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}/conan-deps/conan_toolchain.cmake" -DCMAKE_POLICY_DEFAULT_CMP0091=NEW -DBUILD_JAMMERNETZ_CLIENT=OFF -DJAMMERNETZ_ENABLE_LTO=ON -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+        cmake --build builds-arm64-server --parallel
+        ctest --test-dir builds-arm64-server --output-on-failure
 
     - name: Inspect ARM64 server artifact
       run: |

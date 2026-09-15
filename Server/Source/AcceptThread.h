@@ -12,6 +12,9 @@
 #include "BuffersConfig.h"
 
 #include "JammerNetzPackage.h"
+#include "Encryption.h"
+
+#include <atomic>
 
 class PrintQualityTimer;
 
@@ -20,9 +23,10 @@ public:
 	AcceptThread(int serverPort, DatagramSocket &socket,
                  CriticalSection& socketWriteLock,
                  TPacketStreamBundle &incomingData, TMessageQueue &wakeUpQueue,
+                 TPeerEndpointMap &peerEndpoints,
                  ServerBufferConfig bufferConfig,
-                 void *keydata,
-                 int keysize,
+                 std::shared_ptr<const JammerNetzSecure::SessionKey> sessionKey,
+                 std::shared_ptr<JammerNetzSecure::SecureDatagramSealer> serverSealer,
                  ValueTree serverConfiguration);
 	virtual ~AcceptThread() override;
 
@@ -38,10 +42,15 @@ private:
     DatagramSocket &receiveSocket_;
 	CriticalSection& socketWriteLock_;
 	TPacketStreamBundle &incomingData_;
+	TPeerEndpointMap &peerEndpoints_;
 	TMessageQueue &wakeUpQueue_;
     ValueTree serverConfiguration_;
-	uint8 readbuffer[MAXFRAMESIZE];
+	uint8 readbuffer[MAXFRAMESIZE + JammerNetzSecure::SecureDatagramSealer::WireOverhead];
+	uint8 plaintextBuffer_[MAXFRAMESIZE];
+	uint8 wireBuffer_[MAXFRAMESIZE + JammerNetzSecure::SecureDatagramSealer::WireOverhead];
 	std::unique_ptr<PrintQualityTimer> qualityTimer_;
 	ServerBufferConfig bufferConfig_;
-	std::unique_ptr<BlowFish> blowFish_;
+	JammerNetzSecure::SecureDatagramOpener opener_;
+	std::shared_ptr<JammerNetzSecure::SecureDatagramSealer> serverSealer_;
+	std::atomic<std::uint64_t> rejectedDatagrams_{0};
 };

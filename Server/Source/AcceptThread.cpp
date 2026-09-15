@@ -7,6 +7,7 @@
 #include "AcceptThread.h"
 
 #include "BuffersConfig.h"
+#include "XPlatformUtils.h"
 
 #include <algorithm>
 #include "ServerLogger.h"
@@ -31,20 +32,20 @@ private:
 };
 
 AcceptThread::AcceptThread(int serverPort, DatagramSocket &socket, CriticalSection& socketWriteLock,
-	TPacketStreamBundle &incomingData, TMessageQueue &wakeUpQueue, ServerBufferConfig bufferConfig,
-	void *keydata, int keysize, ValueTree serverConfiguration)
+	TPacketStreamBundle &incomingData, TMessageQueue &wakeUpQueue, TPeerEndpointMap &peerEndpoints,
+	ServerBufferConfig bufferConfig, std::shared_ptr<const JammerNetzSecure::SessionKey> sessionKey,
+	std::shared_ptr<JammerNetzSecure::SecureDatagramSealer> serverSealer, ValueTree serverConfiguration)
 	: Thread("ReceiverThread")
     , receiveSocket_(socket)
 	, socketWriteLock_(socketWriteLock)
     , incomingData_(incomingData)
+	, peerEndpoints_(peerEndpoints)
     , wakeUpQueue_(wakeUpQueue)
     , serverConfiguration_(serverConfiguration)
-    , bufferConfig_(bufferConfig)
+	, bufferConfig_(bufferConfig)
+	, opener_(std::move(sessionKey), JammerNetzSecure::Direction::ClientToServer)
+	, serverSealer_(std::move(serverSealer))
 {
-	if (keydata) {
-		blowFish_ = std::make_unique<BlowFish>(keydata, keysize);
-	}
-
 	if (!receiveSocket_.bindToPort(serverPort)) {
 		ServerLogger::deinit();
 		std::cerr << "Failed to bind port to " << serverPort << std::endl;
@@ -88,15 +89,12 @@ void AcceptThread::sendMtuAcknowledgement(const String& senderIPAddress, int sen
 	acknowledgement["mtu_ack_v1"]["size"] = receivedPayloadBytes;
 	JammerNetzControlMessage response(acknowledgement);
 	size_t bytesWritten = 0;
-	response.serialize(readbuffer, bytesWritten);
-
-	int wireBytes = static_cast<int>(bytesWritten);
-	if (blowFish_) {
-		wireBytes = blowFish_->encrypt(readbuffer, bytesWritten, MAXFRAMESIZE);
-	}
-	if (wireBytes > 0) {
+	response.serialize(plaintextBuffer_, bytesWritten);
+	const auto sealed = serverSealer_->seal(
+		std::span<const uint8>(plaintextBuffer_, bytesWritten), std::span<uint8>(wireBuffer_));
+	if (sealed && sizet_is_safe_as_int(sealed.bytesWritten)) {
 		const ScopedLock socketLock(socketWriteLock_);
-		receiveSocket_.write(senderIPAddress, senderPort, readbuffer, wireBytes);
+		receiveSocket_.write(senderIPAddress, senderPort, wireBuffer_, static_cast<int>(sealed.bytesWritten));
 	}
 }
 
@@ -148,33 +146,39 @@ void AcceptThread::run()
 			// Ready to read data from socket!
 			String senderIPAdress;
 			int senderPortNumber;
-			int dataRead = receiveSocket_.read(readbuffer, MAXFRAMESIZE, false, senderIPAdress, senderPortNumber);
+			int dataRead = receiveSocket_.read(readbuffer, static_cast<int>(sizeof(readbuffer)), false,
+				senderIPAdress, senderPortNumber);
 			if (dataRead == -1) {
 				ServerLogger::deinit();
 				std::cerr << "Error reading data from socket, abort!" << std::endl;
 				exit(-1);
 			}
 
-			std::string clientName = senderIPAdress.toStdString() + ":" + String(senderPortNumber).toStdString();
 			if (dataRead == 0) {
-				ServerLogger::printClientStatus(4, clientName, "Got empty packet from client, ignoring");
 				continue;
 			}
-			int messageLength = -1;
-			if (blowFish_ && dataRead > 0) {
-				messageLength = blowFish_->decrypt(readbuffer, (size_t) dataRead);
-				if (messageLength == -1) {
-					ServerLogger::printClientStatus(4, clientName, "Using wrong encryption key, can't connect");
-					continue;
+			const auto opened = opener_.open(
+				std::span<const uint8>(readbuffer, safe_int_to_sizet(dataRead)), std::span<uint8>(plaintextBuffer_));
+			if (!opened || !sizet_is_safe_as_int(opened.bytesWritten)) {
+				// Invalid network traffic is deliberately silent and creates no peer state.
+				const auto rejected = rejectedDatagrams_.fetch_add(1, std::memory_order_relaxed) + 1;
+				if (rejected % 1000 == 0) {
+					ServerLogger::printServerStatus("Rejected " + std::to_string(rejected)
+						+ " unauthenticated, malformed, or replayed datagrams");
 				}
+				continue;
 			}
-			else {
-				// No encryption!
-				messageLength = dataRead;
+			const int messageLength = static_cast<int>(opened.bytesWritten);
+			const std::string clientName = JammerNetzSecure::senderInstanceIdString(opened.metadata.senderInstanceId);
+			auto endpointInsertion = peerEndpoints_.insert(
+				std::make_pair(clientName, std::make_shared<PeerEndpoint>()));
+			if (opened.metadata.advancedHighWatermark) {
+				endpointInsertion.first->second->updateIfNewer(
+					senderIPAdress, senderPortNumber, opened.metadata.securityCounter);
 			}
 
             if (messageLength > 0) {
-                auto message = JammerNetzMessage::deserialize(readbuffer, (size_t) messageLength);
+                auto message = JammerNetzMessage::deserialize(plaintextBuffer_, (size_t) messageLength);
                 if (message) {
                     switch (message->getType()) {
                         case JammerNetzMessage::MessageType::AUDIODATA:

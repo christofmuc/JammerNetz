@@ -33,8 +33,15 @@ ctest --test-dir "%JAMMERNETZ_BUILD%" -C Debug -R JammerNetzPluginTest --output-
 exit /b %errorlevel%
 
 :server
+if not defined JAMMERNETZ_SESSION_KEY set "JAMMERNETZ_SESSION_KEY=%JAMMERNETZ_ROOT%\session.jnzkey"
+for %%I in ("%JAMMERNETZ_SESSION_KEY%") do set "JAMMERNETZ_SESSION_KEY=%%~fI"
+if not exist "%JAMMERNETZ_SESSION_KEY%" (
+  echo Session key not found: %JAMMERNETZ_SESSION_KEY%
+  echo Generate it with "%JAMMERNETZ_BUILD%\Server\Debug\JammerNetzServer.exe" --generate-session-key "%JAMMERNETZ_SESSION_KEY%"
+  exit /b 1
+)
 pushd "%JAMMERNETZ_ROOT%"
-"%JAMMERNETZ_BUILD%\Server\Debug\JammerNetzServer.exe" -k "%JAMMERNETZ_ROOT%\RandomNumbers.bin" --port=7777
+"%JAMMERNETZ_BUILD%\Server\Debug\JammerNetzServer.exe" -k "%JAMMERNETZ_SESSION_KEY%" --port=7777
 set "JAMMERNETZ_RESULT=%errorlevel%"
 popd
 exit /b %JAMMERNETZ_RESULT%
@@ -113,7 +120,7 @@ echo Usage: Plugin\windows-debug.cmd ACTION [ARGUMENT]
 echo.
 echo   build              Build the Debug VST3, server, and tests; then run the tests.
 echo   test               Build and run only the plug-in tests.
-echo   server             Run the Debug server on port 7777 with RandomNumbers.bin.
+echo   server             Run the Debug server with JAMMERNETZ_SESSION_KEY or session.jnzkey.
 echo   ableton [exe]      Start Ableton with the Debug CRT available to the plug-in.
 echo                      The path is required here or in JAMMERNETZ_ABLETON_EXE.
 echo   vs                 Open the generated solution with the Debug runtime environment.

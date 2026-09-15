@@ -27,8 +27,6 @@
             file="../common/PacketStreamQueue.cpp"/>
       <FILE id="PK7uKl" name="PacketStreamQueue.h" compile="0" resource="0"
             file="../common/PacketStreamQueue.h"/>
-      <FILE id="d5HddQ" name="RandomNumbers.bin" compile="0" resource="1"
-            file="../common/RandomNumbers.bin"/>
       <FILE id="X39Gd6" name="Recorder.cpp" compile="1" resource="0" file="../common/Recorder.cpp"/>
       <FILE id="VoFRpe" name="Recorder.h" compile="0" resource="0" file="../common/Recorder.h"/>
       <FILE id="OImtkQ" name="RingOfAudioBuffers.h" compile="0" resource="0"

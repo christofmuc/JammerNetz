@@ -244,14 +244,19 @@ std::optional<JammerNetzSessionConfiguration> AudioService::getSessionConfigurat
 	configuration.useFEC = data.getProperty(VALUE_USE_FEC, false);
 
 	const auto cryptoPath = data.getProperty(VALUE_CRYPTOPATH).toString();
-	if (cryptoPath.isNotEmpty()) {
-		std::shared_ptr<juce::MemoryBlock> key;
-		if (!UDPEncryption::loadKeyfile(cryptoPath.toRawUTF8(), &key)) {
-			SimpleLogger::instance()->postMessage("Session configuration rejected: could not load the configured encryption key");
-			return std::nullopt;
-		}
-		configuration.cryptoKey = std::move(key);
+	if (cryptoPath.isEmpty()) {
+		SimpleLogger::instance()->postMessage("Session configuration rejected: a session key is required");
+		return std::nullopt;
 	}
+	std::string keyError;
+	configuration.sessionKey = JammerNetzSecure::SessionKey::load(
+		std::filesystem::path(cryptoPath.toStdString()), keyError);
+	if (!configuration.sessionKey) {
+		SimpleLogger::instance()->postMessage("Session configuration rejected: " + keyError);
+		return std::nullopt;
+	}
+	SimpleLogger::instance()->postMessage(
+		"Session key loaded with fingerprint " + configuration.sessionKey->fingerprint());
 	return configuration;
 }
 
@@ -259,6 +264,8 @@ void AudioService::refreshSessionConfiguration()
 {
 	const auto configuration = getSessionConfiguration();
 	if (!configuration) {
+		// Configuration changes must fail closed rather than retaining the previous key.
+		session_.shutdown();
 		return;
 	}
 	if (session_.isAvailable()) {
